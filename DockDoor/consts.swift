@@ -144,11 +144,7 @@ extension Defaults.Keys {
     static let showWindowlessAppsInSwitcher = Key<Bool>("showWindowlessAppsInSwitcher", default: true)
     static let showWindowlessAppsInDockPreview = Key<Bool>("showWindowlessAppsInDockPreview", default: false)
     static let showWindowlessAppsInCmdTab = Key<Bool>("showWindowlessAppsInCmdTab", default: false)
-    static let openNewWindowForWindowlessApps = Key<Bool>("openNewWindowForWindowlessApps", default: false)
-    static let windowlessAppActivationMode = Key<WindowlessAppActivationMode>(
-        "windowlessAppActivationMode",
-        default: Defaults[.openNewWindowForWindowlessApps] ? .openNewWindow : .simulateDockClick
-    )
+    static let windowlessAppActivationMode = Key<WindowlessAppActivationMode>("windowlessAppActivationMode", default: .simulateDockClick)
     static let ignoreAppsWithSingleWindow = Key<Bool>("ignoreAppsWithSingleWindow", default: false)
     static let groupAppInstancesInDock = Key<Bool>("groupAppInstancesInDock", default: true)
     static let showMenuBarIcon = Key<Bool>("showMenuBarIcon", default: true)
