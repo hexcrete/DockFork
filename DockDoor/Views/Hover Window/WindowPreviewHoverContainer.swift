@@ -337,12 +337,13 @@ struct WindowPreviewHoverContainer: View {
 
     private func handleHoverIndexChange(_ hoveredIndex: Int?, _ location: CGPoint?) {
         let isWindowSwitcher = previewStateCoordinator.windowSwitcherActive
-        let isDockPreview = !isWindowSwitcher && dockPosition != .cmdTab
-        guard isWindowSwitcher || isDockPreview else { return }
+        let isCmdTabPreview = !isWindowSwitcher && dockPosition == .cmdTab
+        let isDockPreview = !isWindowSwitcher && !isCmdTabPreview
+        guard isWindowSwitcher || isDockPreview || isCmdTabPreview else { return }
         if isWindowSwitcher, !enableMouseHoverInSwitcher { return }
 
         guard let hoveredIndex else {
-            if isDockPreview || isWindowSwitcher {
+            if isDockPreview || isWindowSwitcher || isCmdTabPreview {
                 previewStateCoordinator.clearSelectionIfMouseSource(shouldScroll: false)
                 refreshHighlightActionIfNeeded()
             }
