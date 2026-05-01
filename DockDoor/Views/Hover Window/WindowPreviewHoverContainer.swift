@@ -106,6 +106,7 @@ struct WindowPreviewHoverContainer: View {
     @State private var lastShakeCheck: Date = .init()
     @State private var edgeScrollTimer: Timer?
     @State private var edgeScrollDirection: CGFloat = 0
+    @State private var edgeScrollContainerSize: CGSize = .zero
     @State private var cachedScrollView: NSScrollView?
     @State private var scrolledFromStart = false
     @State private var dynamicFadeEnabled = false
@@ -227,11 +228,8 @@ struct WindowPreviewHoverContainer: View {
         )
     }
 
-    private var usesDockHighlightAction: Bool {
-        let isDockPreviewContext = !mockPreviewActive &&
-            !previewStateCoordinator.windowSwitcherActive &&
-            dockPosition != .cmdTab
-        return isDockPreviewContext && hoverActionEnabled
+    private var usesHighlightAction: Bool {
+        !mockPreviewActive && hoverActionEnabled
     }
 
     private var hoverActionEnabled: Bool {
@@ -257,20 +255,29 @@ struct WindowPreviewHoverContainer: View {
         SharedPreviewWindowCoordinator.activeInstance?.hideFullPreviewWindow()
     }
 
-    private func performDockHighlightActionIfNeeded() {
-        guard usesDockHighlightAction else {
+    private func performHighlightActionIfNeeded() {
+        guard usesHighlightAction else {
             cancelDockHighlightAction()
             return
         }
 
         let appearance = resolvedAppearance
         let selectedIndex = previewStateCoordinator.currIndex
+        let selectionInputSource = previewStateCoordinator.selectionInputSource
         guard selectedIndex >= 0, selectedIndex < previewStateCoordinator.windows.count else {
+            cancelDockHighlightAction()
+            return
+        }
+        guard selectionInputSource != .programmatic else {
             cancelDockHighlightAction()
             return
         }
 
         let selectedWindow = previewStateCoordinator.windows[selectedIndex]
+        guard !selectedWindow.isWindowlessApp else {
+            cancelDockHighlightAction()
+            return
+        }
         let selectedWindowID = selectedWindow.id
         let actionID = UUID()
         dockHighlightActionID = actionID
@@ -319,13 +326,13 @@ struct WindowPreviewHoverContainer: View {
         }
     }
 
-    private var hasPendingDockHighlightAction: Bool {
+    private var hasPendingHighlightAction: Bool {
         dockHighlightActionTimer != nil || dockHighlightActionID != nil
     }
 
-    private func refreshDockHighlightActionIfNeeded() {
-        guard usesDockHighlightAction || hasPendingDockHighlightAction else { return }
-        performDockHighlightActionIfNeeded()
+    private func refreshHighlightActionIfNeeded() {
+        guard usesHighlightAction || hasPendingHighlightAction else { return }
+        performHighlightActionIfNeeded()
     }
 
     private func handleHoverIndexChange(_ hoveredIndex: Int?, _ location: CGPoint?) {
@@ -335,9 +342,9 @@ struct WindowPreviewHoverContainer: View {
         if isWindowSwitcher, !enableMouseHoverInSwitcher { return }
 
         guard let hoveredIndex else {
-            if isDockPreview {
+            if isDockPreview || isWindowSwitcher {
                 previewStateCoordinator.clearSelectionIfMouseSource(shouldScroll: false)
-                refreshDockHighlightActionIfNeeded()
+                refreshHighlightActionIfNeeded()
             }
             return
         }
@@ -384,12 +391,13 @@ struct WindowPreviewHoverContainer: View {
             if #available(macOS 15.0, *) {
                 dynamicFadeEnabled = true
             }
-            refreshDockHighlightActionIfNeeded()
+            refreshHighlightActionIfNeeded()
         }
         .onDisappear {
             if Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
                 Task { await LiveCaptureManager.shared.panelClosed() }
             }
+            stopEdgeScroll()
             cancelDockHighlightAction()
         }
         .onChange(of: previewStateCoordinator.windowSwitcherActive) { isActive in
@@ -397,7 +405,7 @@ struct WindowPreviewHoverContainer: View {
                 previewStateCoordinator.searchQuery = ""
                 stopEdgeScroll()
             }
-            refreshDockHighlightActionIfNeeded()
+            refreshHighlightActionIfNeeded()
         }
         .task(id: previewStateCoordinator.windowSwitcherActive) {
             let keys = PreviewAppearanceSettings.observedKeys + BackgroundAppearance.observedKeys
@@ -414,21 +422,29 @@ struct WindowPreviewHoverContainer: View {
                 let didHoverActionChange = previousAppearance?.previewHoverAction != updated.previewHoverAction
                 let didDelayChange = previousAppearance?.tapEquivalentInterval != updated.tapEquivalentInterval
                 if didHoverActionChange || didDelayChange {
-                    refreshDockHighlightActionIfNeeded()
+                    refreshHighlightActionIfNeeded()
                 }
             }
         }
         .onChange(of: highlightedWindowID) { _ in
-            refreshDockHighlightActionIfNeeded()
+            refreshHighlightActionIfNeeded()
+        }
+        .onChange(of: previewStateCoordinator.selectionInputSource) { _ in
+            refreshHighlightActionIfNeeded()
+        }
+        .onChange(of: enableMouseHoverInSwitcher) { isEnabled in
+            if !isEnabled {
+                stopEdgeScroll()
+            }
         }
         .onChange(of: shouldUseCompactMode) { _ in
-            refreshDockHighlightActionIfNeeded()
+            refreshHighlightActionIfNeeded()
         }
         .onChange(of: enableHoverActionsInCompactMode) { _ in
-            refreshDockHighlightActionIfNeeded()
+            refreshHighlightActionIfNeeded()
         }
         .onChange(of: hasScreenRecordingPermission) { _ in
-            refreshDockHighlightActionIfNeeded()
+            refreshHighlightActionIfNeeded()
         }
     }
 
@@ -492,10 +508,19 @@ struct WindowPreviewHoverContainer: View {
                         .clipShape(RoundedRectangle(cornerRadius: CardRadius.container, style: .continuous))
                 }
             }
-            .overlay {
-                if enableMouseHoverInSwitcher, previewStateCoordinator.windowSwitcherActive {
-                    edgeScrollZones(isHorizontal: orientationIsHorizontal)
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear {
+                            edgeScrollContainerSize = proxy.size
+                        }
+                        .onChange(of: proxy.size) { newSize in
+                            edgeScrollContainerSize = newSize
+                        }
                 }
+            }
+            .onContinuousHover { phase in
+                handleEdgeScrollHover(phase, isHorizontal: scrollAxis == .horizontal)
             }
         }
     }
@@ -927,6 +952,37 @@ struct WindowPreviewHoverContainer: View {
         cachedScrollView = nil
     }
 
+    private func handleEdgeScrollHover(_ phase: HoverPhase, isHorizontal: Bool) {
+        guard previewStateCoordinator.windowSwitcherActive,
+              enableMouseHoverInSwitcher
+        else {
+            stopEdgeScroll()
+            return
+        }
+
+        let maxEdgeZone: CGFloat = 24
+        let axisLength = isHorizontal ? edgeScrollContainerSize.width : edgeScrollContainerSize.height
+        guard axisLength > 0 else {
+            stopEdgeScroll()
+            return
+        }
+        let edgeZone = min(maxEdgeZone, axisLength / 2)
+
+        switch phase {
+        case let .active(location):
+            let axisLocation = isHorizontal ? location.x : location.y
+            if axisLocation <= edgeZone {
+                startEdgeScroll(direction: -1, isHorizontal: isHorizontal)
+            } else if axisLocation >= axisLength - edgeZone {
+                startEdgeScroll(direction: 1, isHorizontal: isHorizontal)
+            } else {
+                stopEdgeScroll()
+            }
+        case .ended:
+            stopEdgeScroll()
+        }
+    }
+
     private func smoothScrollBy(direction: CGFloat, isHorizontal: Bool) {
         guard let scrollView = cachedScrollView,
               let documentView = scrollView.documentView
@@ -958,53 +1014,6 @@ struct WindowPreviewHoverContainer: View {
             }
         }
         return nil
-    }
-
-    @ViewBuilder
-    private func edgeScrollZones(isHorizontal: Bool) -> some View {
-        let edgeSize: CGFloat = 50
-
-        if isHorizontal {
-            HStack {
-                // Leading edge
-                Color.clear
-                    .frame(width: edgeSize)
-                    .contentShape(Rectangle())
-                    .onHover { hovering in
-                        if hovering { startEdgeScroll(direction: -1, isHorizontal: true) }
-                        else { stopEdgeScroll() }
-                    }
-                Spacer()
-                // Trailing edge
-                Color.clear
-                    .frame(width: edgeSize)
-                    .contentShape(Rectangle())
-                    .onHover { hovering in
-                        if hovering { startEdgeScroll(direction: 1, isHorizontal: true) }
-                        else { stopEdgeScroll() }
-                    }
-            }
-        } else {
-            VStack {
-                // Top edge
-                Color.clear
-                    .frame(height: edgeSize)
-                    .contentShape(Rectangle())
-                    .onHover { hovering in
-                        if hovering { startEdgeScroll(direction: -1, isHorizontal: false) }
-                        else { stopEdgeScroll() }
-                    }
-                Spacer()
-                // Bottom edge
-                Color.clear
-                    .frame(height: edgeSize)
-                    .contentShape(Rectangle())
-                    .onHover { hovering in
-                        if hovering { startEdgeScroll(direction: 1, isHorizontal: false) }
-                        else { stopEdgeScroll() }
-                    }
-            }
-        }
     }
 
     private func loadAppIcon() {

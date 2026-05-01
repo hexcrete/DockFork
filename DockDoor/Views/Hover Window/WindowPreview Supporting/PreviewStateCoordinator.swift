@@ -568,9 +568,9 @@ class PreviewStateCoordinator: ObservableObject {
 
         if !windows.isEmpty {
             if Defaults[.useClassicWindowOrdering], windows.count >= 2 {
-                setIndex(to: 1, shouldScroll: false, source: .programmatic)
+                setIndex(to: 1, shouldScroll: false, source: .keyboard)
             } else {
-                setIndex(to: 0, shouldScroll: false, source: .programmatic)
+                setIndex(to: 0, shouldScroll: false, source: .keyboard)
             }
         } else {
             setIndex(to: -1, shouldScroll: false, source: .programmatic)

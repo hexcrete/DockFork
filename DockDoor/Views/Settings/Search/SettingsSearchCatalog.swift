@@ -363,8 +363,24 @@ enum SettingsSearchCatalog {
             description: String(localized: "Select and scroll to windows when hovering with mouse."),
             keywords: ["mouse", "hover", "select"],
             tab: "WindowSwitcher",
-            section: String(localized: "Search & Input"),
+            section: String(localized: "Hover Actions"),
             icon: "cursorarrow"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.hoverAction",
+            title: String(localized: "Window Switcher Hover Action"),
+            keywords: ["window", "switcher", "hover", "action", "preview", "keyboard"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "hand.point.up.left"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.hoverDelay",
+            title: String(localized: "Window Switcher Hover Action Delay"),
+            keywords: ["window", "switcher", "hover", "delay", "seconds", "timer"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
         ),
         SettingsSearchItem(
             id: "windowSwitcher.sortOrder",
@@ -437,6 +453,22 @@ enum SettingsSearchCatalog {
             tab: "CmdTab",
             section: String(localized: "Configuration"),
             icon: "1.circle"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.hoverAction",
+            title: String(localized: "Cmd+Tab Hover Action"),
+            keywords: ["cmd tab", "command tab", "hover", "action", "preview", "keyboard"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "hand.point.up.left"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.hoverDelay",
+            title: String(localized: "Cmd+Tab Hover Action Delay"),
+            keywords: ["cmd tab", "command tab", "hover", "delay", "seconds", "timer"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
         ),
         SettingsSearchItem(
             id: "cmdTab.currentSpaceOnly",

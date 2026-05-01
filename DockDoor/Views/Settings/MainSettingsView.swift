@@ -95,6 +95,8 @@ struct MainSettingsView: View {
                 Defaults[.hoverWindowOpenDelay] = Defaults.Keys.hoverWindowOpenDelay.defaultValue
                 Defaults[.fadeOutDuration] = Defaults.Keys.fadeOutDuration.defaultValue
                 Defaults[.tapEquivalentInterval] = Defaults.Keys.tapEquivalentInterval.defaultValue
+                Defaults[.switcherTapEquivalentInterval] = Defaults.Keys.switcherTapEquivalentInterval.defaultValue
+                Defaults[.cmdTabTapEquivalentInterval] = Defaults.Keys.cmdTabTapEquivalentInterval.defaultValue
                 Defaults[.preventDockHide] = Defaults.Keys.preventDockHide.defaultValue
                 Defaults[.screenCaptureCacheLifespan] = Defaults.Keys.screenCaptureCacheLifespan.defaultValue
                 Defaults[.windowPreviewImageScale] = Defaults.Keys.windowPreviewImageScale.defaultValue
@@ -103,6 +105,8 @@ struct MainSettingsView: View {
                 Defaults[.dockClickAction] = Defaults.Keys.dockClickAction.defaultValue
                 Defaults[.enableCmdRightClickQuit] = Defaults.Keys.enableCmdRightClickQuit.defaultValue
                 Defaults[.previewHoverAction] = Defaults.Keys.previewHoverAction.defaultValue
+                Defaults[.switcherPreviewHoverAction] = Defaults.Keys.switcherPreviewHoverAction.defaultValue
+                Defaults[.cmdTabPreviewHoverAction] = Defaults.Keys.cmdTabPreviewHoverAction.defaultValue
 
                 showMenuBarIcon = Defaults.Keys.showMenuBarIcon.defaultValue
                 activateOnWake = Defaults.Keys.activateOnWake.defaultValue
@@ -161,6 +165,7 @@ struct MainSettingsView: View {
                 Defaults[.groupAppInstancesInDock] = Defaults.Keys.groupAppInstancesInDock.defaultValue
 
                 Defaults[.disableImagePreview] = Defaults.Keys.disableImagePreview.defaultValue
+                Defaults[.enableHoverActionsInCompactMode] = Defaults.Keys.enableHoverActionsInCompactMode.defaultValue
 
                 askUserToRestartApplication()
             }

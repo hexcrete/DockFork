@@ -731,7 +731,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             windowSwitcherCoordinator.setWindows(windows, dockPosition: activeDockPosition, bestGuessMonitor: screen)
 
             if let initialIndex {
-                windowSwitcherCoordinator.setIndex(to: initialIndex, shouldScroll: false, source: .programmatic)
+                let initialSelectionSource: PreviewStateCoordinator.SelectionInputSource =
+                    (centeredHoverWindowState == .windowSwitcher || activeDockPosition == .cmdTab) ? .keyboard : .programmatic
+                windowSwitcherCoordinator.setIndex(to: initialIndex, shouldScroll: false, source: initialSelectionSource)
             } else {
                 windowSwitcherCoordinator.setIndex(to: -1, shouldScroll: false, source: .programmatic)
             }

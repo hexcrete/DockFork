@@ -9,6 +9,8 @@ struct CmdTabSettingsView: View {
     @Default(.showWindowsFromCurrentMonitorOnlyInCmdTab) var showWindowsFromCurrentMonitorOnlyInCmdTab
     @Default(.cmdTabSortOrder) var cmdTabSortOrder
     @Default(.cmdTabAutoSelectFirstWindow) var cmdTabAutoSelectFirstWindow
+    @Default(.cmdTabPreviewHoverAction) var cmdTabPreviewHoverAction
+    @Default(.cmdTabTapEquivalentInterval) var cmdTabTapEquivalentInterval
     @Default(.includeHiddenWindowsInCmdTab) var includeHiddenWindowsInCmdTab
     @Default(.showWindowlessAppsInCmdTab) var showWindowlessAppsInCmdTab
 
@@ -19,6 +21,7 @@ struct CmdTabSettingsView: View {
 
                 if enableCmdTabEnhancements {
                     configurationSection
+                    hoverActionsSection
                     windowDisplaySection
 
                     SettingsMockPreview(context: .cmdTab)
@@ -89,6 +92,31 @@ struct CmdTabSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)
+            }
+        }
+    }
+
+    // MARK: - Hover Actions
+
+    private var hoverActionsSection: some View {
+        SettingsGroup(header: "Hover Actions") {
+            VStack(alignment: .leading, spacing: 10) {
+                Picker("Cmd+Tab Hover Action", selection: $cmdTabPreviewHoverAction) {
+                    ForEach(PreviewHoverAction.allCases, id: \.self) { Text($0.localizedName).tag($0) }
+                }
+                .pickerStyle(.menu)
+                .settingsSearchTarget("cmdTab.hoverAction")
+
+                HStack {
+                    Text("Cmd+Tab Hover Action Delay")
+                    Slider(value: $cmdTabTapEquivalentInterval, in: 0 ... 2, step: 0.1)
+                    Text(String(format: "%.1f s", cmdTabTapEquivalentInterval))
+                        .monospacedDigit()
+                        .foregroundColor(.secondary)
+                        .frame(width: 52, alignment: .trailing)
+                }
+                .disabled(cmdTabPreviewHoverAction == .none)
+                .settingsSearchTarget("cmdTab.hoverDelay")
             }
         }
     }

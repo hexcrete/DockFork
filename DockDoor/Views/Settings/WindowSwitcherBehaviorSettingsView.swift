@@ -11,6 +11,8 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.preventSwitcherHide) var preventSwitcherHide
     @Default(.enableMouseHoverInSwitcher) var enableMouseHoverInSwitcher
     @Default(.mouseHoverAutoScrollSpeed) var mouseHoverAutoScrollSpeed
+    @Default(.switcherPreviewHoverAction) var switcherPreviewHoverAction
+    @Default(.switcherTapEquivalentInterval) var switcherTapEquivalentInterval
     @Default(.includeHiddenWindowsInSwitcher) var includeHiddenWindowsInSwitcher
     @Default(.useClassicWindowOrdering) var useClassicWindowOrdering
     @Default(.limitSwitcherToFrontmostApp) var limitSwitcherToFrontmostApp
@@ -38,6 +40,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
                     behaviorSection
                     windowDisplaySection
                     searchAndInputSection
+                    hoverActionsSection
                     sortingAndGroupingSection
                     placementSection
 
@@ -183,7 +186,15 @@ struct WindowSwitcherBehaviorSettingsView: View {
                         .foregroundColor(.secondary)
                         .padding(.leading, 20)
                 }
+            }
+        }
+    }
 
+    // MARK: - Hover Actions
+
+    private var hoverActionsSection: some View {
+        SettingsGroup(header: "Hover Actions") {
+            VStack(alignment: .leading, spacing: 10) {
                 Toggle(isOn: $enableMouseHoverInSwitcher) { Text("Enable mouse hover selection") }
                     .settingsSearchTarget("windowSwitcher.mouseHover")
                 Text("Select and scroll to windows when hovering with mouse.")
@@ -201,6 +212,23 @@ struct WindowSwitcherBehaviorSettingsView: View {
                     }
                     .padding(.leading, 20)
                 }
+
+                Picker("Window Switcher Hover Action", selection: $switcherPreviewHoverAction) {
+                    ForEach(PreviewHoverAction.allCases, id: \.self) { Text($0.localizedName).tag($0) }
+                }
+                .pickerStyle(.menu)
+                .settingsSearchTarget("windowSwitcher.hoverAction")
+
+                HStack {
+                    Text("Window Switcher Hover Action Delay")
+                    Slider(value: $switcherTapEquivalentInterval, in: 0 ... 2, step: 0.1)
+                    Text(String(format: "%.1f s", switcherTapEquivalentInterval))
+                        .monospacedDigit()
+                        .foregroundColor(.secondary)
+                        .frame(width: 52, alignment: .trailing)
+                }
+                .disabled(switcherPreviewHoverAction == .none)
+                .settingsSearchTarget("windowSwitcher.hoverDelay")
             }
         }
     }

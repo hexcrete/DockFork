@@ -74,7 +74,11 @@ struct SettingsMockPreview: View {
     @Default(.allowDynamicImageSizing) private var allowDynamicImageSizing
     @Default(.hidePreviewCardBackground) private var hidePreviewCardBackground
     @Default(.tapEquivalentInterval) private var tapEquivalentInterval
+    @Default(.switcherTapEquivalentInterval) private var switcherTapEquivalentInterval
+    @Default(.cmdTabTapEquivalentInterval) private var cmdTabTapEquivalentInterval
     @Default(.previewHoverAction) private var previewHoverAction
+    @Default(.switcherPreviewHoverAction) private var switcherPreviewHoverAction
+    @Default(.cmdTabPreviewHoverAction) private var cmdTabPreviewHoverAction
     @Default(.showActiveWindowBorder) private var showActiveWindowBorder
     @Default(.activeAppIndicatorColor) private var activeAppIndicatorColor
     @Default(.showAnimations) private var showAnimations
@@ -185,6 +189,20 @@ struct SettingsMockPreview: View {
 
         let quality = isWindowSwitcher ? switcherLivePreviewQuality : dockLivePreviewQuality
         let frameRate = isWindowSwitcher ? switcherLivePreviewFrameRate : dockLivePreviewFrameRate
+        let resolvedHoverDelay: CGFloat = if isWindowSwitcher {
+            switcherTapEquivalentInterval
+        } else if isCmdTab {
+            cmdTabTapEquivalentInterval
+        } else {
+            tapEquivalentInterval
+        }
+        let resolvedHoverAction: PreviewHoverAction = if isWindowSwitcher {
+            switcherPreviewHoverAction
+        } else if isCmdTab {
+            cmdTabPreviewHoverAction
+        } else {
+            previewHoverAction
+        }
 
         return PreviewAppearanceSettings(
             trafficLightVisibility: trafficLightVisibility,
@@ -202,8 +220,8 @@ struct SettingsMockPreview: View {
             hoverHighlightColor: hoverHighlightColor,
             allowDynamicImageSizing: allowDynamicImageSizing,
             hidePreviewCardBackground: hidePreviewCardBackground,
-            tapEquivalentInterval: tapEquivalentInterval,
-            previewHoverAction: previewHoverAction,
+            tapEquivalentInterval: resolvedHoverDelay,
+            previewHoverAction: resolvedHoverAction,
             showActiveWindowBorder: showActiveWindowBorder,
             activeAppIndicatorColor: activeAppIndicatorColor,
             showAnimations: showAnimations,

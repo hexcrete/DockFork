@@ -506,7 +506,7 @@ class KeybindHelper {
                         // Subsequent Down (with no selection) is passed through to system Exposé.
                         if hasSelection {
                             Task { @MainActor in
-                                self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: -1)
+                                self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: -1, source: .keyboard)
                             }
                             return nil
                         } else {
@@ -525,7 +525,7 @@ class KeybindHelper {
                     case Int64(kVK_ANSI_J):
                         if Defaults[.enableVimMotions], hasSelection {
                             Task { @MainActor in
-                                self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: -1)
+                                self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: -1, source: .keyboard)
                             }
                             return nil
                         } else {
@@ -541,7 +541,7 @@ class KeybindHelper {
                                     let currentIndex = self.previewCoordinator.windowSwitcherCoordinator.currIndex
                                     let windowCount = self.previewCoordinator.windowSwitcherCoordinator.windows.count
                                     let newIndex = currentIndex > 0 ? currentIndex - 1 : windowCount - 1
-                                    self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: newIndex)
+                                    self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: newIndex, source: .keyboard)
                                 }
                                 return nil
                             }
@@ -555,16 +555,16 @@ class KeybindHelper {
 
                                     if !hasSelection {
                                         // First activation: select first preview
-                                        self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: 0)
+                                        self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: 0, source: .keyboard)
                                         Defaults[.hasSeenCmdTabFocusHint] = true
                                     } else if isShift {
                                         // Cmd+Shift+A: cycle backward
                                         let newIndex = currentIndex > 0 ? currentIndex - 1 : windowCount - 1
-                                        self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: newIndex)
+                                        self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: newIndex, source: .keyboard)
                                     } else {
                                         // Cmd+A: cycle forward
                                         let newIndex = (currentIndex + 1) % windowCount
-                                        self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: newIndex)
+                                        self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: newIndex, source: .keyboard)
                                     }
                                 }
                                 return nil
