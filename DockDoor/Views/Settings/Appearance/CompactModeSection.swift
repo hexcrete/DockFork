@@ -6,6 +6,7 @@ struct CompactModeSection: View {
     @Default(.compactModeTitleFormat) var compactModeTitleFormat
     @Default(.compactModeItemSize) var compactModeItemSize
     @Default(.compactModeHideTrafficLights) var compactModeHideTrafficLights
+    @Default(.compactModeWidth) var compactModeWidth
     @Default(.enableHoverActionsInCompactMode) var enableHoverActionsInCompactMode
     @Default(.windowSwitcherCompactThreshold) var windowSwitcherCompactThreshold
     @Default(.dockPreviewCompactThreshold) var dockPreviewCompactThreshold
@@ -98,6 +99,25 @@ struct CompactModeSection: View {
 
                 Divider().padding(.vertical, 2)
                 Text("Appearance").font(.headline).padding(.bottom, -2)
+
+                sliderSetting(
+                    title: "Compact Mode Width",
+                    value: $compactModeWidth,
+                    range: 200 ... 1200,
+                    step: 50,
+                    unit: "px",
+                    formatter: {
+                        let f = NumberFormatter()
+                        f.minimumFractionDigits = 0
+                        f.maximumFractionDigits = 0
+                        return f
+                    }()
+                )
+                .settingsSearchTarget("appearance.compactModeWidth")
+
+                Text("Controls row width in compact mode so longer titles have more room.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
 
                 Picker("Item Size", selection: $compactModeItemSize) {
                     ForEach(CompactModeItemSize.allCases) { size in

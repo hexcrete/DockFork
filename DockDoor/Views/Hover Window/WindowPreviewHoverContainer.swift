@@ -92,6 +92,7 @@ struct WindowPreviewHoverContainer: View {
     @Default(.showMassActionButtons) var showMassActionButtons
     @Default(.disableImagePreview) var disableImagePreview
     @Default(.previewWidth) var previewWidth
+    @Default(.compactModeWidth) var compactModeWidth
     @Default(.enableHoverActionsInCompactMode) var enableHoverActionsInCompactMode
 
     @State private var draggedWindowIndex: Int? = nil
@@ -149,7 +150,7 @@ struct WindowPreviewHoverContainer: View {
 
         guard !calculatedDimensionsMap.isEmpty else {
             let fallback = MediaControlsLayout.embeddedArtworkSize + MediaControlsLayout.artworkTextSpacing + 165
-            return shouldUseCompactMode ? previewWidth : fallback
+            return shouldUseCompactMode ? compactModeWidth : fallback
         }
 
         var minWidth = 0.0
@@ -162,7 +163,7 @@ struct WindowPreviewHoverContainer: View {
         }
 
         if shouldUseCompactMode {
-            return previewWidth
+            return compactModeWidth
         }
 
         return minWidth
@@ -1268,7 +1269,7 @@ struct WindowPreviewHoverContainer: View {
             embeddedContentView()
                 .frame(
                     minWidth: shouldUseCompactMode ? nil : (isHorizontal ? nil : dims?.size.width),
-                    maxWidth: shouldUseCompactMode ? appearance.previewWidth + 2 * CardRadius.innerPadding : nil,
+                    maxWidth: shouldUseCompactMode ? appearance.compactModeWidth + 2 * CardRadius.innerPadding : nil,
                     minHeight: isHorizontal ? (shouldUseCompactMode ? nil : dims?.size.height) : nil
                 )
                 .fixedSize(horizontal: false, vertical: shouldUseCompactMode)
@@ -1329,6 +1330,11 @@ struct WindowPreviewHoverContainer: View {
                     .equatable()
                     .id(itemID)
                 } else if useCompactForThisWindow {
+                    let compactRowWidth = if shouldUseCompactMode {
+                        appearance.compactModeWidth
+                    } else {
+                        getDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews).size.width
+                    }
                     WindowPreviewCompact(
                         windowInfo: windowInfo,
                         index: index,
@@ -1342,6 +1348,7 @@ struct WindowPreviewHoverContainer: View {
                         mockPreviewActive: mockPreviewActive,
                         onTap: onWindowTap,
                         onHoverIndexChange: handleHoverIndexChange,
+                        widthOverride: compactRowWidth,
                         appearance: appearance,
                         backgroundAppearance: backgroundAppearance
                     )
@@ -1444,6 +1451,6 @@ struct WindowPreviewHoverContainer: View {
                     .foregroundColor(.secondary)
             }
         }
-        .frame(minWidth: previewWidth, maxWidth: previewWidth, minHeight: 120)
+        .frame(minWidth: shouldUseCompactMode ? compactModeWidth : previewWidth, maxWidth: shouldUseCompactMode ? compactModeWidth : previewWidth, minHeight: 120)
     }
 }

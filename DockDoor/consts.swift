@@ -129,6 +129,7 @@ extension Defaults.Keys {
     static let compactModeTitleFormat = Key<CompactModeTitleFormat>("compactModeTitleFormat", default: .appNameAndTitle)
     static let compactModeItemSize = Key<CompactModeItemSize>("compactModeItemSize", default: .medium)
     static let compactModeHideTrafficLights = Key<Bool>("compactModeHideTrafficLights", default: false)
+    static let compactModeWidth = Key<CGFloat>("compactModeWidth", default: 500)
     static let enableHoverActionsInCompactMode = Key<Bool>("enableHoverActionsInCompactMode", default: false)
 
     // Per-feature compact mode thresholds (0 = disabled, 1+ = enable when window count >= threshold)

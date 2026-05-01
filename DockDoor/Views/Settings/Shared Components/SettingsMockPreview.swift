@@ -89,6 +89,7 @@ struct SettingsMockPreview: View {
     // MARK: - Compact mode settings
 
     @Default(.previewWidth) private var previewWidth
+    @Default(.compactModeWidth) private var compactModeWidth
     @Default(.compactModeTitleFormat) private var compactModeTitleFormat
     @Default(.compactModeItemSize) private var compactModeItemSize
     @Default(.compactModeHideTrafficLights) private var compactModeHideTrafficLights
@@ -231,6 +232,7 @@ struct SettingsMockPreview: View {
             livePreviewQuality: quality,
             livePreviewFrameRate: frameRate,
             previewWidth: previewWidth,
+            compactModeWidth: compactModeWidth,
             compactModeTitleFormat: compactModeTitleFormat,
             compactModeItemSize: compactModeItemSize,
             compactModeHideTrafficLights: compactModeHideTrafficLights,

@@ -29,6 +29,7 @@ struct PreviewAppearanceSettings: Equatable {
     let livePreviewQuality: LivePreviewQuality
     let livePreviewFrameRate: LivePreviewFrameRate
     let previewWidth: CGFloat
+    let compactModeWidth: CGFloat
     let compactModeTitleFormat: CompactModeTitleFormat
     let compactModeItemSize: CompactModeItemSize
     let compactModeHideTrafficLights: Bool
@@ -62,7 +63,7 @@ struct PreviewAppearanceSettings: Equatable {
         .previewHoverAction, .switcherPreviewHoverAction, .cmdTabPreviewHoverAction,
         .showActiveWindowBorder, .activeAppIndicatorColor, .showAnimations, .globalPaddingMultiplier,
         .windowTitleFontSize, .trafficLightButtonScale,
-        .previewWidth, .compactModeTitleFormat, .compactModeItemSize, .compactModeHideTrafficLights, .titleOverflowStyle,
+        .previewWidth, .compactModeWidth, .compactModeTitleFormat, .compactModeItemSize, .compactModeHideTrafficLights, .titleOverflowStyle,
     ]
 
     static func resolve(windowSwitcherActive: Bool, dockPosition: DockPosition) -> PreviewAppearanceSettings {
@@ -104,6 +105,7 @@ struct PreviewAppearanceSettings: Equatable {
             livePreviewQuality: pick(.dockLivePreviewQuality, switcher: .windowSwitcherLivePreviewQuality),
             livePreviewFrameRate: pick(.dockLivePreviewFrameRate, switcher: .windowSwitcherLivePreviewFrameRate),
             previewWidth: Defaults[.previewWidth],
+            compactModeWidth: Defaults[.compactModeWidth],
             compactModeTitleFormat: Defaults[.compactModeTitleFormat],
             compactModeItemSize: Defaults[.compactModeItemSize],
             compactModeHideTrafficLights: Defaults[.compactModeHideTrafficLights],

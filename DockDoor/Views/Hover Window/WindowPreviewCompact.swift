@@ -12,6 +12,7 @@ struct WindowPreviewCompact: View, Equatable {
     let mockPreviewActive: Bool
     let onTap: (() -> Void)?
     let onHoverIndexChange: ((Int?, CGPoint?) -> Void)?
+    let widthOverride: CGFloat?
     var appearance: PreviewAppearanceSettings
     let backgroundAppearance: BackgroundAppearance
 
@@ -25,9 +26,14 @@ struct WindowPreviewCompact: View, Equatable {
         l.index == r.index && l.isSelected == r.isSelected
             && l.uniformCardRadius == r.uniformCardRadius
             && l.windowSwitcherActive == r.windowSwitcherActive
+            && l.widthOverride == r.widthOverride
             && l.appearance == r.appearance
             && l.windowInfo.viewSnapshot == r.windowInfo.viewSnapshot
             && l.backgroundAppearance == r.backgroundAppearance
+    }
+
+    private var rowWidth: CGFloat {
+        widthOverride ?? appearance.compactModeWidth
     }
 
     /// Checks if this window is the currently active (focused) window on the system and adds a border if so.
@@ -133,7 +139,7 @@ struct WindowPreviewCompact: View, Equatable {
             }
         }
         .padding(.vertical, 8)
-        .frame(width: appearance.previewWidth, height: appearance.compactModeItemSize.rowHeight, alignment: .leading)
+        .frame(width: rowWidth, height: appearance.compactModeItemSize.rowHeight, alignment: .leading)
         .clipped()
         .background {
             let cornerRadius = uniformCardRadius ? CardRadius.base + (CardRadius.innerPadding * appearance.globalPaddingMultiplier) : CardRadius.fallback

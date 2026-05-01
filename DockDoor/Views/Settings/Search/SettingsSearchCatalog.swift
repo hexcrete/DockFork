@@ -764,6 +764,15 @@ enum SettingsSearchCatalog {
             icon: "textformat.size"
         ),
         SettingsSearchItem(
+            id: "appearance.compactModeWidth",
+            title: String(localized: "Compact Mode Width"),
+            description: String(localized: "Controls row width in compact mode so longer titles have more room."),
+            keywords: ["compact", "width", "titles", "row", "size"],
+            tab: "Appearance",
+            section: String(localized: "Compact Mode (Titles Only)"),
+            icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
             id: "appearance.compactTitleFormat",
             title: String(localized: "Title Format"),
             keywords: ["compact", "title", "format", "display"],
