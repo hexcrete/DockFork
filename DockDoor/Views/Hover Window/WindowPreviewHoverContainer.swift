@@ -1322,6 +1322,7 @@ struct WindowPreviewHoverContainer: View {
                         isSelected: isSelected,
                         windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
                         dimensions: getDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews),
+                        mockPreviewActive: mockPreviewActive,
                         handleWindowAction: { action in
                             handleWindowAction(action, at: index)
                         },

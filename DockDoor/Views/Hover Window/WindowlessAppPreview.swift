@@ -9,6 +9,7 @@ struct WindowlessAppPreview: View, Equatable {
     let isSelected: Bool
     let windowSwitcherActive: Bool
     let dimensions: WindowPreviewHoverContainer.WindowDimensions?
+    let mockPreviewActive: Bool
     let handleWindowAction: (WindowAction) -> Void
     let onTap: (() -> Void)?
     let onHoverIndexChange: ((Int?, CGPoint?) -> Void)?
@@ -49,7 +50,7 @@ struct WindowlessAppPreview: View, Equatable {
                     hoveringOverParentWindow: isSelected || isHovering,
                     onWindowAction: handleTrafficLightAction,
                     pillStyling: !appearance.disableDockStyleTrafficLights,
-                    mockPreviewActive: false,
+                    mockPreviewActive: mockPreviewActive,
                     enabledButtons: windowlessEnabledButtons,
                     useMonochrome: appearance.useMonochromeTrafficLights,
                     buttonScale: appearance.trafficLightButtonScale,
