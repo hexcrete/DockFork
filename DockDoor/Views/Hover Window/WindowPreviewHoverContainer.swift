@@ -1183,7 +1183,7 @@ struct WindowPreviewHoverContainer: View {
         return isShake
     }
 
-    private func getDimensions(for index: Int, dimensionsMap: [Int: WindowDimensions]) -> WindowDimensions? {
+    private func lookupDimensions(for index: Int, dimensionsMap: [Int: WindowDimensions]) -> WindowDimensions? {
         dimensionsMap[index]
     }
 
@@ -1321,7 +1321,7 @@ struct WindowPreviewHoverContainer: View {
                         uniformCardRadius: uniformCardRadius,
                         isSelected: isSelected,
                         windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
-                        dimensions: getDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews),
+                        dimensions: lookupDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews),
                         mockPreviewActive: mockPreviewActive,
                         handleWindowAction: { action in
                             handleWindowAction(action, at: index)
@@ -1337,7 +1337,7 @@ struct WindowPreviewHoverContainer: View {
                     let compactRowWidth = if shouldUseCompactMode {
                         appearance.compactModeWidth
                     } else {
-                        getDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews).size.width
+                        resolvedDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews).size.width
                     }
                     WindowPreviewCompact(
                         windowInfo: windowInfo,
@@ -1371,7 +1371,7 @@ struct WindowPreviewHoverContainer: View {
                         },
                         isSelected: isSelected,
                         windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
-                        dimensions: getDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews),
+                        dimensions: resolvedDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews),
                         showAppIconOnly: effectiveShowAppIconOnly,
                         mockPreviewActive: mockPreviewActive,
                         onHoverIndexChange: handleHoverIndexChange,

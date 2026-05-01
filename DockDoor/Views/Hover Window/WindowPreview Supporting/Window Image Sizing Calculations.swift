@@ -131,7 +131,7 @@ extension WindowPreviewHoverContainer {
         return WindowDimensions(size: CGSize(width: width, height: height), maxDimensions: maxDims)
     }
 
-    func getDimensions(for index: Int, dimensionsMap: [Int: WindowDimensions]) -> WindowDimensions {
+    func resolvedDimensions(for index: Int, dimensionsMap: [Int: WindowDimensions]) -> WindowDimensions {
         let fallback = WindowDimensions(
             size: CGSize(width: 100, height: 100),
             maxDimensions: CGSize(width: 100, height: 100)
