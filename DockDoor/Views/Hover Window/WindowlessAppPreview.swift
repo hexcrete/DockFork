@@ -29,24 +29,57 @@ struct WindowlessAppPreview: View, Equatable {
         windowInfo.app.localizedName ?? "Unknown"
     }
 
-    private func titleBar(isLeadingControls: Bool) -> some View {
+    private var windowlessEnabledButtons: Set<WindowAction> {
+        appearance.enabledTrafficLightButtons.intersection([.quit])
+    }
+
+    private var canRenderTrafficLightButtons: Bool {
+        appearance.trafficLightVisibility != .never && !windowlessEnabledButtons.isEmpty
+    }
+
+    private func titleBar(isLeadingControls: Bool, showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View {
         let shouldShowSubtitle = appearance.showWindowTitle &&
             (appearance.windowTitleVisibility == .alwaysVisible || isSelected || isHovering)
+
+        let controlsContent = Group {
+            if showControlsContent, canRenderTrafficLightButtons {
+                TrafficLightButtons(
+                    displayMode: appearance.trafficLightVisibility,
+                    hoveringOverParentWindow: isSelected || isHovering,
+                    onWindowAction: handleTrafficLightAction,
+                    pillStyling: !appearance.disableDockStyleTrafficLights,
+                    mockPreviewActive: false,
+                    enabledButtons: windowlessEnabledButtons,
+                    useMonochrome: appearance.useMonochromeTrafficLights,
+                    buttonScale: appearance.trafficLightButtonScale,
+                    backgroundAppearance: backgroundAppearance
+                )
+            }
+        }
 
         return HStack(spacing: 4) {
             if appearance.controlPosition.isCentered {
                 Spacer(minLength: 0)
-                appIcon
-                titleContent(showSubtitle: shouldShowSubtitle)
+                if showTitleContent {
+                    appIcon
+                    titleContent(showSubtitle: shouldShowSubtitle)
+                }
+                controlsContent
                 Spacer(minLength: 0)
             } else if isLeadingControls {
+                controlsContent
                 Spacer(minLength: 8)
-                appIcon
-                titleContent(showSubtitle: shouldShowSubtitle)
+                if showTitleContent {
+                    appIcon
+                    titleContent(showSubtitle: shouldShowSubtitle)
+                }
             } else {
-                appIcon
-                titleContent(showSubtitle: shouldShowSubtitle)
+                if showTitleContent {
+                    appIcon
+                    titleContent(showSubtitle: shouldShowSubtitle)
+                }
                 Spacer(minLength: 0)
+                controlsContent
             }
         }
     }
@@ -78,13 +111,31 @@ struct WindowlessAppPreview: View, Equatable {
         .padding(.trailing, 8)
     }
 
+    private func handleTrafficLightAction(_ action: WindowAction) {
+        switch action {
+        case .quit:
+            if NSEvent.modifierFlags.contains(.option) {
+                windowInfo.app.forceTerminate()
+            } else {
+                windowInfo.app.terminate()
+            }
+            onTap?()
+        default:
+            break
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if appearance.controlPosition.showsOnTop {
                 let config = appearance.controlPosition.topConfiguration
-                if config.showTitle {
-                    titleBar(isLeadingControls: config.isLeadingControls)
-                        .padding(.bottom, 4)
+                if config.showTitle || (config.showControls && canRenderTrafficLightButtons) {
+                    titleBar(
+                        isLeadingControls: config.isLeadingControls,
+                        showTitleContent: config.showTitle,
+                        showControlsContent: config.showControls
+                    )
+                    .padding(.bottom, 4)
                 }
             }
 
@@ -100,9 +151,13 @@ struct WindowlessAppPreview: View, Equatable {
 
             if appearance.controlPosition.showsOnBottom {
                 let config = appearance.controlPosition.bottomConfiguration
-                if config.showTitle {
-                    titleBar(isLeadingControls: config.isLeadingControls)
-                        .padding(.top, 4)
+                if config.showTitle || (config.showControls && canRenderTrafficLightButtons) {
+                    titleBar(
+                        isLeadingControls: config.isLeadingControls,
+                        showTitleContent: config.showTitle,
+                        showControlsContent: config.showControls
+                    )
+                    .padding(.top, 4)
                 }
             }
         }

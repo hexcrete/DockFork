@@ -36,6 +36,19 @@ struct WindowPreviewCompact: View, Equatable {
         widthOverride ?? appearance.compactModeWidth
     }
 
+    private var effectiveTrafficLightButtons: Set<WindowAction> {
+        if windowInfo.isWindowlessApp {
+            return appearance.enabledTrafficLightButtons.intersection([.quit])
+        }
+        return appearance.enabledTrafficLightButtons
+    }
+
+    private var canRenderTrafficLightButtons: Bool {
+        appearance.trafficLightVisibility != .never &&
+            !effectiveTrafficLightButtons.isEmpty &&
+            (windowInfo.closeButton != nil || windowInfo.isWindowlessApp || windowInfo.isMinimized || windowInfo.isHidden)
+    }
+
     /// Checks if this window is the currently active (focused) window on the system and adds a border if so.
     private var isActiveWindow: Bool {
         guard appearance.showActiveWindowBorder else { return false }
@@ -121,9 +134,7 @@ struct WindowPreviewCompact: View, Equatable {
 
             // Traffic light buttons
             if !appearance.compactModeHideTrafficLights,
-               windowInfo.closeButton != nil,
-               appearance.trafficLightVisibility != .never,
-               !appearance.showMinimizedHiddenLabels || (!windowInfo.isMinimized && !windowInfo.isHidden)
+               canRenderTrafficLightButtons
             {
                 TrafficLightButtons(
                     displayMode: appearance.trafficLightVisibility,
@@ -131,7 +142,7 @@ struct WindowPreviewCompact: View, Equatable {
                     onWindowAction: handleWindowAction,
                     pillStyling: true,
                     mockPreviewActive: mockPreviewActive,
-                    enabledButtons: appearance.enabledTrafficLightButtons,
+                    enabledButtons: effectiveTrafficLightButtons,
                     useMonochrome: appearance.useMonochromeTrafficLights,
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance

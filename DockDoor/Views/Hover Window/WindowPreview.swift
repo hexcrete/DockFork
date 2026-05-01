@@ -139,6 +139,19 @@ struct WindowPreview: View, Equatable {
     @State private var dragTimer: Timer?
     @State private var highlightOpacity = 0.0
 
+    private var effectiveTrafficLightButtons: Set<WindowAction> {
+        if windowInfo.isWindowlessApp {
+            return appearance.enabledTrafficLightButtons.intersection([.quit])
+        }
+        return appearance.enabledTrafficLightButtons
+    }
+
+    private var canRenderTrafficLightButtons: Bool {
+        appearance.trafficLightVisibility != .never &&
+            !effectiveTrafficLightButtons.isEmpty &&
+            (windowInfo.closeButton != nil || windowInfo.isWindowlessApp || windowInfo.isMinimized || windowInfo.isHidden)
+    }
+
     static func == (l: Self, r: Self) -> Bool {
         l.index == r.index && l.isSelected == r.isSelected && l.useLivePreview == r.useLivePreview
             && l.skeletonMode == r.skeletonMode && l.dimensions == r.dimensions
@@ -228,9 +241,7 @@ struct WindowPreview: View, Equatable {
             titleToShow != nil &&
             (appearance.windowTitleVisibility == .alwaysVisible || selected)
 
-        let hasTrafficLights = windowInfo.closeButton != nil &&
-            appearance.trafficLightVisibility != .never &&
-            (appearance.showMinimizedHiddenLabels ? (!windowInfo.isMinimized && !windowInfo.isHidden) : true)
+        let hasTrafficLights = canRenderTrafficLightButtons
 
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
@@ -251,7 +262,7 @@ struct WindowPreview: View, Equatable {
                     onWindowAction: handleWindowAction,
                     pillStyling: !appearance.disableDockStyleTrafficLights,
                     mockPreviewActive: mockPreviewActive,
-                    enabledButtons: appearance.enabledTrafficLightButtons,
+                    enabledButtons: effectiveTrafficLightButtons,
                     useMonochrome: appearance.useMonochromeTrafficLights,
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
@@ -503,14 +514,14 @@ struct WindowPreview: View, Equatable {
         }
 
         let controlsContent = Group {
-            if windowInfo.closeButton != nil && (appearance.showMinimizedHiddenLabels ? (!windowInfo.isMinimized && !windowInfo.isHidden) : true) {
+            if canRenderTrafficLightButtons {
                 TrafficLightButtons(
                     displayMode: appearance.trafficLightVisibility,
                     hoveringOverParentWindow: selected || isHoveringOverWindowSwitcherPreview,
                     onWindowAction: handleWindowAction,
                     pillStyling: !appearance.disableDockStyleTrafficLights,
                     mockPreviewActive: mockPreviewActive,
-                    enabledButtons: appearance.enabledTrafficLightButtons,
+                    enabledButtons: effectiveTrafficLightButtons,
                     useMonochrome: appearance.useMonochromeTrafficLights,
                     backgroundAppearance: backgroundAppearance
                 )
@@ -569,9 +580,7 @@ struct WindowPreview: View, Equatable {
             titleToShow != nil &&
             (appearance.windowTitleVisibility == .alwaysVisible || selected)
 
-        let hasTrafficLights = windowInfo.closeButton != nil &&
-            appearance.trafficLightVisibility != .never &&
-            (appearance.showMinimizedHiddenLabels ? (!windowInfo.isMinimized && !windowInfo.isHidden) : true)
+        let hasTrafficLights = canRenderTrafficLightButtons
 
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
@@ -592,7 +601,7 @@ struct WindowPreview: View, Equatable {
                     onWindowAction: handleWindowAction,
                     pillStyling: !appearance.disableDockStyleTrafficLights,
                     mockPreviewActive: mockPreviewActive,
-                    enabledButtons: appearance.enabledTrafficLightButtons,
+                    enabledButtons: effectiveTrafficLightButtons,
                     useMonochrome: appearance.useMonochromeTrafficLights,
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
