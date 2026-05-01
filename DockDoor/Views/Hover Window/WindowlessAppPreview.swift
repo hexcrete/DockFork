@@ -116,7 +116,7 @@ struct WindowlessAppPreview: View, Equatable {
                     .borderedBackground(.primary.opacity(0.1), lineWidth: 1.75, cornerRadius: cornerRadius)
                     .padding(-CardRadius.innerPadding)
                     .overlay {
-                        if isSelected || isHovering {
+                        if isSelected {
                             let highlightColor = appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor)
                             RoundedRectangle(cornerRadius: cornerRadius)
                                 .fill(highlightColor.opacity(appearance.selectionOpacity))
@@ -138,9 +138,9 @@ struct WindowlessAppPreview: View, Equatable {
             switch phase {
             case let .active(location):
                 if !isHovering { setHoverState(true) }
-                if windowSwitcherActive { onHoverIndexChange?(index, location) }
+                onHoverIndexChange?(index, location)
             case .ended:
-                if windowSwitcherActive { onHoverIndexChange?(nil, nil) }
+                onHoverIndexChange?(nil, nil)
                 if isHovering { setHoverState(false) }
             }
         }

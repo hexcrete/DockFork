@@ -131,8 +131,6 @@ struct WindowPreview: View, Equatable {
 
     @State private var isHoveringOverDockPeekPreview = false
     @State private var isHoveringOverWindowSwitcherPreview = false
-    @State private var fullPreviewTimer: Timer?
-    @State private var fullPreviewHoverID: UUID?
     @State private var isDraggingOver = false
     @State private var dragTimer: Timer?
     @State private var highlightOpacity = 0.0
@@ -265,7 +263,7 @@ struct WindowPreview: View, Equatable {
                     .padding(4)
                     .if(!appearance.disableDockStyleTitles) { view in
                         view.materialPill(backgroundAppearance: backgroundAppearance)
-                        .frame(height: 34)
+                            .frame(height: 34)
                     }
             }
         }
@@ -523,7 +521,7 @@ struct WindowPreview: View, Equatable {
                     .padding(4)
                     .if(!appearance.disableDockStyleTitles) { view in
                         view.materialPill(backgroundAppearance: backgroundAppearance)
-                        .frame(height: 34)
+                            .frame(height: 34)
                     }
             }
         }
@@ -606,7 +604,7 @@ struct WindowPreview: View, Equatable {
                     .padding(4)
                     .if(!appearance.disableDockStyleTitles) { view in
                         view.materialPill(backgroundAppearance: backgroundAppearance)
-                        .frame(height: 34)
+                            .frame(height: 34)
                     }
             }
         }
@@ -643,7 +641,7 @@ struct WindowPreview: View, Equatable {
 
     @ViewBuilder
     private var previewCoreContent: some View {
-        let finalIsSelected = isSelected || isHoveringOverDockPeekPreview
+        let finalIsSelected = isSelected
 
         ZStack(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: 0) {
@@ -754,18 +752,12 @@ struct WindowPreview: View, Equatable {
 
             switch phase {
             case let .active(location):
-                if windowSwitcherActive {
-                    if !currentHoverState { setHoverState(true) }
-                    onHoverIndexChange?(index, location)
-                } else if !currentHoverState {
-                    setHoverState(true)
-                    handleFullPreviewHover(isHovering: true, action: appearance.previewHoverAction)
-                }
+                if !currentHoverState { setHoverState(true) }
+                onHoverIndexChange?(index, location)
             case .ended:
-                if windowSwitcherActive { onHoverIndexChange?(nil, nil) }
+                onHoverIndexChange?(nil, nil)
                 if currentHoverState {
                     setHoverState(false)
-                    if !windowSwitcherActive { handleFullPreviewHover(isHovering: false, action: appearance.previewHoverAction) }
                 }
             }
         }
@@ -777,63 +769,12 @@ struct WindowPreview: View, Equatable {
                 windowInfo: windowInfo,
                 windowSwitcherActive: windowSwitcherActive,
                 dockPosition: dockPosition,
-                handleWindowAction: { action in
-                    cancelFullPreviewHover()
-                    handleWindowAction(action)
-                },
-                onTap: {
-                    cancelFullPreviewHover()
-                    onTap?()
-                }
+                handleWindowAction: handleWindowAction,
+                onTap: onTap
             )
             .fixedSize()
             .opacity(skeletonMode ? 0 : 1)
             .allowsHitTesting(!skeletonMode)
-    }
-
-    private func cancelFullPreviewHover() {
-        fullPreviewTimer?.invalidate()
-        fullPreviewTimer = nil
-        fullPreviewHoverID = nil
-        SharedPreviewWindowCoordinator.activeInstance?.hideFullPreviewWindow()
-    }
-
-    private func handleFullPreviewHover(isHovering: Bool, action: PreviewHoverAction) {
-        if isHovering, !windowSwitcherActive {
-            switch action {
-            case .none: break
-
-            case .tap:
-                if appearance.tapEquivalentInterval == 0 { handleWindowTap() } else {
-                    fullPreviewTimer = Timer.scheduledTimer(withTimeInterval: appearance.tapEquivalentInterval, repeats: false) { _ in
-                        DispatchQueue.main.async { handleWindowTap() }
-                    }
-                }
-
-            case .previewFullSize:
-                let hoverID = UUID()
-                fullPreviewHoverID = hoverID
-                let showFullPreview = {
-                    guard fullPreviewHoverID == hoverID else { return }
-                    SharedPreviewWindowCoordinator.activeInstance?.showWindow(
-                        appName: windowInfo.app.localizedName ?? "Unknown",
-                        windows: [windowInfo],
-                        mouseScreen: bestGuessMonitor,
-                        dockItemElement: nil, overrideDelay: true,
-                        centeredHoverWindowState: .fullWindowPreview
-                    )
-                }
-                if appearance.tapEquivalentInterval == 0 {
-                    showFullPreview()
-                } else {
-                    fullPreviewTimer = Timer.scheduledTimer(withTimeInterval: appearance.tapEquivalentInterval, repeats: false) { _ in
-                        showFullPreview()
-                    }
-                }
-            }
-        } else {
-            cancelFullPreviewHover()
-        }
     }
 
     private func handleWindowTap() {

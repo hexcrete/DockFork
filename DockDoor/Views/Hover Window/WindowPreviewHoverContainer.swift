@@ -110,6 +110,8 @@ struct WindowPreviewHoverContainer: View {
     @State private var dynamicFadeEnabled = false
     @State private var cachedAppearance: PreviewAppearanceSettings? = nil
     @State private var backgroundAppearance: BackgroundAppearance = .resolve()
+    @State private var dockHighlightActionTimer: Timer?
+    @State private var dockHighlightActionID: UUID?
 
     init(appName: String,
          onWindowTap: (() -> Void)?,
@@ -217,12 +219,105 @@ struct WindowPreviewHoverContainer: View {
         return effectiveShowAppName
     }
 
+    private var resolvedAppearance: PreviewAppearanceSettings {
+        appearanceOverride ?? cachedAppearance ?? PreviewAppearanceSettings.resolve(
+            windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
+            dockPosition: dockPosition
+        )
+    }
+
+    private var usesDockHighlightAction: Bool {
+        !mockPreviewActive &&
+            !shouldUseCompactMode &&
+            !previewStateCoordinator.windowSwitcherActive &&
+            dockPosition != .cmdTab
+    }
+
+    private var highlightedWindowID: CGWindowID? {
+        let selectedIndex = previewStateCoordinator.currIndex
+        guard selectedIndex >= 0, selectedIndex < previewStateCoordinator.windows.count else { return nil }
+        return previewStateCoordinator.windows[selectedIndex].id
+    }
+
+    private func cancelDockHighlightAction() {
+        guard dockHighlightActionTimer != nil || dockHighlightActionID != nil else { return }
+        dockHighlightActionTimer?.invalidate()
+        dockHighlightActionTimer = nil
+        dockHighlightActionID = nil
+        SharedPreviewWindowCoordinator.activeInstance?.hideFullPreviewWindow()
+    }
+
+    private func performDockHighlightActionIfNeeded() {
+        guard usesDockHighlightAction else {
+            cancelDockHighlightAction()
+            return
+        }
+
+        let appearance = resolvedAppearance
+        let selectedIndex = previewStateCoordinator.currIndex
+        guard selectedIndex >= 0, selectedIndex < previewStateCoordinator.windows.count else {
+            cancelDockHighlightAction()
+            return
+        }
+
+        let selectedWindow = previewStateCoordinator.windows[selectedIndex]
+        let selectedWindowID = selectedWindow.id
+        let actionID = UUID()
+        dockHighlightActionID = actionID
+
+        let performAction: () -> Void = {
+            guard dockHighlightActionID == actionID else { return }
+            guard let resolvedIndex = previewStateCoordinator.windows.firstIndex(where: { $0.id == selectedWindowID }) else {
+                cancelDockHighlightAction()
+                return
+            }
+            let resolvedWindow = previewStateCoordinator.windows[resolvedIndex]
+
+            switch appearance.previewHoverAction {
+            case .none:
+                cancelDockHighlightAction()
+            case .tap:
+                if resolvedWindow.isMinimized {
+                    handleWindowAction(.minimize, at: resolvedIndex)
+                } else if resolvedWindow.isHidden {
+                    handleWindowAction(.hide, at: resolvedIndex)
+                } else {
+                    resolvedWindow.bringToFront()
+                    onWindowTap?()
+                }
+            case .previewFullSize:
+                SharedPreviewWindowCoordinator.activeInstance?.showWindow(
+                    appName: resolvedWindow.app.localizedName ?? "Unknown",
+                    windows: [resolvedWindow],
+                    mouseScreen: bestGuessMonitor,
+                    dockItemElement: nil,
+                    overrideDelay: true,
+                    centeredHoverWindowState: .fullWindowPreview
+                )
+            }
+        }
+
+        dockHighlightActionTimer?.invalidate()
+        dockHighlightActionTimer = nil
+
+        if appearance.tapEquivalentInterval == 0 {
+            performAction()
+        } else {
+            dockHighlightActionTimer = Timer.scheduledTimer(withTimeInterval: appearance.tapEquivalentInterval, repeats: false) { _ in
+                performAction()
+            }
+        }
+    }
+
     private func handleHoverIndexChange(_ hoveredIndex: Int?, _ location: CGPoint?) {
-        guard enableMouseHoverInSwitcher else { return }
+        let isWindowSwitcher = previewStateCoordinator.windowSwitcherActive
+        let isDockPreview = !isWindowSwitcher && dockPosition != .cmdTab
+        guard isWindowSwitcher || isDockPreview else { return }
+        if isWindowSwitcher, !enableMouseHoverInSwitcher { return }
         guard let hoveredIndex else { return }
         guard hoveredIndex != previewStateCoordinator.currIndex else { return }
 
-        if !previewStateCoordinator.hasMovedSinceOpen {
+        if isWindowSwitcher, !previewStateCoordinator.hasMovedSinceOpen {
             let screenLocation = NSEvent.mouseLocation
 
             if previewStateCoordinator.initialHoverLocation == nil {
@@ -263,21 +358,25 @@ struct WindowPreviewHoverContainer: View {
             if #available(macOS 15.0, *) {
                 dynamicFadeEnabled = true
             }
+            performDockHighlightActionIfNeeded()
         }
         .onDisappear {
             if Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
                 Task { await LiveCaptureManager.shared.panelClosed() }
             }
+            cancelDockHighlightAction()
         }
         .onChange(of: previewStateCoordinator.windowSwitcherActive) { isActive in
             if !isActive {
                 previewStateCoordinator.searchQuery = ""
                 stopEdgeScroll()
             }
+            performDockHighlightActionIfNeeded()
         }
         .task(id: previewStateCoordinator.windowSwitcherActive) {
             let keys = PreviewAppearanceSettings.observedKeys + BackgroundAppearance.observedKeys
             for await _ in Defaults.updates(keys, initial: true) {
+                let previousAppearance = cachedAppearance
                 let updated = PreviewAppearanceSettings.resolve(
                     windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
                     dockPosition: dockPosition
@@ -285,7 +384,16 @@ struct WindowPreviewHoverContainer: View {
                 if updated != cachedAppearance { cachedAppearance = updated }
                 let updatedBg = BackgroundAppearance.resolve()
                 if updatedBg != backgroundAppearance { backgroundAppearance = updatedBg }
+
+                let didHoverActionChange = previousAppearance?.previewHoverAction != updated.previewHoverAction
+                let didDelayChange = previousAppearance?.tapEquivalentInterval != updated.tapEquivalentInterval
+                if didHoverActionChange || didDelayChange {
+                    performDockHighlightActionIfNeeded()
+                }
             }
+        }
+        .onChange(of: highlightedWindowID) { _ in
+            performDockHighlightActionIfNeeded()
         }
     }
 

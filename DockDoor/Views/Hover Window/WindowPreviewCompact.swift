@@ -18,7 +18,7 @@ struct WindowPreviewCompact: View, Equatable {
     @State private var isHovering = false
 
     private var isHighlighted: Bool {
-        isSelected || (!windowSwitcherActive && isHovering)
+        isSelected
     }
 
     static func == (l: Self, r: Self) -> Bool {
@@ -175,9 +175,9 @@ struct WindowPreviewCompact: View, Equatable {
             switch phase {
             case let .active(location):
                 if !isHovering { setHoverState(true) }
-                if windowSwitcherActive { onHoverIndexChange?(index, location) }
+                onHoverIndexChange?(index, location)
             case .ended:
-                if windowSwitcherActive { onHoverIndexChange?(nil, nil) }
+                onHoverIndexChange?(nil, nil)
                 if isHovering { setHoverState(false) }
             }
         }
