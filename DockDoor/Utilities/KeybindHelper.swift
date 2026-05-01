@@ -113,9 +113,6 @@ private class WindowSwitchingCoordinator {
             if let selectedWindow = coordinator.getCurrentWindow() {
                 selectedWindow.bringToFront()
                 selectedWindow.warpMouseToCenterIfNeeded()
-                if selectedWindow.isWindowlessApp, Defaults[.openNewWindowForWindowlessApps] {
-                    WindowUtil.activateAndOpenNewWindow(app: selectedWindow.app)
-                }
             }
             coordinator.deactivateKeybindSession()
             previewCoordinator.hideWindow()
@@ -759,9 +756,6 @@ class KeybindHelper {
                     } else if let selectedWindow = self.windowSwitchingCoordinator.selectCurrentWindow(previewCoordinator: self.previewCoordinator) {
                         selectedWindow.bringToFront()
                         selectedWindow.warpMouseToCenterIfNeeded()
-                        if selectedWindow.isWindowlessApp, Defaults[.openNewWindowForWindowlessApps] {
-                            WindowUtil.activateAndOpenNewWindow(app: selectedWindow.app)
-                        }
                         self.previewCoordinator.hideWindow()
                     }
                 }
@@ -986,9 +980,6 @@ class KeybindHelper {
             if let selectedWindow = self.windowSwitchingCoordinator.selectCurrentWindow(previewCoordinator: self.previewCoordinator) {
                 selectedWindow.bringToFront()
                 selectedWindow.warpMouseToCenterIfNeeded()
-                if selectedWindow.isWindowlessApp, Defaults[.openNewWindowForWindowlessApps] {
-                    WindowUtil.activateAndOpenNewWindow(app: selectedWindow.app)
-                }
                 self.previewCoordinator.hideWindow()
             } else {
                 self.previewCoordinator.selectAndBringToFrontCurrentWindow()

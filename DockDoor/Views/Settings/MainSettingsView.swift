@@ -119,6 +119,7 @@ struct MainSettingsView: View {
                 Defaults[.showWindowlessAppsInDockPreview] = Defaults.Keys.showWindowlessAppsInDockPreview.defaultValue
                 Defaults[.showWindowlessAppsInCmdTab] = Defaults.Keys.showWindowlessAppsInCmdTab.defaultValue
                 Defaults[.openNewWindowForWindowlessApps] = Defaults.Keys.openNewWindowForWindowlessApps.defaultValue
+                Defaults[.windowlessAppActivationMode] = Defaults.Keys.windowlessAppActivationMode.defaultValue
                 Defaults[.useClassicWindowOrdering] = Defaults.Keys.useClassicWindowOrdering.defaultValue
                 Defaults[.limitSwitcherToFrontmostApp] = Defaults.Keys.limitSwitcherToFrontmostApp.defaultValue
                 Defaults[.fullscreenAppBlacklist] = Defaults.Keys.fullscreenAppBlacklist.defaultValue

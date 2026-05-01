@@ -415,7 +415,7 @@ extension WindowInfo {
 
     func bringToFront() {
         guard !isWindowlessApp else {
-            app.activate(options: [.activateIgnoringOtherApps])
+            WindowUtil.activateWindowlessApp(app: app)
             return
         }
         let maxRetries = 3

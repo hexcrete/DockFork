@@ -1309,6 +1309,39 @@ extension WindowUtil {
             openNewWindow(app: app)
         }
     }
+
+    static func activateWindowlessApp(app: NSRunningApplication) {
+        switch Defaults[.windowlessAppActivationMode] {
+        case .openNewWindow:
+            activateAndOpenNewWindow(app: app)
+        case .simulateDockClick:
+            simulateDockClickForWindowlessApp(app: app)
+        case .activateOnly:
+            app.activate(options: [.activateIgnoringOtherApps])
+        }
+    }
+
+    static func simulateDockClickForWindowlessApp(app: NSRunningApplication) {
+        app.activate(options: [.activateIgnoringOtherApps])
+
+        let targetDescriptor = NSAppleEventDescriptor(processIdentifier: app.processIdentifier)
+        let reopenEvent = NSAppleEventDescriptor.appleEvent(
+            withEventClass: AEEventClass(kCoreEventClass),
+            eventID: AEEventID(kAEReopenApplication),
+            targetDescriptor: targetDescriptor,
+            returnID: AEReturnID(kAutoGenerateReturnID),
+            transactionID: AETransactionID(kAnyTransactionID)
+        )
+
+        guard let eventDesc = reopenEvent.aeDesc else {
+            return
+        }
+
+        let status = AESendMessage(eventDesc, nil, AESendMode(kAENoReply), kAEDefaultTimeout)
+        if status != noErr {
+            DebugLogger.log("WindowlessApp", details: "Failed to send reopen event to \(app.localizedName ?? "Unknown"): \(status)")
+        }
+    }
 }
 
 // MARK: - Private Helper Methods

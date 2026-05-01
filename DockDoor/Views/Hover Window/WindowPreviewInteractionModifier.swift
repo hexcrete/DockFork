@@ -147,11 +147,7 @@ struct WindowPreviewInteractionModifier: ViewModifier {
         }
 
         if windowInfo.isWindowlessApp {
-            if Defaults[.openNewWindowForWindowlessApps] {
-                WindowUtil.activateAndOpenNewWindow(app: windowInfo.app)
-            } else {
-                windowInfo.app.activate(options: [.activateIgnoringOtherApps])
-            }
+            WindowUtil.activateWindowlessApp(app: windowInfo.app)
             onTap?()
         } else if windowInfo.isMinimized {
             handleWindowAction(.minimize)

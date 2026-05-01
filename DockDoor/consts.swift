@@ -145,6 +145,10 @@ extension Defaults.Keys {
     static let showWindowlessAppsInDockPreview = Key<Bool>("showWindowlessAppsInDockPreview", default: false)
     static let showWindowlessAppsInCmdTab = Key<Bool>("showWindowlessAppsInCmdTab", default: false)
     static let openNewWindowForWindowlessApps = Key<Bool>("openNewWindowForWindowlessApps", default: false)
+    static let windowlessAppActivationMode = Key<WindowlessAppActivationMode>(
+        "windowlessAppActivationMode",
+        default: Defaults[.openNewWindowForWindowlessApps] ? .openNewWindow : .simulateDockClick
+    )
     static let ignoreAppsWithSingleWindow = Key<Bool>("ignoreAppsWithSingleWindow", default: false)
     static let groupAppInstancesInDock = Key<Bool>("groupAppInstancesInDock", default: true)
     static let showMenuBarIcon = Key<Bool>("showMenuBarIcon", default: true)
@@ -711,6 +715,34 @@ enum DockClickAction: String, CaseIterable, Defaults.Serializable {
             String(localized: "Minimize windows", comment: "Dock click action option")
         case .hide:
             String(localized: "Hide application", comment: "Dock click action option")
+        }
+    }
+}
+
+enum WindowlessAppActivationMode: String, CaseIterable, Defaults.Serializable {
+    case openNewWindow
+    case simulateDockClick
+    case activateOnly
+
+    var localizedName: String {
+        switch self {
+        case .openNewWindow:
+            String(localized: "Opens a new window", comment: "Windowless app activation mode option")
+        case .simulateDockClick:
+            String(localized: "Simulates a click", comment: "Windowless app activation mode option")
+        case .activateOnly:
+            String(localized: "Activates app only", comment: "Windowless app activation mode option")
+        }
+    }
+
+    var localizedDescription: String {
+        switch self {
+        case .openNewWindow:
+            String(localized: "Automatically sends ⌘N to open a new window when activating an app with no windows.", comment: "Description for open new window setting")
+        case .simulateDockClick:
+            String(localized: "Simulates clicking the Dock icon when activating an app with no windows.", comment: "Description for dock-click simulation behavior")
+        case .activateOnly:
+            String(localized: "Performs a plain app activation with no attempts at opening a window.", comment: "Description for activate-only behavior")
         }
     }
 }

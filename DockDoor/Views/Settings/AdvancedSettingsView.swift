@@ -12,7 +12,7 @@ struct AdvancedSettingsView: View {
     @Default(.preventDockHide) var preventDockHide
     @Default(.raisedWindowLevel) var raisedWindowLevel
     @Default(.disableMinWindowSizeFilter) var disableMinWindowSizeFilter
-    @Default(.openNewWindowForWindowlessApps) var openNewWindowForWindowlessApps
+    @Default(.windowlessAppActivationMode) var windowlessAppActivationMode
 
     @Default(.windowImageCaptureQuality) var windowImageCaptureQuality
     @Default(.screenCaptureCacheLifespan) var screenCaptureCacheLifespan
@@ -113,11 +113,14 @@ struct AdvancedSettingsView: View {
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)
 
-                Toggle(isOn: $openNewWindowForWindowlessApps) {
-                    Text(String(localized: "Open a new window when clicking windowless apps", comment: "Setting to auto-open new window for apps with no windows"))
+                Picker(String(localized: "Clicking windowless apps", comment: "Setting label for behavior when activating apps with no windows"), selection: $windowlessAppActivationMode) {
+                    ForEach(WindowlessAppActivationMode.allCases, id: \.self) { mode in
+                        Text(mode.localizedName).tag(mode)
+                    }
                 }
+                .pickerStyle(.menu)
                 .settingsSearchTarget("advanced.openNewWindow")
-                Text(String(localized: "Automatically sends ⌘N to open a new window when activating an app with no windows.", comment: "Description for open new window setting"))
+                Text(windowlessAppActivationMode.localizedDescription)
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)

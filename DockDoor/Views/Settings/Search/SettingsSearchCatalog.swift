@@ -1589,9 +1589,9 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "advanced.openNewWindow",
-            title: String(localized: "Open a new window when clicking windowless apps"),
-            description: String(localized: "Automatically sends ⌘N to open a new window when activating an app with no windows."),
-            keywords: ["windowless", "new window", "open", "cmd+n"],
+            title: String(localized: "Clicking windowless apps"),
+            description: String(localized: "Choose whether activating an app with no windows opens a new window, simulates a Dock click, or only activates the app."),
+            keywords: ["windowless", "new window", "open", "cmd+n", "simulate", "click", "dock", "activate", "only"],
             tab: "Advanced",
             section: String(localized: "Performance Tuning"),
             icon: "plus.rectangle.on.rectangle"

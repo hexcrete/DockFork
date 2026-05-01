@@ -151,11 +151,7 @@ struct WindowlessAppPreview: View, Equatable {
                 return
             }
 
-            if Defaults[.openNewWindowForWindowlessApps] {
-                WindowUtil.activateAndOpenNewWindow(app: windowInfo.app)
-            } else {
-                windowInfo.app.activate(options: [.activateIgnoringOtherApps])
-            }
+            WindowUtil.activateWindowlessApp(app: windowInfo.app)
             onTap?()
         }
         .contextMenu {
