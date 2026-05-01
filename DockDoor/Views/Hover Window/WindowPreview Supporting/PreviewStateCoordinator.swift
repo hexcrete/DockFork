@@ -3,7 +3,14 @@ import SwiftUI
 
 // Pure UI state container for window preview presentation
 class PreviewStateCoordinator: ObservableObject {
+    enum SelectionInputSource {
+        case programmatic
+        case keyboard
+        case mouse
+    }
+
     @Published var currIndex: Int = -1
+    @Published private(set) var selectionInputSource: SelectionInputSource = .programmatic
     @Published var windowSwitcherActive: Bool = false {
         didSet { invalidateFilterCache() }
     }
@@ -110,13 +117,28 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    func setIndex(to: Int, shouldScroll: Bool = true) {
-        shouldScrollToIndex = shouldScroll
-        if to >= 0, to < windows.count {
-            currIndex = to
+    private func updateSelectionIndex(_ requestedIndex: Int, source: SelectionInputSource, shouldScroll: Bool? = nil) {
+        if let shouldScroll {
+            shouldScrollToIndex = shouldScroll
+        }
+
+        if requestedIndex >= 0, requestedIndex < windows.count {
+            currIndex = requestedIndex
         } else {
             currIndex = -1
         }
+        selectionInputSource = source
+    }
+
+    @MainActor
+    func setIndex(to: Int, shouldScroll: Bool = true, source: SelectionInputSource = .programmatic) {
+        updateSelectionIndex(to, source: source, shouldScroll: shouldScroll)
+    }
+
+    @MainActor
+    func clearSelectionIfMouseSource(shouldScroll: Bool = false) {
+        guard selectionInputSource == .mouse else { return }
+        updateSelectionIndex(-1, source: .programmatic, shouldScroll: shouldScroll)
     }
 
     @MainActor
@@ -125,7 +147,7 @@ class PreviewStateCoordinator: ObservableObject {
         lastKnownBestGuessMonitor = bestGuessMonitor
 
         if currIndex >= windows.count {
-            currIndex = windows.isEmpty ? -1 : windows.count - 1
+            updateSelectionIndex(windows.isEmpty ? -1 : windows.count - 1, source: .programmatic)
         }
 
         recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: isMockPreviewActive)
@@ -170,9 +192,9 @@ class PreviewStateCoordinator: ObservableObject {
 
         // Restore selection to the same window, or clamp if it was removed
         if let selectedID = selectedWindowID, let newIndex = windows.firstIndex(where: { $0.id == selectedID }) {
-            currIndex = newIndex
+            updateSelectionIndex(newIndex, source: .programmatic)
         } else if currIndex >= windows.count {
-            currIndex = windows.isEmpty ? -1 : windows.count - 1
+            updateSelectionIndex(windows.isEmpty ? -1 : windows.count - 1, source: .programmatic)
         }
 
         lastKnownBestGuessMonitor = bestGuessMonitor
@@ -197,19 +219,19 @@ class PreviewStateCoordinator: ObservableObject {
         windows.remove(at: indexToRemove)
 
         if windows.isEmpty {
-            currIndex = -1
+            updateSelectionIndex(-1, source: .programmatic)
             SharedPreviewWindowCoordinator.activeInstance?.hideWindow()
             return
         }
 
         if oldCurrIndex == indexToRemove {
-            currIndex = min(indexToRemove, windows.count - 1)
+            updateSelectionIndex(min(indexToRemove, windows.count - 1), source: .programmatic)
         } else if oldCurrIndex > indexToRemove {
-            currIndex = oldCurrIndex - 1
+            updateSelectionIndex(oldCurrIndex - 1, source: .programmatic)
         }
 
         if currIndex >= windows.count {
-            currIndex = windows.count - 1
+            updateSelectionIndex(windows.count - 1, source: .programmatic)
         }
 
         // Recompute dimensions and request frame refresh
@@ -257,7 +279,7 @@ class PreviewStateCoordinator: ObservableObject {
     @MainActor
     func removeAllWindows() {
         windows.removeAll()
-        currIndex = -1 // Reset to no selection
+        updateSelectionIndex(-1, source: .programmatic)
         SharedPreviewWindowCoordinator.activeInstance?.hideWindow()
     }
 
@@ -394,11 +416,11 @@ class PreviewStateCoordinator: ObservableObject {
     private func updateIndexForSearch() {
         if !hasActiveSearch {
             if currIndex >= windows.count {
-                currIndex = windows.isEmpty ? -1 : 0
+                updateSelectionIndex(windows.isEmpty ? -1 : 0, source: .programmatic)
             }
         } else {
             let filtered = filteredWindowIndices()
-            currIndex = filtered.first ?? -1
+            updateSelectionIndex(filtered.first ?? -1, source: .programmatic)
         }
     }
 
@@ -436,20 +458,20 @@ class PreviewStateCoordinator: ObservableObject {
             return
         }
 
-        shouldScrollToIndex = true
         if currIndex < 0 {
-            currIndex = 0
+            setIndex(to: 0, source: .keyboard)
             return
         }
 
         let forwardDirection: ArrowDirection = .right
-        currIndex = WindowPreviewHoverContainer.navigateWindowSwitcher(
+        let newIndex = WindowPreviewHoverContainer.navigateWindowSwitcher(
             from: currIndex,
             direction: forwardDirection,
             totalItems: windows.count,
             dockPosition: .bottom,
             isWindowSwitcherActive: true
         )
+        setIndex(to: newIndex, source: .keyboard)
     }
 
     /// Cycle to the previous window in the grid
@@ -462,20 +484,20 @@ class PreviewStateCoordinator: ObservableObject {
             return
         }
 
-        shouldScrollToIndex = true
         if currIndex < 0 {
-            currIndex = windows.count - 1
+            setIndex(to: windows.count - 1, source: .keyboard)
             return
         }
 
         let backwardDirection: ArrowDirection = .left
-        currIndex = WindowPreviewHoverContainer.navigateWindowSwitcher(
+        let newIndex = WindowPreviewHoverContainer.navigateWindowSwitcher(
             from: currIndex,
             direction: backwardDirection,
             totalItems: windows.count,
             dockPosition: .bottom,
             isWindowSwitcherActive: true
         )
+        setIndex(to: newIndex, source: .keyboard)
     }
 
     @MainActor
@@ -483,17 +505,16 @@ class PreviewStateCoordinator: ObservableObject {
         let filtered = filteredWindowIndices()
         guard !filtered.isEmpty else { return }
 
-        shouldScrollToIndex = true
         if currIndex < 0 {
-            currIndex = filtered.first ?? 0
+            setIndex(to: filtered.first ?? 0, source: .keyboard)
             return
         }
 
         if let currentPos = filtered.firstIndex(of: currIndex) {
             let nextPos = (currentPos + 1) % filtered.count
-            currIndex = filtered[nextPos]
+            setIndex(to: filtered[nextPos], source: .keyboard)
         } else {
-            currIndex = filtered.first ?? 0
+            setIndex(to: filtered.first ?? 0, source: .keyboard)
         }
     }
 
@@ -502,17 +523,16 @@ class PreviewStateCoordinator: ObservableObject {
         let filtered = filteredWindowIndices()
         guard !filtered.isEmpty else { return }
 
-        shouldScrollToIndex = true
         if currIndex < 0 {
-            currIndex = filtered.last ?? 0
+            setIndex(to: filtered.last ?? 0, source: .keyboard)
             return
         }
 
         if let currentPos = filtered.firstIndex(of: currIndex) {
             let prevPos = (currentPos - 1 + filtered.count) % filtered.count
-            currIndex = filtered[prevPos]
+            setIndex(to: filtered[prevPos], source: .keyboard)
         } else {
-            currIndex = filtered.last ?? 0
+            setIndex(to: filtered.last ?? 0, source: .keyboard)
         }
     }
 
@@ -522,9 +542,8 @@ class PreviewStateCoordinator: ObservableObject {
         let filtered = filteredWindowIndices()
         guard !filtered.isEmpty else { return }
 
-        shouldScrollToIndex = true
         guard let currentFilteredPos = filtered.firstIndex(of: currIndex) else {
-            currIndex = filtered.first ?? 0
+            setIndex(to: filtered.first ?? 0, source: .keyboard)
             return
         }
 
@@ -536,7 +555,7 @@ class PreviewStateCoordinator: ObservableObject {
             isWindowSwitcherActive: true
         )
 
-        currIndex = filtered[newFilteredPos]
+        setIndex(to: filtered[newFilteredPos], source: .keyboard)
     }
 
     // MARK: - Window Switcher Initialization
@@ -549,12 +568,12 @@ class PreviewStateCoordinator: ObservableObject {
 
         if !windows.isEmpty {
             if Defaults[.useClassicWindowOrdering], windows.count >= 2 {
-                currIndex = 1
+                setIndex(to: 1, shouldScroll: false, source: .programmatic)
             } else {
-                currIndex = 0
+                setIndex(to: 0, shouldScroll: false, source: .programmatic)
             }
         } else {
-            currIndex = -1
+            setIndex(to: -1, shouldScroll: false, source: .programmatic)
         }
     }
 

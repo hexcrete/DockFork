@@ -6,6 +6,7 @@ struct CompactModeSection: View {
     @Default(.compactModeTitleFormat) var compactModeTitleFormat
     @Default(.compactModeItemSize) var compactModeItemSize
     @Default(.compactModeHideTrafficLights) var compactModeHideTrafficLights
+    @Default(.enableHoverActionsInCompactMode) var enableHoverActionsInCompactMode
     @Default(.windowSwitcherCompactThreshold) var windowSwitcherCompactThreshold
     @Default(.dockPreviewCompactThreshold) var dockPreviewCompactThreshold
     @Default(.cmdTabCompactThreshold) var cmdTabCompactThreshold
@@ -39,6 +40,26 @@ struct CompactModeSection: View {
                                 .font(.caption)
                             Text("Screen Recording permission is required for window thumbnails.")
                                 .font(.caption)
+                        }
+                        .foregroundColor(.orange)
+                        .padding(.leading, 20)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle("Enable hover actions in compact mode", isOn: $enableHoverActionsInCompactMode)
+                        .settingsSearchTarget("appearance.compactHoverActions")
+
+                    if enableHoverActionsInCompactMode, !hasScreenRecordingPermission {
+                        HStack(spacing: 8) {
+                            Image(systemName: "record.circle")
+                                .font(.caption)
+                            Text("Hover actions in compact mode require Screen Recording permission.")
+                                .font(.caption)
+                            Button("Grant") {
+                                SystemPreferencesHelper.openScreenRecordingPreferences()
+                            }
+                            .buttonStyle(AccentButtonStyle(small: true))
                         }
                         .foregroundColor(.orange)
                         .padding(.leading, 20)

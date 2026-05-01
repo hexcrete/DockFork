@@ -731,9 +731,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             windowSwitcherCoordinator.setWindows(windows, dockPosition: activeDockPosition, bestGuessMonitor: screen)
 
             if let initialIndex {
-                windowSwitcherCoordinator.setIndex(to: initialIndex, shouldScroll: false)
+                windowSwitcherCoordinator.setIndex(to: initialIndex, shouldScroll: false, source: .programmatic)
             } else {
-                windowSwitcherCoordinator.currIndex = -1
+                windowSwitcherCoordinator.setIndex(to: -1, shouldScroll: false, source: .programmatic)
             }
 
             self.onWindowTap = onWindowTap
@@ -806,7 +806,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             case .down, .right:
                 (currentPos + 1) % indicesToUse.count
             }
-            coordinator.setIndex(to: indicesToUse[newPos])
+            coordinator.setIndex(to: indicesToUse[newPos], source: .keyboard)
             return
         }
 
@@ -817,7 +817,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
 
         if coordinator.currIndex < 0 {
-            coordinator.setIndex(to: 0)
+            coordinator.setIndex(to: 0, source: .keyboard)
             return
         }
 
@@ -829,7 +829,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             dockPosition: dockPosition,
             isWindowSwitcherActive: coordinator.windowSwitcherActive
         )
-        coordinator.setIndex(to: newIndex)
+        coordinator.setIndex(to: newIndex, source: .keyboard)
     }
 
     @MainActor

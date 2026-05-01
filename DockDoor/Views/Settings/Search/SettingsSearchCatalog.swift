@@ -642,6 +642,15 @@ enum SettingsSearchCatalog {
             icon: "list.bullet"
         ),
         SettingsSearchItem(
+            id: "appearance.compactHoverActions",
+            title: String(localized: "Enable hover actions in compact mode"),
+            description: String(localized: "Hover actions in compact mode require Screen Recording permission."),
+            keywords: ["compact", "hover", "actions", "preview", "keyboard", "screen", "recording"],
+            tab: "Appearance",
+            section: String(localized: "Compact Mode (Titles Only)"),
+            icon: "hand.point.up.left"
+        ),
+        SettingsSearchItem(
             id: "appearance.hideTrafficLights",
             title: String(localized: "Hide Traffic Lights"),
             description: String(localized: "Hides the close, minimize, and other window control buttons in compact mode to provide more room for window titles."),

@@ -92,6 +92,7 @@ struct WindowPreviewHoverContainer: View {
     @Default(.showMassActionButtons) var showMassActionButtons
     @Default(.disableImagePreview) var disableImagePreview
     @Default(.previewWidth) var previewWidth
+    @Default(.enableHoverActionsInCompactMode) var enableHoverActionsInCompactMode
 
     @State private var draggedWindowIndex: Int? = nil
     @State private var isDragging = false
@@ -227,10 +228,19 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private var usesDockHighlightAction: Bool {
-        !mockPreviewActive &&
-            !shouldUseCompactMode &&
+        let isDockPreviewContext = !mockPreviewActive &&
             !previewStateCoordinator.windowSwitcherActive &&
             dockPosition != .cmdTab
+        return isDockPreviewContext && hoverActionEnabled
+    }
+
+    private var hoverActionEnabled: Bool {
+        let action = resolvedAppearance.previewHoverAction
+        let isCompact = shouldUseCompactMode
+        let permissionAllowsIt = !isCompact || hasScreenRecordingPermission
+        return action != .none &&
+            (!isCompact || enableHoverActionsInCompactMode) &&
+            permissionAllowsIt
     }
 
     private var highlightedWindowID: CGWindowID? {
@@ -309,12 +319,28 @@ struct WindowPreviewHoverContainer: View {
         }
     }
 
+    private var hasPendingDockHighlightAction: Bool {
+        dockHighlightActionTimer != nil || dockHighlightActionID != nil
+    }
+
+    private func refreshDockHighlightActionIfNeeded() {
+        guard usesDockHighlightAction || hasPendingDockHighlightAction else { return }
+        performDockHighlightActionIfNeeded()
+    }
+
     private func handleHoverIndexChange(_ hoveredIndex: Int?, _ location: CGPoint?) {
         let isWindowSwitcher = previewStateCoordinator.windowSwitcherActive
         let isDockPreview = !isWindowSwitcher && dockPosition != .cmdTab
         guard isWindowSwitcher || isDockPreview else { return }
         if isWindowSwitcher, !enableMouseHoverInSwitcher { return }
-        guard let hoveredIndex else { return }
+
+        guard let hoveredIndex else {
+            if isDockPreview {
+                previewStateCoordinator.clearSelectionIfMouseSource(shouldScroll: false)
+                refreshDockHighlightActionIfNeeded()
+            }
+            return
+        }
         guard hoveredIndex != previewStateCoordinator.currIndex else { return }
 
         if isWindowSwitcher, !previewStateCoordinator.hasMovedSinceOpen {
@@ -335,7 +361,7 @@ struct WindowPreviewHoverContainer: View {
             }
         }
 
-        previewStateCoordinator.setIndex(to: hoveredIndex, shouldScroll: false)
+        previewStateCoordinator.setIndex(to: hoveredIndex, shouldScroll: false, source: .mouse)
     }
 
     var body: some View {
@@ -358,7 +384,7 @@ struct WindowPreviewHoverContainer: View {
             if #available(macOS 15.0, *) {
                 dynamicFadeEnabled = true
             }
-            performDockHighlightActionIfNeeded()
+            refreshDockHighlightActionIfNeeded()
         }
         .onDisappear {
             if Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
@@ -371,7 +397,7 @@ struct WindowPreviewHoverContainer: View {
                 previewStateCoordinator.searchQuery = ""
                 stopEdgeScroll()
             }
-            performDockHighlightActionIfNeeded()
+            refreshDockHighlightActionIfNeeded()
         }
         .task(id: previewStateCoordinator.windowSwitcherActive) {
             let keys = PreviewAppearanceSettings.observedKeys + BackgroundAppearance.observedKeys
@@ -388,12 +414,21 @@ struct WindowPreviewHoverContainer: View {
                 let didHoverActionChange = previousAppearance?.previewHoverAction != updated.previewHoverAction
                 let didDelayChange = previousAppearance?.tapEquivalentInterval != updated.tapEquivalentInterval
                 if didHoverActionChange || didDelayChange {
-                    performDockHighlightActionIfNeeded()
+                    refreshDockHighlightActionIfNeeded()
                 }
             }
         }
         .onChange(of: highlightedWindowID) { _ in
-            performDockHighlightActionIfNeeded()
+            refreshDockHighlightActionIfNeeded()
+        }
+        .onChange(of: shouldUseCompactMode) { _ in
+            refreshDockHighlightActionIfNeeded()
+        }
+        .onChange(of: enableHoverActionsInCompactMode) { _ in
+            refreshDockHighlightActionIfNeeded()
+        }
+        .onChange(of: hasScreenRecordingPermission) { _ in
+            refreshDockHighlightActionIfNeeded()
         }
     }
 
