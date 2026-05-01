@@ -1106,7 +1106,7 @@ struct WindowPreviewHoverContainer: View {
         guard index < previewStateCoordinator.windows.count else { return }
         let window = previewStateCoordinator.windows[index]
 
-        let keepPreviewOnQuit = Defaults[.keepPreviewOnAppTerminate]
+        let keepPreviewOnQuit = previewStateCoordinator.windowSwitcherActive || Defaults[.keepPreviewOnAppTerminate]
         let result = action.perform(on: window, keepPreviewOnQuit: keepPreviewOnQuit)
 
         switch result {
@@ -1322,6 +1322,9 @@ struct WindowPreviewHoverContainer: View {
                         isSelected: isSelected,
                         windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
                         dimensions: getDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews),
+                        handleWindowAction: { action in
+                            handleWindowAction(action, at: index)
+                        },
                         onTap: onWindowTap,
                         onHoverIndexChange: handleHoverIndexChange,
                         appearance: appearance,

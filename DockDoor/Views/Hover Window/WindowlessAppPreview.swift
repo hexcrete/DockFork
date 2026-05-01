@@ -9,6 +9,7 @@ struct WindowlessAppPreview: View, Equatable {
     let isSelected: Bool
     let windowSwitcherActive: Bool
     let dimensions: WindowPreviewHoverContainer.WindowDimensions?
+    let handleWindowAction: (WindowAction) -> Void
     let onTap: (() -> Void)?
     let onHoverIndexChange: ((Int?, CGPoint?) -> Void)?
     var appearance: PreviewAppearanceSettings
@@ -114,12 +115,7 @@ struct WindowlessAppPreview: View, Equatable {
     private func handleTrafficLightAction(_ action: WindowAction) {
         switch action {
         case .quit:
-            if NSEvent.modifierFlags.contains(.option) {
-                windowInfo.app.forceTerminate()
-            } else {
-                windowInfo.app.terminate()
-            }
-            onTap?()
+            handleWindowAction(.quit)
         default:
             break
         }
@@ -222,11 +218,7 @@ struct WindowlessAppPreview: View, Equatable {
             Divider()
 
             Button(role: .destructive, action: {
-                if NSEvent.modifierFlags.contains(.option) {
-                    windowInfo.app.forceTerminate()
-                } else {
-                    windowInfo.app.terminate()
-                }
+                handleTrafficLightAction(.quit)
             }) {
                 if NSEvent.modifierFlags.contains(.option) {
                     Label("Force Quit", systemImage: "power")
