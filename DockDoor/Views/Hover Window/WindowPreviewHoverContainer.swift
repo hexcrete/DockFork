@@ -1307,13 +1307,19 @@ struct WindowPreviewHoverContainer: View {
                     return true
                 }()
 
-                // Use compact mode if: container threshold triggered OR per-window fallback (no image and no live preview)
-                let useCompactForThisWindow = shouldUseCompactMode || (windowInfo.image == nil && !useLivePreview)
+                let useWindowlessCompactRowInDock = windowInfo.isWindowlessApp &&
+                    !previewStateCoordinator.windowSwitcherActive &&
+                    dockPosition != .cmdTab &&
+                    !shouldUseCompactMode
+                // Use compact mode if: container threshold triggered OR forced windowless compact row in dock OR per-window fallback.
+                let useCompactForThisWindow = shouldUseCompactMode ||
+                    useWindowlessCompactRowInDock ||
+                    (windowInfo.image == nil && !useLivePreview)
 
                 let isSelected = index == previewStateCoordinator.currIndex
 
                 let itemID = "\(appName)-\(index)"
-                if windowInfo.isWindowlessApp, !shouldUseCompactMode {
+                if windowInfo.isWindowlessApp, !shouldUseCompactMode, !useWindowlessCompactRowInDock {
                     WindowlessAppPreview(
                         windowInfo: windowInfo,
                         index: index,
@@ -1336,6 +1342,8 @@ struct WindowPreviewHoverContainer: View {
                 } else if useCompactForThisWindow {
                     let compactRowWidth = if shouldUseCompactMode {
                         appearance.compactModeWidth
+                    } else if useWindowlessCompactRowInDock {
+                        appearance.previewWidth
                     } else {
                         resolvedDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews).size.width
                     }
