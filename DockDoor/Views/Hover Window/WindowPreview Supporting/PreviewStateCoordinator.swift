@@ -215,8 +215,23 @@ class PreviewStateCoordinator: ObservableObject {
     func removeWindow(at indexToRemove: Int) {
         guard indexToRemove >= 0, indexToRemove < windows.count else { return }
 
+        let removedWindow = windows[indexToRemove]
         let oldCurrIndex = currIndex
         windows.remove(at: indexToRemove)
+        var insertedWindowlessIndex: Int?
+
+        if windowSwitcherActive, Defaults[.showWindowlessAppsInSwitcher], !removedWindow.isWindowlessApp {
+            let removedPID = removedWindow.app.processIdentifier
+            let appStillRepresented = windows.contains { $0.app.processIdentifier == removedPID }
+
+            if !appStillRepresented,
+               let windowlessEntry = WindowUtil.getWindowlessRunningApps(existingWindows: windows)
+               .first(where: { $0.app.processIdentifier == removedPID })
+            {
+                windows.append(windowlessEntry)
+                insertedWindowlessIndex = windows.count - 1
+            }
+        }
 
         if windows.isEmpty {
             updateSelectionIndex(-1, source: .programmatic)
@@ -225,7 +240,11 @@ class PreviewStateCoordinator: ObservableObject {
         }
 
         if oldCurrIndex == indexToRemove {
-            updateSelectionIndex(min(indexToRemove, windows.count - 1), source: .programmatic)
+            if let insertedWindowlessIndex {
+                updateSelectionIndex(insertedWindowlessIndex, source: .programmatic)
+            } else {
+                updateSelectionIndex(min(indexToRemove, windows.count - 1), source: .programmatic)
+            }
         } else if oldCurrIndex > indexToRemove {
             updateSelectionIndex(oldCurrIndex - 1, source: .programmatic)
         }
