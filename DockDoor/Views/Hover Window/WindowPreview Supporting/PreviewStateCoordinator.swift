@@ -225,8 +225,7 @@ class PreviewStateCoordinator: ObservableObject {
             let appStillRepresented = windows.contains { $0.app.processIdentifier == removedPID }
 
             if !appStillRepresented,
-               let windowlessEntry = WindowUtil.getWindowlessRunningApps(existingWindows: windows)
-               .first(where: { $0.app.processIdentifier == removedPID })
+               let windowlessEntry = WindowUtil.windowlessEntryIfEligible(for: removedWindow.app, existingWindows: windows)
             {
                 windows.append(windowlessEntry)
                 insertedWindowlessIndex = windows.count - 1

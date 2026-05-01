@@ -565,6 +565,22 @@ extension WindowUtil {
 // MARK: - Window Discovery
 
 extension WindowUtil {
+    static func windowlessEntryIfEligible(for app: NSRunningApplication, existingWindows: [WindowInfo]) -> WindowInfo? {
+        let pidsWithWindows = Set(existingWindows.map(\.app.processIdentifier))
+        let ownBundleId = Bundle.main.bundleIdentifier
+
+        guard app.activationPolicy == .regular,
+              !pidsWithWindows.contains(app.processIdentifier),
+              !filteredBundleIdentifiers.contains(app.bundleIdentifier ?? ""),
+              !isAppFiltered(app),
+              app.bundleIdentifier != ownBundleId
+        else {
+            return nil
+        }
+
+        return WindowInfo.windowlessEntry(for: app)
+    }
+
     static func getAllWindowsOfAllApps() -> [WindowInfo] {
         let windows = desktopSpaceWindowCacheManager.getAllWindows()
         var filteredWindows = !Defaults[.includeHiddenWindowsInSwitcher]
@@ -590,19 +606,9 @@ extension WindowUtil {
     }
 
     static func getWindowlessRunningApps(existingWindows: [WindowInfo]) -> [WindowInfo] {
-        let pidsWithWindows = Set(existingWindows.map(\.app.processIdentifier))
-        let ownBundleId = Bundle.main.bundleIdentifier
-
-        return NSWorkspace.shared.runningApplications
-            .filter { app in
-                app.activationPolicy == .regular &&
-                    !pidsWithWindows.contains(app.processIdentifier) &&
-                    !filteredBundleIdentifiers.contains(app.bundleIdentifier ?? "") &&
-                    !isAppFiltered(app) &&
-                    app.bundleIdentifier != ownBundleId
-            }
+        NSWorkspace.shared.runningApplications
             .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
-            .map { WindowInfo.windowlessEntry(for: $0) }
+            .compactMap { windowlessEntryIfEligible(for: $0, existingWindows: existingWindows) }
     }
 
     static func getFocusedWindowForFrontmostApp() -> WindowInfo? {
