@@ -9,7 +9,11 @@ struct MaterialPillStyle: ViewModifier {
             .padding(.vertical, 5)
             .background(BlurView(appearance: backgroundAppearance))
             .clipShape(Capsule(style: .continuous))
-            .borderedBackground(.primary.opacity(0.1), lineWidth: 1.5, shape: Capsule(style: .continuous))
+            .borderedBackground(
+                .white.opacity(backgroundAppearance.borderOpacity),
+                lineWidth: backgroundAppearance.borderWidth,
+                shape: Capsule(style: .continuous)
+            )
     }
 }
 

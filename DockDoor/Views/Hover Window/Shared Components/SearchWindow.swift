@@ -4,25 +4,19 @@ import SwiftUI
 
 struct SearchFieldView: View {
     let searchField: NSTextField
-    @Default(.globalPaddingMultiplier) private var globalPaddingMultiplier
     @State private var backgroundAppearance: BackgroundAppearance = .resolve()
 
     var body: some View {
-        ZStack {
-            let cornerRadius = CardRadius.base + (CardRadius.innerPadding * globalPaddingMultiplier)
-            BlurView(cornerRadius: cornerRadius, appearance: backgroundAppearance)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.secondary)
 
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
-
-                SearchTextFieldRepresentable(textField: searchField)
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 12)
+            SearchTextFieldRepresentable(textField: searchField)
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, 12)
+        .materialPill(backgroundAppearance: backgroundAppearance)
         .frame(height: 40)
         .task {
             for await _ in Defaults.updates(BackgroundAppearance.observedKeys, initial: true) {
@@ -67,8 +61,10 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
         level = .statusBar
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
+        hasShadow = false
         collectionBehavior = [.canJoinAllSpaces, .transient, .fullScreenAuxiliary]
+        hidesOnDeactivate = true
+        becomesKeyOnlyIfNeeded = true
         animationBehavior = .none
     }
 
@@ -97,6 +93,11 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
 
     func showSearch(relativeTo window: NSWindow) {
         guard window.isVisible else { return }
+
+        if parent !== window {
+            parent?.removeChildWindow(self)
+            window.addChildWindow(self, ordered: .above)
+        }
 
         let frame = window.frame
         if frame.width <= 0 || frame.height <= 0 {
@@ -194,6 +195,7 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     }
 
     func hideSearch() {
+        parent?.removeChildWindow(self)
         orderOut(nil)
         searchField.stringValue = ""
         previewCoordinator?.searchQuery = ""
@@ -210,7 +212,7 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     func focusSearchField() {
         makeKeyAndOrderFront(nil)
         DispatchQueue.main.async {
-            self.searchField.becomeFirstResponder()
+            _ = self.makeFirstResponder(self.searchField)
         }
     }
 
