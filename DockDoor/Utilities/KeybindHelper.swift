@@ -1008,23 +1008,12 @@ class KeybindHelper {
 
     /// Returns the action for a Cmd+key shortcut if the keyCode matches any configured shortcut
     private func getActionForCmdShortcut(keyCode: Int64) -> WindowAction? {
-        let shortcut1Key = Defaults[.cmdShortcut1Key]
-        let shortcut2Key = Defaults[.cmdShortcut2Key]
-        let shortcut3Key = Defaults[.cmdShortcut3Key]
-
-        switch keyCode {
-        case Int64(shortcut1Key):
-            let action = Defaults[.cmdShortcut1Action]
-            return action != .none ? action : nil
-        case Int64(shortcut2Key):
-            let action = Defaults[.cmdShortcut2Action]
-            return action != .none ? action : nil
-        case Int64(shortcut3Key):
-            let action = Defaults[.cmdShortcut3Action]
-            return action != .none ? action : nil
-        default:
-            return nil
+        for shortcut in Defaults[.cmdShortcuts] where !shortcut.isPending && Int64(shortcut.keyCode) == keyCode {
+            if shortcut.action != .none {
+                return shortcut.action
+            }
         }
+        return nil
     }
 }
 

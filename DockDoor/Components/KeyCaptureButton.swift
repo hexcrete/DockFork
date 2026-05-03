@@ -7,27 +7,43 @@ struct KeyCaptureButton: View {
     var forceEmptyLabel: Bool = false
     var treatKeyCodeZeroAsEmpty: Bool = true
     var captureModifiers: Bool = false
+    var autoStartCapture: Bool = false
     var onCaptureFinished: ((Bool) -> Void)? = nil
 
     @State private var isCapturing = false
     @State private var monitors: [Any] = []
 
     var body: some View {
-        if isCapturing {
-            Text("Press a key…")
-                .font(.system(size: 12))
-                .foregroundColor(.accentColor)
-                .frame(minWidth: 50)
-        } else {
-            Button(action: startCapture) {
-                Text(displayLabel)
-                    .font(.system(size: 14, weight: .medium, design: .monospaced))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.secondary.opacity(showingEmptyLabel ? 0.1 : 0.2))
-                    .cornerRadius(4)
+        Group {
+            if isCapturing {
+                Text("Press a key…")
+                    .font(.system(size: 12))
+                    .foregroundColor(.accentColor)
+                    .frame(minWidth: 50)
+            } else {
+                Button(action: startCapture) {
+                    Text(displayLabel)
+                        .font(.system(size: 14, weight: .medium, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.secondary.opacity(showingEmptyLabel ? 0.1 : 0.2))
+                        .cornerRadius(4)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+        }
+        .onAppear {
+            if autoStartCapture, !isCapturing {
+                startCapture()
+            }
+        }
+        .onChange(of: autoStartCapture) { newValue in
+            if newValue, !isCapturing {
+                startCapture()
+            }
+        }
+        .onDisappear {
+            stopCapture()
         }
     }
 

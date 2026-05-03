@@ -138,12 +138,7 @@ struct MainSettingsView: View {
                 Defaults[.gestureSwipeThreshold] = Defaults.Keys.gestureSwipeThreshold.defaultValue
                 Defaults[.middleClickAction] = Defaults.Keys.middleClickAction.defaultValue
 
-                Defaults[.cmdShortcut1Key] = Defaults.Keys.cmdShortcut1Key.defaultValue
-                Defaults[.cmdShortcut1Action] = Defaults.Keys.cmdShortcut1Action.defaultValue
-                Defaults[.cmdShortcut2Key] = Defaults.Keys.cmdShortcut2Key.defaultValue
-                Defaults[.cmdShortcut2Action] = Defaults.Keys.cmdShortcut2Action.defaultValue
-                Defaults[.cmdShortcut3Key] = Defaults.Keys.cmdShortcut3Key.defaultValue
-                Defaults[.cmdShortcut3Action] = Defaults.Keys.cmdShortcut3Action.defaultValue
+                Defaults[.cmdShortcuts] = Defaults.Keys.cmdShortcuts.defaultValue
 
                 Defaults[.alternateKeybindKey] = Defaults.Keys.alternateKeybindKey.defaultValue
                 Defaults[.alternateKeybindConfigured] = Defaults.Keys.alternateKeybindConfigured.defaultValue

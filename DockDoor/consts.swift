@@ -24,6 +24,50 @@ let calendarAppIdentifier = "com.apple.iCal"
     }
 }
 
+struct CmdShortcut: Codable, Defaults.Serializable, Identifiable, Hashable {
+    var id: UUID
+    var keyCode: UInt16
+    var action: WindowAction
+    var isPending: Bool
+
+    init(id: UUID = UUID(), keyCode: UInt16, action: WindowAction, isPending: Bool = false) {
+        self.id = id
+        self.keyCode = keyCode
+        self.action = action
+        self.isPending = isPending
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case keyCode
+        case action
+        case isPending
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        keyCode = try container.decode(UInt16.self, forKey: .keyCode)
+        let actionRawValue = try container.decode(String.self, forKey: .action)
+        action = WindowAction(rawValue: actionRawValue) ?? .none
+        isPending = try container.decodeIfPresent(Bool.self, forKey: .isPending) ?? false
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(keyCode, forKey: .keyCode)
+        try container.encode(action.rawValue, forKey: .action)
+        try container.encode(isPending, forKey: .isPending)
+    }
+
+    static let defaultShortcuts: [CmdShortcut] = [
+        CmdShortcut(keyCode: UInt16(kVK_ANSI_W), action: .close),
+        CmdShortcut(keyCode: UInt16(kVK_ANSI_M), action: .minimize),
+        CmdShortcut(keyCode: UInt16(kVK_ANSI_Q), action: .quit),
+    ]
+}
+
 extension Defaults.Keys {
     static let previewWidth = Key<CGFloat>("previewWidth", default: 300)
     static let previewHeight = Key<CGFloat>("previewHeight", default: 187.5)
@@ -290,19 +334,9 @@ extension Defaults.Keys {
 
     static let middleClickAction = Key<WindowAction>("middleClickAction", default: .close)
 
-    // MARK: - Window Switcher Keyboard Shortcuts (Cmd+key)
+    // MARK: - Window Preview Keyboard Shortcuts (Cmd+key)
 
-    // Each shortcut has a key code (the letter/key) and an action
-    // The Cmd modifier is always required - only the key is customizable
-
-    static let cmdShortcut1Key = Key<UInt16>("cmdShortcut1Key", default: UInt16(kVK_ANSI_W))
-    static let cmdShortcut1Action = Key<WindowAction>("cmdShortcut1Action", default: .close)
-
-    static let cmdShortcut2Key = Key<UInt16>("cmdShortcut2Key", default: UInt16(kVK_ANSI_M))
-    static let cmdShortcut2Action = Key<WindowAction>("cmdShortcut2Action", default: .minimize)
-
-    static let cmdShortcut3Key = Key<UInt16>("cmdShortcut3Key", default: UInt16(kVK_ANSI_Q))
-    static let cmdShortcut3Action = Key<WindowAction>("cmdShortcut3Action", default: .quit)
+    static let cmdShortcuts = Key<[CmdShortcut]>("cmdShortcuts", default: CmdShortcut.defaultShortcuts)
 
     // MARK: - Window Switcher Selection Key
 
