@@ -8,6 +8,7 @@ struct WindowSwitcherKeybindSection: View {
     @Default(.searchTriggerKey) var searchTriggerKey
     @Default(.fullscreenAppBlacklist) var fullscreenAppBlacklist
     @Default(.alternateKeybindKey) var alternateKeybindKey
+    @Default(.alternateKeybindConfigured) var alternateKeybindConfigured
     @Default(.alternateKeybindMode) var alternateKeybindMode
     @Default(.requireShiftTabToGoBack) var requireShiftTabToGoBack
     @Default(.switcherBackwardKeyCode) var switcherBackwardKeyCode
@@ -18,6 +19,10 @@ struct WindowSwitcherKeybindSection: View {
     @StateObject private var keybindModel = KeybindModel()
     @State private var showingAddBlacklistAppSheet = false
     @State private var newBlacklistApp = ""
+
+    private var hasAlternateKeybind: Bool {
+        alternateKeybindConfigured || alternateKeybindKey != 0
+    }
 
     var body: some View {
         SettingsGroup(header: "Window Switcher Shortcuts") {
@@ -152,7 +157,7 @@ struct WindowSwitcherKeybindSection: View {
     private var keyboardShortcutSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             // Current shortcut summary
-            if let keybind = keybindModel.currentKeybind, keybind.keyCode != 0 {
+            if let keybind = keybindModel.currentKeybind {
                 HStack(spacing: 8) {
                     KeyCapView(text: modifierConverter.toString(keybind.modifierFlags), symbol: nil)
                     Text("+").foregroundColor(.secondary)
@@ -172,7 +177,7 @@ struct WindowSwitcherKeybindSection: View {
                 .labelsHidden()
                 .pickerStyle(.segmented)
                 .onChange(of: keybindModel.modifierKey) { newValue in
-                    if let currentKeybind = keybindModel.currentKeybind, currentKeybind.keyCode != 0 {
+                    if let currentKeybind = keybindModel.currentKeybind {
                         let updatedKeybind = UserKeyBind(keyCode: currentKeybind.keyCode, modifierFlags: newValue)
                         Defaults[.UserKeybind] = updatedKeybind
                         keybindModel.currentKeybind = updatedKeybind
@@ -248,11 +253,22 @@ struct WindowSwitcherKeybindSection: View {
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
 
-                KeyCaptureButton(keyCode: $alternateKeybindKey, emptyLabel: "Not set")
+                KeyCaptureButton(
+                    keyCode: $alternateKeybindKey,
+                    emptyLabel: "Not set",
+                    forceEmptyLabel: !hasAlternateKeybind,
+                    treatKeyCodeZeroAsEmpty: false,
+                    onCaptureFinished: { assigned in
+                        if assigned {
+                            alternateKeybindConfigured = true
+                        }
+                    }
+                )
 
-                if alternateKeybindKey != 0 {
+                if hasAlternateKeybind {
                     Button("Clear") {
                         alternateKeybindKey = 0
+                        alternateKeybindConfigured = false
                     }
                     .buttonStyle(.bordered)
                     .controlSize(.small)

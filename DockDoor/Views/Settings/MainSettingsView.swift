@@ -146,6 +146,7 @@ struct MainSettingsView: View {
                 Defaults[.cmdShortcut3Action] = Defaults.Keys.cmdShortcut3Action.defaultValue
 
                 Defaults[.alternateKeybindKey] = Defaults.Keys.alternateKeybindKey.defaultValue
+                Defaults[.alternateKeybindConfigured] = Defaults.Keys.alternateKeybindConfigured.defaultValue
                 Defaults[.alternateKeybindMode] = Defaults.Keys.alternateKeybindMode.defaultValue
 
                 Defaults[.cmdTabAutoSelectFirstWindow] = Defaults.Keys.cmdTabAutoSelectFirstWindow.defaultValue

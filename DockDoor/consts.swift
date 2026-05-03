@@ -311,6 +311,7 @@ extension Defaults.Keys {
     // MARK: - Alternate Window Switcher Keybind (shares modifier with primary keybind)
 
     static let alternateKeybindKey = Key<UInt16>("alternateKeybindKey", default: 0)
+    static let alternateKeybindConfigured = Key<Bool>("alternateKeybindConfigured", default: false)
     static let alternateKeybindMode = Key<SwitcherInvocationMode>("alternateKeybindMode", default: .activeAppOnly)
 }
 

@@ -4,7 +4,10 @@ import SwiftUI
 struct KeyCaptureButton: View {
     @Binding var keyCode: UInt16
     var emptyLabel: String? = nil
+    var forceEmptyLabel: Bool = false
+    var treatKeyCodeZeroAsEmpty: Bool = true
     var captureModifiers: Bool = false
+    var onCaptureFinished: ((Bool) -> Void)? = nil
 
     @State private var isCapturing = false
     @State private var monitors: [Any] = []
@@ -21,26 +24,33 @@ struct KeyCaptureButton: View {
                     .font(.system(size: 14, weight: .medium, design: .monospaced))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.secondary.opacity(keyCode == 0 && emptyLabel != nil ? 0.1 : 0.2))
+                    .background(Color.secondary.opacity(showingEmptyLabel ? 0.1 : 0.2))
                     .cornerRadius(4)
             }
             .buttonStyle(.plain)
         }
     }
 
+    private var showingEmptyLabel: Bool {
+        (forceEmptyLabel || (treatKeyCodeZeroAsEmpty && keyCode == 0)) && emptyLabel != nil
+    }
+
     private var displayLabel: String {
-        if keyCode == 0, let emptyLabel {
+        if showingEmptyLabel, let emptyLabel {
             return emptyLabel
         }
         return KeyboardLabel.localizedKey(for: keyCode)
     }
 
-    private func stopCapture() {
+    private func stopCapture(reportAssigned assigned: Bool? = nil) {
         isCapturing = false
         for monitor in monitors {
             NSEvent.removeMonitor(monitor)
         }
         monitors = []
+        if let assigned {
+            onCaptureFinished?(assigned)
+        }
     }
 
     private func startCapture() {
@@ -49,20 +59,27 @@ struct KeyCaptureButton: View {
 
         monitors.append(NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             if event.keyCode == UInt16(kVK_Escape) {
-                stopCapture()
+                stopCapture(reportAssigned: false)
                 return nil
             }
             keyCode = event.keyCode
-            stopCapture()
+            stopCapture(reportAssigned: true)
             return nil
         }!)
+
+        if onCaptureFinished != nil {
+            monitors.append(NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
+                stopCapture(reportAssigned: false)
+                return event
+            }!)
+        }
 
         if captureModifiers {
             monitors.append(NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
                 let modifierKeyCodes: Set<UInt16> = [54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
                 if modifierKeyCodes.contains(event.keyCode) {
                     keyCode = event.keyCode
-                    stopCapture()
+                    stopCapture(reportAssigned: true)
                 }
                 return event
             }!)

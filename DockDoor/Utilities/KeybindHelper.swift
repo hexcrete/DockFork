@@ -823,7 +823,8 @@ class KeybindHelper {
         // Check alternate keybind (shares same modifier as primary keybind)
         if isDesiredModifierPressedNow {
             let alternateKey = Defaults[.alternateKeybindKey]
-            if alternateKey != 0, keyCode == alternateKey {
+            let hasAlternateKey = Defaults[.alternateKeybindConfigured] || alternateKey != 0
+            if hasAlternateKey, keyCode == alternateKey {
                 guard Defaults[.enableWindowSwitcher] else { return (false, nil) }
                 if WindowUtil.shouldIgnoreKeybindForFrontmostApp() { return (false, nil) }
                 switcherSessionActive = true
