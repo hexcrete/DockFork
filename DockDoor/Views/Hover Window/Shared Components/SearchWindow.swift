@@ -77,6 +77,14 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
         searchField.focusRingType = .none
         searchField.font = NSFont.systemFont(ofSize: 14)
         searchField.usesSingleLineMode = true
+        searchField.maximumNumberOfLines = 1
+        searchField.lineBreakMode = .byClipping
+        if let cell = searchField.cell as? NSTextFieldCell {
+            cell.wraps = false
+            cell.usesSingleLineMode = true
+            cell.isScrollable = true
+            cell.lineBreakMode = .byClipping
+        }
         searchField.delegate = self
 
         let searchView = SearchFieldView(searchField: searchField)
@@ -89,6 +97,10 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     func controlTextDidChange(_ obj: Notification) {
         guard let textField = obj.object as? NSTextField else { return }
         previewCoordinator?.searchQuery = textField.stringValue
+    }
+
+    func controlTextDidBeginEditing(_ obj: Notification) {
+        configureFieldEditorForSingleLine()
     }
 
     func showSearch(relativeTo window: NSWindow) {
@@ -213,7 +225,20 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
         makeKeyAndOrderFront(nil)
         DispatchQueue.main.async {
             _ = self.makeFirstResponder(self.searchField)
+            self.configureFieldEditorForSingleLine()
         }
+    }
+
+    private func configureFieldEditorForSingleLine() {
+        guard let editor = searchField.currentEditor() as? NSTextView else { return }
+        editor.isHorizontallyResizable = true
+        editor.isVerticallyResizable = false
+        editor.maxSize = NSSize(width: .greatestFiniteMagnitude, height: searchField.bounds.height)
+        editor.textContainerInset = .zero
+        editor.textContainer?.widthTracksTextView = false
+        editor.textContainer?.heightTracksTextView = true
+        editor.textContainer?.lineBreakMode = .byClipping
+        editor.textContainer?.containerSize = NSSize(width: .greatestFiniteMagnitude, height: searchField.bounds.height)
     }
 
     override var canBecomeKey: Bool { true }
