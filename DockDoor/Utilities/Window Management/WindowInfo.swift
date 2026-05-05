@@ -304,8 +304,11 @@ extension WindowInfo {
             return
         }
 
-        try? axElement.setAttribute(kAXPositionAttribute, positionValue)
-        try? axElement.setAttribute(kAXSizeAttribute, sizeValue)
+        let positionApplied = (try? axElement.setAttribute(kAXPositionAttribute, positionValue)) != nil
+        let sizeApplied = (try? axElement.setAttribute(kAXSizeAttribute, sizeValue)) != nil
+
+        guard positionApplied || sizeApplied else { return }
+        WindowUtil.refreshCachedPreviewAfterProgrammaticResize(self, targetScreenIdentifier: screen.uniqueIdentifier())
     }
 
     func setWindowFrame(_ targetFrame: CGRect) {

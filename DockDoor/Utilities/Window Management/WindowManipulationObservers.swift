@@ -245,11 +245,25 @@ class WindowManipulationObservers {
             }
         case kAXUIElementDestroyedNotification:
             handleWindowEvent(element: element, app: app, notification: notificationName, validate: true)
-        case kAXWindowResizedNotification, kAXWindowMovedNotification:
+        case kAXWindowResizedNotification:
+            let resizedWindowID = try? element.cgWindowId()
             handleWindowEvent(element: element, app: app, notification: notificationName, validate: false) { [weak self] windowSet in
                 guard let self else { return }
-                let windowID = try? element.cgWindowId()
-                update(windowSet: &windowSet, matching: windowID, element: element) { window in
+                update(windowSet: &windowSet, matching: resizedWindowID, element: element) { window in
+                    window.spaceID = window.id.cgsSpaces().first.map { Int($0) }
+                    if let pos = try? element.position() {
+                        window.screenIdentifier = WindowUtil.screenIdentifier(forWindowAt: pos)
+                    }
+                }
+            }
+            if let resizedWindowID {
+                WindowUtil.refreshCachedPreviewAfterResizeNotification(pid: pid, windowID: resizedWindowID)
+            }
+        case kAXWindowMovedNotification:
+            let movedWindowID = try? element.cgWindowId()
+            handleWindowEvent(element: element, app: app, notification: notificationName, validate: false) { [weak self] windowSet in
+                guard let self else { return }
+                update(windowSet: &windowSet, matching: movedWindowID, element: element) { window in
                     window.spaceID = window.id.cgsSpaces().first.map { Int($0) }
                     if let pos = try? element.position() {
                         window.screenIdentifier = WindowUtil.screenIdentifier(forWindowAt: pos)
