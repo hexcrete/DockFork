@@ -294,6 +294,17 @@ enum WindowUtil {
     private static var timestampUpdates: [AXUIElement: Date] = [:]
     private static let updateTimestampLock = NSLock()
     private static let windowUpdateTimeWindow: TimeInterval = 1.5
+    private static var programmaticResizeRefreshDelayMilliseconds: UInt64 = 180
+    private static var axResizeRefreshDelayMilliseconds: UInt64 = 360
+    private static var programmaticResizeRefreshDelayNanos: UInt64 { programmaticResizeRefreshDelayMilliseconds * 1_000_000 }
+    private static var axResizeRefreshDelayNanos: UInt64 { axResizeRefreshDelayMilliseconds * 1_000_000 }
+    private static let programmaticResizeRefreshLock = NSLock()
+    private struct PendingProgrammaticResizeRefresh {
+        let token: UUID
+        let task: Task<Void, Never>
+    }
+
+    private static var pendingProgrammaticResizeRefreshes: [String: PendingProgrammaticResizeRefresh] = [:]
 
     private static let captureError = NSError(
         domain: "WindowCaptureError",
@@ -305,6 +316,11 @@ enum WindowUtil {
 // MARK: - Cache Management
 
 extension WindowUtil {
+    static func setResizeRefreshDebounceDelays(programmaticMilliseconds: UInt64, axMilliseconds: UInt64) {
+        programmaticResizeRefreshDelayMilliseconds = programmaticMilliseconds
+        axResizeRefreshDelayMilliseconds = axMilliseconds
+    }
+
     /// Reads cached windows for an app without triggering any SCK/AX fetches.
     /// Returns immediately with whatever is in cache, sorted by the given context.
     static func readCachedWindows(for pid: pid_t, sortedBy context: WindowFetchContext = .dockPreview) -> [WindowInfo] {
@@ -391,6 +407,90 @@ extension WindowUtil {
                 windowSet.insert(updatedWindow)
             }
         }
+    }
+
+    private static func scheduleForcedPreviewRecapture(
+        pid: pid_t,
+        windowID: CGWindowID,
+        fallbackWindowInfo: WindowInfo? = nil,
+        targetScreenIdentifier: String? = nil,
+        delayNanos: UInt64
+    ) {
+        let refreshKey = "\(pid)-\(windowID)"
+
+        programmaticResizeRefreshLock.lock()
+        pendingProgrammaticResizeRefreshes[refreshKey]?.task.cancel()
+        let token = UUID()
+        let refreshTask = Task(priority: .utility) {
+            func forceCaptureAndCacheUpdate() async {
+                guard !Task.isCancelled else { return }
+                let cachedWindowInfo = desktopSpaceWindowCacheManager.readCache(pid: pid).first(where: { $0.id == windowID })
+                guard var refreshedWindowInfo = cachedWindowInfo ?? fallbackWindowInfo else {
+                    return
+                }
+
+                guard let image = try? await captureWindowImage(
+                    windowID: windowID,
+                    pid: pid,
+                    windowTitle: refreshedWindowInfo.windowName,
+                    forceRefresh: true
+                ) else {
+                    return
+                }
+
+                refreshedWindowInfo.image = image
+                refreshedWindowInfo.imageCapturedTime = Date()
+                refreshedWindowInfo.spaceID = windowID.cgsSpaces().first.map { Int($0) }
+                if let targetScreenIdentifier {
+                    refreshedWindowInfo.screenIdentifier = targetScreenIdentifier
+                } else if let pos = try? refreshedWindowInfo.axElement.position() {
+                    refreshedWindowInfo.screenIdentifier = screenIdentifier(forWindowAt: pos)
+                }
+                updateDesktopSpaceWindowCache(with: refreshedWindowInfo)
+            }
+
+            defer {
+                programmaticResizeRefreshLock.lock()
+                if pendingProgrammaticResizeRefreshes[refreshKey]?.token == token {
+                    pendingProgrammaticResizeRefreshes.removeValue(forKey: refreshKey)
+                }
+                programmaticResizeRefreshLock.unlock()
+            }
+
+            do {
+                try await Task.sleep(nanoseconds: delayNanos)
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled else { return }
+            await forceCaptureAndCacheUpdate()
+        }
+        pendingProgrammaticResizeRefreshes[refreshKey] = PendingProgrammaticResizeRefresh(token: token, task: refreshTask)
+        programmaticResizeRefreshLock.unlock()
+    }
+
+    static func refreshCachedPreviewAfterProgrammaticResize(_ windowInfo: WindowInfo, targetScreenIdentifier: String?) {
+        let newSpaceID = windowInfo.id.cgsSpaces().first.map { Int($0) }
+
+        // Apply geometry metadata immediately so filtering and ordering stay accurate.
+        updateCachedWindowState(windowInfo, spaceID: newSpaceID, screenIdentifier: targetScreenIdentifier)
+
+        scheduleForcedPreviewRecapture(
+            pid: windowInfo.app.processIdentifier,
+            windowID: windowInfo.id,
+            fallbackWindowInfo: windowInfo,
+            targetScreenIdentifier: targetScreenIdentifier,
+            delayNanos: programmaticResizeRefreshDelayNanos
+        )
+    }
+
+    static func refreshCachedPreviewAfterResizeNotification(pid: pid_t, windowID: CGWindowID) {
+        scheduleForcedPreviewRecapture(
+            pid: pid,
+            windowID: windowID,
+            delayNanos: axResizeRefreshDelayNanos
+        )
     }
 }
 
