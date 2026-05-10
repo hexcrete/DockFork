@@ -163,36 +163,49 @@ class PreviewStateCoordinator: ObservableObject {
         }
 
         let previousWindowCount = windows.count
-        let selectedWindowID: CGWindowID? = (currIndex >= 0 && currIndex < windows.count) ? windows[currIndex].id : nil
+        func mergeIdentity(for window: WindowInfo) -> String {
+            "\(window.app.processIdentifier)-\(window.id)"
+        }
 
-        let freshWindowsByID: [CGWindowID: WindowInfo] = Dictionary(
-            freshWindows.map { ($0.id, $0) },
+        let previousSelectionSource = selectionInputSource
+        let selectedWindowIdentity: String? = if currIndex >= 0, currIndex < windows.count {
+            mergeIdentity(for: windows[currIndex])
+        } else {
+            nil
+        }
+
+        let freshWindowsByIdentity: [String: WindowInfo] = Dictionary(
+            freshWindows.map { (mergeIdentity(for: $0), $0) },
             uniquingKeysWith: { first, _ in first }
         )
-        let freshIDs = Set(freshWindowsByID.keys)
-        let existingIDs = Set(windows.map(\.id))
+        let freshIdentities = Set(freshWindowsByIdentity.keys)
+        let existingIdentities = Set(windows.map(mergeIdentity(for:)))
 
         // Update existing windows in place
         for index in windows.indices {
-            if let fresh = freshWindowsByID[windows[index].id] {
+            let identity = mergeIdentity(for: windows[index])
+            if let fresh = freshWindowsByIdentity[identity] {
                 windows[index] = fresh
             }
         }
 
         // Add new windows at the end
-        for freshWindow in freshWindows where !existingIDs.contains(freshWindow.id) {
+        for freshWindow in freshWindows where !existingIdentities.contains(mergeIdentity(for: freshWindow)) {
             windows.append(freshWindow)
         }
 
         // Remove stale windows
-        let staleIDs = existingIDs.subtracting(freshIDs)
-        if !staleIDs.isEmpty {
-            windows.removeAll { staleIDs.contains($0.id) }
+        let staleIdentities = existingIdentities.subtracting(freshIdentities)
+        if !staleIdentities.isEmpty {
+            windows.removeAll { staleIdentities.contains(mergeIdentity(for: $0)) }
         }
 
         // Restore selection to the same window, or clamp if it was removed
-        if let selectedID = selectedWindowID, let newIndex = windows.firstIndex(where: { $0.id == selectedID }) {
-            updateSelectionIndex(newIndex, source: .programmatic)
+        if let selectedWindowIdentity,
+           let newIndex = windows.firstIndex(where: { mergeIdentity(for: $0) == selectedWindowIdentity })
+        {
+            // Keep user-driven source across async merges so highlight actions don't get canceled.
+            updateSelectionIndex(newIndex, source: previousSelectionSource)
         } else if currIndex >= windows.count {
             updateSelectionIndex(windows.isEmpty ? -1 : windows.count - 1, source: .programmatic)
         }
