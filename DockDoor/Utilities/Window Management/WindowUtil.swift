@@ -486,6 +486,13 @@ extension WindowUtil {
     }
 
     static func refreshCachedPreviewAfterResizeNotification(pid: pid_t, windowID: CGWindowID) {
+        if let cachedWindowInfo = desktopSpaceWindowCacheManager.readCache(pid: pid).first(where: { $0.id == windowID }),
+           let isFullscreen = try? cachedWindowInfo.axElement.isFullscreen(),
+           isFullscreen
+        {
+            return
+        }
+
         scheduleForcedPreviewRecapture(
             pid: pid,
             windowID: windowID,
@@ -1165,6 +1172,37 @@ extension WindowUtil {
     }
 
     private static let minUsableImageDimension = 10
+    private static let maxImageAspectMismatchFactor: CGFloat = 4.0
+
+    private static func expectedAspectRatio(for windowInfo: WindowInfo) -> CGFloat? {
+        let providerSize = windowInfo.frame.size
+        if providerSize.width > 0, providerSize.height > 0 {
+            return providerSize.width / providerSize.height
+        }
+        if let axSize = try? windowInfo.axElement.size(), axSize.width > 0, axSize.height > 0 {
+            return axSize.width / axSize.height
+        }
+        return nil
+    }
+
+    private static func shouldRejectCapturedImage(_ image: CGImage?, for windowInfo: WindowInfo) -> Bool {
+        guard let image else { return true }
+
+        let width = CGFloat(image.width)
+        let height = CGFloat(image.height)
+        let minUsableDimension = CGFloat(minUsableImageDimension)
+        guard width >= minUsableDimension, height >= minUsableDimension else { return true }
+
+        guard let expectedAspect = expectedAspectRatio(for: windowInfo), expectedAspect > 0 else {
+            return false
+        }
+
+        let capturedAspect = width / height
+        guard capturedAspect > 0 else { return true }
+
+        let mismatchFactor = max(capturedAspect, expectedAspect) / min(capturedAspect, expectedAspect)
+        return mismatchFactor > maxImageAspectMismatchFactor
+    }
 
     static func updateDesktopSpaceWindowCache(with windowInfo: WindowInfo) {
         desktopSpaceWindowCacheManager.updateCache(pid: windowInfo.app.processIdentifier) { windowSet in
@@ -1180,14 +1218,12 @@ extension WindowUtil {
                 matchingWindowCopy.isMinimized = windowInfo.isMinimized
                 matchingWindowCopy.isHidden = windowInfo.isHidden
 
-                let newImageIsTiny: Bool = if let img = windowInfo.image {
-                    img.width < minUsableImageDimension || img.height < minUsableImageDimension
-                } else {
-                    true
-                }
-
-                if newImageIsTiny, matchingWindow.image != nil {
-                    // Keep the existing cached image instead of replacing with a degenerate one
+                let shouldRejectImage = shouldRejectCapturedImage(windowInfo.image, for: windowInfo)
+                if shouldRejectImage, matchingWindow.image != nil {
+                    DebugLogger.log(
+                        "Window image cache",
+                        details: "Rejected suspicious capture for pid=\(windowInfo.app.processIdentifier) window=\(windowInfo.id)"
+                    )
                 } else {
                     matchingWindowCopy.image = windowInfo.image
                     matchingWindowCopy.imageCapturedTime = windowInfo.imageCapturedTime
@@ -1196,7 +1232,13 @@ extension WindowUtil {
                 windowSet.remove(matchingWindow)
                 windowSet.insert(matchingWindowCopy)
             } else {
-                windowSet.insert(windowInfo)
+                if shouldRejectCapturedImage(windowInfo.image, for: windowInfo) {
+                    var sanitizedWindowInfo = windowInfo
+                    sanitizedWindowInfo.image = nil
+                    windowSet.insert(sanitizedWindowInfo)
+                } else {
+                    windowSet.insert(windowInfo)
+                }
             }
         }
     }

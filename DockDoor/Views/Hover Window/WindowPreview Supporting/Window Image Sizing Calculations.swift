@@ -56,12 +56,11 @@ extension WindowPreviewHoverContainer {
     }
 
     private static func computeRenderedDimension(
-        image: CGImage,
+        aspectRatio: CGFloat,
         thickness: CGFloat,
         maxDimensions: CGSize,
         isHorizontal: Bool
     ) -> CGSize {
-        let aspectRatio = CGFloat(image.width) / CGFloat(image.height)
         if isHorizontal {
             let width = min(thickness * aspectRatio, maxDimensions.width)
             return CGSize(width: width, height: thickness)
@@ -69,6 +68,42 @@ extension WindowPreviewHoverContainer {
             let height = min(thickness / aspectRatio, maxDimensions.height)
             return CGSize(width: thickness, height: height)
         }
+    }
+
+    private static func geometryAspectRatio(for window: WindowInfo) -> CGFloat? {
+        if let axSize = try? window.axElement.size(),
+           axSize.width > 0,
+           axSize.height > 0
+        {
+            return axSize.width / axSize.height
+        }
+
+        let frameSize = window.frame.size
+        if frameSize.width > 0, frameSize.height > 0 {
+            return frameSize.width / frameSize.height
+        }
+
+        return nil
+    }
+
+    private static func effectiveAspectRatio(for window: WindowInfo, image: CGImage) -> CGFloat {
+        let imageAspect = CGFloat(image.width) / CGFloat(image.height)
+        guard imageAspect > 0 else { return 1 }
+
+        guard let geometryAspect = geometryAspectRatio(for: window), geometryAspect > 0 else {
+            return imageAspect
+        }
+
+        if (try? window.axElement.isFullscreen()) == true {
+            return geometryAspect
+        }
+
+        let mismatchFactor = max(imageAspect, geometryAspect) / min(imageAspect, geometryAspect)
+        if mismatchFactor > 4 {
+            return geometryAspect
+        }
+
+        return imageAspect
     }
 
     static func precomputeWindowDimensions(
@@ -89,8 +124,9 @@ extension WindowPreviewHoverContainer {
 
             for (index, window) in windows.enumerated() {
                 if let cgImage = window.image {
+                    let aspectRatio = effectiveAspectRatio(for: window, image: cgImage)
                     let rendered = computeRenderedDimension(
-                        image: cgImage,
+                        aspectRatio: aspectRatio,
                         thickness: thickness,
                         maxDimensions: maxDims,
                         isHorizontal: orientationIsHorizontal
