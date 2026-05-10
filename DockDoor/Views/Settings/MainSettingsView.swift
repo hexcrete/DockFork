@@ -99,6 +99,8 @@ struct MainSettingsView: View {
                 Defaults[.cmdTabTapEquivalentInterval] = Defaults.Keys.cmdTabTapEquivalentInterval.defaultValue
                 Defaults[.preventDockHide] = Defaults.Keys.preventDockHide.defaultValue
                 Defaults[.screenCaptureCacheLifespan] = Defaults.Keys.screenCaptureCacheLifespan.defaultValue
+                Defaults[.programmaticResizePreviewRefreshDelay] = Defaults.Keys.programmaticResizePreviewRefreshDelay.defaultValue
+                Defaults[.nativeResizePreviewRefreshDelay] = Defaults.Keys.nativeResizePreviewRefreshDelay.defaultValue
                 Defaults[.windowPreviewImageScale] = Defaults.Keys.windowPreviewImageScale.defaultValue
                 Defaults[.bufferFromDock] = Defaults.Keys.bufferFromDock.defaultValue
                 Defaults[.shouldHideOnDockItemClick] = Defaults.Keys.shouldHideOnDockItemClick.defaultValue

@@ -104,6 +104,8 @@ extension Defaults.Keys {
 
     static let screenCaptureCacheLifespan = Key<CGFloat>("screenCaptureCacheLifespan", default: 30)
     static let windowProcessingDebounceInterval = Key<CGFloat>("windowProcessingDebounceInterval", default: 0.3)
+    static let programmaticResizePreviewRefreshDelay = Key<CGFloat>("programmaticResizePreviewRefreshDelay", default: 0.18)
+    static let nativeResizePreviewRefreshDelay = Key<CGFloat>("nativeResizePreviewRefreshDelay", default: 0.36)
     static let windowPreviewImageScale = Key<CGFloat>("windowPreviewImageScale", default: 1)
     static let windowImageCaptureQuality = Key<WindowImageCaptureQuality>("windowImageCaptureQuality", default: .nominal)
 

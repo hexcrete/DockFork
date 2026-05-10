@@ -40,6 +40,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         applyAppearanceMode(Defaults[.appAppearanceMode])
+        WindowUtil.setResizeRefreshDebounceDelays(
+            programmaticMilliseconds: Self.resizeRefreshDelayMilliseconds(from: Defaults[.programmaticResizePreviewRefreshDelay]),
+            axMilliseconds: Self.resizeRefreshDelayMilliseconds(from: Defaults[.nativeResizePreviewRefreshDelay])
+        )
 
         // Set global AX timeout to prevent hangs from unresponsive apps
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1.0)
@@ -239,6 +243,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func closeSettingsWindow() {
         settingsManager?.close()
+    }
+
+    private static func resizeRefreshDelayMilliseconds(from seconds: CGFloat) -> UInt64 {
+        UInt64(max(0, (seconds * 1000).rounded()))
     }
 
     func quitApp() {

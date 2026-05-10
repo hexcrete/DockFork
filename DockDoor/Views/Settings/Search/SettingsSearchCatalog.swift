@@ -1545,6 +1545,22 @@ enum SettingsSearchCatalog {
             icon: "gauge.with.dots.needle.bottom.50percent"
         ),
         SettingsSearchItem(
+            id: "advanced.programmaticResizeRefreshDelay",
+            title: String(localized: "Programmatic Resize Preview Refresh Delay"),
+            keywords: ["resize", "preview", "refresh", "programmatic", "delay"],
+            tab: "Advanced",
+            section: String(localized: "Performance Tuning"),
+            icon: "clock.arrow.trianglehead.counterclockwise.rotate.90"
+        ),
+        SettingsSearchItem(
+            id: "advanced.nativeResizeRefreshDelay",
+            title: String(localized: "Native Resize Preview Refresh Delay"),
+            keywords: ["resize", "preview", "refresh", "native", "ax", "delay"],
+            tab: "Advanced",
+            section: String(localized: "Performance Tuning"),
+            icon: "clock.arrow.trianglehead.counterclockwise.rotate.90"
+        ),
+        SettingsSearchItem(
             id: "advanced.anchorPosition",
             title: String(localized: "Anchor preview to initial dock icon position"),
             description: String(localized: "Keeps the preview pinned where the dock icon was when first hovered, preventing it from jumping when the dock auto-hides."),

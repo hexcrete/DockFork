@@ -8,6 +8,8 @@ struct AdvancedSettingsView: View {
     @Default(.preventPreviewReentryDuringFadeOut) var preventPreviewReentryDuringFadeOut
     @Default(.inactivityTimeout) var inactivityTimeout
     @Default(.windowProcessingDebounceInterval) var windowProcessingDebounceInterval
+    @Default(.programmaticResizePreviewRefreshDelay) var programmaticResizePreviewRefreshDelay
+    @Default(.nativeResizePreviewRefreshDelay) var nativeResizePreviewRefreshDelay
     @Default(.anchorDockPreviewPosition) var anchorDockPreviewPosition
     @Default(.preventDockHide) var preventDockHide
     @Default(.raisedWindowLevel) var raisedWindowLevel
@@ -49,6 +51,13 @@ struct AdvancedSettingsView: View {
             if livePreviewStreamKeepAlive > 0 {
                 lastKeepAliveDuration = livePreviewStreamKeepAlive
             }
+            applyResizeRefreshDebounceDelays()
+        }
+        .onChange(of: programmaticResizePreviewRefreshDelay) { _ in
+            applyResizeRefreshDebounceDelays()
+        }
+        .onChange(of: nativeResizePreviewRefreshDelay) { _ in
+            applyResizeRefreshDebounceDelays()
         }
     }
 
@@ -79,6 +88,10 @@ struct AdvancedSettingsView: View {
                     }
                 })
                 .settingsSearchTarget("advanced.debounce")
+                sliderSetting(title: "Programmatic Resize Preview Refresh Delay", value: $programmaticResizePreviewRefreshDelay, range: 0 ... 1, step: 0.01, unit: "seconds", formatter: NumberFormatter.twoDecimalFormatter)
+                    .settingsSearchTarget("advanced.programmaticResizeRefreshDelay")
+                sliderSetting(title: "Native Resize Preview Refresh Delay", value: $nativeResizePreviewRefreshDelay, range: 0 ... 1, step: 0.01, unit: "seconds", formatter: NumberFormatter.twoDecimalFormatter)
+                    .settingsSearchTarget("advanced.nativeResizeRefreshDelay")
 
                 Toggle(isOn: $anchorDockPreviewPosition) {
                     Text("Anchor preview to initial dock icon position")
@@ -126,6 +139,17 @@ struct AdvancedSettingsView: View {
                     .padding(.leading, 20)
             }
         }
+    }
+
+    private func applyResizeRefreshDebounceDelays() {
+        WindowUtil.setResizeRefreshDebounceDelays(
+            programmaticMilliseconds: resizeRefreshDelayMilliseconds(from: programmaticResizePreviewRefreshDelay),
+            axMilliseconds: resizeRefreshDelayMilliseconds(from: nativeResizePreviewRefreshDelay)
+        )
+    }
+
+    private func resizeRefreshDelayMilliseconds(from seconds: CGFloat) -> UInt64 {
+        UInt64(max(0, (seconds * 1000).rounded()))
     }
 
     // MARK: - Preview Quality
