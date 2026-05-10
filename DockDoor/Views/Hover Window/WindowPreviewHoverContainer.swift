@@ -1108,6 +1108,10 @@ struct WindowPreviewHoverContainer: View {
         guard index < previewStateCoordinator.windows.count else { return }
         let window = previewStateCoordinator.windows[index]
 
+        if action == .close || action == .quit {
+            scheduleDockActionReconciliationIfNeeded(for: window.app)
+        }
+
         let keepPreviewOnQuit = previewStateCoordinator.windowSwitcherActive || Defaults[.keepPreviewOnAppTerminate]
         let result = action.perform(on: window, keepPreviewOnQuit: keepPreviewOnQuit)
 
@@ -1126,6 +1130,33 @@ struct WindowPreviewHoverContainer: View {
             }
         case .noChange:
             break
+        }
+    }
+
+    private func scheduleDockActionReconciliationIfNeeded(for app: NSRunningApplication) {
+        guard !mockPreviewActive else { return }
+        guard !previewStateCoordinator.windowSwitcherActive else { return }
+        guard dockPosition != .cmdTab else { return }
+
+        let delays: [UInt64] = [120_000_000, 450_000_000, 900_000_000]
+
+        for (index, delay) in delays.enumerated() {
+            Task.detached {
+                try? await Task.sleep(nanoseconds: delay)
+                guard !Task.isCancelled else { return }
+
+                await WindowUtil.updateNewWindowsForApp(app)
+                guard !Task.isCancelled else { return }
+
+                if index == 1 {
+                    await WindowUtil.updateAllWindowsInCurrentSpace()
+                    guard !Task.isCancelled else { return }
+                }
+
+                await MainActor.run {
+                    DockObserver.activeInstance?.processSelectedDockItemChanged()
+                }
+            }
         }
     }
 

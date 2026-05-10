@@ -67,7 +67,8 @@ func mapAXToCG(axWindow: AXUIElement, candidates: [[String: AnyObject]], excludi
 
 // MARK: - Shared Helper Functions
 
-/// Returns CG window candidates for a given PID on layer 0
+/// Returns CG window candidates for a given PID on layer 0.
+/// Layer-0 candidates are used for primary AX-to-CG mapping heuristics.
 func getCGWindowCandidates(for pid: pid_t) -> [[String: AnyObject]] {
     let cgAll = (CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: AnyObject]]) ?? []
     return cgAll.filter { desc in
@@ -85,16 +86,31 @@ func findCGEntry(for windowID: CGWindowID, in candidates: [[String: AnyObject]])
     }
 }
 
+/// Finds an exact CG window entry by owner PID and window ID across all layers.
+func findCGEntry(for windowID: CGWindowID, ownerPID: pid_t) -> [String: AnyObject]? {
+    let cgAll = (CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: AnyObject]]) ?? []
+    return cgAll.first { desc in
+        let wid = CGWindowID((desc[kCGWindowNumber as String] as? NSNumber)?.uint32Value ?? 0)
+        let owner = (desc[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value ?? 0
+        return wid == windowID && owner == ownerPID
+    }
+}
+
 // MARK: - Shared Validation
 
 let AXMinWindowSize: CGSize = .init(width: 100, height: 100)
 
 func isValidAXWindowCandidate(_ axWindow: AXUIElement) -> Bool {
     DebugLogger.measureSlow("isValidAXWindowCandidate", thresholdMs: 50) {
-        if let role = try? axWindow.role(), role != kAXWindowRole { return false }
-        if let subrole = try? axWindow.subrole(),
-           ![kAXStandardWindowSubrole, kAXDialogSubrole].contains(subrole)
+        if let role = try? axWindow.role(),
+           role != kAXWindowRole, role != "AXSheet"
         { return false }
+
+        if let role = try? axWindow.role(), role == kAXWindowRole,
+           let subrole = try? axWindow.subrole(),
+           ![kAXStandardWindowSubrole, kAXDialogSubrole, "AXSystemDialog", "AXSheet"].contains(subrole)
+        { return false }
+
         if let s = try? axWindow.size(), let p = try? axWindow.position() {
             if s == .zero { return false }
             if !Defaults[.disableMinWindowSizeFilter], s.width < AXMinWindowSize.width || s.height < AXMinWindowSize.height { return false }
@@ -116,6 +132,10 @@ func isValidCGWindowCandidate(_ id: CGWindowID, in candidates: [[String: AnyObje
         return wid == id
     }) else { return false }
 
+    return isValidCGWindowEntry(match)
+}
+
+func isValidCGWindowEntry(_ match: [String: AnyObject]) -> Bool {
     let bounds = match[kCGWindowBounds as String] as? [String: AnyObject]
     let rw = CGFloat((bounds?["Width"] as? NSNumber)?.doubleValue ?? 0)
     let rh = CGFloat((bounds?["Height"] as? NSNumber)?.doubleValue ?? 0)

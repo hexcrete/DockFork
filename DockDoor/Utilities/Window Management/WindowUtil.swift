@@ -1124,8 +1124,8 @@ extension WindowUtil {
             }
         }
 
-        guard isValidCGWindowCandidate(cgID, in: cgCandidates) else { return }
-        guard let cgEntry = findCGEntry(for: cgID, in: cgCandidates) else { return }
+        guard let cgEntry = findCGEntry(for: cgID, in: cgCandidates) ?? findCGEntry(for: cgID, ownerPID: pid) else { return }
+        guard isValidCGWindowEntry(cgEntry) else { return }
 
         let activeSpaceIDs = currentActiveSpaceIDs()
         guard shouldAcceptWindow(
