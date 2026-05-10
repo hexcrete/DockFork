@@ -101,7 +101,6 @@ struct WindowPreviewHoverContainer: View {
     @State private var hasAppeared: Bool = false
     @State private var appIcon: NSImage? = nil
     @State private var hoveringAppIcon: Bool = false
-    @State private var hoveringWindowTitle: Bool = false
 
     @State private var dragPoints: [CGPoint] = []
     @State private var lastShakeCheck: Date = .init()
@@ -479,9 +478,6 @@ struct WindowPreviewHoverContainer: View {
             .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .default && effectiveShowAppName) ? 25 : 0)
             .overlay(alignment: effectiveAppNameStyle == .popover ? .top : .topLeading) {
                 hoverTitleBaseView(labelSize: measureString(appName, fontSize: 14))
-                    .onHover { isHovered in
-                        hoveringWindowTitle = isHovered
-                    }
             }
             .overlay {
                 if !mockPreviewActive, !isDragging {
@@ -652,8 +648,13 @@ struct WindowPreviewHoverContainer: View {
                     .padding(.horizontal, 10)
                     .dockStyle(backgroundAppearance: backgroundAppearance, cornerRadius: 10)
                     .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .onHover { hover in
-                        hoveringAppIcon = hover
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active:
+                            if !hoveringAppIcon { hoveringAppIcon = true }
+                        case .ended:
+                            if hoveringAppIcon { hoveringAppIcon = false }
+                        }
                     }
                     .offset(y: -30)
                 }
