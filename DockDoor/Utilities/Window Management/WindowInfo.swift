@@ -481,18 +481,20 @@ extension WindowInfo {
         CGAssociateMouseAndMouseCursorPosition(1)
     }
 
-    func close() {
-        guard !isWindowlessApp else { return }
+    @discardableResult
+    func close() -> Bool {
+        guard !isWindowlessApp else { return false }
         guard closeButton != nil else {
             print("Error: closeButton is nil.")
-            return
+            return false
         }
 
         do {
             try closeButton?.performAction(kAXPressAction)
-            WindowUtil.removeWindowFromDesktopSpaceCache(with: id, in: app.processIdentifier)
+            return true
         } catch {
             print("Error closing window")
+            return false
         }
     }
 
@@ -502,6 +504,5 @@ extension WindowInfo {
         } else {
             app.terminate()
         }
-        WindowUtil.purgeAppCache(with: app.processIdentifier)
     }
 }

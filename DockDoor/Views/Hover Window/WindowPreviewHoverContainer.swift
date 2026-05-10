@@ -1038,11 +1038,12 @@ struct WindowPreviewHoverContainer: View {
 
     private func closeAllWindows() {
         onWindowTap?()
-        let windowsToClose = previewStateCoordinator.windows
-        previewStateCoordinator.removeAllWindows()
+        let windowsToClose = previewStateCoordinator.windows.filter { !$0.isWindowlessApp }
+
+        guard !windowsToClose.isEmpty else { return }
 
         DispatchQueue.concurrentPerform(iterations: windowsToClose.count) { index in
-            windowsToClose[index].close()
+            _ = windowsToClose[index].close()
         }
     }
 

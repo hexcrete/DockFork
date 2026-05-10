@@ -130,14 +130,14 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     /// Performs the action on the given window
     /// - Parameters:
     ///   - window: The window to perform the action on
-    ///   - keepPreviewOnQuit: Whether to keep the preview open after quitting (removes app windows instead of dismissing)
+    ///   - keepPreviewOnQuit: Whether to keep the preview open after quitting
     /// - Returns: The result indicating what happened
     func perform(on window: WindowInfo, keepPreviewOnQuit: Bool = false) -> ActionResult {
         switch self {
         case .quit:
             window.quit(force: NSEvent.modifierFlags.contains(.option))
             if keepPreviewOnQuit {
-                return .appWindowsRemoved(pid: window.app.processIdentifier)
+                return .noChange
             } else {
                 return .dismissed
             }
@@ -151,13 +151,13 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             {
                 window.quit(force: NSEvent.modifierFlags.contains(.option))
                 if keepPreviewOnQuit {
-                    return .appWindowsRemoved(pid: pid)
+                    return .noChange
                 } else {
                     return .dismissed
                 }
             } else {
-                window.close()
-                return .windowRemoved
+                _ = window.close()
+                return .noChange
             }
 
         case .minimize:
