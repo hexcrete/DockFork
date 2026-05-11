@@ -214,6 +214,27 @@ extension DockObserver {
         }
     }
 
+    func selectedCmdTabApplication() -> NSRunningApplication? {
+        guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
+            return nil
+        }
+
+        let dockAppElement = AXUIElementCreateApplication(dockApp.processIdentifier)
+        guard let selectedItem = getSelectedCmdTabItem(dockElement: dockAppElement) else {
+            return nil
+        }
+
+        if let app = selectedItem.app {
+            return app
+        }
+
+        if let bundleId = selectedItem.bundleId, !bundleId.isEmpty {
+            return NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first
+        }
+
+        return nil
+    }
+
     // MARK: - Cmd+Tab Session State
 
     /// Cached state tracking whether the Cmd+Tab switcher is currently active.

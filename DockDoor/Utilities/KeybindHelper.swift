@@ -667,15 +667,25 @@ class KeybindHelper {
                             }
                         }
 
-                        if hasSelection, flags.contains(.maskCommand) {
-                            // Check configurable Cmd+key shortcuts
-                            if let action = getActionForCmdShortcut(keyCode: keyCode) {
+                        if flags.contains(.maskCommand),
+                           let action = getActionForCmdShortcut(keyCode: keyCode)
+                        {
+                            let supportsHighlightedAppAction = action == .close || action == .quit
+                            let highlightedApp = hasSelection ? nil : DockObserver.activeInstance?.selectedCmdTabApplication()
+
+                            if hasSelection || (supportsHighlightedAppAction && highlightedApp != nil) {
                                 cmdTabActionPerformed = true
                                 Task { @MainActor in
-                                    let selectedApp = self.previewCoordinator.windowSwitcherCoordinator.getCurrentWindow()?.app
-                                    self.previewCoordinator.performActionOnCurrentWindow(action: action)
-                                    if action == .close || action == .quit {
-                                        self.scheduleCmdTabActionReconciliation(prioritizedApp: selectedApp)
+                                    if hasSelection {
+                                        let selectedApp = self.previewCoordinator.windowSwitcherCoordinator.getCurrentWindow()?.app
+                                        self.previewCoordinator.performActionOnCurrentWindow(action: action)
+                                        if action == .close || action == .quit {
+                                            self.scheduleCmdTabActionReconciliation(prioritizedApp: selectedApp)
+                                        }
+                                    } else if let highlightedApp {
+                                        let appScopedWindow = WindowInfo.windowlessEntry(for: highlightedApp)
+                                        _ = action.perform(on: appScopedWindow, keepPreviewOnQuit: true)
+                                        self.scheduleCmdTabActionReconciliation(prioritizedApp: highlightedApp)
                                     }
                                 }
                                 return nil
