@@ -80,6 +80,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     var onFrameRefreshNeeded: (() -> Void)?
     private var lastKnownBestGuessMonitor: NSScreen?
+    private var visibilitySyncTasksByPID: [pid_t: Task<Void, Never>] = [:]
 
     enum WindowState {
         case windowSwitcher
@@ -222,6 +223,70 @@ class PreviewStateCoordinator: ObservableObject {
     func updateWindow(at index: Int, with newInfo: WindowInfo) {
         guard index >= 0, index < windows.count else { return }
         windows[index] = newInfo
+    }
+
+    @MainActor
+    func updateHiddenStateForApp(processIdentifier pid: pid_t, isHidden: Bool) {
+        var updatedWindows = windows
+        var hasPublishedChanges = false
+
+        for index in updatedWindows.indices where updatedWindows[index].app.processIdentifier == pid {
+            if updatedWindows[index].isHidden != isHidden {
+                updatedWindows[index].isHidden = isHidden
+                hasPublishedChanges = true
+            }
+            WindowUtil.updateCachedWindowState(updatedWindows[index], isHidden: isHidden)
+        }
+
+        if hasPublishedChanges {
+            windows = updatedWindows
+        }
+    }
+
+    @MainActor
+    func scheduleVisibilityStateSync(processIdentifier pid: pid_t) {
+        visibilitySyncTasksByPID[pid]?.cancel()
+        visibilitySyncTasksByPID[pid] = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let delays: [UInt64] = [80_000_000, 220_000_000]
+
+            for delay in delays {
+                try? await Task.sleep(nanoseconds: delay)
+                guard !Task.isCancelled else { return }
+                syncVisibilityState(processIdentifier: pid)
+            }
+
+            visibilitySyncTasksByPID.removeValue(forKey: pid)
+        }
+    }
+
+    @MainActor
+    private func syncVisibilityState(processIdentifier pid: pid_t) {
+        var updatedWindows = windows
+        var hasPublishedChanges = false
+
+        for index in updatedWindows.indices where updatedWindows[index].app.processIdentifier == pid {
+            guard !updatedWindows[index].isWindowlessApp else { continue }
+            var row = updatedWindows[index]
+
+            if let isMinimized = try? row.axElement.isMinimized(), row.isMinimized != isMinimized {
+                row.isMinimized = isMinimized
+                hasPublishedChanges = true
+            }
+
+            let isHidden = (try? row.appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? row.app.isHidden
+            if row.isHidden != isHidden {
+                row.isHidden = isHidden
+                hasPublishedChanges = true
+            }
+
+            updatedWindows[index] = row
+            WindowUtil.updateCachedWindowState(row, isMinimized: row.isMinimized, isHidden: row.isHidden)
+        }
+
+        if hasPublishedChanges {
+            windows = updatedWindows
+        }
     }
 
     @MainActor

@@ -109,29 +109,29 @@ extension WindowInfo {
     @discardableResult
     mutating func toggleMinimize() -> Bool? {
         guard !isWindowlessApp else { return nil }
-        if isMinimized {
-            if app.isHidden {
+        let newMinimizedState = !isMinimized
+
+        do {
+            if !newMinimizedState, app.isHidden {
                 app.unhide()
             }
-            do {
-                try axElement.setAttribute(kAXMinimizedAttribute, false)
+
+            try axElement.setAttribute(kAXMinimizedAttribute, newMinimizedState)
+            // TODO: Convert WindowAction.perform call sites to async and await AX propagation instead of immediate confirmation.
+            guard try axElement.isMinimized() == newMinimizedState else {
+                return nil
+            }
+
+            if !newMinimizedState {
                 app.activate()
                 bringToFront()
-                isMinimized = false
-                WindowUtil.updateCachedWindowState(self, isMinimized: false)
-                return false
-            } catch {
-                return nil
             }
-        } else {
-            do {
-                try axElement.setAttribute(kAXMinimizedAttribute, true)
-                isMinimized = true
-                WindowUtil.updateCachedWindowState(self, isMinimized: true)
-                return true
-            } catch {
-                return nil
-            }
+
+            isMinimized = newMinimizedState
+            WindowUtil.updateCachedWindowState(self, isMinimized: newMinimizedState)
+            return newMinimizedState
+        } catch {
+            return nil
         }
     }
 
@@ -142,6 +142,12 @@ extension WindowInfo {
 
         do {
             try appAxElement.setAttribute(kAXHiddenAttribute, newHiddenState)
+            // TODO: Convert WindowAction.perform call sites to async and await AX propagation instead of immediate confirmation.
+            let confirmedHiddenState = try appAxElement.attribute(kAXHiddenAttribute, Bool.self) ?? app.isHidden
+            guard confirmedHiddenState == newHiddenState else {
+                return nil
+            }
+
             if !newHiddenState {
                 app.activate()
                 bringToFront()

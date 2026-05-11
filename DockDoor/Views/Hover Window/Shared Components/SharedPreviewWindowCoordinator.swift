@@ -846,7 +846,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         case .dismissed:
             hideWindow()
         case let .windowUpdated(updatedWindow):
-            coordinator.updateWindow(at: originalIndex, with: updatedWindow)
+            if action == .hide {
+                coordinator.updateHiddenStateForApp(
+                    processIdentifier: updatedWindow.app.processIdentifier,
+                    isHidden: updatedWindow.isHidden
+                )
+            } else {
+                coordinator.updateWindow(at: originalIndex, with: updatedWindow)
+            }
         case .windowRemoved:
             coordinator.removeWindow(at: originalIndex)
         case let .appWindowsRemoved(pid):
@@ -856,7 +863,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 }
             }
         case .noChange:
-            break
+            if action == .minimize || action == .hide {
+                coordinator.scheduleVisibilityStateSync(processIdentifier: window.app.processIdentifier)
+            }
         }
     }
 

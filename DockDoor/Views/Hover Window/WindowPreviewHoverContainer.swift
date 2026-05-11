@@ -1114,7 +1114,14 @@ struct WindowPreviewHoverContainer: View {
         case .dismissed:
             onWindowTap?()
         case let .windowUpdated(updatedWindow):
-            previewStateCoordinator.updateWindow(at: index, with: updatedWindow)
+            if action == .hide {
+                previewStateCoordinator.updateHiddenStateForApp(
+                    processIdentifier: updatedWindow.app.processIdentifier,
+                    isHidden: updatedWindow.isHidden
+                )
+            } else {
+                previewStateCoordinator.updateWindow(at: index, with: updatedWindow)
+            }
         case .windowRemoved:
             previewStateCoordinator.removeWindow(at: index)
         case let .appWindowsRemoved(pid):
@@ -1124,7 +1131,9 @@ struct WindowPreviewHoverContainer: View {
                 }
             }
         case .noChange:
-            break
+            if action == .minimize || action == .hide {
+                previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: window.app.processIdentifier)
+            }
         }
     }
 
