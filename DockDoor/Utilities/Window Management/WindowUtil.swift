@@ -144,11 +144,20 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
         case .close:
             let pid = window.app.processIdentifier
-            let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder")
-            if Defaults[.quitAppOnWindowClose],
-               WindowUtil.readCachedWindows(for: pid).count <= 1,
-               finder.first?.processIdentifier != pid
-            {
+            if window.isWindowlessApp {
+                let closedCount = WindowUtil.closeAllWindows(for: window.app)
+                if closedCount == 0, WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: pid) {
+                    window.quit(force: NSEvent.modifierFlags.contains(.option))
+                    if keepPreviewOnQuit {
+                        return .noChange
+                    } else {
+                        return .dismissed
+                    }
+                }
+                return .noChange
+            }
+
+            if WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: pid) {
                 window.quit(force: NSEvent.modifierFlags.contains(.option))
                 if keepPreviewOnQuit {
                     return .noChange
@@ -1416,6 +1425,34 @@ extension WindowUtil {
 // MARK: - Window Actions
 
 extension WindowUtil {
+    static func shouldQuitAppOnWindowClose(processIdentifier pid: pid_t) -> Bool {
+        let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder")
+        return Defaults[.quitAppOnWindowClose] &&
+            readCachedWindows(for: pid).count <= 1 &&
+            finder.first?.processIdentifier != pid
+    }
+
+    @discardableResult
+    static func closeAllWindows(for app: NSRunningApplication, preferredWindows: [WindowInfo]? = nil) -> Int {
+        let pid = app.processIdentifier
+        let sourceWindows: [WindowInfo] = if let preferredWindows {
+            preferredWindows.filter { $0.app.processIdentifier == pid }
+        } else {
+            readCachedWindows(for: pid)
+        }
+
+        let windowsToClose = sourceWindows.filter { !$0.isWindowlessApp }
+        guard !windowsToClose.isEmpty else { return 0 }
+
+        var closeCount = 0
+        for window in windowsToClose {
+            if window.close() {
+                closeCount += 1
+            }
+        }
+        return closeCount
+    }
+
     /// Minimizes multiple windows concurrently off the main thread to avoid UI blocking.
     static func minimizeWindowsAsync(_ windows: [WindowInfo]) {
         guard !windows.isEmpty else { return }
