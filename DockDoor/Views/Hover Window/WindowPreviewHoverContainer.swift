@@ -703,7 +703,7 @@ struct WindowPreviewHoverContainer: View {
                 .buttonStyle(AccentButtonStyle(small: true))
 
                 Button {
-                    minimizeAllWindows()
+                    minimizeAllWindows(preferSharedToggle: true)
                 } label: {
                     Text("Minimize All")
                         .font(.caption)
@@ -1042,7 +1042,11 @@ struct WindowPreviewHoverContainer: View {
         _ = WindowUtil.closeAllWindows(for: app, preferredWindows: previewStateCoordinator.windows)
     }
 
-    private func minimizeAllWindows(_ except: WindowInfo? = nil, wasAppActiveBeforeClick: Bool? = nil) {
+    private func minimizeAllWindows(
+        _ except: WindowInfo? = nil,
+        wasAppActiveBeforeClick: Bool? = nil,
+        preferSharedToggle: Bool = false
+    ) {
         onWindowTap?()
         let originalWindows = previewStateCoordinator.windows
 
@@ -1094,7 +1098,11 @@ struct WindowPreviewHoverContainer: View {
                 }
             }
         } else {
-            WindowUtil.minimizeWindowsAsync(originalWindows)
+            if preferSharedToggle, let app = originalWindows.first?.app {
+                _ = WindowUtil.minimizeAllWindows(for: app, preferredWindows: originalWindows)
+            } else {
+                WindowUtil.minimizeWindowsAsync(originalWindows)
+            }
             previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
         }
     }

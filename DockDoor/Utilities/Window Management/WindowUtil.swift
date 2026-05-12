@@ -1480,11 +1480,18 @@ extension WindowUtil {
         }
 
         let ownBundleId = Bundle.main.bundleIdentifier
-        let windowsToMinimize = sourceWindows.filter {
+        let appWindows = sourceWindows.filter {
             !$0.isWindowlessApp &&
-                !$0.isMinimized &&
                 $0.app.bundleIdentifier != ownBundleId
         }
+        guard !appWindows.isEmpty else { return 0 }
+
+        if appWindows.allSatisfy(\.isMinimized) {
+            unminimizeWindowsAsync(appWindows)
+            return appWindows.count
+        }
+
+        let windowsToMinimize = appWindows.filter { !$0.isMinimized }
         guard !windowsToMinimize.isEmpty else { return 0 }
 
         minimizeWindowsAsync(windowsToMinimize)
@@ -1509,6 +1516,33 @@ extension WindowUtil {
                 for window in windowsToMinimize {
                     group.addTask {
                         try? window.axElement.setAttribute(kAXMinimizedAttribute, true)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Restores minimized windows concurrently off the main thread to avoid UI blocking.
+    static func unminimizeWindowsAsync(_ windows: [WindowInfo]) {
+        guard !windows.isEmpty else { return }
+
+        let ownBundleId = Bundle.main.bundleIdentifier
+        let windowsToRestore = windows.filter { $0.isMinimized && $0.app.bundleIdentifier != ownBundleId }
+        guard !windowsToRestore.isEmpty else { return }
+
+        if let app = windowsToRestore.first?.app, app.isHidden {
+            app.unhide()
+        }
+
+        for window in windowsToRestore {
+            updateCachedWindowState(window, isMinimized: false)
+        }
+
+        Task.detached(priority: .userInitiated) {
+            await withTaskGroup(of: Void.self) { group in
+                for window in windowsToRestore {
+                    group.addTask {
+                        try? window.axElement.setAttribute(kAXMinimizedAttribute, false)
                     }
                 }
             }
