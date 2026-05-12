@@ -140,8 +140,13 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     /// - Parameters:
     ///   - window: The window to perform the action on
     ///   - keepPreviewOnQuit: Whether to keep the preview open after quitting
+    ///   - preferredWindows: Optional in-context windows for app-wide actions to avoid stale cache reads
     /// - Returns: The result indicating what happened
-    func perform(on window: WindowInfo, keepPreviewOnQuit: Bool = false) -> ActionResult {
+    func perform(
+        on window: WindowInfo,
+        keepPreviewOnQuit: Bool = false,
+        preferredWindows: [WindowInfo]? = nil
+    ) -> ActionResult {
         switch self {
         case .quit:
             window.quit(force: NSEvent.modifierFlags.contains(.option))
@@ -154,7 +159,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .close:
             let pid = window.app.processIdentifier
             if window.isWindowlessApp {
-                let closedCount = WindowUtil.closeAllWindows(for: window.app)
+                let closedCount = WindowUtil.closeAllWindows(for: window.app, preferredWindows: preferredWindows)
                 if closedCount == 0, WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: pid) {
                     window.quit(force: NSEvent.modifierFlags.contains(.option))
                     if keepPreviewOnQuit {
@@ -202,12 +207,12 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             return .dismissed
 
         case .closeAllWindows:
-            _ = WindowUtil.closeAllWindows(for: window.app)
-            return .dismissed
+            let closedCount = WindowUtil.closeAllWindows(for: window.app, preferredWindows: preferredWindows)
+            return closedCount > 0 ? .dismissed : .noChange
 
         case .minimizeAllWindows:
-            _ = WindowUtil.minimizeAllWindows(for: window.app)
-            return .dismissed
+            let changedCount = WindowUtil.minimizeAllWindows(for: window.app, preferredWindows: preferredWindows)
+            return changedCount > 0 ? .dismissed : .noChange
 
         case .maximize:
             window.zoom()

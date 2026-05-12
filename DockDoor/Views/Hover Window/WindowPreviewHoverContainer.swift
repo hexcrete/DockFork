@@ -1099,7 +1099,10 @@ struct WindowPreviewHoverContainer: View {
             }
         } else {
             if preferSharedToggle, let app = originalWindows.first?.app {
-                _ = WindowUtil.minimizeAllWindows(for: app, preferredWindows: originalWindows)
+                let changedCount = WindowUtil.minimizeAllWindows(for: app, preferredWindows: originalWindows)
+                if changedCount == 0 {
+                    previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
+                }
             } else {
                 WindowUtil.minimizeWindowsAsync(originalWindows)
             }
@@ -1111,12 +1114,16 @@ struct WindowPreviewHoverContainer: View {
         guard index < previewStateCoordinator.windows.count else { return }
         let window = previewStateCoordinator.windows[index]
 
-        if action == .close || action == .quit {
+        if action == .close || action == .quit || action == .closeAllWindows {
             scheduleDockActionReconciliationIfNeeded(for: window.app)
         }
 
         let keepPreviewOnQuit = previewStateCoordinator.windowSwitcherActive || Defaults[.keepPreviewOnAppTerminate]
-        let result = action.perform(on: window, keepPreviewOnQuit: keepPreviewOnQuit)
+        let result = action.perform(
+            on: window,
+            keepPreviewOnQuit: keepPreviewOnQuit,
+            preferredWindows: previewStateCoordinator.windows
+        )
 
         switch result {
         case .dismissed:
@@ -1139,7 +1146,7 @@ struct WindowPreviewHoverContainer: View {
                 }
             }
         case .noChange:
-            if action == .minimize || action == .hide {
+            if action == .minimize || action == .hide || action == .minimizeAllWindows {
                 previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: window.app.processIdentifier)
             }
         }

@@ -840,7 +840,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let window = coordinator.windows[coordinator.currIndex]
         let originalIndex = coordinator.currIndex
 
-        let result = action.perform(on: window, keepPreviewOnQuit: true)
+        let result = action.perform(
+            on: window,
+            keepPreviewOnQuit: true,
+            preferredWindows: coordinator.windows
+        )
 
         switch result {
         case .dismissed:
