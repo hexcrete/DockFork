@@ -839,6 +839,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         let window = coordinator.windows[coordinator.currIndex]
         let originalIndex = coordinator.currIndex
+        let expectedFullscreenState: Bool? = if action == .toggleFullScreen {
+            (try? window.axElement.isFullscreen()).map(!)
+        } else {
+            nil
+        }
 
         let result = action.perform(
             on: window,
@@ -867,9 +872,32 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 }
             }
         case .noChange:
+            if action == .toggleFullScreen, let expectedFullscreenState {
+                scheduleFullscreenDismissConfirmation(window: window, targetFullscreenState: expectedFullscreenState)
+            }
             if action == .minimize || action == .hide {
                 coordinator.scheduleVisibilityStateSync(processIdentifier: window.app.processIdentifier)
             }
+        }
+    }
+
+    private func scheduleFullscreenDismissConfirmation(window: WindowInfo, targetFullscreenState: Bool) {
+        let windowID = window.id
+        let pid = window.app.processIdentifier
+
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard let self else { return }
+            guard let confirmedFullscreen = try? window.axElement.isFullscreen(),
+                  confirmedFullscreen == targetFullscreenState
+            else { return }
+
+            let coordinator = windowSwitcherCoordinator
+            guard coordinator.windows.contains(where: { $0.id == windowID && $0.app.processIdentifier == pid }) else {
+                return
+            }
+
+            hideWindow()
         }
     }
 

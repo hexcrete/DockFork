@@ -161,16 +161,22 @@ extension WindowInfo {
         }
     }
 
-    mutating func toggleFullScreen() {
-        guard !isWindowlessApp else { return }
-        if let isCurrentlyInFullScreen = try? axElement.isFullscreen() {
-            do {
-                try axElement.setAttribute(kAXFullscreenAttribute, !isCurrentlyInFullScreen)
-            } catch {
-                print("Failed to toggle full screen")
-            }
-        } else {
+    @discardableResult
+    mutating func toggleFullScreen() -> Bool {
+        guard !isWindowlessApp else { return false }
+        guard let isCurrentlyInFullScreen = try? axElement.isFullscreen() else {
             print("Failed to determine current full screen state")
+            return false
+        }
+
+        do {
+            let targetState = !isCurrentlyInFullScreen
+            try axElement.setAttribute(kAXFullscreenAttribute, targetState)
+            // Non-blocking confirmation: if state does not reflect immediately, treat as no-change.
+            return (try? axElement.isFullscreen()) == targetState
+        } catch {
+            print("Failed to toggle full screen")
+            return false
         }
     }
 

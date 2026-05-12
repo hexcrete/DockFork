@@ -1113,8 +1113,13 @@ struct WindowPreviewHoverContainer: View {
     private func handleWindowAction(_ action: WindowAction, at index: Int) {
         guard index < previewStateCoordinator.windows.count else { return }
         let window = previewStateCoordinator.windows[index]
+        let expectedFullscreenState: Bool? = if action == .toggleFullScreen {
+            (try? window.axElement.isFullscreen()).map(!)
+        } else {
+            nil
+        }
 
-        if action == .close || action == .quit || action == .closeAllWindows {
+        if action == .close || action == .quit || action == .closeAllWindows || action == .toggleFullScreen {
             scheduleDockActionReconciliationIfNeeded(for: window.app)
         }
 
@@ -1146,9 +1151,32 @@ struct WindowPreviewHoverContainer: View {
                 }
             }
         case .noChange:
+            if action == .toggleFullScreen, let expectedFullscreenState {
+                scheduleFullscreenDismissConfirmation(window: window, targetFullscreenState: expectedFullscreenState)
+            }
             if action == .minimize || action == .hide || action == .minimizeAllWindows {
                 previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: window.app.processIdentifier)
             }
+        }
+    }
+
+    private func scheduleFullscreenDismissConfirmation(window: WindowInfo, targetFullscreenState: Bool) {
+        guard !mockPreviewActive else { return }
+
+        let windowID = window.id
+        let pid = window.app.processIdentifier
+
+        Task {
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard let confirmedFullscreen = try? window.axElement.isFullscreen(),
+                  confirmedFullscreen == targetFullscreenState
+            else { return }
+
+            guard previewStateCoordinator.windows.contains(where: { $0.id == windowID && $0.app.processIdentifier == pid }) else {
+                return
+            }
+
+            onWindowTap?()
         }
     }
 

@@ -192,8 +192,10 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
         case .toggleFullScreen:
             var updatedWindow = window
-            updatedWindow.toggleFullScreen()
-            return .dismissed
+            if updatedWindow.toggleFullScreen() {
+                return .dismissed
+            }
+            return .noChange
 
         case .hide:
             var updatedWindow = window
