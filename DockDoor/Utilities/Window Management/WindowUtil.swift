@@ -34,6 +34,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     case toggleFullScreen
     case hide
     case openNewWindow
+    case closeAllWindows
+    case minimizeAllWindows
     case maximize
 
     // Window positioning actions
@@ -64,6 +66,10 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             String(localized: "Hide App", comment: "Window action")
         case .openNewWindow:
             String(localized: "Open New Window", comment: "Window action")
+        case .closeAllWindows:
+            String(localized: "Close All Windows", comment: "Window action")
+        case .minimizeAllWindows:
+            String(localized: "Minimize All Windows", comment: "Window action")
         case .maximize:
             String(localized: "Maximize", comment: "Window action")
         case .fillLeftHalf:
@@ -97,6 +103,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .toggleFullScreen: "arrow.up.left.and.arrow.down.right"
         case .hide: "eye.slash"
         case .openNewWindow: "plus.rectangle.on.rectangle"
+        case .closeAllWindows: "xmark.square.fill"
+        case .minimizeAllWindows: "minus.circle.fill"
         case .maximize: "arrow.up.backward.and.arrow.down.forward"
         case .fillLeftHalf: "rectangle.lefthalf.filled"
         case .fillRightHalf: "rectangle.righthalf.filled"
@@ -113,7 +121,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
     /// Actions that can be assigned to trackpad gestures
     static var gestureActions: [WindowAction] {
-        [.none, .close, .minimize, .maximize, .toggleFullScreen, .hide, .quit,
+        [.none, .close, .minimize, .maximize, .toggleFullScreen, .hide, .openNewWindow,
+         .closeAllWindows, .minimizeAllWindows, .quit,
          .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
          .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center]
     }
@@ -190,6 +199,14 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
         case .openNewWindow:
             WindowUtil.openNewWindow(app: window.app)
+            return .dismissed
+
+        case .closeAllWindows:
+            _ = WindowUtil.closeAllWindows(for: window.app)
+            return .dismissed
+
+        case .minimizeAllWindows:
+            _ = WindowUtil.minimizeAllWindows(for: window.app)
             return .dismissed
 
         case .maximize:
@@ -1451,6 +1468,27 @@ extension WindowUtil {
             }
         }
         return closeCount
+    }
+
+    @discardableResult
+    static func minimizeAllWindows(for app: NSRunningApplication, preferredWindows: [WindowInfo]? = nil) -> Int {
+        let pid = app.processIdentifier
+        let sourceWindows: [WindowInfo] = if let preferredWindows {
+            preferredWindows.filter { $0.app.processIdentifier == pid }
+        } else {
+            readCachedWindows(for: pid)
+        }
+
+        let ownBundleId = Bundle.main.bundleIdentifier
+        let windowsToMinimize = sourceWindows.filter {
+            !$0.isWindowlessApp &&
+                !$0.isMinimized &&
+                $0.app.bundleIdentifier != ownBundleId
+        }
+        guard !windowsToMinimize.isEmpty else { return 0 }
+
+        minimizeWindowsAsync(windowsToMinimize)
+        return windowsToMinimize.count
     }
 
     /// Minimizes multiple windows concurrently off the main thread to avoid UI blocking.
