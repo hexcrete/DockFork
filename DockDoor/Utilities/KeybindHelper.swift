@@ -254,51 +254,6 @@ private class WindowSwitchingCoordinator {
         }
     }
 
-    @MainActor
-    func scheduleActionStateReconciliation(
-        previewCoordinator: SharedPreviewWindowCoordinator,
-        mode: SwitcherInvocationMode,
-        prioritizedApp: NSRunningApplication? = nil
-    ) {
-        let sessionId = currentSessionId
-        let targetScreen = getTargetScreenForSwitcher()
-        let delays: [UInt64] = [120_000_000, 450_000_000, 900_000_000]
-
-        for (index, delay) in delays.enumerated() {
-            Task.detached { [weak self] in
-                guard let self else { return }
-                try? await Task.sleep(nanoseconds: delay)
-                guard !Task.isCancelled else { return }
-
-                if let prioritizedApp {
-                    await WindowUtil.updateNewWindowsForApp(prioritizedApp)
-                    guard !Task.isCancelled else { return }
-                }
-
-                if index == 1 {
-                    await WindowUtil.updateAllWindowsInCurrentSpace()
-                    guard !Task.isCancelled else { return }
-                }
-
-                let rebuiltWindows = buildWindowsForSwitcher(from: WindowUtil.getAllWindowsOfAllApps(), mode: mode)
-                let dockPosition = DockUtils.getDockPosition()
-
-                await MainActor.run { [weak self] in
-                    guard let self else { return }
-                    guard sessionId == currentSessionId else { return }
-                    guard previewCoordinator.windowSwitcherCoordinator.isKeybindSessionActive else { return }
-
-                    previewCoordinator.mergeWindowsIfNeeded(
-                        nil,
-                        windows: rebuiltWindows,
-                        dockPosition: dockPosition,
-                        bestGuessMonitor: targetScreen
-                    )
-                }
-            }
-        }
-    }
-
     private func getTargetScreenForSwitcher() -> NSScreen {
         if Defaults[.windowSwitcherPlacementStrategy] == .pinnedToScreen,
            let pinnedScreen = NSScreen.findScreen(byIdentifier: Defaults[.pinnedScreenIdentifier])
@@ -677,15 +632,18 @@ class KeybindHelper {
                                 cmdTabActionPerformed = true
                                 Task { @MainActor in
                                     if hasSelection {
-                                        let selectedApp = self.previewCoordinator.windowSwitcherCoordinator.getCurrentWindow()?.app
-                                        self.previewCoordinator.performActionOnCurrentWindow(action: action)
-                                        if action == .close || action == .quit {
-                                            self.scheduleCmdTabActionReconciliation(prioritizedApp: selectedApp)
+                                        let didClosePreviews = self.previewCoordinator.performActionOnCurrentWindow(action: action)
+                                        if didClosePreviews {
+                                            DockObserver.activeInstance?.teardownCmdTabObserver()
                                         }
                                     } else if let highlightedApp {
-                                        let appScopedWindow = WindowInfo.windowlessEntry(for: highlightedApp)
-                                        _ = action.perform(on: appScopedWindow, keepPreviewOnQuit: true)
-                                        self.scheduleCmdTabActionReconciliation(prioritizedApp: highlightedApp)
+                                        let didClosePreviews = self.previewCoordinator.performActionOnCmdTabHighlightedApp(
+                                            action: action,
+                                            app: highlightedApp
+                                        )
+                                        if didClosePreviews {
+                                            DockObserver.activeInstance?.teardownCmdTabObserver()
+                                        }
                                     }
                                 }
                                 return nil
@@ -897,24 +855,10 @@ class KeybindHelper {
                 if let action = getActionForCmdShortcut(keyCode: keyCode) {
                     preventSwitcherHideOnRelease = true
                     return (true, { @MainActor in
-                        let selectedApp = self.previewCoordinator.windowSwitcherCoordinator.getCurrentWindow()?.app
-                        self.previewCoordinator.performActionOnCurrentWindow(action: action)
-                        if action == .close || action == .quit {
-                            self.windowSwitchingCoordinator.scheduleActionStateReconciliation(
-                                previewCoordinator: self.previewCoordinator,
-                                mode: self.currentInvocationMode,
-                                prioritizedApp: selectedApp
-                            )
-                        }
-                        if action == .quit {
-                            if self.previewCoordinator.windowSwitcherCoordinator.windows.isEmpty {
-                                self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
-                                self.preventSwitcherHideOnRelease = false
-                                self.hasProcessedModifierRelease = true
-                            }
-                        } else {
+                        let didClosePreviews = self.previewCoordinator.performActionOnCurrentWindow(action: action)
+                        self.preventSwitcherHideOnRelease = false
+                        if didClosePreviews {
                             self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
-                            self.preventSwitcherHideOnRelease = false
                             self.hasProcessedModifierRelease = true
                         }
                     })
@@ -1124,36 +1068,6 @@ class KeybindHelper {
                 isShiftPressed: self.isShiftKeyPressedGeneral,
                 mode: mode
             )
-        }
-    }
-
-    @MainActor
-    private func scheduleCmdTabActionReconciliation(prioritizedApp: NSRunningApplication? = nil) {
-        let delays: [UInt64] = [120_000_000, 450_000_000, 900_000_000]
-
-        for (index, delay) in delays.enumerated() {
-            Task.detached {
-                try? await Task.sleep(nanoseconds: delay)
-                guard !Task.isCancelled else { return }
-                guard DockObserver.isCmdTabSwitcherActive else { return }
-
-                if let prioritizedApp {
-                    await WindowUtil.updateNewWindowsForApp(prioritizedApp)
-                    guard !Task.isCancelled else { return }
-                    guard DockObserver.isCmdTabSwitcherActive else { return }
-                }
-
-                if index == 1 {
-                    await WindowUtil.updateAllWindowsInCurrentSpace()
-                    guard !Task.isCancelled else { return }
-                    guard DockObserver.isCmdTabSwitcherActive else { return }
-                }
-
-                await MainActor.run {
-                    guard DockObserver.isCmdTabSwitcherActive else { return }
-                    DockObserver.activeInstance?.processCmdTabSwitcherChanged()
-                }
-            }
         }
     }
 

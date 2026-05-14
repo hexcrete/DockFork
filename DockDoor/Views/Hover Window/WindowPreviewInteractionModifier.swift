@@ -60,7 +60,7 @@ struct WindowPreviewInteractionModifier: ViewModifier {
             }
 
             Button(action: {
-                WindowUtil.activateAndOpenNewWindow(app: windowInfo.app)
+                handleWindowAction(.openNewWindow)
             }) {
                 Label(
                     String(localized: "Open New Window", comment: "Context menu action to open a new window for the app"),
@@ -151,7 +151,7 @@ struct WindowPreviewInteractionModifier: ViewModifier {
             onTap?()
         } else if windowInfo.isMinimized {
             handleWindowAction(.minimize)
-        } else if windowInfo.isHidden {
+        } else if windowInfo.isEffectivelyHiddenForUI {
             handleWindowAction(.hide)
         } else {
             windowInfo.bringToFront()

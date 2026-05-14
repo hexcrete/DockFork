@@ -79,6 +79,11 @@ struct WindowInfo: Identifiable, Hashable {
 }
 
 extension WindowInfo {
+    var isEffectivelyHiddenForUI: Bool {
+        guard isHidden else { return false }
+        return (try? axElement.isFullscreen()) != true
+    }
+
     static func windowlessEntry(for app: NSRunningApplication) -> WindowInfo {
         let pid = app.processIdentifier
         let appAX = AXUIElementCreateApplication(pid)
@@ -117,14 +122,15 @@ extension WindowInfo {
             }
 
             try axElement.setAttribute(kAXMinimizedAttribute, newMinimizedState)
-            // TODO: Convert WindowAction.perform call sites to async and await AX propagation instead of immediate confirmation.
-            guard try axElement.isMinimized() == newMinimizedState else {
-                return nil
-            }
 
             if !newMinimizedState {
                 app.activate()
                 bringToFront()
+            }
+
+            let confirmedState = try? axElement.isMinimized()
+            guard confirmedState == newMinimizedState else {
+                return nil
             }
 
             isMinimized = newMinimizedState
@@ -138,20 +144,21 @@ extension WindowInfo {
     @discardableResult
     mutating func toggleHidden() -> Bool? {
         guard !isWindowlessApp else { return nil }
-        let newHiddenState = !isHidden
+        let newHiddenState = !isEffectivelyHiddenForUI
 
         do {
             try appAxElement.setAttribute(kAXHiddenAttribute, newHiddenState)
-            // TODO: Convert WindowAction.perform call sites to async and await AX propagation instead of immediate confirmation.
-            let confirmedHiddenState = try appAxElement.attribute(kAXHiddenAttribute, Bool.self) ?? app.isHidden
-            guard confirmedHiddenState == newHiddenState else {
-                return nil
-            }
 
             if !newHiddenState {
                 app.activate()
                 bringToFront()
             }
+
+            let confirmedHidden = (try? appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? app.isHidden
+            guard confirmedHidden == newHiddenState else {
+                return nil
+            }
+
             isHidden = newHiddenState
             WindowUtil.updateCachedWindowState(self, isHidden: newHiddenState)
             return newHiddenState

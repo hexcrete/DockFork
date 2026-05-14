@@ -27,6 +27,62 @@ extension SCWindow: WindowPropertiesProviding {
 }
 
 enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
+    static let inPlaceRefreshDelays: [UInt64] = [180_000_000, 420_000_000]
+    static let deferredConfirmationPollDelays: [UInt64] = [180_000_000, 420_000_000, 900_000_000]
+    static let fullscreenConfirmationDelay: UInt64 = 180_000_000
+    static let reconciliationDelays: [UInt64] = [120_000_000, 450_000_000, 900_000_000]
+
+    enum PostActionCategory: String, Hashable, CaseIterable {
+        case movingAndResizing
+        case hiding
+        case unhiding
+        case closing
+        case newWindow
+
+        var localizedName: String {
+            switch self {
+            case .movingAndResizing:
+                String(localized: "Move/Resize", comment: "Post-action category")
+            case .hiding:
+                String(localized: "Hide/Minimize", comment: "Post-action category")
+            case .unhiding:
+                String(localized: "Unhide/Unminimize", comment: "Post-action category")
+            case .closing:
+                String(localized: "Close/Quit", comment: "Post-action category")
+            case .newWindow:
+                String(localized: "New Window", comment: "Post-action category")
+            }
+        }
+
+        var configuredBehavior: PreviewPostActionBehavior {
+            switch self {
+            case .movingAndResizing:
+                Defaults[.movingResizingPostActionBehavior]
+            case .hiding:
+                Defaults[.hidingPostActionBehavior]
+            case .unhiding:
+                Defaults[.unhidingPostActionBehavior]
+            case .closing:
+                Defaults[.closingPostActionBehavior]
+            case .newWindow:
+                Defaults[.newWindowPostActionBehavior]
+            }
+        }
+
+        var availablePostActionBehaviors: [PreviewPostActionBehavior] {
+            [.keepPreviewsOpenNoFocus, closeBehavior]
+        }
+
+        var closeBehavior: PreviewPostActionBehavior {
+            switch self {
+            case .hiding, .closing:
+                .closePreviewsNoFocus
+            case .movingAndResizing, .unhiding, .newWindow:
+                .closePreviewsAndFocus
+            }
+        }
+    }
+
     // Existing actions
     case quit
     case close
@@ -127,6 +183,174 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
          .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center]
     }
 
+    func postActionCategory(for window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> PostActionCategory? {
+        switch self {
+        case .quit, .close, .closeAllWindows:
+            return .closing
+        case .openNewWindow:
+            return .newWindow
+        case .hide:
+            return window.isEffectivelyHiddenForUI ? .unhiding : .hiding
+        case .minimize:
+            return window.isMinimized ? .unhiding : .hiding
+        case .minimizeAllWindows:
+            let pid = window.app.processIdentifier
+            let appWindows: [WindowInfo] = if let preferredWindows {
+                preferredWindows.filter { $0.app.processIdentifier == pid && !$0.isWindowlessApp }
+            } else {
+                WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
+            }
+            guard !appWindows.isEmpty else { return .hiding }
+            let nonFullscreenWindows = appWindows.filter { (try? $0.axElement.isFullscreen()) != true }
+            if nonFullscreenWindows.isEmpty {
+                return .unhiding
+            }
+            return nonFullscreenWindows.allSatisfy(\.isMinimized) ? .unhiding : .hiding
+        case .maximize, .toggleFullScreen,
+             .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+             .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
+             .center:
+            return .movingAndResizing
+        case .none:
+            return nil
+        }
+    }
+
+    func resolvedPostActionBehavior(for window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> PreviewPostActionBehavior {
+        guard let category = postActionCategory(for: window, preferredWindows: preferredWindows) else {
+            return .keepPreviewsOpenNoFocus
+        }
+
+        let configured = category.configuredBehavior
+        if configured == .keepPreviewsOpenNoFocus {
+            return .keepPreviewsOpenNoFocus
+        }
+        if category.availablePostActionBehaviors.contains(configured) {
+            return configured
+        }
+        return category.closeBehavior
+    }
+
+    func closePreviewsOnlyAfterSuccess(for window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> Bool {
+        switch self {
+        case .openNewWindow, .toggleFullScreen,
+             .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+             .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
+             .center:
+            return true
+        case .minimize:
+            return !window.isMinimized
+        case .minimizeAllWindows:
+            let category = postActionCategory(for: window, preferredWindows: preferredWindows)
+            return category == .hiding
+        case .hide, .close, .quit, .closeAllWindows, .none:
+            return false
+        }
+    }
+
+    func focusTargetAfterAction(on window: WindowInfo) {
+        switch self {
+        case .openNewWindow:
+            WindowUtil.focusAppBestEffort(window.app)
+        case .minimizeAllWindows:
+            WindowUtil.focusAppBestEffort(window.app)
+        case .quit, .close, .closeAllWindows, .none:
+            break
+        default:
+            if window.isWindowlessApp {
+                WindowUtil.focusAppBestEffort(window.app)
+            } else {
+                window.bringToFront()
+            }
+        }
+    }
+
+    func shouldForcePreviewCloseForFullscreenTransition(on window: WindowInfo) -> Bool {
+        switch self {
+        case .toggleFullScreen:
+            guard let isFullscreen = try? window.axElement.isFullscreen() else { return false }
+            if !isFullscreen {
+                return true
+            }
+
+            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == window.app.processIdentifier else {
+                return false
+            }
+            guard let focusedWindow = try? window.appAxElement.focusedWindow(),
+                  let focusedWindowID = try? focusedWindow.cgWindowId()
+            else {
+                return false
+            }
+            return focusedWindowID == window.id
+
+        case .hide:
+            // Unhiding can force a Space jump for fullscreen windows or windows on another Space.
+            guard window.isHidden else { return false }
+            if (try? window.axElement.isFullscreen()) == true {
+                return true
+            }
+
+            let activeSpaceIDs = currentActiveSpaceIDs()
+            guard !activeSpaceIDs.isEmpty else { return false }
+
+            let windowSpaces = Set(window.id.cgsSpaces().map { Int($0) })
+            if !windowSpaces.isEmpty {
+                return windowSpaces.isDisjoint(with: activeSpaceIDs)
+            }
+
+            if let cachedSpaceID = window.spaceID {
+                return !activeSpaceIDs.contains(cachedSpaceID)
+            }
+
+            return false
+
+        case .quit, .close, .minimize, .openNewWindow, .closeAllWindows, .minimizeAllWindows,
+             .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+             .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
+             .center, .none:
+            return false
+        }
+    }
+
+    var shouldScheduleAppRefresh: Bool {
+        switch self {
+        case .openNewWindow, .close, .quit, .closeAllWindows,
+             .minimize, .hide, .minimizeAllWindows,
+             .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+             .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
+             .center:
+            true
+        case .toggleFullScreen:
+            true
+        case .none:
+            false
+        }
+    }
+
+    var shouldScheduleDockReconciliation: Bool {
+        switch self {
+        case .openNewWindow, .close, .quit, .closeAllWindows, .toggleFullScreen:
+            true
+        case .minimize, .hide, .minimizeAllWindows, .maximize,
+             .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+             .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
+             .center, .none:
+            false
+        }
+    }
+
+    var requiresDeferredSuccessWatcher: Bool {
+        switch self {
+        case .toggleFullScreen, .openNewWindow, .close, .quit, .closeAllWindows:
+            true
+        case .minimize, .hide, .minimizeAllWindows, .maximize,
+             .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+             .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
+             .center, .none:
+            false
+        }
+    }
+
     /// Result of performing a window action
     enum ActionResult {
         case dismissed
@@ -198,6 +422,9 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             return .noChange
 
         case .hide:
+            if WindowUtil.hasOnlyFullscreenWindows(for: window.app, preferredWindows: preferredWindows) {
+                return .noChange
+            }
             var updatedWindow = window
             if updatedWindow.toggleHidden() != nil {
                 return .windowUpdated(updatedWindow)
@@ -217,42 +444,52 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             return changedCount > 0 ? .dismissed : .noChange
 
         case .maximize:
+            guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.zoom()
             return .dismissed
 
         case .fillLeftHalf:
+            guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.fillLeftHalf()
             return .dismissed
 
         case .fillRightHalf:
+            guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.fillRightHalf()
             return .dismissed
 
         case .fillTopHalf:
+            guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.fillTopHalf()
             return .dismissed
 
         case .fillBottomHalf:
+            guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.fillBottomHalf()
             return .dismissed
 
         case .fillTopLeftQuarter:
+            guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.fillTopLeftQuarter()
             return .dismissed
 
         case .fillTopRightQuarter:
+            guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.fillTopRightQuarter()
             return .dismissed
 
         case .fillBottomLeftQuarter:
+            guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.fillBottomLeftQuarter()
             return .dismissed
 
         case .fillBottomRightQuarter:
+            guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.fillBottomRightQuarter()
             return .dismissed
 
         case .center:
+            guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.centerWindow()
             return .dismissed
 
@@ -724,7 +961,7 @@ extension WindowUtil {
     static func getAllWindowsOfAllApps() -> [WindowInfo] {
         let windows = desktopSpaceWindowCacheManager.getAllWindows()
         var filteredWindows = !Defaults[.includeHiddenWindowsInSwitcher]
-            ? windows.filter { !$0.isHidden && !$0.isMinimized }
+            ? windows.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
             : windows
 
         // Filter by frontmost app if enabled
@@ -791,7 +1028,7 @@ extension WindowUtil {
             return activeSpaceIDs.contains(spaceID)
         }
 
-        return windowInfo.isMinimized || windowInfo.isHidden
+        return windowInfo.isMinimized || windowInfo.isEffectivelyHiddenForUI
     }
 
     /// Filters windows to only include those in the current Space.
@@ -808,7 +1045,7 @@ extension WindowUtil {
         if let winScreen = windowInfo.screenIdentifier {
             return winScreen == screenIdentifier
         }
-        return windowInfo.isMinimized || windowInfo.isHidden
+        return windowInfo.isMinimized || windowInfo.isEffectivelyHiddenForUI
     }
 
     static func filterWindowsByCurrentMonitor(_ windows: [WindowInfo], mouseLocation: CGPoint? = nil) -> [WindowInfo] {
@@ -1405,7 +1642,7 @@ extension WindowUtil {
         // Optionally move minimized/hidden windows to the end (global setting)
         if Defaults[.sortMinimizedToEnd] {
             let (visible, minimizedOrHidden) = sortedWindows.reduce(into: ([WindowInfo](), [WindowInfo]())) { result, window in
-                if window.isMinimized || window.isHidden {
+                if window.isMinimized || window.isEffectivelyHiddenForUI {
                     result.1.append(window)
                 } else {
                     result.0.append(window)
@@ -1449,6 +1686,25 @@ extension WindowUtil {
 // MARK: - Window Actions
 
 extension WindowUtil {
+    static func canBringWindowToFrontWithoutSpaceSwitch(_ window: WindowInfo) -> Bool {
+        let activeSpaceIDs = currentActiveSpaceIDs()
+        guard !activeSpaceIDs.isEmpty else { return false }
+        return windowBelongsToActiveSpace(window, activeSpaceIDs: activeSpaceIDs)
+    }
+
+    static func hasOnlyFullscreenWindows(for app: NSRunningApplication, preferredWindows: [WindowInfo]? = nil) -> Bool {
+        let pid = app.processIdentifier
+        let sourceWindows: [WindowInfo] = if let preferredWindows {
+            preferredWindows.filter { $0.app.processIdentifier == pid }
+        } else {
+            readCachedWindows(for: pid)
+        }
+
+        let appWindows = sourceWindows.filter { !$0.isWindowlessApp }
+        guard !appWindows.isEmpty else { return false }
+        return appWindows.allSatisfy { (try? $0.axElement.isFullscreen()) == true }
+    }
+
     static func shouldQuitAppOnWindowClose(processIdentifier pid: pid_t) -> Bool {
         let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder")
         return Defaults[.quitAppOnWindowClose] &&
@@ -1493,16 +1749,72 @@ extension WindowUtil {
         }
         guard !appWindows.isEmpty else { return 0 }
 
-        if appWindows.allSatisfy(\.isMinimized) {
-            unminimizeWindowsAsync(appWindows)
-            return appWindows.count
+        let nonFullscreenWindows = appWindows.filter { (try? $0.axElement.isFullscreen()) != true }
+        guard !nonFullscreenWindows.isEmpty else { return 0 }
+
+        if nonFullscreenWindows.allSatisfy(\.isMinimized) {
+            unminimizeWindowsAsync(nonFullscreenWindows)
+            return nonFullscreenWindows.count
         }
 
-        let windowsToMinimize = appWindows.filter { !$0.isMinimized }
+        let windowsToMinimize = nonFullscreenWindows.filter { !$0.isMinimized }
         guard !windowsToMinimize.isEmpty else { return 0 }
 
         minimizeWindowsAsync(windowsToMinimize)
         return windowsToMinimize.count
+    }
+
+    static func forceRefreshCachedWindowImages(for pid: pid_t) async {
+        let windows = Array(desktopSpaceWindowCacheManager.readCache(pid: pid).filter { !$0.isWindowlessApp })
+        guard !windows.isEmpty else { return }
+
+        await LimitedConcurrency.forEachNonThrowing(windows, maxConcurrent: 4, timeout: 10) { window in
+            let image = try await captureWindowImage(
+                windowID: window.id,
+                pid: pid,
+                windowTitle: window.windowName,
+                forceRefresh: true
+            )
+            var updated = window
+            updated.image = image
+            updated.imageCapturedTime = Date()
+            updateDesktopSpaceWindowCache(with: updated)
+        }
+    }
+
+    static func refreshCachedWindowImagesAfterOpenNewWindow(
+        for pid: pid_t,
+        previousWindowIDs: Set<CGWindowID>,
+        sourceWindowID: CGWindowID?
+    ) async {
+        let windows = Array(desktopSpaceWindowCacheManager.readCache(pid: pid).filter { !$0.isWindowlessApp })
+        guard !windows.isEmpty else { return }
+
+        var refreshIDs = Set(windows.compactMap { window -> CGWindowID? in
+            previousWindowIDs.contains(window.id) ? nil : window.id
+        })
+
+        if let sourceWindowID,
+           windows.contains(where: { $0.id == sourceWindowID })
+        {
+            refreshIDs.insert(sourceWindowID)
+        }
+
+        guard !refreshIDs.isEmpty else { return }
+
+        let windowsToRefresh = windows.filter { refreshIDs.contains($0.id) }
+        await LimitedConcurrency.forEachNonThrowing(windowsToRefresh, maxConcurrent: 4, timeout: 10) { window in
+            let image = try await captureWindowImage(
+                windowID: window.id,
+                pid: pid,
+                windowTitle: window.windowName,
+                forceRefresh: true
+            )
+            var updated = window
+            updated.image = image
+            updated.imageCapturedTime = Date()
+            updateDesktopSpaceWindowCache(with: updated)
+        }
     }
 
     /// Minimizes multiple windows concurrently off the main thread to avoid UI blocking.
@@ -1611,6 +1923,27 @@ extension WindowUtil {
 // MARK: - Private Helper Methods
 
 extension WindowUtil {
+    static func focusAppBestEffort(_ app: NSRunningApplication) {
+        app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+
+        let pid = app.processIdentifier
+        let appAX = AXUIElementCreateApplication(pid)
+
+        if let focusedWindow = try? appAX.focusedWindow(),
+           let focusedWindowID = try? focusedWindow.cgWindowId(),
+           let cachedFocused = readCachedWindows(for: pid).first(where: { $0.id == focusedWindowID && !$0.isWindowlessApp })
+        {
+            cachedFocused.bringToFront()
+            return
+        }
+
+        if let bestCandidate = readCachedWindows(for: pid)
+            .first(where: { !$0.isWindowlessApp && !$0.isMinimized && !$0.isEffectivelyHiddenForUI })
+        {
+            bestCandidate.bringToFront()
+        }
+    }
+
     /// Makes a window key by posting raw event bytes to the Window Server
     /// Ported from https://github.com/Hammerspoon/hammerspoon/issues/370#issuecomment-545545468
     static func makeKeyWindow(_ psn: inout ProcessSerialNumber, windowID: CGWindowID) {

@@ -208,7 +208,7 @@ struct WindowlessAppPreview: View, Equatable {
         }
         .contextMenu {
             Button(action: {
-                WindowUtil.activateAndOpenNewWindow(app: windowInfo.app)
+                handleWindowAction(.openNewWindow)
             }) {
                 Label(
                     String(localized: "Open New Window", comment: "Context menu action to open a new window for the app"),
