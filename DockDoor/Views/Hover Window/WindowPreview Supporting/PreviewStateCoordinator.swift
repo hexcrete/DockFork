@@ -11,6 +11,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @Published var currIndex: Int = -1
     @Published private(set) var selectionInputSource: SelectionInputSource = .programmatic
+    @Published private(set) var activeFocusedWindowID: CGWindowID?
     @Published var windowSwitcherActive: Bool = false {
         didSet { invalidateFilterCache() }
     }
@@ -81,6 +82,7 @@ class PreviewStateCoordinator: ObservableObject {
     var onFrameRefreshNeeded: (() -> Void)?
     private var lastKnownBestGuessMonitor: NSScreen?
     private var visibilitySyncTasksByPID: [pid_t: Task<Void, Never>] = [:]
+    private var activeFocusRefreshTask: Task<Void, Never>?
 
     enum WindowState {
         case windowSwitcher
@@ -114,6 +116,10 @@ class PreviewStateCoordinator: ObservableObject {
                 let dockPosition = DockUtils.getDockPosition()
                 recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: monitor)
             }
+        }
+
+        if windowSwitcherActive || fullWindowPreviewActive {
+            scheduleActiveFocusedWindowRefresh()
         }
     }
 
@@ -152,6 +158,7 @@ class PreviewStateCoordinator: ObservableObject {
         }
 
         recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: isMockPreviewActive)
+        scheduleActiveFocusedWindowRefresh()
     }
 
     /// Merges fresh windows into the current display without jarring replacement.
@@ -217,12 +224,14 @@ class PreviewStateCoordinator: ObservableObject {
         if windows.count != previousWindowCount {
             onFrameRefreshNeeded?()
         }
+        scheduleActiveFocusedWindowRefresh()
     }
 
     @MainActor
     func updateWindow(at index: Int, with newInfo: WindowInfo) {
         guard index >= 0, index < windows.count else { return }
         windows[index] = newInfo
+        scheduleActiveFocusedWindowRefresh()
     }
 
     @MainActor
@@ -336,6 +345,7 @@ class PreviewStateCoordinator: ObservableObject {
             recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: monitor)
             onFrameRefreshNeeded?()
         }
+        scheduleActiveFocusedWindowRefresh()
     }
 
     @MainActor
@@ -370,13 +380,53 @@ class PreviewStateCoordinator: ObservableObject {
             recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: monitor)
             onFrameRefreshNeeded?()
         }
+        if windowsWereAdded {
+            scheduleActiveFocusedWindowRefresh()
+        }
     }
 
     @MainActor
     func removeAllWindows() {
+        activeFocusRefreshTask?.cancel()
+        activeFocusRefreshTask = nil
+        activeFocusedWindowID = nil
         windows.removeAll()
         updateSelectionIndex(-1, source: .programmatic)
         SharedPreviewWindowCoordinator.activeInstance?.hideWindow()
+    }
+
+    @MainActor
+    func refreshActiveFocusedWindowID() {
+        guard Defaults[.showActiveWindowBorder] else {
+            if activeFocusedWindowID != nil {
+                activeFocusedWindowID = nil
+            }
+            return
+        }
+        let focusedWindowID = WindowUtil.getFocusedWindowForFrontmostApp()?.id
+        if activeFocusedWindowID != focusedWindowID {
+            activeFocusedWindowID = focusedWindowID
+        }
+    }
+
+    @MainActor
+    func scheduleActiveFocusedWindowRefresh() {
+        activeFocusRefreshTask?.cancel()
+        activeFocusRefreshTask = Task { [weak self] in
+            let delays: [UInt64] = [0, 90_000_000, 240_000_000]
+            for delay in delays {
+                if delay > 0 {
+                    try? await Task.sleep(nanoseconds: delay)
+                }
+                guard !Task.isCancelled else { return }
+                await MainActor.run {
+                    self?.refreshActiveFocusedWindowID()
+                }
+            }
+            await MainActor.run {
+                self?.activeFocusRefreshTask = nil
+            }
+        }
     }
 
     @MainActor

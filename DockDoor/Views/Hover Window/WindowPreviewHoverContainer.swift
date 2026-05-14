@@ -38,6 +38,16 @@ class MockPreviewWindow: WindowPropertiesProviding {
 }
 
 struct WindowPreviewHoverContainer: View {
+    private struct DeferredActionWatcher {
+        let token: UUID
+        let task: Task<Void, Never>
+    }
+
+    private struct DeferredRefreshTask {
+        let token: UUID
+        let task: Task<Void, Never>
+    }
+
     let appName: String
     let onWindowTap: (() -> Void)?
     let dockPosition: DockPosition
@@ -114,6 +124,8 @@ struct WindowPreviewHoverContainer: View {
     @State private var backgroundAppearance: BackgroundAppearance = .resolve()
     @State private var dockHighlightActionTimer: Timer?
     @State private var dockHighlightActionID: UUID?
+    @State private var deferredActionWatchersByKey: [String: DeferredActionWatcher] = [:]
+    @State private var deferredRefreshTasksByKey: [String: DeferredRefreshTask] = [:]
 
     init(appName: String,
          onWindowTap: (() -> Void)?,
@@ -255,6 +267,70 @@ struct WindowPreviewHoverContainer: View {
         SharedPreviewWindowCoordinator.activeInstance?.hideFullPreviewWindow()
     }
 
+    @MainActor
+    private func deferredWatcherKey(pid: pid_t, action: WindowAction, purpose: String = "dismiss") -> String {
+        "\(pid)-\(action.rawValue)-\(purpose)"
+    }
+
+    @MainActor
+    private func deferredRefreshKey(pid: pid_t, purpose: String) -> String {
+        "\(pid)-\(purpose)"
+    }
+
+    @MainActor
+    private var shouldRunDeferredWatchers: Bool {
+        hasAppeared
+    }
+
+    @MainActor
+    private func cancelAllDeferredActionWatchers() {
+        for watcher in deferredActionWatchersByKey.values {
+            watcher.task.cancel()
+        }
+        deferredActionWatchersByKey.removeAll()
+    }
+
+    @MainActor
+    private func startDeferredRefreshTask(
+        pid: pid_t,
+        purpose: String,
+        operation: @escaping () async -> Void
+    ) {
+        let key = deferredRefreshKey(pid: pid, purpose: purpose)
+        deferredRefreshTasksByKey[key]?.task.cancel()
+
+        let token = UUID()
+        let task = Task {
+            await operation()
+            await MainActor.run {
+                if deferredRefreshTasksByKey[key]?.token == token {
+                    deferredRefreshTasksByKey.removeValue(forKey: key)
+                }
+            }
+        }
+        deferredRefreshTasksByKey[key] = DeferredRefreshTask(token: token, task: task)
+    }
+
+    @MainActor
+    private func startDeferredActionWatcher(
+        pid: pid_t,
+        action: WindowAction,
+        purpose: String = "dismiss",
+        operation: @escaping @MainActor () async -> Void
+    ) {
+        let key = deferredWatcherKey(pid: pid, action: action, purpose: purpose)
+        deferredActionWatchersByKey[key]?.task.cancel()
+
+        let token = UUID()
+        let task = Task { @MainActor in
+            await operation()
+            if deferredActionWatchersByKey[key]?.token == token {
+                deferredActionWatchersByKey.removeValue(forKey: key)
+            }
+        }
+        deferredActionWatchersByKey[key] = DeferredActionWatcher(token: token, task: task)
+    }
+
     private func performHighlightActionIfNeeded() {
         guard usesHighlightAction else {
             cancelDockHighlightAction()
@@ -296,7 +372,7 @@ struct WindowPreviewHoverContainer: View {
             case .tap:
                 if resolvedWindow.isMinimized {
                     handleWindowAction(.minimize, at: resolvedIndex)
-                } else if resolvedWindow.isHidden {
+                } else if resolvedWindow.isEffectivelyHiddenForUI {
                     handleWindowAction(.hide, at: resolvedIndex)
                 } else {
                     resolvedWindow.bringToFront()
@@ -385,6 +461,7 @@ struct WindowPreviewHoverContainer: View {
         }
         .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .popover && effectiveShowAppName) ? 30 : 0)
         .onAppear {
+            hasAppeared = true
             loadAppIcon()
             if Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
                 LiveCaptureManager.shared.panelOpened()
@@ -392,14 +469,17 @@ struct WindowPreviewHoverContainer: View {
             if #available(macOS 15.0, *) {
                 dynamicFadeEnabled = true
             }
+            previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
             refreshHighlightActionIfNeeded()
         }
         .onDisappear {
+            hasAppeared = false
             if Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
                 Task { await LiveCaptureManager.shared.panelClosed() }
             }
             stopEdgeScroll()
             cancelDockHighlightAction()
+            cancelAllDeferredActionWatchers()
         }
         .onChange(of: previewStateCoordinator.windowSwitcherActive) { isActive in
             if !isActive {
@@ -422,8 +502,12 @@ struct WindowPreviewHoverContainer: View {
 
                 let didHoverActionChange = previousAppearance?.previewHoverAction != updated.previewHoverAction
                 let didDelayChange = previousAppearance?.tapEquivalentInterval != updated.tapEquivalentInterval
+                let didActiveBorderVisibilityChange = previousAppearance?.showActiveWindowBorder != updated.showActiveWindowBorder
                 if didHoverActionChange || didDelayChange {
                     refreshHighlightActionIfNeeded()
+                }
+                if didActiveBorderVisibilityChange {
+                    previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
                 }
             }
         }
@@ -446,6 +530,9 @@ struct WindowPreviewHoverContainer: View {
         }
         .onChange(of: hasScreenRecordingPermission) { _ in
             refreshHighlightActionIfNeeded()
+        }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didActivateApplicationNotification)) { _ in
+            previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
         }
     }
 
@@ -694,7 +781,7 @@ struct WindowPreviewHoverContainer: View {
         if shouldDisplay {
             Group {
                 Button {
-                    closeAllWindows()
+                    handleAppHeaderAction(.closeAllWindows)
                 } label: {
                     Text("Close All")
                         .font(.caption)
@@ -703,7 +790,7 @@ struct WindowPreviewHoverContainer: View {
                 .buttonStyle(AccentButtonStyle(small: true))
 
                 Button {
-                    minimizeAllWindows(preferSharedToggle: true)
+                    handleAppHeaderAction(.minimizeAllWindows)
                 } label: {
                     Text("Minimize All")
                         .font(.caption)
@@ -1034,12 +1121,24 @@ struct WindowPreviewHoverContainer: View {
         guard let app = previewStateCoordinator.windows.first?.app else { return }
         if app.isHidden { app.unhide() }
         app.activate(options: [.activateIgnoringOtherApps])
+        previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
     }
 
     private func closeAllWindows() {
         onWindowTap?()
         guard let app = previewStateCoordinator.windows.first?.app else { return }
         _ = WindowUtil.closeAllWindows(for: app, preferredWindows: previewStateCoordinator.windows)
+    }
+
+    private func handleAppHeaderAction(_ action: WindowAction) {
+        guard !previewStateCoordinator.windows.isEmpty else { return }
+        let selectedIndex = previewStateCoordinator.currIndex
+        let targetIndex = if previewStateCoordinator.windows.indices.contains(selectedIndex) {
+            selectedIndex
+        } else {
+            0
+        }
+        handleWindowAction(action, at: targetIndex)
     }
 
     private func minimizeAllWindows(
@@ -1071,6 +1170,10 @@ struct WindowPreviewHoverContainer: View {
                 switch Defaults[.dockClickAction] {
                 case .hide:
                     if let app = originalWindows.first?.app {
+                        if WindowUtil.hasOnlyFullscreenWindows(for: app, preferredWindows: originalWindows) {
+                            previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
+                            return
+                        }
                         app.hide()
                         previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
                     }
@@ -1080,6 +1183,10 @@ struct WindowPreviewHoverContainer: View {
                 }
             } else {
                 if let app = originalWindows.first?.app {
+                    if WindowUtil.hasOnlyFullscreenWindows(for: app, preferredWindows: originalWindows) {
+                        previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
+                        return
+                    }
                     app.activate()
                     app.unhide()
 
@@ -1113,27 +1220,91 @@ struct WindowPreviewHoverContainer: View {
     private func handleWindowAction(_ action: WindowAction, at index: Int) {
         guard index < previewStateCoordinator.windows.count else { return }
         let window = previewStateCoordinator.windows[index]
+        let willQuitOnClose = action == .close &&
+            !window.isWindowlessApp &&
+            WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: window.app.processIdentifier)
+        let appPID = window.app.processIdentifier
+        let existingAppWindowIDs = Set(
+            previewStateCoordinator.windows
+                .filter { $0.app.processIdentifier == appPID && !$0.isWindowlessApp }
+                .map(\.id)
+        )
+        let postActionBehavior = action.resolvedPostActionBehavior(
+            for: window,
+            preferredWindows: previewStateCoordinator.windows
+        )
+        let closeAfterSuccess = action.closePreviewsOnlyAfterSuccess(
+            for: window,
+            preferredWindows: previewStateCoordinator.windows
+        )
+        let shouldClosePreviews = postActionBehavior != .keepPreviewsOpenNoFocus
+        let focusBeforeClose = postActionBehavior == .closePreviewsAndFocus
+        let shouldForegroundMoveResize = !shouldClosePreviews &&
+            Defaults[.moveResizeBringToForeground] &&
+            action.postActionCategory(for: window, preferredWindows: previewStateCoordinator.windows) == .movingAndResizing
+        let forceImmediateCloseForFullscreenTransition = action.shouldForcePreviewCloseForFullscreenTransition(on: window)
+        let skipToggleFullscreenRefresh = action == .toggleFullScreen &&
+            (postActionBehavior == .keepPreviewsOpenNoFocus || forceImmediateCloseForFullscreenTransition)
+        let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
+            !skipToggleFullscreenRefresh
+        let hideBlockedByFullscreenOnly = action == .hide &&
+            !window.isEffectivelyHiddenForUI &&
+            WindowUtil.hasOnlyFullscreenWindows(for: window.app, preferredWindows: previewStateCoordinator.windows)
         let expectedFullscreenState: Bool? = if action == .toggleFullScreen {
             (try? window.axElement.isFullscreen()).map(!)
         } else {
             nil
         }
+        let expectedMinimizedState: Bool? = if action == .minimize {
+            !window.isMinimized
+        } else {
+            nil
+        }
+        let expectedHiddenState: Bool? = if action == .hide {
+            !window.isEffectivelyHiddenForUI
+        } else {
+            nil
+        }
+        let expectedMinimizeAllState: Bool?
+        if action == .minimizeAllWindows {
+            let category = action.postActionCategory(for: window, preferredWindows: previewStateCoordinator.windows)
+            switch category {
+            case .hiding:
+                expectedMinimizeAllState = true
+            case .unhiding:
+                expectedMinimizeAllState = false
+            default:
+                expectedMinimizeAllState = nil
+            }
+        } else {
+            expectedMinimizeAllState = nil
+        }
 
-        if action == .close || action == .quit || action == .closeAllWindows || action == .toggleFullScreen {
+        if action.shouldScheduleDockReconciliation, !skipToggleFullscreenRefresh {
             scheduleDockActionReconciliationIfNeeded(for: window.app)
         }
 
-        let keepPreviewOnQuit = previewStateCoordinator.windowSwitcherActive || Defaults[.keepPreviewOnAppTerminate]
+        if forceImmediateCloseForFullscreenTransition {
+            onWindowTap?()
+        }
+
         let result = action.perform(
             on: window,
-            keepPreviewOnQuit: keepPreviewOnQuit,
+            keepPreviewOnQuit: false,
             preferredWindows: previewStateCoordinator.windows
         )
+        previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
 
+        if forceImmediateCloseForFullscreenTransition {
+            return
+        }
+
+        var actionConfirmedSuccess = false
         switch result {
         case .dismissed:
-            onWindowTap?()
+            actionConfirmedSuccess = !action.requiresDeferredSuccessWatcher || !closeAfterSuccess || !shouldClosePreviews
         case let .windowUpdated(updatedWindow):
+            actionConfirmedSuccess = true
             if action == .hide {
                 previewStateCoordinator.updateHiddenStateForApp(
                     processIdentifier: updatedWindow.app.processIdentifier,
@@ -1143,39 +1314,530 @@ struct WindowPreviewHoverContainer: View {
                 previewStateCoordinator.updateWindow(at: index, with: updatedWindow)
             }
         case .windowRemoved:
+            actionConfirmedSuccess = true
             previewStateCoordinator.removeWindow(at: index)
         case let .appWindowsRemoved(pid):
+            actionConfirmedSuccess = true
             for i in stride(from: previewStateCoordinator.windows.count - 1, through: 0, by: -1) {
                 if previewStateCoordinator.windows[i].app.processIdentifier == pid {
                     previewStateCoordinator.removeWindow(at: i)
                 }
             }
         case .noChange:
-            if action == .toggleFullScreen, let expectedFullscreenState {
-                scheduleFullscreenDismissConfirmation(window: window, targetFullscreenState: expectedFullscreenState)
+            break
+        }
+
+        if action == .minimize || action == .hide || action == .minimizeAllWindows {
+            previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: window.app.processIdentifier)
+        }
+
+        if shouldRunInPlaceRefresh {
+            scheduleInPlaceActionRefresh(
+                for: window.app,
+                fallbackWindow: window,
+                forceImageRefresh: action == .openNewWindow,
+                previousWindowIDs: action == .openNewWindow ? existingAppWindowIDs : nil,
+                sourceWindowID: action == .openNewWindow ? window.id : nil
+            )
+        }
+
+        if shouldForegroundMoveResize,
+           actionConfirmedSuccess,
+           WindowUtil.canBringWindowToFrontWithoutSpaceSwitch(window)
+        {
+            window.bringToFront()
+        }
+
+        guard shouldClosePreviews else { return }
+
+        if action == .close || action == .quit {
+            scheduleFailedClosingFocusNotification(
+                action: action,
+                window: window,
+                willQuitOnClose: willQuitOnClose
+            )
+            if focusBeforeClose {
+                action.focusTargetAfterAction(on: window)
             }
-            if action == .minimize || action == .hide || action == .minimizeAllWindows {
-                previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: window.app.processIdentifier)
+            onWindowTap?()
+            return
+        }
+
+        if !closeAfterSuccess {
+            if hideBlockedByFullscreenOnly {
+                return
+            }
+            if focusBeforeClose {
+                action.focusTargetAfterAction(on: window)
+            }
+            onWindowTap?()
+            return
+        }
+
+        if action == .minimize || action == .hide || action == .minimizeAllWindows {
+            scheduleVisibilityDismissConfirmation(
+                action: action,
+                window: window,
+                targetMinimizedState: expectedMinimizedState,
+                targetHiddenState: expectedHiddenState,
+                targetMinimizeAllState: expectedMinimizeAllState,
+                focusBeforeClose: focusBeforeClose
+            )
+            return
+        }
+
+        if actionConfirmedSuccess {
+            if focusBeforeClose {
+                action.focusTargetAfterAction(on: window)
+            }
+            onWindowTap?()
+            return
+        }
+
+        switch action {
+        case .toggleFullScreen:
+            if let expectedFullscreenState {
+                scheduleFullscreenDismissConfirmation(
+                    window: window,
+                    targetFullscreenState: expectedFullscreenState,
+                    focusBeforeClose: focusBeforeClose
+                )
+            }
+        case .openNewWindow:
+            scheduleNewWindowDismissConfirmation(
+                window: window,
+                previousWindowIDs: existingAppWindowIDs,
+                focusBeforeClose: focusBeforeClose
+            )
+        case .close:
+            if willQuitOnClose {
+                scheduleAppTerminationDismissConfirmation(
+                    window: window,
+                    sourceAction: .close,
+                    focusBeforeClose: focusBeforeClose
+                )
+            } else if window.isWindowlessApp {
+                scheduleCloseAllDismissConfirmation(
+                    window: window,
+                    sourceAction: .close,
+                    focusBeforeClose: focusBeforeClose
+                )
+            } else {
+                scheduleWindowClosureDismissConfirmation(
+                    window: window,
+                    focusBeforeClose: focusBeforeClose
+                )
+            }
+        case .quit:
+            scheduleAppTerminationDismissConfirmation(
+                window: window,
+                sourceAction: .quit,
+                focusBeforeClose: focusBeforeClose
+            )
+        case .closeAllWindows:
+            scheduleCloseAllDismissConfirmation(
+                window: window,
+                sourceAction: .closeAllWindows,
+                focusBeforeClose: focusBeforeClose
+            )
+        default:
+            break
+        }
+    }
+
+    private func scheduleFailedClosingFocusNotification(
+        action: WindowAction,
+        window: WindowInfo,
+        willQuitOnClose: Bool
+    ) {
+        let app = window.app
+        let pid = app.processIdentifier
+        let windowID = window.id
+        let isWindowless = window.isWindowlessApp
+
+        startDeferredActionWatcher(
+            pid: pid,
+            action: action,
+            purpose: "failed-focus"
+        ) {
+            var missingWindowConfirmations = 0
+            var emptyWindowSetConfirmations = 0
+
+            for delay in WindowAction.deferredConfirmationPollDelays {
+                try? await Task.sleep(nanoseconds: delay)
+                guard shouldRunDeferredWatchers else { return }
+
+                if action == .quit || willQuitOnClose {
+                    if app.isTerminated || NSRunningApplication(processIdentifier: pid) == nil {
+                        return
+                    }
+                    continue
+                }
+
+                await WindowUtil.updateNewWindowsForApp(app)
+                guard shouldRunDeferredWatchers else { return }
+
+                let cached = WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
+                if isWindowless {
+                    if cached.isEmpty {
+                        emptyWindowSetConfirmations += 1
+                        if emptyWindowSetConfirmations >= 2 {
+                            return
+                        }
+                    } else {
+                        emptyWindowSetConfirmations = 0
+                    }
+                    continue
+                }
+
+                let stillExists = cached.contains { $0.id == windowID && $0.app.processIdentifier == pid }
+                if !stillExists {
+                    missingWindowConfirmations += 1
+                    if missingWindowConfirmations >= 2 {
+                        return
+                    }
+                } else {
+                    missingWindowConfirmations = 0
+                }
+            }
+
+            guard shouldRunDeferredWatchers else { return }
+            guard let runningApp = NSRunningApplication(processIdentifier: pid), !runningApp.isTerminated else { return }
+
+            runningApp.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
+
+            let cachedWindows = WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
+            if !isWindowless, let exactMatch = cachedWindows.first(where: { $0.id == windowID }) {
+                exactMatch.bringToFront()
+            } else if let firstWindow = cachedWindows.first {
+                firstWindow.bringToFront()
             }
         }
     }
 
-    private func scheduleFullscreenDismissConfirmation(window: WindowInfo, targetFullscreenState: Bool) {
+    private func scheduleVisibilityDismissConfirmation(
+        action: WindowAction,
+        window: WindowInfo,
+        targetMinimizedState: Bool?,
+        targetHiddenState: Bool?,
+        targetMinimizeAllState: Bool?,
+        focusBeforeClose: Bool
+    ) {
+        let app = window.app
+        let pid = app.processIdentifier
+
+        startDeferredActionWatcher(pid: pid, action: action) {
+            for delay in WindowAction.deferredConfirmationPollDelays {
+                try? await Task.sleep(nanoseconds: delay)
+                guard shouldRunDeferredWatchers else { return }
+                await WindowUtil.updateNewWindowsForApp(app)
+                guard shouldRunDeferredWatchers else { return }
+
+                var confirmed = false
+                switch action {
+                case .minimize:
+                    if let targetMinimizedState {
+                        confirmed = (try? window.axElement.isMinimized()) == targetMinimizedState
+                    }
+                case .hide:
+                    if let targetHiddenState {
+                        confirmed = app.isHidden == targetHiddenState
+                    }
+                case .minimizeAllWindows:
+                    if let targetMinimizeAllState {
+                        let nonFullscreen = WindowUtil.readCachedWindows(for: pid).filter {
+                            !$0.isWindowlessApp && (try? $0.axElement.isFullscreen()) != true
+                        }
+                        if !nonFullscreen.isEmpty {
+                            if targetMinimizeAllState {
+                                confirmed = nonFullscreen.allSatisfy(\.isMinimized)
+                            } else {
+                                confirmed = nonFullscreen.allSatisfy { !$0.isMinimized }
+                            }
+                        }
+                    }
+                default:
+                    break
+                }
+
+                if confirmed {
+                    if focusBeforeClose {
+                        actionFocusFallback(app: app)
+                    }
+                    onWindowTap?()
+                    return
+                }
+            }
+        }
+    }
+
+    private func scheduleInPlaceActionRefresh(
+        for app: NSRunningApplication,
+        fallbackWindow: WindowInfo,
+        forceImageRefresh: Bool = false,
+        previousWindowIDs: Set<CGWindowID>? = nil,
+        sourceWindowID: CGWindowID? = nil
+    ) {
+        let pid = app.processIdentifier
+
+        startDeferredRefreshTask(pid: pid, purpose: "in-place-action-refresh") {
+            for delay in WindowAction.inPlaceRefreshDelays {
+                try? await Task.sleep(nanoseconds: delay)
+                guard !Task.isCancelled else { return }
+                await WindowUtil.updateNewWindowsForApp(app)
+                guard !Task.isCancelled else { return }
+                if forceImageRefresh {
+                    await WindowUtil.refreshCachedWindowImagesAfterOpenNewWindow(
+                        for: pid,
+                        previousWindowIDs: previousWindowIDs ?? [],
+                        sourceWindowID: sourceWindowID
+                    )
+                    guard !Task.isCancelled else { return }
+                }
+
+                await MainActor.run {
+                    refreshVisibleRowsForApp(app: app, fallbackWindow: fallbackWindow)
+                    previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
+                }
+            }
+        }
+    }
+
+    private func refreshVisibleRowsForApp(app: NSRunningApplication, fallbackWindow: WindowInfo) {
+        let pid = app.processIdentifier
+        let before = previewStateCoordinator.windows
+        let beforeSnapshots = before.map(\.viewSnapshot)
+        let firstIndex = before.firstIndex { $0.app.processIdentifier == pid } ?? before.count
+        var replacement = WindowUtil.readCachedWindows(
+            for: pid,
+            sortedBy: dockPosition == .cmdTab ? .cmdTab : .dockPreview
+        )
+        let runningApp = NSRunningApplication(processIdentifier: pid)
+        let canAddWindowlessEntry = (runningApp?.isTerminated == false)
+        let windowlessApp = runningApp ?? app
+        if !canAddWindowlessEntry {
+            replacement = []
+        }
+
+        if dockPosition == .cmdTab {
+            if Defaults[.showWindowsFromCurrentSpaceOnlyInCmdTab] {
+                replacement = WindowUtil.filterWindowsByCurrentSpace(replacement)
+            }
+            if Defaults[.showWindowsFromCurrentMonitorOnlyInCmdTab] {
+                replacement = WindowUtil.filterWindowsByCurrentMonitor(replacement)
+            }
+            if !Defaults[.includeHiddenWindowsInCmdTab] {
+                replacement = replacement.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
+            }
+            if canAddWindowlessEntry, replacement.isEmpty, Defaults[.showWindowlessAppsInCmdTab] {
+                replacement = [WindowInfo.windowlessEntry(for: windowlessApp)]
+            }
+        } else if previewStateCoordinator.windowSwitcherActive {
+            if Defaults[.showWindowsFromCurrentSpaceOnlyInSwitcher] {
+                replacement = WindowUtil.filterWindowsByCurrentSpace(replacement)
+            }
+            if Defaults[.showWindowsFromCurrentMonitorOnlyInSwitcher] {
+                replacement = WindowUtil.filterWindowsByCurrentMonitor(replacement)
+            }
+            if !Defaults[.includeHiddenWindowsInSwitcher] {
+                replacement = replacement.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
+            }
+            if canAddWindowlessEntry, replacement.isEmpty, Defaults[.showWindowlessAppsInSwitcher] {
+                replacement = [WindowInfo.windowlessEntry(for: windowlessApp)]
+            }
+        } else {
+            if Defaults[.showWindowsFromCurrentSpaceOnly] {
+                replacement = WindowUtil.filterWindowsByCurrentSpace(replacement)
+            }
+            if Defaults[.showWindowsFromCurrentMonitorOnly] {
+                replacement = WindowUtil.filterWindowsByCurrentMonitor(replacement)
+            }
+            if !Defaults[.includeHiddenWindowsInDockPreview] {
+                replacement = replacement.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
+            }
+            if canAddWindowlessEntry, replacement.isEmpty, Defaults[.showWindowlessAppsInDockPreview] {
+                replacement = [WindowInfo.windowlessEntry(for: windowlessApp)]
+            }
+        }
+
+        var merged = before.filter { $0.app.processIdentifier != pid }
+        let insertionIndex = min(firstIndex, merged.count)
+        merged.insert(contentsOf: replacement, at: insertionIndex)
+
+        let mergedSnapshots = merged.map(\.viewSnapshot)
+        if mergedSnapshots != beforeSnapshots {
+            previewStateCoordinator.setWindows(
+                merged,
+                dockPosition: dockPosition,
+                bestGuessMonitor: bestGuessMonitor,
+                isMockPreviewActive: mockPreviewActive
+            )
+        } else if previewStateCoordinator.windows.contains(where: { $0.id == fallbackWindow.id && $0.app.processIdentifier == pid }) {
+            previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: pid)
+            previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
+        }
+
+        refreshDisplayedFullPreviewIfNeeded(sourceWindows: merged)
+    }
+
+    private func refreshDisplayedFullPreviewIfNeeded(sourceWindows: [WindowInfo]? = nil) {
+        guard previewStateCoordinator.fullWindowPreviewActive else { return }
+        guard usesHighlightAction, resolvedAppearance.previewHoverAction == .previewFullSize else { return }
+        let windows = sourceWindows ?? previewStateCoordinator.windows
+        let selectedIndex = previewStateCoordinator.currIndex
+        guard selectedIndex >= 0, selectedIndex < windows.count else { return }
+        let selectedWindow = windows[selectedIndex]
+        guard !selectedWindow.isWindowlessApp else { return }
+
+        SharedPreviewWindowCoordinator.activeInstance?.showWindow(
+            appName: selectedWindow.app.localizedName ?? "Unknown",
+            windows: [selectedWindow],
+            mouseScreen: bestGuessMonitor,
+            dockItemElement: nil,
+            overrideDelay: true,
+            centeredHoverWindowState: .fullWindowPreview
+        )
+    }
+
+    private func scheduleAppTerminationDismissConfirmation(window: WindowInfo, sourceAction: WindowAction, focusBeforeClose: Bool) {
+        let pid = window.app.processIdentifier
+        let app = window.app
+
+        startDeferredActionWatcher(pid: pid, action: sourceAction) {
+            for delay in WindowAction.deferredConfirmationPollDelays {
+                try? await Task.sleep(nanoseconds: delay)
+                guard shouldRunDeferredWatchers else { return }
+                let appStillVisible = previewStateCoordinator.windows.contains { $0.app.processIdentifier == pid }
+                if app.isTerminated || NSRunningApplication(processIdentifier: pid) == nil || !appStillVisible {
+                    if focusBeforeClose {
+                        actionFocusFallback(app: app)
+                    }
+                    onWindowTap?()
+                    return
+                }
+            }
+        }
+    }
+
+    private func scheduleWindowClosureDismissConfirmation(window: WindowInfo, focusBeforeClose: Bool) {
+        let windowID = window.id
+        let pid = window.app.processIdentifier
+        let app = window.app
+
+        startDeferredActionWatcher(pid: pid, action: .close) {
+            for delay in WindowAction.deferredConfirmationPollDelays {
+                try? await Task.sleep(nanoseconds: delay)
+                guard shouldRunDeferredWatchers else { return }
+                await WindowUtil.updateNewWindowsForApp(app)
+                guard shouldRunDeferredWatchers else { return }
+                let cached = WindowUtil.readCachedWindows(for: pid)
+                let stillExists = cached.contains { $0.id == windowID && $0.app.processIdentifier == pid }
+                let stillVisible = previewStateCoordinator.windows.contains { $0.id == windowID && $0.app.processIdentifier == pid }
+                if !stillExists || !stillVisible {
+                    if focusBeforeClose {
+                        actionFocusFallback(app: app)
+                    }
+                    onWindowTap?()
+                    return
+                }
+            }
+        }
+    }
+
+    private func scheduleCloseAllDismissConfirmation(window: WindowInfo, sourceAction: WindowAction, focusBeforeClose: Bool) {
+        let pid = window.app.processIdentifier
+        let app = window.app
+
+        startDeferredActionWatcher(pid: pid, action: sourceAction) {
+            for delay in WindowAction.deferredConfirmationPollDelays {
+                try? await Task.sleep(nanoseconds: delay)
+                guard shouldRunDeferredWatchers else { return }
+                await WindowUtil.updateNewWindowsForApp(app)
+                guard shouldRunDeferredWatchers else { return }
+                let cached = WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
+                let visibleNonWindowlessCount = previewStateCoordinator.windows.filter { $0.app.processIdentifier == pid && !$0.isWindowlessApp }.count
+                if cached.isEmpty || visibleNonWindowlessCount == 0 {
+                    if focusBeforeClose {
+                        actionFocusFallback(app: app)
+                    }
+                    onWindowTap?()
+                    return
+                }
+            }
+        }
+    }
+
+    private func scheduleNewWindowDismissConfirmation(window: WindowInfo, previousWindowIDs: Set<CGWindowID>, focusBeforeClose: Bool) {
+        let pid = window.app.processIdentifier
+        let app = window.app
+        let originalWindowID = window.id
+        let originalWindowTitle = window.windowName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hadNoTrackedWindowsBefore = previousWindowIDs.isEmpty
+
+        startDeferredActionWatcher(pid: pid, action: .openNewWindow) {
+            for delay in WindowAction.deferredConfirmationPollDelays {
+                try? await Task.sleep(nanoseconds: delay)
+                guard shouldRunDeferredWatchers else { return }
+                await WindowUtil.updateNewWindowsForApp(app)
+                guard shouldRunDeferredWatchers else { return }
+                let cached = WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
+                let currentIDs = Set(cached.map(\.id))
+                let hasNewWindow = !currentIDs.subtracting(previousWindowIDs).isEmpty
+                let hasUsableWindow = cached.contains { !$0.isMinimized && !$0.isEffectivelyHiddenForUI }
+                let currentTitle = cached
+                    .first(where: { $0.id == originalWindowID })?
+                    .windowName?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                let titleChanged = switch (originalWindowTitle, currentTitle) {
+                case (nil, nil): false
+                case (nil, let current?): !current.isEmpty
+                case (let original?, nil): !original.isEmpty
+                case let (original?, current?): original != current
+                }
+                let shouldTreatAsSuccess = hasNewWindow ||
+                    titleChanged ||
+                    (hadNoTrackedWindowsBefore && hasUsableWindow)
+
+                if shouldTreatAsSuccess {
+                    if focusBeforeClose {
+                        actionFocusFallback(app: app)
+                    }
+                    onWindowTap?()
+                    return
+                }
+            }
+        }
+    }
+
+    private func actionFocusFallback(app: NSRunningApplication) {
+        WindowUtil.focusAppBestEffort(app)
+    }
+
+    private func scheduleFullscreenDismissConfirmation(
+        window: WindowInfo,
+        targetFullscreenState: Bool,
+        focusBeforeClose: Bool
+    ) {
         guard !mockPreviewActive else { return }
 
         let windowID = window.id
         let pid = window.app.processIdentifier
 
-        Task {
-            try? await Task.sleep(nanoseconds: 180_000_000)
+        startDeferredActionWatcher(pid: pid, action: .toggleFullScreen) {
+            try? await Task.sleep(nanoseconds: WindowAction.fullscreenConfirmationDelay)
+            guard shouldRunDeferredWatchers else { return }
             guard let confirmedFullscreen = try? window.axElement.isFullscreen(),
                   confirmedFullscreen == targetFullscreenState
             else { return }
 
-            guard previewStateCoordinator.windows.contains(where: { $0.id == windowID && $0.app.processIdentifier == pid }) else {
+            let stillVisible = previewStateCoordinator.windows.contains(where: { $0.id == windowID && $0.app.processIdentifier == pid })
+            guard stillVisible else {
                 return
             }
 
+            if focusBeforeClose {
+                window.bringToFront()
+            }
             onWindowTap?()
         }
     }
@@ -1185,10 +1847,9 @@ struct WindowPreviewHoverContainer: View {
         guard !previewStateCoordinator.windowSwitcherActive else { return }
         guard dockPosition != .cmdTab else { return }
 
-        let delays: [UInt64] = [120_000_000, 450_000_000, 900_000_000]
-
-        for (index, delay) in delays.enumerated() {
-            Task.detached {
+        let pid = app.processIdentifier
+        startDeferredRefreshTask(pid: pid, purpose: "dock-action-reconciliation") {
+            for (index, delay) in WindowAction.reconciliationDelays.enumerated() {
                 try? await Task.sleep(nanoseconds: delay)
                 guard !Task.isCancelled else { return }
 
@@ -1367,7 +2028,7 @@ struct WindowPreviewHoverContainer: View {
                     guard enableLivePreview, livePreviewEnabledForContext else { return false }
 
                     // Can't use live preview for minimized/hidden windows
-                    guard !windowInfo.isMinimized, !windowInfo.isHidden else { return false }
+                    guard !windowInfo.isMinimized, !windowInfo.isEffectivelyHiddenForUI else { return false }
 
                     // Check scope-based eligibility for window switcher
                     if windowSwitcherActive {
@@ -1442,7 +2103,8 @@ struct WindowPreviewHoverContainer: View {
                         onHoverIndexChange: handleHoverIndexChange,
                         widthOverride: compactRowWidth,
                         appearance: appearance,
-                        backgroundAppearance: backgroundAppearance
+                        backgroundAppearance: backgroundAppearance,
+                        activeFocusedWindowID: previewStateCoordinator.activeFocusedWindowID
                     )
                     .equatable()
                     .id(itemID)
@@ -1465,7 +2127,8 @@ struct WindowPreviewHoverContainer: View {
                         onHoverIndexChange: handleHoverIndexChange,
                         useLivePreview: useLivePreview,
                         appearance: appearance,
-                        backgroundAppearance: backgroundAppearance
+                        backgroundAppearance: backgroundAppearance,
+                        activeFocusedWindowID: previewStateCoordinator.activeFocusedWindowID
                     )
                     .equatable()
                     .id(itemID)

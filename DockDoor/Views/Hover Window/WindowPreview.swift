@@ -132,6 +132,7 @@ struct WindowPreview: View, Equatable {
     var skeletonMode: Bool = false
     var appearance: PreviewAppearanceSettings
     let backgroundAppearance: BackgroundAppearance
+    let activeFocusedWindowID: CGWindowID?
 
     @State private var isHoveringOverDockPeekPreview = false
     @State private var isHoveringOverWindowSwitcherPreview = false
@@ -146,10 +147,14 @@ struct WindowPreview: View, Equatable {
         return appearance.enabledTrafficLightButtons
     }
 
+    private var isEffectivelyHidden: Bool {
+        windowInfo.isEffectivelyHiddenForUI
+    }
+
     private var canRenderTrafficLightButtons: Bool {
         appearance.trafficLightVisibility != .never &&
             !effectiveTrafficLightButtons.isEmpty &&
-            (windowInfo.closeButton != nil || windowInfo.isWindowlessApp || windowInfo.isMinimized || windowInfo.isHidden)
+            (windowInfo.closeButton != nil || windowInfo.isWindowlessApp || windowInfo.isMinimized || isEffectivelyHidden)
     }
 
     static func == (l: Self, r: Self) -> Bool {
@@ -159,15 +164,13 @@ struct WindowPreview: View, Equatable {
             && l.windowSwitcherActive == r.windowSwitcherActive
             && l.appearance == r.appearance && l.windowInfo.viewSnapshot == r.windowInfo.viewSnapshot
             && l.backgroundAppearance == r.backgroundAppearance
+            && l.activeFocusedWindowID == r.activeFocusedWindowID
     }
 
     private var isActiveWindow: Bool {
         guard appearance.showActiveWindowBorder else { return false }
-        guard windowInfo.app.isActive else { return false }
-        guard let focusedWindow = try? windowInfo.appAxElement.focusedWindow(),
-              let focusedWindowID = try? focusedWindow.cgWindowId()
-        else { return false }
-        return windowInfo.id == focusedWindowID
+        guard let activeFocusedWindowID else { return false }
+        return windowInfo.id == activeFocusedWindowID
     }
 
     @ViewBuilder
@@ -267,7 +270,7 @@ struct WindowPreview: View, Equatable {
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
                 )
-            } else if windowInfo.isMinimized || windowInfo.isHidden,
+            } else if windowInfo.isMinimized || isEffectivelyHidden,
                       appearance.showMinimizedHiddenLabels,
                       appearance.trafficLightVisibility != .never
             {
@@ -525,7 +528,7 @@ struct WindowPreview: View, Equatable {
                     useMonochrome: appearance.useMonochromeTrafficLights,
                     backgroundAppearance: backgroundAppearance
                 )
-            } else if windowInfo.isMinimized || windowInfo.isHidden,
+            } else if windowInfo.isMinimized || isEffectivelyHidden,
                       appearance.showMinimizedHiddenLabels,
                       appearance.trafficLightVisibility != .never
             {
@@ -606,7 +609,7 @@ struct WindowPreview: View, Equatable {
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
                 )
-            } else if windowInfo.isMinimized || windowInfo.isHidden,
+            } else if windowInfo.isMinimized || isEffectivelyHidden,
                       appearance.showMinimizedHiddenLabels,
                       appearance.trafficLightVisibility != .never
             {
@@ -674,7 +677,7 @@ struct WindowPreview: View, Equatable {
 
                 windowContent(
                     isMinimized: windowInfo.isMinimized,
-                    isHidden: windowInfo.isHidden,
+                    isHidden: isEffectivelyHidden,
                     isSelected: finalIsSelected
                 )
 
@@ -793,7 +796,7 @@ struct WindowPreview: View, Equatable {
     private func handleWindowTap() {
         if windowInfo.isMinimized {
             handleWindowAction(.minimize)
-        } else if windowInfo.isHidden {
+        } else if isEffectivelyHidden {
             handleWindowAction(.hide)
         } else {
             windowInfo.bringToFront()

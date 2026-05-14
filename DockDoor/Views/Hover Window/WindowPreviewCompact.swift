@@ -15,6 +15,7 @@ struct WindowPreviewCompact: View, Equatable {
     let widthOverride: CGFloat?
     var appearance: PreviewAppearanceSettings
     let backgroundAppearance: BackgroundAppearance
+    let activeFocusedWindowID: CGWindowID?
 
     @State private var isHovering = false
 
@@ -30,6 +31,7 @@ struct WindowPreviewCompact: View, Equatable {
             && l.appearance == r.appearance
             && l.windowInfo.viewSnapshot == r.windowInfo.viewSnapshot
             && l.backgroundAppearance == r.backgroundAppearance
+            && l.activeFocusedWindowID == r.activeFocusedWindowID
     }
 
     private var rowWidth: CGFloat {
@@ -46,17 +48,14 @@ struct WindowPreviewCompact: View, Equatable {
     private var canRenderTrafficLightButtons: Bool {
         appearance.trafficLightVisibility != .never &&
             !effectiveTrafficLightButtons.isEmpty &&
-            (windowInfo.closeButton != nil || windowInfo.isWindowlessApp || windowInfo.isMinimized || windowInfo.isHidden)
+            (windowInfo.closeButton != nil || windowInfo.isWindowlessApp || windowInfo.isMinimized || windowInfo.isEffectivelyHiddenForUI)
     }
 
     /// Checks if this window is the currently active (focused) window on the system and adds a border if so.
     private var isActiveWindow: Bool {
         guard appearance.showActiveWindowBorder else { return false }
-        guard windowInfo.app.isActive else { return false }
-        guard let focusedWindow = try? windowInfo.appAxElement.focusedWindow(),
-              let focusedWindowID = try? focusedWindow.cgWindowId()
-        else { return false }
-        return windowInfo.id == focusedWindowID
+        guard let activeFocusedWindowID else { return false }
+        return windowInfo.id == activeFocusedWindowID
     }
 
     private var appName: String {
@@ -80,7 +79,7 @@ struct WindowPreviewCompact: View, Equatable {
         else { return nil }
         if windowInfo.isMinimized {
             return "Minimized"
-        } else if windowInfo.isHidden {
+        } else if windowInfo.isEffectivelyHiddenForUI {
             return "Hidden"
         }
         return nil
