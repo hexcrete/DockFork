@@ -83,6 +83,7 @@ class PreviewStateCoordinator: ObservableObject {
     private var lastKnownBestGuessMonitor: NSScreen?
     private var visibilitySyncTasksByPID: [pid_t: Task<Void, Never>] = [:]
     private var activeFocusRefreshTask: Task<Void, Never>?
+    private var pendingActiveFocusRefreshRequest = false
 
     enum WindowState {
         case windowSwitcher
@@ -389,6 +390,7 @@ class PreviewStateCoordinator: ObservableObject {
     func removeAllWindows() {
         activeFocusRefreshTask?.cancel()
         activeFocusRefreshTask = nil
+        pendingActiveFocusRefreshRequest = false
         activeFocusedWindowID = nil
         windows.removeAll()
         updateSelectionIndex(-1, source: .programmatic)
@@ -411,7 +413,11 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func scheduleActiveFocusedWindowRefresh() {
-        activeFocusRefreshTask?.cancel()
+        guard activeFocusRefreshTask == nil else {
+            pendingActiveFocusRefreshRequest = true
+            return
+        }
+        pendingActiveFocusRefreshRequest = false
         activeFocusRefreshTask = Task { [weak self] in
             let delays: [UInt64] = [0, 90_000_000, 240_000_000]
             for delay in delays {
@@ -424,7 +430,12 @@ class PreviewStateCoordinator: ObservableObject {
                 }
             }
             await MainActor.run {
-                self?.activeFocusRefreshTask = nil
+                guard let self else { return }
+                self.activeFocusRefreshTask = nil
+                if self.pendingActiveFocusRefreshRequest {
+                    self.pendingActiveFocusRefreshRequest = false
+                    self.scheduleActiveFocusedWindowRefresh()
+                }
             }
         }
     }
