@@ -657,7 +657,14 @@ extension WindowUtil {
         }
     }
 
-    static func updateCachedWindowState(_ windowInfo: WindowInfo, isMinimized: Bool? = nil, isHidden: Bool? = nil, spaceID: Int?? = nil, screenIdentifier: String?? = nil) {
+    static func updateCachedWindowState(
+        _ windowInfo: WindowInfo,
+        isMinimized: Bool? = nil,
+        isHidden: Bool? = nil,
+        isFullscreen: Bool? = nil,
+        spaceID: Int?? = nil,
+        screenIdentifier: String?? = nil
+    ) {
         desktopSpaceWindowCacheManager.updateCache(pid: windowInfo.app.processIdentifier) { windowSet in
             if let existingIndex = windowSet.firstIndex(of: windowInfo) {
                 var updatedWindow = windowSet[existingIndex]
@@ -666,6 +673,9 @@ extension WindowUtil {
                 }
                 if let isHidden {
                     updatedWindow.isHidden = isHidden
+                }
+                if let isFullscreen {
+                    updatedWindow.isFullscreen = isFullscreen
                 }
                 if let spaceID {
                     updatedWindow.spaceID = spaceID
@@ -1316,6 +1326,7 @@ extension WindowUtil {
         let minimizeButton = try? windowRef.minimizeButton()
         let minimizedState = (try? windowRef.isMinimized()) ?? false
         let hiddenState = app.isHidden
+        let fullscreenState = try? windowRef.isFullscreen()
         let shouldWindowBeCaptured = (closeButton != nil) || (minimizeButton != nil)
 
         if shouldWindowBeCaptured {
@@ -1338,7 +1349,8 @@ extension WindowUtil {
                 spaceID: window.windowID.cgsSpaces().first.map { Int($0) },
                 screenIdentifier: screenIdentifier(forWindowAt: window.frame.origin),
                 isMinimized: minimizedState,
-                isHidden: hiddenState
+                isHidden: hiddenState,
+                isFullscreen: fullscreenState
             )
 
             if let image = try? await captureWindowImage(window: window) {
@@ -1410,6 +1422,7 @@ extension WindowUtil {
         let windowTitle = (try? axWindow.title()) ?? cgID.cgsTitle()
         let minimizedState = (try? axWindow.isMinimized()) ?? false
         let hiddenState = app.isHidden
+        let fullscreenState = try? axWindow.isFullscreen()
 
         let persistedData: WindowOrderPersistence.PersistedWindowEntry? = if let bundleId = app.bundleIdentifier {
             WindowOrderPersistence.getPersistedTimestamp(bundleIdentifier: bundleId, windowTitle: windowTitle)
@@ -1429,7 +1442,8 @@ extension WindowUtil {
             spaceID: cgID.cgsSpaces().first.map { Int($0) },
             screenIdentifier: (try? axWindow.position()).flatMap { screenIdentifier(forWindowAt: $0) },
             isMinimized: minimizedState,
-            isHidden: hiddenState
+            isHidden: hiddenState,
+            isFullscreen: fullscreenState
         )
         info.windowName = windowTitle
 

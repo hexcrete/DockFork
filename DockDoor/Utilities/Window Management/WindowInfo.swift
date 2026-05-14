@@ -19,11 +19,12 @@ struct WindowInfo: Identifiable, Hashable {
     var imageCapturedTime: Date
     var isMinimized: Bool
     var isHidden: Bool
+    var isFullscreen: Bool?
     private(set) var isWindowlessApp: Bool
 
     private var _scWindow: SCWindow?
 
-    init(windowProvider: WindowPropertiesProviding, app: NSRunningApplication, image: CGImage?, axElement: AXUIElement, appAxElement: AXUIElement, closeButton: AXUIElement?, lastAccessedTime: Date, creationTime: Date? = nil, imageCapturedTime: Date? = nil, spaceID: Int? = nil, screenIdentifier: String? = nil, isMinimized: Bool, isHidden: Bool) {
+    init(windowProvider: WindowPropertiesProviding, app: NSRunningApplication, image: CGImage?, axElement: AXUIElement, appAxElement: AXUIElement, closeButton: AXUIElement?, lastAccessedTime: Date, creationTime: Date? = nil, imageCapturedTime: Date? = nil, spaceID: Int? = nil, screenIdentifier: String? = nil, isMinimized: Bool, isHidden: Bool, isFullscreen: Bool? = nil) {
         id = windowProvider.windowID
         self.windowProvider = windowProvider
         self.app = app
@@ -39,6 +40,7 @@ struct WindowInfo: Identifiable, Hashable {
         self.imageCapturedTime = imageCapturedTime ?? lastAccessedTime
         self.isMinimized = isMinimized
         self.isHidden = isHidden
+        self.isFullscreen = isFullscreen
         isWindowlessApp = false
         _scWindow = windowProvider as? SCWindow
     }
@@ -63,6 +65,7 @@ struct WindowInfo: Identifiable, Hashable {
         let windowName: String?
         let isMinimized: Bool
         let isHidden: Bool
+        let isFullscreen: Bool?
         let imagePointer: UnsafeRawPointer?
     }
 
@@ -73,6 +76,7 @@ struct WindowInfo: Identifiable, Hashable {
             windowName: windowName,
             isMinimized: isMinimized,
             isHidden: isHidden,
+            isFullscreen: isFullscreen,
             imagePointer: image.map { Unmanaged.passUnretained($0).toOpaque() }
         )
     }
@@ -81,6 +85,9 @@ struct WindowInfo: Identifiable, Hashable {
 extension WindowInfo {
     var isEffectivelyHiddenForUI: Bool {
         guard isHidden else { return false }
+        if let isFullscreen {
+            return !isFullscreen
+        }
         return (try? axElement.isFullscreen()) != true
     }
 
@@ -180,7 +187,12 @@ extension WindowInfo {
             let targetState = !isCurrentlyInFullScreen
             try axElement.setAttribute(kAXFullscreenAttribute, targetState)
             // Non-blocking confirmation: if state does not reflect immediately, treat as no-change.
-            return (try? axElement.isFullscreen()) == targetState
+            let confirmedState = (try? axElement.isFullscreen()) == targetState
+            if confirmedState {
+                isFullscreen = targetState
+                WindowUtil.updateCachedWindowState(self, isFullscreen: targetState)
+            }
+            return confirmedState
         } catch {
             print("Failed to toggle full screen")
             return false
