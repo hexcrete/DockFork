@@ -11,6 +11,7 @@ struct GesturesAndKeybindsSettingsView: View {
                 GestureSettingsSection()
                 MouseActionsSection()
                 CmdKeyShortcutsSection()
+                PreviewPostActionBehaviorSection()
                 WindowSwitcherKeybindSection()
             }
         }

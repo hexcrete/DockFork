@@ -1198,6 +1198,59 @@ enum SettingsSearchCatalog {
             icon: "command"
         ),
         SettingsSearchItem(
+            id: "gestures.postActionMovingResizing",
+            title: String(localized: "Move/Resize"),
+            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
+            keywords: ["post action", "after action", "move", "resize", "focus", "close previews"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "arrow.up.left.and.arrow.down.right"
+        ),
+        SettingsSearchItem(
+            id: "gestures.moveResizeForeground",
+            title: String(localized: "Bring moved/resized window to the front"),
+            keywords: ["move", "resize", "foreground", "bring to front", "space"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "arrow.up.forward.app"
+        ),
+        SettingsSearchItem(
+            id: "gestures.postActionHiding",
+            title: String(localized: "Hide/Minimize"),
+            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
+            keywords: ["post action", "after action", "hide", "minimize", "focus", "close previews"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "eye.slash"
+        ),
+        SettingsSearchItem(
+            id: "gestures.postActionUnhiding",
+            title: String(localized: "Unhide/Unminimize"),
+            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
+            keywords: ["post action", "after action", "unhide", "restore", "focus", "close previews"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "eye"
+        ),
+        SettingsSearchItem(
+            id: "gestures.postActionClosing",
+            title: String(localized: "Close/Quit"),
+            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
+            keywords: ["post action", "after action", "close", "quit", "focus", "close previews"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "xmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.postActionNewWindow",
+            title: String(localized: "New Window"),
+            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
+            keywords: ["post action", "after action", "new window", "cmd n", "focus", "close previews"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "plus.rectangle.on.rectangle"
+        ),
+        SettingsSearchItem(
             id: "gestures.switcherKeybind",
             title: String(localized: "Window Switcher Shortcuts"),
             keywords: ["keybind", "shortcut", "alt tab", "switcher", "initializer"],

@@ -220,3 +220,120 @@ struct CmdKeyShortcutsSection: View {
         }
     }
 }
+
+struct PreviewPostActionBehaviorSection: View {
+    @Default(.movingResizingPostActionBehavior) private var movingResizingBehavior
+    @Default(.hidingPostActionBehavior) private var hidingBehavior
+    @Default(.unhidingPostActionBehavior) private var unhidingBehavior
+    @Default(.closingPostActionBehavior) private var closingBehavior
+    @Default(.newWindowPostActionBehavior) private var newWindowBehavior
+    @Default(.moveResizeBringToForeground) private var moveResizeBringToForeground
+
+    var body: some View {
+        SettingsGroup(header: "Keep previews open after action") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Select action types that should keep previews open. Unchecked actions close previews after running. Some actions may still change focus based on app/macOS behavior.")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    postActionBehaviorRow(
+                        category: .closing,
+                        icon: "xmark.circle",
+                        selection: $closingBehavior
+                    )
+                    .settingsSearchTarget("gestures.postActionClosing")
+
+                    postActionBehaviorRow(
+                        category: .hiding,
+                        icon: "eye.slash",
+                        selection: $hidingBehavior
+                    )
+                    .settingsSearchTarget("gestures.postActionHiding")
+
+                    postActionBehaviorRow(
+                        category: .unhiding,
+                        icon: "eye",
+                        selection: $unhidingBehavior
+                    )
+                    .settingsSearchTarget("gestures.postActionUnhiding")
+
+                    postActionBehaviorRow(
+                        category: .newWindow,
+                        icon: "plus.rectangle.on.rectangle",
+                        selection: $newWindowBehavior
+                    )
+                    .settingsSearchTarget("gestures.postActionNewWindow")
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        postActionBehaviorRow(
+                            category: .movingAndResizing,
+                            icon: "arrow.up.left.and.arrow.down.right",
+                            selection: $movingResizingBehavior
+                        )
+                        .settingsSearchTarget("gestures.postActionMovingResizing")
+
+                        if movingResizingBehavior == .keepPreviewsOpenNoFocus {
+                            Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
+                                .settingsSearchTarget("gestures.moveResizeForeground")
+                                .padding(.leading, 32)
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear { sanitizeSelections() }
+        .onChange(of: movingResizingBehavior) { _ in sanitizeSelections() }
+        .onChange(of: hidingBehavior) { _ in sanitizeSelections() }
+        .onChange(of: unhidingBehavior) { _ in sanitizeSelections() }
+        .onChange(of: closingBehavior) { _ in sanitizeSelections() }
+        .onChange(of: newWindowBehavior) { _ in sanitizeSelections() }
+    }
+
+    private func postActionBehaviorRow(
+        category: WindowAction.PostActionCategory,
+        icon: String,
+        selection: Binding<PreviewPostActionBehavior>
+    ) -> some View {
+        Toggle(isOn: keepOpenBinding(for: category, selection: selection)) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(.secondary)
+                    .frame(width: 20)
+                Text(category.localizedName)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .toggleStyle(.checkbox)
+    }
+
+    private func keepOpenBinding(
+        for category: WindowAction.PostActionCategory,
+        selection: Binding<PreviewPostActionBehavior>
+    ) -> Binding<Bool> {
+        Binding<Bool>(
+            get: { selection.wrappedValue == .keepPreviewsOpenNoFocus },
+            set: { keepOpen in
+                selection.wrappedValue = keepOpen ? .keepPreviewsOpenNoFocus : category.closeBehavior
+            }
+        )
+    }
+
+    private func sanitizeSelections() {
+        movingResizingBehavior = sanitizeBehavior(movingResizingBehavior, for: .movingAndResizing)
+        hidingBehavior = sanitizeBehavior(hidingBehavior, for: .hiding)
+        unhidingBehavior = sanitizeBehavior(unhidingBehavior, for: .unhiding)
+        closingBehavior = sanitizeBehavior(closingBehavior, for: .closing)
+        newWindowBehavior = sanitizeBehavior(newWindowBehavior, for: .newWindow)
+    }
+
+    private func sanitizeBehavior(_ behavior: PreviewPostActionBehavior, for category: WindowAction.PostActionCategory) -> PreviewPostActionBehavior {
+        if behavior == .keepPreviewsOpenNoFocus {
+            return .keepPreviewsOpenNoFocus
+        }
+        return category.closeBehavior
+    }
+}
