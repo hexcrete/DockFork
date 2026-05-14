@@ -11,7 +11,10 @@ struct FullSizePreviewView: View {
     @Default(.dockLivePreviewFrameRate) var dockLivePreviewFrameRate
 
     var body: some View {
-        let useLivePreview = enableLivePreview && enableLivePreviewForDock && !windowInfo.isMinimized && !windowInfo.isHidden
+        let useLivePreview = enableLivePreview &&
+            enableLivePreviewForDock &&
+            !windowInfo.isMinimized &&
+            !windowInfo.isEffectivelyHiddenForUI
 
         Group {
             if useLivePreview {

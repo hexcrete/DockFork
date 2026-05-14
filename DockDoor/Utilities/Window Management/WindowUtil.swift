@@ -1800,6 +1800,16 @@ extension WindowUtil {
             refreshIDs.insert(sourceWindowID)
         }
 
+        if refreshIDs.isEmpty {
+            // Some apps reuse the same window ID for "new tab/new document" flows.
+            // Fall back to refreshing a visible candidate so the thumbnail can catch title/content changes.
+            if let fallback = windows.first(where: { !$0.isMinimized && !$0.isEffectivelyHiddenForUI }) {
+                refreshIDs.insert(fallback.id)
+            } else if let firstWindow = windows.first {
+                refreshIDs.insert(firstWindow.id)
+            }
+        }
+
         guard !refreshIDs.isEmpty else { return }
 
         let windowsToRefresh = windows.filter { refreshIDs.contains($0.id) }
