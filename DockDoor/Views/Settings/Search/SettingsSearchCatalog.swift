@@ -408,6 +408,22 @@ enum SettingsSearchCatalog {
             icon: "rectangle.center.inset.filled"
         ),
         SettingsSearchItem(
+            id: "windowSwitcher.anchorVertical",
+            title: String(localized: "Vertical anchor"),
+            keywords: ["anchor", "vertical", "top", "center", "bottom", "position"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Placement"),
+            icon: "arrow.up.and.down"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.anchorHorizontal",
+            title: String(localized: "Horizontal anchor"),
+            keywords: ["anchor", "horizontal", "left", "center", "right", "position"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Placement"),
+            icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
             id: "windowSwitcher.offsetPosition",
             title: String(localized: "Offset position"),
             keywords: ["offset", "shift", "move", "position"],

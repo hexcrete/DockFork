@@ -491,19 +491,34 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     private func centerWindowOnScreen(size: CGSize, screen: NSScreen) -> CGPoint {
-        let switcherOffsetConfigured = Defaults[.enableShiftWindowSwitcherPlacement]
-
-        let horizontalOffset = switcherOffsetConfigured ? screen.frame.width * (Defaults[.windowSwitcherHorizontalOffsetPercent] / 100.0) : 0
-        let verticalOffset = switcherOffsetConfigured ? screen.frame.height * (Defaults[.windowSwitcherVerticalOffsetPercent] / 100.0) : 0
-
-        let xPosition = screen.frame.midX - (size.width / 2) + horizontalOffset
-        let yPosition: CGFloat = if switcherOffsetConfigured, Defaults[.windowSwitcherAnchorToTop] {
-            // Anchor from top: start at top of screen and apply offset downward (negative offset moves down)
-            screen.frame.maxY - size.height + verticalOffset
-        } else {
-            // Center vertically with offset
-            screen.frame.midY - (size.height / 2) + verticalOffset
+        let baseXPosition: CGFloat = switch Defaults[.windowSwitcherHorizontalAnchor] {
+        case .left:
+            screen.frame.minX
+        case .center:
+            screen.frame.midX - (size.width / 2)
+        case .right:
+            screen.frame.maxX - size.width
         }
+
+        let baseYPosition: CGFloat = switch Defaults[.windowSwitcherVerticalAnchor] {
+        case .top:
+            screen.frame.maxY - size.height
+        case .center:
+            screen.frame.midY - (size.height / 2)
+        case .bottom:
+            screen.frame.minY
+        }
+
+        let isOffsetEnabled = Defaults[.enableShiftWindowSwitcherPlacement]
+        let horizontalOffset = isOffsetEnabled
+            ? screen.frame.width * (Defaults[.windowSwitcherHorizontalOffsetPercent] / 100.0)
+            : 0
+        let verticalOffset = isOffsetEnabled
+            ? screen.frame.height * (Defaults[.windowSwitcherVerticalOffsetPercent] / 100.0)
+            : 0
+
+        let xPosition = baseXPosition + horizontalOffset
+        let yPosition = baseYPosition + verticalOffset
 
         return CGPoint(x: xPosition, y: yPosition)
     }

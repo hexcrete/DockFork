@@ -279,10 +279,11 @@ extension Defaults.Keys {
 
     static let windowSwitcherPlacementStrategy = Key<WindowSwitcherPlacementStrategy>("windowSwitcherPlacementStrategy", default: .screenWithMouse)
     static let windowSwitcherControlPosition = Key<WindowSwitcherControlPosition>("windowSwitcherControlPosition", default: .topTrailing)
+    static let windowSwitcherHorizontalAnchor = Key<WindowSwitcherHorizontalAnchor>("windowSwitcherHorizontalAnchor", default: .center)
+    static let windowSwitcherVerticalAnchor = Key<WindowSwitcherVerticalAnchor>("windowSwitcherVerticalAnchor", default: .center)
+    static let enableShiftWindowSwitcherPlacement = Key<Bool>("enableShiftWindowSwitcherPlacement", default: false)
     static let windowSwitcherHorizontalOffsetPercent = Key<CGFloat>("windowSwitcherHorizontalOffsetPercent", default: 0)
     static let windowSwitcherVerticalOffsetPercent = Key<CGFloat>("windowSwitcherVerticalOffsetPercent", default: 0)
-    static let windowSwitcherAnchorToTop = Key<Bool>("windowSwitcherAnchorToTop", default: false)
-    static let enableShiftWindowSwitcherPlacement = Key<Bool>("enableShiftWindowSwitcherPlacement", default: false)
     static let dockPreviewControlPosition = Key<WindowSwitcherControlPosition>("dockPreviewControlPosition", default: .topTrailing)
     static let pinnedScreenIdentifier = Key<String>("pinnedScreenIdentifier", default: NSScreen.main?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? String ?? "")
 
@@ -541,6 +542,40 @@ enum WindowSwitcherPlacementStrategy: String, CaseIterable, Defaults.Serializabl
             String(localized: "Screen with last active window", comment: "Window switcher placement option")
         case .pinnedToScreen:
             String(localized: "Pinned to screen", comment: "Window switcher placement option")
+        }
+    }
+}
+
+enum WindowSwitcherVerticalAnchor: String, CaseIterable, Defaults.Serializable {
+    case top
+    case center
+    case bottom
+
+    var localizedName: String {
+        switch self {
+        case .top:
+            String(localized: "Top", comment: "Window switcher vertical anchor option")
+        case .center:
+            String(localized: "Center", comment: "Window switcher vertical anchor option")
+        case .bottom:
+            String(localized: "Bottom", comment: "Window switcher vertical anchor option")
+        }
+    }
+}
+
+enum WindowSwitcherHorizontalAnchor: String, CaseIterable, Defaults.Serializable {
+    case left
+    case center
+    case right
+
+    var localizedName: String {
+        switch self {
+        case .left:
+            String(localized: "Left", comment: "Window switcher horizontal anchor option")
+        case .center:
+            String(localized: "Center", comment: "Window switcher horizontal anchor option")
+        case .right:
+            String(localized: "Right", comment: "Window switcher horizontal anchor option")
         }
     }
 }

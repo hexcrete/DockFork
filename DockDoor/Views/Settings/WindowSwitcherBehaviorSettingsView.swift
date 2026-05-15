@@ -22,10 +22,11 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.groupedAppsInSwitcher) var groupedAppsInSwitcher
     @Default(.windowSwitcherPlacementStrategy) var placementStrategy
     @Default(.pinnedScreenIdentifier) var pinnedScreenIdentifier
+    @Default(.windowSwitcherHorizontalAnchor) var windowSwitcherHorizontalAnchor
+    @Default(.windowSwitcherVerticalAnchor) var windowSwitcherVerticalAnchor
+    @Default(.enableShiftWindowSwitcherPlacement) var enableShiftWindowSwitcherPlacement
     @Default(.windowSwitcherHorizontalOffsetPercent) var windowSwitcherHorizontalOffsetPercent
     @Default(.windowSwitcherVerticalOffsetPercent) var windowSwitcherVerticalOffsetPercent
-    @Default(.windowSwitcherAnchorToTop) var windowSwitcherAnchorToTop
-    @Default(.enableShiftWindowSwitcherPlacement) var enableShiftWindowSwitcherPlacement
     @Default(.showWindowlessAppsInSwitcher) var showWindowlessAppsInSwitcher
     @Default(.mouseFollowsFocusMode) var mouseFollowsFocusMode
 
@@ -312,26 +313,49 @@ struct WindowSwitcherBehaviorSettingsView: View {
                     }
                 }
 
+                HStack(alignment: .center, spacing: 12) {
+                    Text("Anchor to")
+                        .fixedSize()
+
+                    Picker("Vertical anchor", selection: $windowSwitcherVerticalAnchor) {
+                        ForEach(WindowSwitcherVerticalAnchor.allCases, id: \.self) {
+                            Text($0.localizedName).tag($0)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 200)
+                    .settingsSearchTarget("windowSwitcher.anchorVertical")
+
+                    Picker("Horizontal anchor", selection: $windowSwitcherHorizontalAnchor) {
+                        ForEach(WindowSwitcherHorizontalAnchor.allCases, id: \.self) {
+                            Text($0.localizedName).tag($0)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 200)
+                    .settingsSearchTarget("windowSwitcher.anchorHorizontal")
+                }
+
                 Toggle(isOn: $enableShiftWindowSwitcherPlacement) {
                     Text("Offset position")
                 }
                 .settingsSearchTarget("windowSwitcher.offsetPosition")
 
                 if enableShiftWindowSwitcherPlacement {
-                    Toggle(isOn: $windowSwitcherAnchorToTop) {
-                        Text("Anchor to top")
-                    }
-                    .padding(.leading, 20)
-                    Text("Top edge stays fixed regardless of switcher size.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 40)
-
                     HStack {
                         Image(systemName: "arrow.up")
                             .foregroundColor(.secondary)
                             .frame(width: 16)
-                        Slider(value: $windowSwitcherVerticalOffsetPercent, in: -80 ... 80)
+                        Slider(
+                            value: Binding(
+                                get: { windowSwitcherVerticalOffsetPercent },
+                                set: { windowSwitcherVerticalOffsetPercent = CGFloat($0.rounded()) }
+                            ),
+                            in: -80 ... 80,
+                            step: 1
+                        )
                         Text("\(Int(windowSwitcherVerticalOffsetPercent))%")
                             .monospacedDigit()
                             .frame(width: 45, alignment: .trailing)
@@ -342,7 +366,14 @@ struct WindowSwitcherBehaviorSettingsView: View {
                         Image(systemName: "arrow.right")
                             .foregroundColor(.secondary)
                             .frame(width: 16)
-                        Slider(value: $windowSwitcherHorizontalOffsetPercent, in: -80 ... 80)
+                        Slider(
+                            value: Binding(
+                                get: { windowSwitcherHorizontalOffsetPercent },
+                                set: { windowSwitcherHorizontalOffsetPercent = CGFloat($0.rounded()) }
+                            ),
+                            in: -80 ... 80,
+                            step: 1
+                        )
                         Text("\(Int(windowSwitcherHorizontalOffsetPercent))%")
                             .monospacedDigit()
                             .frame(width: 45, alignment: .trailing)
