@@ -1262,17 +1262,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private func refreshSwitcherRowsForPID(_ pid: pid_t) {
         let runningApp = NSRunningApplication(processIdentifier: pid)
         let canAddWindowlessEntry = (runningApp?.isTerminated == false)
-        let before = windowSwitcherCoordinator.windows
-        let beforeSnapshots = before.map(\.viewSnapshot)
-        let coordinator = windowSwitcherCoordinator
-        let previousSelectionSource = coordinator.selectionInputSource
-        let selectedWindowIdentity: String?
-        if coordinator.currIndex >= 0, coordinator.currIndex < before.count {
-            let selected = before[coordinator.currIndex]
-            selectedWindowIdentity = "\(selected.app.processIdentifier)-\(selected.id)"
-        } else {
-            selectedWindowIdentity = nil
-        }
         var fresh = WindowUtil.readCachedWindows(for: pid)
         if !canAddWindowlessEntry {
             fresh = []
@@ -1306,62 +1295,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
         }
 
-        func identity(for window: WindowInfo) -> String {
-            "\(window.app.processIdentifier)-\(window.id)"
-        }
-
-        let freshByIdentity: [String: WindowInfo] = Dictionary(
-            fresh.map { (identity(for: $0), $0) },
-            uniquingKeysWith: { first, _ in first }
+        let dockPosition: DockPosition = DockObserver.isCmdTabSwitcherActive ? .cmdTab : DockUtils.getDockPosition()
+        let mergeResult = windowSwitcherCoordinator.mergeRefreshedRowsForPID(
+            pid,
+            replacementRows: fresh,
+            dockPosition: dockPosition,
+            bestGuessMonitor: NSScreen.main ?? NSScreen.screens.first
         )
-        var consumedFreshIdentities = Set<String>()
-        var merged: [WindowInfo] = []
-        merged.reserveCapacity(max(before.count, fresh.count))
-        var firstAppSlotInMerged: Int?
 
-        // Preserve global row order by updating existing app rows in-place.
-        for window in before {
-            if window.app.processIdentifier != pid {
-                merged.append(window)
-                continue
-            }
-
-            if firstAppSlotInMerged == nil {
-                firstAppSlotInMerged = merged.count
-            }
-
-            let key = identity(for: window)
-            if let updated = freshByIdentity[key] {
-                merged.append(updated)
-                consumedFreshIdentities.insert(key)
-            }
-        }
-
-        let remainingFresh = fresh.filter { !consumedFreshIdentities.contains(identity(for: $0)) }
-        if !remainingFresh.isEmpty {
-            let insertionIndex = min(firstAppSlotInMerged ?? merged.count, merged.count)
-            merged.insert(contentsOf: remainingFresh, at: insertionIndex)
-        }
-
-        let mergedSnapshots = merged.map(\.viewSnapshot)
-        if mergedSnapshots != beforeSnapshots {
-            guard let monitor = NSScreen.main ?? NSScreen.screens.first else { return }
-            let dockPosition: DockPosition = DockObserver.isCmdTabSwitcherActive ? .cmdTab : DockUtils.getDockPosition()
-            coordinator.setWindows(
-                merged,
-                dockPosition: dockPosition,
-                bestGuessMonitor: monitor
-            )
-
-            if let selectedWindowIdentity,
-               let restoredIndex = coordinator.windows.firstIndex(where: { identity(for: $0) == selectedWindowIdentity }),
-               restoredIndex != coordinator.currIndex
-            {
-                coordinator.setIndex(to: restoredIndex, shouldScroll: false, source: previousSelectionSource)
-            }
-        }
-
-        refreshDisplayedFullPreviewIfNeeded(sourceWindows: merged)
+        refreshDisplayedFullPreviewIfNeeded(sourceWindows: mergeResult.mergedWindows)
     }
 
     @MainActor

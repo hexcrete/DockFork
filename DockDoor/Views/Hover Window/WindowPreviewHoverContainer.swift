@@ -1586,18 +1586,6 @@ struct WindowPreviewHoverContainer: View {
 
     private func refreshVisibleRowsForApp(app: NSRunningApplication, fallbackWindow: WindowInfo) {
         let pid = app.processIdentifier
-        let before = previewStateCoordinator.windows
-        let beforeSnapshots = before.map(\.viewSnapshot)
-        let previousSelectionSource = previewStateCoordinator.selectionInputSource
-        let selectedWindowIdentity: String?
-        if previewStateCoordinator.currIndex >= 0,
-           previewStateCoordinator.currIndex < before.count
-        {
-            let selected = before[previewStateCoordinator.currIndex]
-            selectedWindowIdentity = "\(selected.app.processIdentifier)-\(selected.id)"
-        } else {
-            selectedWindowIdentity = nil
-        }
         var replacement = WindowUtil.readCachedWindows(
             for: pid,
             sortedBy: dockPosition == .cmdTab ? .cmdTab : .dockPreview
@@ -1650,64 +1638,21 @@ struct WindowPreviewHoverContainer: View {
             }
         }
 
-        func identity(for window: WindowInfo) -> String {
-            "\(window.app.processIdentifier)-\(window.id)"
-        }
-
-        let replacementByIdentity: [String: WindowInfo] = Dictionary(
-            replacement.map { (identity(for: $0), $0) },
-            uniquingKeysWith: { first, _ in first }
+        let mergeResult = previewStateCoordinator.mergeRefreshedRowsForPID(
+            pid,
+            replacementRows: replacement,
+            dockPosition: dockPosition,
+            bestGuessMonitor: bestGuessMonitor,
+            isMockPreviewActive: mockPreviewActive
         )
-        var consumedReplacementIdentities = Set<String>()
-        var merged: [WindowInfo] = []
-        merged.reserveCapacity(max(before.count, replacement.count))
-        var firstAppSlotInMerged: Int?
-
-        // Preserve global row order by updating matching app rows in-place.
-        for window in before {
-            if window.app.processIdentifier != pid {
-                merged.append(window)
-                continue
-            }
-
-            if firstAppSlotInMerged == nil {
-                firstAppSlotInMerged = merged.count
-            }
-
-            let key = identity(for: window)
-            if let updated = replacementByIdentity[key] {
-                merged.append(updated)
-                consumedReplacementIdentities.insert(key)
-            }
-        }
-
-        let remainingReplacement = replacement.filter { !consumedReplacementIdentities.contains(identity(for: $0)) }
-        if !remainingReplacement.isEmpty {
-            let insertionIndex = min(firstAppSlotInMerged ?? merged.count, merged.count)
-            merged.insert(contentsOf: remainingReplacement, at: insertionIndex)
-        }
-
-        let mergedSnapshots = merged.map(\.viewSnapshot)
-        if mergedSnapshots != beforeSnapshots {
-            previewStateCoordinator.setWindows(
-                merged,
-                dockPosition: dockPosition,
-                bestGuessMonitor: bestGuessMonitor,
-                isMockPreviewActive: mockPreviewActive
-            )
-
-            if let selectedWindowIdentity,
-               let restoredIndex = previewStateCoordinator.windows.firstIndex(where: { identity(for: $0) == selectedWindowIdentity }),
-               restoredIndex != previewStateCoordinator.currIndex
-            {
-                previewStateCoordinator.setIndex(to: restoredIndex, shouldScroll: false, source: previousSelectionSource)
-            }
-        } else if previewStateCoordinator.windows.contains(where: { $0.id == fallbackWindow.id && $0.app.processIdentifier == pid }) {
+        if !mergeResult.didPublish,
+           previewStateCoordinator.windows.contains(where: { $0.id == fallbackWindow.id && $0.app.processIdentifier == pid })
+        {
             previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: pid)
             previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
         }
 
-        refreshDisplayedFullPreviewIfNeeded(sourceWindows: merged)
+        refreshDisplayedFullPreviewIfNeeded(sourceWindows: mergeResult.mergedWindows)
     }
 
     private func refreshDisplayedFullPreviewIfNeeded(sourceWindows: [WindowInfo]? = nil) {

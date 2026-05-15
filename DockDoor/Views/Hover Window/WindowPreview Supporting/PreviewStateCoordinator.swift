@@ -162,6 +162,84 @@ class PreviewStateCoordinator: ObservableObject {
         scheduleActiveFocusedWindowRefresh()
     }
 
+    /// Merge refreshed rows for one app PID while preserving global row order and selected-row identity.
+    @MainActor
+    func mergeRefreshedRowsForPID(
+        _ processIdentifier: pid_t,
+        replacementRows: [WindowInfo],
+        dockPosition: DockPosition,
+        bestGuessMonitor: NSScreen?,
+        isMockPreviewActive: Bool = false
+    ) -> (mergedWindows: [WindowInfo], didPublish: Bool) {
+        let before = windows
+        let beforeSnapshots = before.map(\.viewSnapshot)
+        let previousSelectionSource = selectionInputSource
+        let selectedWindowIdentity: String? = if currIndex >= 0, currIndex < before.count {
+            mergeIdentity(for: before[currIndex])
+        } else {
+            nil
+        }
+
+        let replacementByIdentity: [String: WindowInfo] = Dictionary(
+            replacementRows.map { (mergeIdentity(for: $0), $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var consumedReplacementIdentities = Set<String>()
+        var merged: [WindowInfo] = []
+        merged.reserveCapacity(max(before.count, replacementRows.count))
+        var firstAppSlotInMerged: Int?
+
+        for window in before {
+            if window.app.processIdentifier != processIdentifier {
+                merged.append(window)
+                continue
+            }
+
+            if firstAppSlotInMerged == nil {
+                firstAppSlotInMerged = merged.count
+            }
+
+            let key = mergeIdentity(for: window)
+            if let updated = replacementByIdentity[key] {
+                merged.append(updated)
+                consumedReplacementIdentities.insert(key)
+            }
+        }
+
+        let remainingReplacement = replacementRows.filter {
+            !consumedReplacementIdentities.contains(mergeIdentity(for: $0))
+        }
+        if !remainingReplacement.isEmpty {
+            let insertionIndex = min(firstAppSlotInMerged ?? merged.count, merged.count)
+            merged.insert(contentsOf: remainingReplacement, at: insertionIndex)
+        }
+
+        let mergedSnapshots = merged.map(\.viewSnapshot)
+        guard mergedSnapshots != beforeSnapshots else {
+            return (merged, false)
+        }
+
+        guard let resolvedMonitor = bestGuessMonitor ?? lastKnownBestGuessMonitor ?? NSScreen.main ?? NSScreen.screens.first else {
+            return (windows, false)
+        }
+
+        setWindows(
+            merged,
+            dockPosition: dockPosition,
+            bestGuessMonitor: resolvedMonitor,
+            isMockPreviewActive: isMockPreviewActive
+        )
+
+        if let selectedWindowIdentity,
+           let restoredIndex = windows.firstIndex(where: { mergeIdentity(for: $0) == selectedWindowIdentity }),
+           restoredIndex != currIndex
+        {
+            setIndex(to: restoredIndex, shouldScroll: false, source: previousSelectionSource)
+        }
+
+        return (windows, true)
+    }
+
     /// Merges fresh windows into the current display without jarring replacement.
     /// Preserves window order and selected index where possible.
     @MainActor
@@ -172,10 +250,6 @@ class PreviewStateCoordinator: ObservableObject {
         }
 
         let previousWindowCount = windows.count
-        func mergeIdentity(for window: WindowInfo) -> String {
-            "\(window.app.processIdentifier)-\(window.id)"
-        }
-
         let previousSelectionSource = selectionInputSource
         let selectedWindowIdentity: String? = if currIndex >= 0, currIndex < windows.count {
             mergeIdentity(for: windows[currIndex])
@@ -226,6 +300,10 @@ class PreviewStateCoordinator: ObservableObject {
             onFrameRefreshNeeded?()
         }
         scheduleActiveFocusedWindowRefresh()
+    }
+
+    private func mergeIdentity(for window: WindowInfo) -> String {
+        "\(window.app.processIdentifier)-\(window.id)"
     }
 
     @MainActor
