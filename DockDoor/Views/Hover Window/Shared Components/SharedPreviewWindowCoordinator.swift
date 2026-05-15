@@ -1431,6 +1431,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 try? await Task.sleep(nanoseconds: delay)
                 guard shouldRunDeferredWatchers else { return }
                 await WindowUtil.updateNewWindowsForApp(app)
+                guard shouldRunDeferredWatchers else { return }
 
                 var confirmed = false
                 switch action {

@@ -182,9 +182,13 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             return window.isMinimized ? .unhiding : .hiding
         case .minimizeAllWindows:
             let pid = window.app.processIdentifier
-            let appWindows: [WindowInfo] = if let preferredWindows {
-                preferredWindows.filter { $0.app.processIdentifier == pid && !$0.isWindowlessApp }
+            let preferredAppWindows = preferredWindows?.filter {
+                $0.app.processIdentifier == pid && !$0.isWindowlessApp
+            } ?? []
+            let appWindows: [WindowInfo] = if !preferredAppWindows.isEmpty {
+                preferredAppWindows
             } else {
+                // Fallback to cache when the in-context list only has a windowless row.
                 WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
             }
             guard !appWindows.isEmpty else { return .hiding }
@@ -285,27 +289,9 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             return shouldForceCloseForCrossSpaceWindow(window, activeSpaceIDs: activeSpaceIDs)
 
         case .minimizeAllWindows:
-            let category = postActionCategory(for: window, preferredWindows: preferredWindows)
-            guard category == .unhiding else { return false }
-
-            let appPID = window.app.processIdentifier
-            let appWindows: [WindowInfo] = if let preferredWindows {
-                preferredWindows.filter { $0.app.processIdentifier == appPID && !$0.isWindowlessApp }
-            } else {
-                WindowUtil.readCachedWindows(for: appPID).filter { !$0.isWindowlessApp }
-            }
-            guard !appWindows.isEmpty else { return false }
-
-            // Unminimize-all affects currently minimized windows.
-            let minimizedCandidates = appWindows.filter(\.isMinimized)
-            guard !minimizedCandidates.isEmpty else { return false }
-
-            let activeSpaceIDs = currentActiveSpaceIDs()
-            guard !activeSpaceIDs.isEmpty else {
-                return true
-            }
-
-            return minimizedCandidates.contains { shouldForceCloseForCrossSpaceWindow($0, activeSpaceIDs: activeSpaceIDs) }
+            // Keep previews open for unminimize-all even when some windows may restore on another Space.
+            // This avoids hard-closing the container in the common edge case of mixed-space minimized sets.
+            return false
 
         case .quit, .close, .openNewWindow, .closeAllWindows,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
@@ -1753,9 +1739,13 @@ extension WindowUtil {
     @discardableResult
     static func minimizeAllWindows(for app: NSRunningApplication, preferredWindows: [WindowInfo]? = nil) -> Int {
         let pid = app.processIdentifier
-        let sourceWindows: [WindowInfo] = if let preferredWindows {
-            preferredWindows.filter { $0.app.processIdentifier == pid }
+        let preferredAppWindows = preferredWindows?.filter {
+            $0.app.processIdentifier == pid && !$0.isWindowlessApp
+        } ?? []
+        let sourceWindows: [WindowInfo] = if !preferredAppWindows.isEmpty {
+            preferredAppWindows
         } else {
+            // Fallback to cache when invoked from a windowless-only filtered view.
             readCachedWindows(for: pid)
         }
 
@@ -1852,10 +1842,6 @@ extension WindowUtil {
         let windowsToMinimize = windows.filter { !$0.isMinimized && $0.app.bundleIdentifier != ownBundleId }
         guard !windowsToMinimize.isEmpty else { return }
 
-        for window in windowsToMinimize {
-            updateCachedWindowState(window, isMinimized: true)
-        }
-
         // Perform AX operations concurrently in background
         Task.detached(priority: .userInitiated) {
             await withTaskGroup(of: Void.self) { group in
@@ -1880,6 +1866,8 @@ extension WindowUtil {
             app.unhide()
         }
 
+        // Unminimize is treated as effectively reliable in practice; update cache eagerly
+        // so cross-space rows clear the "Minimized" tag immediately.
         for window in windowsToRestore {
             updateCachedWindowState(window, isMinimized: false)
         }

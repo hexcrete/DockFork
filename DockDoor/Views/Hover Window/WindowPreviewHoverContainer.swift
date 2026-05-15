@@ -1150,6 +1150,18 @@ struct WindowPreviewHoverContainer: View {
         let originalWindows = previewStateCoordinator.windows
 
         guard !originalWindows.isEmpty else { return }
+        guard let app = originalWindows.first?.app else { return }
+
+        func runSharedMinimizeAll(with preferredWindows: [WindowInfo]) {
+            guard !preferredWindows.isEmpty else {
+                previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
+                return
+            }
+            let changedCount = WindowUtil.minimizeAllWindows(for: app, preferredWindows: preferredWindows)
+            if changedCount == 0 {
+                previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
+            }
+        }
 
         if let except {
             guard let keptWindow = originalWindows.first(where: { $0.id == except.id }) else {
@@ -1157,7 +1169,12 @@ struct WindowPreviewHoverContainer: View {
                 return
             }
 
-            let windowsToMinimize = originalWindows.filter { $0.id != except.id }
+            let windowsToMinimize = originalWindows.filter {
+                $0.id != except.id &&
+                    !$0.isWindowlessApp &&
+                    !$0.isMinimized &&
+                    (try? $0.axElement.isFullscreen()) != true
+            }
             WindowUtil.minimizeWindowsAsync(windowsToMinimize)
 
             previewStateCoordinator.setWindows([keptWindow], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
@@ -1169,49 +1186,45 @@ struct WindowPreviewHoverContainer: View {
             if wasAppActiveBeforeClick {
                 switch Defaults[.dockClickAction] {
                 case .hide:
-                    if let app = originalWindows.first?.app {
-                        if WindowUtil.hasOnlyFullscreenWindows(for: app, preferredWindows: originalWindows) {
-                            previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
-                            return
-                        }
-                        app.hide()
-                        previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
-                    }
-                case .minimize:
-                    WindowUtil.minimizeWindowsAsync(originalWindows)
-                    previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
-                }
-            } else {
-                if let app = originalWindows.first?.app {
                     if WindowUtil.hasOnlyFullscreenWindows(for: app, preferredWindows: originalWindows) {
                         previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
                         return
                     }
-                    app.activate()
-                    app.unhide()
-
-                    var restoredWindows: [WindowInfo] = []
-                    for window in originalWindows {
-                        if window.isMinimized {
-                            var updatedWindow = window
-                            if updatedWindow.toggleMinimize() != nil {
-                                restoredWindows.append(updatedWindow)
-                                continue
-                            }
-                        }
-                        restoredWindows.append(window)
+                    app.hide()
+                    previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
+                case .minimize:
+                    let preferredToMinimize = originalWindows.filter {
+                        !$0.isWindowlessApp &&
+                            !$0.isMinimized &&
+                            (try? $0.axElement.isFullscreen()) != true
                     }
-                    previewStateCoordinator.setWindows(restoredWindows, dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
-                }
-            }
-        } else {
-            if preferSharedToggle, let app = originalWindows.first?.app {
-                let changedCount = WindowUtil.minimizeAllWindows(for: app, preferredWindows: originalWindows)
-                if changedCount == 0 {
-                    previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
+                    runSharedMinimizeAll(with: preferredToMinimize)
+                    previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
                 }
             } else {
-                WindowUtil.minimizeWindowsAsync(originalWindows)
+                if WindowUtil.hasOnlyFullscreenWindows(for: app, preferredWindows: originalWindows) {
+                    previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
+                    return
+                }
+                app.activate()
+                app.unhide()
+                let preferredToRestore = originalWindows.filter {
+                    !$0.isWindowlessApp &&
+                        $0.isMinimized &&
+                        (try? $0.axElement.isFullscreen()) != true
+                }
+                runSharedMinimizeAll(with: preferredToRestore)
+            }
+        } else {
+            if preferSharedToggle {
+                runSharedMinimizeAll(with: originalWindows)
+            } else {
+                let preferredToMinimize = originalWindows.filter {
+                    !$0.isWindowlessApp &&
+                        !$0.isMinimized &&
+                        (try? $0.axElement.isFullscreen()) != true
+                }
+                runSharedMinimizeAll(with: preferredToMinimize)
             }
             previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
         }
