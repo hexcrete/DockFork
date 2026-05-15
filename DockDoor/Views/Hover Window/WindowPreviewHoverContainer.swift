@@ -1169,13 +1169,7 @@ struct WindowPreviewHoverContainer: View {
                 return
             }
 
-            let windowsToMinimize = originalWindows.filter {
-                $0.id != except.id &&
-                    !$0.isWindowlessApp &&
-                    !$0.isMinimized &&
-                    (try? $0.axElement.isFullscreen()) != true
-            }
-            WindowUtil.minimizeWindowsAsync(windowsToMinimize)
+            _ = WindowUtil.minimizeAllWindowsExcept(keptWindow)
 
             previewStateCoordinator.setWindows([keptWindow], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
             keptWindow.bringToFront()
@@ -1219,12 +1213,7 @@ struct WindowPreviewHoverContainer: View {
             if preferSharedToggle {
                 runSharedMinimizeAll(with: originalWindows)
             } else {
-                let preferredToMinimize = originalWindows.filter {
-                    !$0.isWindowlessApp &&
-                        !$0.isMinimized &&
-                        (try? $0.axElement.isFullscreen()) != true
-                }
-                runSharedMinimizeAll(with: preferredToMinimize)
+                _ = WindowUtil.minimizeAllWindowsGlobally()
             }
             previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
         }

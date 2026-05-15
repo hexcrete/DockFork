@@ -558,12 +558,14 @@ enum WindowUtil {
     private static var programmaticResizeRefreshDelayNanos: UInt64 { programmaticResizeRefreshDelayMilliseconds * 1_000_000 }
     private static var axResizeRefreshDelayNanos: UInt64 { axResizeRefreshDelayMilliseconds * 1_000_000 }
     private static let programmaticResizeRefreshLock = NSLock()
+    private static let globalMinimizeReconciliationLock = NSLock()
     private struct PendingProgrammaticResizeRefresh {
         let token: UUID
         let task: Task<Void, Never>
     }
 
     private static var pendingProgrammaticResizeRefreshes: [String: PendingProgrammaticResizeRefresh] = [:]
+    private static var pendingGlobalMinimizeReconciliation: Task<Void, Never>?
 
     private static let captureError = NSError(
         domain: "WindowCaptureError",
@@ -1769,6 +1771,380 @@ extension WindowUtil {
 
         minimizeWindowsAsync(windowsToMinimize)
         return windowsToMinimize.count
+    }
+
+    @discardableResult
+    static func minimizeAllWindowsGlobally() -> Int {
+        minimizeAllWindowsGlobally(excludingWindowID: nil, excludingElement: nil)
+    }
+
+    @discardableResult
+    static func minimizeAllWindowsExcept(_ keptWindow: WindowInfo) -> Int {
+        minimizeAllWindowsGlobally(excludingWindowID: keptWindow.id, excludingElement: keptWindow.axElement)
+    }
+
+    @discardableResult
+    private static func minimizeAllWindowsGlobally(
+        excludingWindowID: CGWindowID?,
+        excludingElement: AXUIElement?
+    ) -> Int {
+        let targets = collectGlobalMinimizeTargetsFast(
+            excludingWindowID: excludingWindowID,
+            excludingElement: excludingElement
+        )
+        guard !targets.isEmpty else { return 0 }
+        minimizeAXWindowsAsync(targets.map(\.element))
+        scheduleGlobalMinimizeReconciliation(
+            for: targets,
+            excludingWindowID: excludingWindowID,
+            excludingElement: excludingElement
+        )
+        return targets.count
+    }
+
+    private static func minimizeAXWindowsAsync(_ windows: [AXUIElement]) {
+        guard !windows.isEmpty else { return }
+
+        Task.detached(priority: .userInitiated) {
+            await withTaskGroup(of: Void.self) { group in
+                for window in windows {
+                    group.addTask {
+                        try? window.setAttribute(kAXMinimizedAttribute, true)
+                    }
+                }
+            }
+        }
+    }
+
+    private struct GlobalMinimizeReconciliationSnapshot {
+        let pid: pid_t
+        let windowID: CGWindowID?
+        let element: AXUIElement
+    }
+
+    private struct GlobalMinimizeReconciliationResult {
+        let windowID: CGWindowID?
+        let element: AXUIElement
+        let isMinimized: Bool
+    }
+
+    private static func appEligibleForGlobalMinimize(_ app: NSRunningApplication, ownBundleId: String?) -> Bool {
+        app.activationPolicy == .regular &&
+            app.bundleIdentifier != ownBundleId &&
+            !isAppFiltered(app)
+    }
+
+    private static func shouldExcludeGlobalMinimizeTarget(
+        windowID: CGWindowID?,
+        element: AXUIElement,
+        excludingWindowID: CGWindowID?,
+        excludingElement: AXUIElement?
+    ) -> Bool {
+        if let excludingElement, CFEqual(element, excludingElement) {
+            return true
+        }
+        if let excludingWindowID, let windowID, windowID == excludingWindowID {
+            return true
+        }
+        return false
+    }
+
+    private static func appendGlobalMinimizeTarget(
+        pid: pid_t,
+        windowID: CGWindowID?,
+        element: AXUIElement,
+        into targets: inout [GlobalMinimizeReconciliationSnapshot],
+        seenWindowIDs: inout Set<CGWindowID>,
+        seenElements: inout [AXUIElement]
+    ) {
+        if seenElements.contains(where: { CFEqual($0, element) }) {
+            return
+        }
+
+        if let windowID {
+            guard seenWindowIDs.insert(windowID).inserted else { return }
+        }
+
+        seenElements.append(element)
+        targets.append(GlobalMinimizeReconciliationSnapshot(pid: pid, windowID: windowID, element: element))
+    }
+
+    private static func collectGlobalMinimizeTargetsFast(
+        excludingWindowID: CGWindowID?,
+        excludingElement: AXUIElement?
+    ) -> [GlobalMinimizeReconciliationSnapshot] {
+        let ownBundleId = Bundle.main.bundleIdentifier
+        var targets: [GlobalMinimizeReconciliationSnapshot] = []
+        var seenWindowIDs = Set<CGWindowID>()
+        var seenElements: [AXUIElement] = []
+
+        let cachedWindows = desktopSpaceWindowCacheManager.getAllWindows()
+        for window in cachedWindows {
+            guard !window.isWindowlessApp,
+                  !window.isMinimized,
+                  window.isFullscreen != true,
+                  appEligibleForGlobalMinimize(window.app, ownBundleId: ownBundleId),
+                  !shouldExcludeGlobalMinimizeTarget(
+                      windowID: window.id,
+                      element: window.axElement,
+                      excludingWindowID: excludingWindowID,
+                      excludingElement: excludingElement
+                  )
+            else {
+                continue
+            }
+
+            appendGlobalMinimizeTarget(
+                pid: window.app.processIdentifier,
+                windowID: window.id,
+                element: window.axElement,
+                into: &targets,
+                seenWindowIDs: &seenWindowIDs,
+                seenElements: &seenElements
+            )
+        }
+
+        for app in NSWorkspace.shared.runningApplications {
+            guard appEligibleForGlobalMinimize(app, ownBundleId: ownBundleId) else { continue }
+            let appAX = AXUIElementCreateApplication(app.processIdentifier)
+            guard let axWindows = try? appAX.windows(), !axWindows.isEmpty else { continue }
+
+            for axWindow in axWindows {
+                let windowID = try? axWindow.cgWindowId()
+                guard !shouldExcludeGlobalMinimizeTarget(
+                    windowID: windowID,
+                    element: axWindow,
+                    excludingWindowID: excludingWindowID,
+                    excludingElement: excludingElement
+                ) else {
+                    continue
+                }
+                if (try? axWindow.isMinimized()) == true {
+                    continue
+                }
+                if (try? axWindow.isFullscreen()) == true {
+                    continue
+                }
+
+                appendGlobalMinimizeTarget(
+                    pid: app.processIdentifier,
+                    windowID: windowID,
+                    element: axWindow,
+                    into: &targets,
+                    seenWindowIDs: &seenWindowIDs,
+                    seenElements: &seenElements
+                )
+            }
+        }
+
+        return targets
+    }
+
+    private static func collectGlobalMinimizeTargetsHeavy(
+        for pids: Set<pid_t>,
+        excludingWindowID: CGWindowID?,
+        excludingElement: AXUIElement?
+    ) -> [GlobalMinimizeReconciliationSnapshot] {
+        guard !pids.isEmpty else { return [] }
+
+        let ownBundleId = Bundle.main.bundleIdentifier
+        var targets: [GlobalMinimizeReconciliationSnapshot] = []
+        var seenWindowIDs = Set<CGWindowID>()
+        var seenElements: [AXUIElement] = []
+
+        for pid in pids {
+            guard let app = NSRunningApplication(processIdentifier: pid),
+                  appEligibleForGlobalMinimize(app, ownBundleId: ownBundleId)
+            else {
+                continue
+            }
+
+            let appAX = AXUIElementCreateApplication(pid)
+            let axWindows = AXUIElement.allWindows(pid, appElement: appAX)
+            guard !axWindows.isEmpty else { continue }
+
+            for axWindow in axWindows {
+                let windowID = try? axWindow.cgWindowId()
+                guard !shouldExcludeGlobalMinimizeTarget(
+                    windowID: windowID,
+                    element: axWindow,
+                    excludingWindowID: excludingWindowID,
+                    excludingElement: excludingElement
+                ) else {
+                    continue
+                }
+                if (try? axWindow.isMinimized()) == true {
+                    continue
+                }
+                if (try? axWindow.isFullscreen()) == true {
+                    continue
+                }
+
+                appendGlobalMinimizeTarget(
+                    pid: pid,
+                    windowID: windowID,
+                    element: axWindow,
+                    into: &targets,
+                    seenWindowIDs: &seenWindowIDs,
+                    seenElements: &seenElements
+                )
+            }
+        }
+
+        return targets
+    }
+
+    private static func applyGlobalMinimizeReconciliationResults(
+        _ resultsByPID: [pid_t: [GlobalMinimizeReconciliationResult]]
+    ) {
+        guard !resultsByPID.isEmpty else { return }
+
+        for (pid, results) in resultsByPID {
+            desktopSpaceWindowCacheManager.updateCache(pid: pid) { windowSet in
+                for result in results {
+                    if let windowID = result.windowID,
+                       let existingWindow = windowSet.first(where: { $0.id == windowID })
+                    {
+                        var updatedWindow = existingWindow
+                        updatedWindow.isMinimized = result.isMinimized
+                        windowSet.remove(existingWindow)
+                        windowSet.insert(updatedWindow)
+                        continue
+                    }
+
+                    if let existingWindow = windowSet.first(where: { $0.axElement == result.element }) {
+                        var updatedWindow = existingWindow
+                        updatedWindow.isMinimized = result.isMinimized
+                        windowSet.remove(existingWindow)
+                        windowSet.insert(updatedWindow)
+                    }
+                }
+            }
+        }
+    }
+
+    private static func readGlobalMinimizeStates(
+        for targets: [GlobalMinimizeReconciliationSnapshot]
+    ) -> (resultsByPID: [pid_t: [GlobalMinimizeReconciliationResult]], unresolvedPIDs: Set<pid_t>) {
+        var perPIDResults: [pid_t: [GlobalMinimizeReconciliationResult]] = [:]
+        var unresolvedPIDs = Set<pid_t>()
+
+        for target in targets {
+            guard let isMinimized = try? target.element.isMinimized() else {
+                unresolvedPIDs.insert(target.pid)
+                continue
+            }
+
+            perPIDResults[target.pid, default: []].append(
+                GlobalMinimizeReconciliationResult(
+                    windowID: target.windowID,
+                    element: target.element,
+                    isMinimized: isMinimized
+                )
+            )
+
+            if !isMinimized {
+                unresolvedPIDs.insert(target.pid)
+            }
+        }
+
+        return (perPIDResults, unresolvedPIDs)
+    }
+
+    private static func cacheHasPendingGlobalMinimizeWindows(
+        pid: pid_t,
+        excludingWindowID: CGWindowID?,
+        excludingElement: AXUIElement?
+    ) -> Bool {
+        let ownBundleId = Bundle.main.bundleIdentifier
+        let cachedWindows = desktopSpaceWindowCacheManager.readCache(pid: pid)
+        return cachedWindows.contains { window in
+            guard !window.isWindowlessApp,
+                  !window.isMinimized,
+                  window.isFullscreen != true,
+                  window.app.bundleIdentifier != ownBundleId
+            else {
+                return false
+            }
+
+            if let excludingWindowID, window.id == excludingWindowID {
+                return false
+            }
+            if let excludingElement, CFEqual(window.axElement, excludingElement) {
+                return false
+            }
+            return true
+        }
+    }
+
+    private static func scheduleGlobalMinimizeReconciliation(
+        for targets: [GlobalMinimizeReconciliationSnapshot],
+        excludingWindowID: CGWindowID?,
+        excludingElement: AXUIElement?
+    ) {
+        guard !targets.isEmpty else { return }
+
+        globalMinimizeReconciliationLock.lock()
+        pendingGlobalMinimizeReconciliation?.cancel()
+        let task = Task.detached(priority: .utility) {
+            try? await Task.sleep(nanoseconds: 320_000_000)
+            guard !Task.isCancelled else { return }
+
+            let trackedPIDs = Set(targets.map(\.pid))
+            let (firstResults, firstUnresolved) = readGlobalMinimizeStates(for: targets)
+            applyGlobalMinimizeReconciliationResults(firstResults)
+            guard !Task.isCancelled else { return }
+
+            var unresolvedPIDs = firstUnresolved
+            for pid in trackedPIDs {
+                if cacheHasPendingGlobalMinimizeWindows(
+                    pid: pid,
+                    excludingWindowID: excludingWindowID,
+                    excludingElement: excludingElement
+                ) {
+                    unresolvedPIDs.insert(pid)
+                }
+            }
+
+            guard !unresolvedPIDs.isEmpty else { return }
+
+            try? await Task.sleep(nanoseconds: 180_000_000)
+            guard !Task.isCancelled else { return }
+
+            let unresolvedTargets = targets.filter { unresolvedPIDs.contains($0.pid) }
+            let (retryResults, retryUnresolved) = readGlobalMinimizeStates(for: unresolvedTargets)
+            applyGlobalMinimizeReconciliationResults(retryResults)
+            guard !Task.isCancelled else { return }
+
+            unresolvedPIDs = retryUnresolved
+            for pid in trackedPIDs where unresolvedPIDs.contains(pid) {
+                if !cacheHasPendingGlobalMinimizeWindows(
+                    pid: pid,
+                    excludingWindowID: excludingWindowID,
+                    excludingElement: excludingElement
+                ) {
+                    unresolvedPIDs.remove(pid)
+                }
+            }
+
+            guard !unresolvedPIDs.isEmpty else { return }
+
+            let heavyTargets = collectGlobalMinimizeTargetsHeavy(
+                for: unresolvedPIDs,
+                excludingWindowID: excludingWindowID,
+                excludingElement: excludingElement
+            )
+            guard !heavyTargets.isEmpty else { return }
+
+            minimizeAXWindowsAsync(heavyTargets.map(\.element))
+            try? await Task.sleep(nanoseconds: 260_000_000)
+            guard !Task.isCancelled else { return }
+
+            let (fallbackResults, _) = readGlobalMinimizeStates(for: heavyTargets)
+            applyGlobalMinimizeReconciliationResults(fallbackResults)
+        }
+        pendingGlobalMinimizeReconciliation = task
+        globalMinimizeReconciliationLock.unlock()
     }
 
     static func forceRefreshCachedWindowImages(for pid: pid_t) async {
