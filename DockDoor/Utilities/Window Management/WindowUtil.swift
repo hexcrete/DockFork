@@ -227,23 +227,6 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         }
     }
 
-    func focusTargetAfterAction(on window: WindowInfo) {
-        switch self {
-        case .openNewWindow:
-            WindowUtil.focusAppBestEffort(window.app)
-        case .minimizeAllWindows:
-            WindowUtil.focusAppBestEffort(window.app)
-        case .quit, .close, .closeAllWindows, .none:
-            break
-        default:
-            if window.isWindowlessApp {
-                WindowUtil.focusAppBestEffort(window.app)
-            } else {
-                window.bringToFront()
-            }
-        }
-    }
-
     func shouldForcePreviewCloseForFullscreenTransition(on window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> Bool {
         func shouldForceCloseForCrossSpaceWindow(_ candidate: WindowInfo, activeSpaceIDs: Set<Int>) -> Bool {
             let windowSpaces = Set(candidate.id.cgsSpaces().map { Int($0) })

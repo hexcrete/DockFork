@@ -945,7 +945,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             preferredWindows: coordinator.windows
         )
         let shouldClosePreviews = !keepPreviewsOpen
-        let focusBeforeClose = false
         let shouldForegroundMoveResize = !shouldClosePreviews &&
             Defaults[.moveResizeBringToForeground] &&
             action.postActionCategory(for: window, preferredWindows: coordinator.windows) == .movingAndResizing
@@ -1061,9 +1060,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 window: window,
                 willQuitOnClose: willQuitOnClose
             )
-            if focusBeforeClose {
-                action.focusTargetAfterAction(on: window)
-            }
             hideWindow()
             return true
         }
@@ -1071,9 +1067,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         if !closeAfterSuccess {
             if hideBlockedByFullscreenOnly {
                 return false
-            }
-            if focusBeforeClose {
-                action.focusTargetAfterAction(on: window)
             }
             hideWindow()
             return true
@@ -1085,16 +1078,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 window: window,
                 targetMinimizedState: expectedMinimizedState,
                 targetHiddenState: expectedHiddenState,
-                targetMinimizeAllState: expectedMinimizeAllState,
-                focusBeforeClose: focusBeforeClose
+                targetMinimizeAllState: expectedMinimizeAllState
             )
             return false
         }
 
         if actionConfirmedSuccess {
-            if focusBeforeClose {
-                action.focusTargetAfterAction(on: window)
-            }
             hideWindow()
             return true
         }
@@ -1104,28 +1093,26 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             if let expectedFullscreenState {
                 scheduleFullscreenDismissConfirmation(
                     window: window,
-                    targetFullscreenState: expectedFullscreenState,
-                    focusBeforeClose: focusBeforeClose
+                    targetFullscreenState: expectedFullscreenState
                 )
             }
         case .openNewWindow:
             scheduleNewWindowDismissConfirmation(
                 window: window,
-                previousWindowIDs: existingAppWindowIDs,
-                focusBeforeClose: focusBeforeClose
+                previousWindowIDs: existingAppWindowIDs
             )
         case .close:
             if willQuitOnClose {
-                scheduleAppTerminationDismissConfirmation(window: window, sourceAction: .close, focusBeforeClose: focusBeforeClose)
+                scheduleAppTerminationDismissConfirmation(window: window, sourceAction: .close)
             } else if window.isWindowlessApp {
-                scheduleCloseAllDismissConfirmation(window: window, sourceAction: .close, focusBeforeClose: focusBeforeClose)
+                scheduleCloseAllDismissConfirmation(window: window, sourceAction: .close)
             } else {
-                scheduleWindowClosureDismissConfirmation(window: window, focusBeforeClose: focusBeforeClose)
+                scheduleWindowClosureDismissConfirmation(window: window)
             }
         case .quit:
-            scheduleAppTerminationDismissConfirmation(window: window, sourceAction: .quit, focusBeforeClose: focusBeforeClose)
+            scheduleAppTerminationDismissConfirmation(window: window, sourceAction: .quit)
         case .closeAllWindows:
-            scheduleCloseAllDismissConfirmation(window: window, sourceAction: .closeAllWindows, focusBeforeClose: focusBeforeClose)
+            scheduleCloseAllDismissConfirmation(window: window, sourceAction: .closeAllWindows)
         default:
             break
         }
@@ -1153,7 +1140,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             preferredWindows: windowSwitcherCoordinator.windows
         )
         let shouldClosePreviews = !keepPreviewsOpen
-        let focusBeforeClose = false
         let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
             !(action == .toggleFullScreen && keepPreviewsOpen)
         let hideBlockedByFullscreenOnly = action == .hide &&
@@ -1182,9 +1168,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 window: windowlessEntry,
                 willQuitOnClose: willQuitOnClose
             )
-            if focusBeforeClose {
-                action.focusTargetAfterAction(on: windowlessEntry)
-            }
             hideWindow()
             return true
         }
@@ -1193,9 +1176,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             if hideBlockedByFullscreenOnly {
                 return false
             }
-            if focusBeforeClose {
-                action.focusTargetAfterAction(on: windowlessEntry)
-            }
             hideWindow()
             return true
         }
@@ -1203,9 +1183,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         if case .noChange = result {
             switch action {
             case .close:
-                scheduleCloseAllDismissConfirmation(window: windowlessEntry, sourceAction: .close, focusBeforeClose: focusBeforeClose)
+                scheduleCloseAllDismissConfirmation(window: windowlessEntry, sourceAction: .close)
             case .quit:
-                scheduleAppTerminationDismissConfirmation(window: windowlessEntry, sourceAction: .quit, focusBeforeClose: focusBeforeClose)
+                scheduleAppTerminationDismissConfirmation(window: windowlessEntry, sourceAction: .quit)
             default:
                 break
             }
@@ -1217,21 +1197,16 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             case .openNewWindow:
                 scheduleNewWindowDismissConfirmation(
                     window: windowlessEntry,
-                    previousWindowIDs: existingWindowIDs,
-                    focusBeforeClose: focusBeforeClose
+                    previousWindowIDs: existingWindowIDs
                 )
             case .closeAllWindows:
-                scheduleCloseAllDismissConfirmation(window: windowlessEntry, sourceAction: .closeAllWindows, focusBeforeClose: focusBeforeClose)
+                scheduleCloseAllDismissConfirmation(window: windowlessEntry, sourceAction: .closeAllWindows)
             case .quit:
-                scheduleAppTerminationDismissConfirmation(window: windowlessEntry, sourceAction: .quit, focusBeforeClose: focusBeforeClose)
+                scheduleAppTerminationDismissConfirmation(window: windowlessEntry, sourceAction: .quit)
             default:
                 break
             }
             return false
-        }
-
-        if focusBeforeClose {
-            action.focusTargetAfterAction(on: windowlessEntry)
         }
         hideWindow()
         return true
@@ -1346,7 +1321,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         showFullPreviewWindow(for: selectedWindow, on: targetScreen)
     }
 
-    private func scheduleAppTerminationDismissConfirmation(window: WindowInfo, sourceAction: WindowAction, focusBeforeClose: Bool) {
+    private func scheduleAppTerminationDismissConfirmation(window: WindowInfo, sourceAction: WindowAction) {
         let pid = window.app.processIdentifier
         let app = window.app
 
@@ -1357,9 +1332,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 guard shouldRunDeferredWatchers else { return }
                 let appStillVisible = windowSwitcherCoordinator.windows.contains { $0.app.processIdentifier == pid }
                 if app.isTerminated || NSRunningApplication(processIdentifier: pid) == nil || !appStillVisible {
-                    if focusBeforeClose {
-                        app.activate(options: [.activateIgnoringOtherApps])
-                    }
                     hideWindow()
                     return
                 }
@@ -1443,8 +1415,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         window: WindowInfo,
         targetMinimizedState: Bool?,
         targetHiddenState: Bool?,
-        targetMinimizeAllState: Bool?,
-        focusBeforeClose: Bool
+        targetMinimizeAllState: Bool?
     ) {
         let pid = window.app.processIdentifier
         let app = window.app
@@ -1484,9 +1455,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 }
 
                 if confirmed {
-                    if focusBeforeClose {
-                        action.focusTargetAfterAction(on: window)
-                    }
                     hideWindow()
                     return
                 }
@@ -1494,7 +1462,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
     }
 
-    private func scheduleWindowClosureDismissConfirmation(window: WindowInfo, focusBeforeClose: Bool) {
+    private func scheduleWindowClosureDismissConfirmation(window: WindowInfo) {
         let windowID = window.id
         let pid = window.app.processIdentifier
         let app = window.app
@@ -1509,9 +1477,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 let stillExists = cached.contains { $0.id == windowID && $0.app.processIdentifier == pid }
                 let stillVisible = windowSwitcherCoordinator.windows.contains { $0.id == windowID && $0.app.processIdentifier == pid }
                 if !stillExists || !stillVisible {
-                    if focusBeforeClose {
-                        app.activate(options: [.activateIgnoringOtherApps])
-                    }
                     hideWindow()
                     return
                 }
@@ -1519,7 +1484,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
     }
 
-    private func scheduleCloseAllDismissConfirmation(window: WindowInfo, sourceAction: WindowAction, focusBeforeClose: Bool) {
+    private func scheduleCloseAllDismissConfirmation(window: WindowInfo, sourceAction: WindowAction) {
         let pid = window.app.processIdentifier
         let app = window.app
 
@@ -1532,9 +1497,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 let cached = WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
                 let visibleNonWindowlessCount = windowSwitcherCoordinator.windows.filter { $0.app.processIdentifier == pid && !$0.isWindowlessApp }.count
                 if cached.isEmpty || visibleNonWindowlessCount == 0 {
-                    if focusBeforeClose {
-                        app.activate(options: [.activateIgnoringOtherApps])
-                    }
                     hideWindow()
                     return
                 }
@@ -1542,7 +1504,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
     }
 
-    private func scheduleNewWindowDismissConfirmation(window: WindowInfo, previousWindowIDs: Set<CGWindowID>, focusBeforeClose: Bool) {
+    private func scheduleNewWindowDismissConfirmation(window: WindowInfo, previousWindowIDs: Set<CGWindowID>) {
         let pid = window.app.processIdentifier
         let app = window.app
         let originalWindowID = window.id
@@ -1574,9 +1536,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                     (hadNoTrackedWindowsBefore && hasUsableWindow)
 
                 if shouldTreatAsSuccess {
-                    if focusBeforeClose {
-                        WindowUtil.focusAppBestEffort(app)
-                    }
                     hideWindow()
                     return
                 }
@@ -1586,8 +1545,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     private func scheduleFullscreenDismissConfirmation(
         window: WindowInfo,
-        targetFullscreenState: Bool,
-        focusBeforeClose: Bool
+        targetFullscreenState: Bool
     ) {
         let windowID = window.id
         let pid = window.app.processIdentifier
@@ -1605,9 +1563,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 return
             }
 
-            if focusBeforeClose {
-                window.bringToFront()
-            }
             hideWindow()
         }
     }

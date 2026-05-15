@@ -1238,7 +1238,6 @@ struct WindowPreviewHoverContainer: View {
             preferredWindows: previewStateCoordinator.windows
         )
         let shouldClosePreviews = !keepPreviewsOpen
-        let focusBeforeClose = false
         let shouldForegroundMoveResize = !shouldClosePreviews &&
             Defaults[.moveResizeBringToForeground] &&
             action.postActionCategory(for: window, preferredWindows: previewStateCoordinator.windows) == .movingAndResizing
@@ -1359,9 +1358,6 @@ struct WindowPreviewHoverContainer: View {
                 window: window,
                 willQuitOnClose: willQuitOnClose
             )
-            if focusBeforeClose {
-                action.focusTargetAfterAction(on: window)
-            }
             onWindowTap?()
             return
         }
@@ -1369,9 +1365,6 @@ struct WindowPreviewHoverContainer: View {
         if !closeAfterSuccess {
             if hideBlockedByFullscreenOnly {
                 return
-            }
-            if focusBeforeClose {
-                action.focusTargetAfterAction(on: window)
             }
             onWindowTap?()
             return
@@ -1383,16 +1376,12 @@ struct WindowPreviewHoverContainer: View {
                 window: window,
                 targetMinimizedState: expectedMinimizedState,
                 targetHiddenState: expectedHiddenState,
-                targetMinimizeAllState: expectedMinimizeAllState,
-                focusBeforeClose: focusBeforeClose
+                targetMinimizeAllState: expectedMinimizeAllState
             )
             return
         }
 
         if actionConfirmedSuccess {
-            if focusBeforeClose {
-                action.focusTargetAfterAction(on: window)
-            }
             onWindowTap?()
             return
         }
@@ -1402,46 +1391,39 @@ struct WindowPreviewHoverContainer: View {
             if let expectedFullscreenState {
                 scheduleFullscreenDismissConfirmation(
                     window: window,
-                    targetFullscreenState: expectedFullscreenState,
-                    focusBeforeClose: focusBeforeClose
+                    targetFullscreenState: expectedFullscreenState
                 )
             }
         case .openNewWindow:
             scheduleNewWindowDismissConfirmation(
                 window: window,
-                previousWindowIDs: existingAppWindowIDs,
-                focusBeforeClose: focusBeforeClose
+                previousWindowIDs: existingAppWindowIDs
             )
         case .close:
             if willQuitOnClose {
                 scheduleAppTerminationDismissConfirmation(
                     window: window,
-                    sourceAction: .close,
-                    focusBeforeClose: focusBeforeClose
+                    sourceAction: .close
                 )
             } else if window.isWindowlessApp {
                 scheduleCloseAllDismissConfirmation(
                     window: window,
-                    sourceAction: .close,
-                    focusBeforeClose: focusBeforeClose
+                    sourceAction: .close
                 )
             } else {
                 scheduleWindowClosureDismissConfirmation(
-                    window: window,
-                    focusBeforeClose: focusBeforeClose
+                    window: window
                 )
             }
         case .quit:
             scheduleAppTerminationDismissConfirmation(
                 window: window,
-                sourceAction: .quit,
-                focusBeforeClose: focusBeforeClose
+                sourceAction: .quit
             )
         case .closeAllWindows:
             scheduleCloseAllDismissConfirmation(
                 window: window,
-                sourceAction: .closeAllWindows,
-                focusBeforeClose: focusBeforeClose
+                sourceAction: .closeAllWindows
             )
         default:
             break
@@ -1523,8 +1505,7 @@ struct WindowPreviewHoverContainer: View {
         window: WindowInfo,
         targetMinimizedState: Bool?,
         targetHiddenState: Bool?,
-        targetMinimizeAllState: Bool?,
-        focusBeforeClose: Bool
+        targetMinimizeAllState: Bool?
     ) {
         let app = window.app
         let pid = app.processIdentifier
@@ -1564,9 +1545,6 @@ struct WindowPreviewHoverContainer: View {
                 }
 
                 if confirmed {
-                    if focusBeforeClose {
-                        actionFocusFallback(app: app)
-                    }
                     onWindowTap?()
                     return
                 }
@@ -1702,7 +1680,7 @@ struct WindowPreviewHoverContainer: View {
         )
     }
 
-    private func scheduleAppTerminationDismissConfirmation(window: WindowInfo, sourceAction: WindowAction, focusBeforeClose: Bool) {
+    private func scheduleAppTerminationDismissConfirmation(window: WindowInfo, sourceAction: WindowAction) {
         let pid = window.app.processIdentifier
         let app = window.app
 
@@ -1712,9 +1690,6 @@ struct WindowPreviewHoverContainer: View {
                 guard shouldRunDeferredWatchers else { return }
                 let appStillVisible = previewStateCoordinator.windows.contains { $0.app.processIdentifier == pid }
                 if app.isTerminated || NSRunningApplication(processIdentifier: pid) == nil || !appStillVisible {
-                    if focusBeforeClose {
-                        actionFocusFallback(app: app)
-                    }
                     onWindowTap?()
                     return
                 }
@@ -1722,7 +1697,7 @@ struct WindowPreviewHoverContainer: View {
         }
     }
 
-    private func scheduleWindowClosureDismissConfirmation(window: WindowInfo, focusBeforeClose: Bool) {
+    private func scheduleWindowClosureDismissConfirmation(window: WindowInfo) {
         let windowID = window.id
         let pid = window.app.processIdentifier
         let app = window.app
@@ -1737,9 +1712,6 @@ struct WindowPreviewHoverContainer: View {
                 let stillExists = cached.contains { $0.id == windowID && $0.app.processIdentifier == pid }
                 let stillVisible = previewStateCoordinator.windows.contains { $0.id == windowID && $0.app.processIdentifier == pid }
                 if !stillExists || !stillVisible {
-                    if focusBeforeClose {
-                        actionFocusFallback(app: app)
-                    }
                     onWindowTap?()
                     return
                 }
@@ -1747,7 +1719,7 @@ struct WindowPreviewHoverContainer: View {
         }
     }
 
-    private func scheduleCloseAllDismissConfirmation(window: WindowInfo, sourceAction: WindowAction, focusBeforeClose: Bool) {
+    private func scheduleCloseAllDismissConfirmation(window: WindowInfo, sourceAction: WindowAction) {
         let pid = window.app.processIdentifier
         let app = window.app
 
@@ -1760,9 +1732,6 @@ struct WindowPreviewHoverContainer: View {
                 let cached = WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
                 let visibleNonWindowlessCount = previewStateCoordinator.windows.filter { $0.app.processIdentifier == pid && !$0.isWindowlessApp }.count
                 if cached.isEmpty || visibleNonWindowlessCount == 0 {
-                    if focusBeforeClose {
-                        actionFocusFallback(app: app)
-                    }
                     onWindowTap?()
                     return
                 }
@@ -1770,7 +1739,7 @@ struct WindowPreviewHoverContainer: View {
         }
     }
 
-    private func scheduleNewWindowDismissConfirmation(window: WindowInfo, previousWindowIDs: Set<CGWindowID>, focusBeforeClose: Bool) {
+    private func scheduleNewWindowDismissConfirmation(window: WindowInfo, previousWindowIDs: Set<CGWindowID>) {
         let pid = window.app.processIdentifier
         let app = window.app
         let originalWindowID = window.id
@@ -1802,9 +1771,6 @@ struct WindowPreviewHoverContainer: View {
                     (hadNoTrackedWindowsBefore && hasUsableWindow)
 
                 if shouldTreatAsSuccess {
-                    if focusBeforeClose {
-                        actionFocusFallback(app: app)
-                    }
                     onWindowTap?()
                     return
                 }
@@ -1812,14 +1778,9 @@ struct WindowPreviewHoverContainer: View {
         }
     }
 
-    private func actionFocusFallback(app: NSRunningApplication) {
-        WindowUtil.focusAppBestEffort(app)
-    }
-
     private func scheduleFullscreenDismissConfirmation(
         window: WindowInfo,
-        targetFullscreenState: Bool,
-        focusBeforeClose: Bool
+        targetFullscreenState: Bool
     ) {
         guard !mockPreviewActive else { return }
 
@@ -1838,9 +1799,6 @@ struct WindowPreviewHoverContainer: View {
                 return
             }
 
-            if focusBeforeClose {
-                window.bringToFront()
-            }
             onWindowTap?()
         }
     }
