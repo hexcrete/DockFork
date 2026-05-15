@@ -1229,7 +1229,7 @@ struct WindowPreviewHoverContainer: View {
                 .filter { $0.app.processIdentifier == appPID && !$0.isWindowlessApp }
                 .map(\.id)
         )
-        let postActionBehavior = action.resolvedPostActionBehavior(
+        let keepPreviewsOpen = action.keepPreviewsOpenAfterAction(
             for: window,
             preferredWindows: previewStateCoordinator.windows
         )
@@ -1237,14 +1237,17 @@ struct WindowPreviewHoverContainer: View {
             for: window,
             preferredWindows: previewStateCoordinator.windows
         )
-        let shouldClosePreviews = postActionBehavior != .keepPreviewsOpenNoFocus
-        let focusBeforeClose = postActionBehavior == .closePreviewsAndFocus
+        let shouldClosePreviews = !keepPreviewsOpen
+        let focusBeforeClose = false
         let shouldForegroundMoveResize = !shouldClosePreviews &&
             Defaults[.moveResizeBringToForeground] &&
             action.postActionCategory(for: window, preferredWindows: previewStateCoordinator.windows) == .movingAndResizing
-        let forceImmediateCloseForFullscreenTransition = action.shouldForcePreviewCloseForFullscreenTransition(on: window)
+        let forceImmediateCloseForFullscreenTransition = action.shouldForcePreviewCloseForFullscreenTransition(
+            on: window,
+            preferredWindows: previewStateCoordinator.windows
+        )
         let skipToggleFullscreenRefresh = action == .toggleFullScreen &&
-            (postActionBehavior == .keepPreviewsOpenNoFocus || forceImmediateCloseForFullscreenTransition)
+            (keepPreviewsOpen || forceImmediateCloseForFullscreenTransition)
         let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
             !skipToggleFullscreenRefresh
         let hideBlockedByFullscreenOnly = action == .hide &&

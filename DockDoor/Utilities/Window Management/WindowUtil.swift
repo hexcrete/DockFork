@@ -54,7 +54,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             }
         }
 
-        var configuredBehavior: PreviewPostActionBehavior {
+        var keepPreviewsOpen: Bool {
             switch self {
             case .movingAndResizing:
                 Defaults[.movingResizingPostActionBehavior]
@@ -66,19 +66,6 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
                 Defaults[.closingPostActionBehavior]
             case .newWindow:
                 Defaults[.newWindowPostActionBehavior]
-            }
-        }
-
-        var availablePostActionBehaviors: [PreviewPostActionBehavior] {
-            [.keepPreviewsOpenNoFocus, closeBehavior]
-        }
-
-        var closeBehavior: PreviewPostActionBehavior {
-            switch self {
-            case .hiding, .closing:
-                .closePreviewsNoFocus
-            case .movingAndResizing, .unhiding, .newWindow:
-                .closePreviewsAndFocus
             }
         }
     }
@@ -216,19 +203,11 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         }
     }
 
-    func resolvedPostActionBehavior(for window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> PreviewPostActionBehavior {
+    func keepPreviewsOpenAfterAction(for window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> Bool {
         guard let category = postActionCategory(for: window, preferredWindows: preferredWindows) else {
-            return .keepPreviewsOpenNoFocus
+            return true
         }
-
-        let configured = category.configuredBehavior
-        if configured == .keepPreviewsOpenNoFocus {
-            return .keepPreviewsOpenNoFocus
-        }
-        if category.availablePostActionBehaviors.contains(configured) {
-            return configured
-        }
-        return category.closeBehavior
+        return category.keepPreviewsOpen
     }
 
     func closePreviewsOnlyAfterSuccess(for window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> Bool {
@@ -265,7 +244,19 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         }
     }
 
-    func shouldForcePreviewCloseForFullscreenTransition(on window: WindowInfo) -> Bool {
+    func shouldForcePreviewCloseForFullscreenTransition(on window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> Bool {
+        func shouldForceCloseForCrossSpaceWindow(_ candidate: WindowInfo, activeSpaceIDs: Set<Int>) -> Bool {
+            let windowSpaces = Set(candidate.id.cgsSpaces().map { Int($0) })
+            if !windowSpaces.isEmpty {
+                return windowSpaces.isDisjoint(with: activeSpaceIDs)
+            }
+            if let cachedSpaceID = candidate.spaceID {
+                return !activeSpaceIDs.contains(cachedSpaceID)
+            }
+            // Unknown Space membership: only keep-open when we can prove same-space.
+            return true
+        }
+
         switch self {
         case .toggleFullScreen:
             guard let isFullscreen = try? window.axElement.isFullscreen() else { return false }
@@ -286,25 +277,54 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .hide:
             // Unhiding can force a Space jump for fullscreen windows or windows on another Space.
             guard window.isHidden else { return false }
-            if (try? window.axElement.isFullscreen()) == true {
+            let isFullscreen = (try? window.axElement.isFullscreen()) == true || window.isFullscreen == true
+            if isFullscreen {
                 return true
             }
 
             let activeSpaceIDs = currentActiveSpaceIDs()
-            guard !activeSpaceIDs.isEmpty else { return false }
-
-            let windowSpaces = Set(window.id.cgsSpaces().map { Int($0) })
-            if !windowSpaces.isEmpty {
-                return windowSpaces.isDisjoint(with: activeSpaceIDs)
+            guard !activeSpaceIDs.isEmpty else {
+                // If we cannot resolve the current Space set, prefer pre-close to avoid cross-space preview artifacts.
+                return true
             }
 
-            if let cachedSpaceID = window.spaceID {
-                return !activeSpaceIDs.contains(cachedSpaceID)
+            return shouldForceCloseForCrossSpaceWindow(window, activeSpaceIDs: activeSpaceIDs)
+
+        case .minimize:
+            // Unminimizing can jump Spaces when restoring a window located elsewhere.
+            guard window.isMinimized else { return false }
+
+            let activeSpaceIDs = currentActiveSpaceIDs()
+            guard !activeSpaceIDs.isEmpty else {
+                return true
             }
 
-            return false
+            return shouldForceCloseForCrossSpaceWindow(window, activeSpaceIDs: activeSpaceIDs)
 
-        case .quit, .close, .minimize, .openNewWindow, .closeAllWindows, .minimizeAllWindows,
+        case .minimizeAllWindows:
+            let category = postActionCategory(for: window, preferredWindows: preferredWindows)
+            guard category == .unhiding else { return false }
+
+            let appPID = window.app.processIdentifier
+            let appWindows: [WindowInfo] = if let preferredWindows {
+                preferredWindows.filter { $0.app.processIdentifier == appPID && !$0.isWindowlessApp }
+            } else {
+                WindowUtil.readCachedWindows(for: appPID).filter { !$0.isWindowlessApp }
+            }
+            guard !appWindows.isEmpty else { return false }
+
+            // Unminimize-all affects currently minimized windows.
+            let minimizedCandidates = appWindows.filter(\.isMinimized)
+            guard !minimizedCandidates.isEmpty else { return false }
+
+            let activeSpaceIDs = currentActiveSpaceIDs()
+            guard !activeSpaceIDs.isEmpty else {
+                return true
+            }
+
+            return minimizedCandidates.contains { shouldForceCloseForCrossSpaceWindow($0, activeSpaceIDs: activeSpaceIDs) }
+
+        case .quit, .close, .openNewWindow, .closeAllWindows,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center, .none:

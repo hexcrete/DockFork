@@ -339,12 +339,12 @@ extension Defaults.Keys {
     // MARK: - Window Preview Keyboard Shortcuts (Cmd+key)
 
     static let cmdShortcuts = Key<[CmdShortcut]>("cmdShortcuts", default: CmdShortcut.defaultShortcuts)
-    static let movingResizingPostActionBehavior = Key<PreviewPostActionBehavior>("movingResizingPostActionBehavior", default: .keepPreviewsOpenNoFocus)
-    static let hidingPostActionBehavior = Key<PreviewPostActionBehavior>("hidingPostActionBehavior", default: .keepPreviewsOpenNoFocus)
-    static let unhidingPostActionBehavior = Key<PreviewPostActionBehavior>("unhidingPostActionBehavior", default: .closePreviewsAndFocus)
-    static let closingPostActionBehavior = Key<PreviewPostActionBehavior>("closingPostActionBehavior", default: .keepPreviewsOpenNoFocus)
-    static let newWindowPostActionBehavior = Key<PreviewPostActionBehavior>("newWindowPostActionBehavior", default: .closePreviewsAndFocus)
-    static let moveResizeBringToForeground = Key<Bool>("moveResizeBringToForeground", default: false)
+    static let movingResizingPostActionBehavior = Key<Bool>("movingResizingPostActionBehavior", default: true)
+    static let hidingPostActionBehavior = Key<Bool>("hidingPostActionBehavior", default: true)
+    static let unhidingPostActionBehavior = Key<Bool>("unhidingPostActionBehavior", default: true)
+    static let closingPostActionBehavior = Key<Bool>("closingPostActionBehavior", default: true)
+    static let newWindowPostActionBehavior = Key<Bool>("newWindowPostActionBehavior", default: false)
+    static let moveResizeBringToForeground = Key<Bool>("moveResizeBringToForeground", default: true)
 
     // MARK: - Window Switcher Selection Key
 
@@ -782,23 +782,6 @@ enum WindowlessAppActivationMode: String, CaseIterable, Defaults.Serializable {
             String(localized: "Simulates clicking the Dock icon when activating an app with no windows.", comment: "Description for dock-click simulation behavior")
         case .activateOnly:
             String(localized: "Performs a plain app activation with no attempts at opening a window.", comment: "Description for activate-only behavior")
-        }
-    }
-}
-
-enum PreviewPostActionBehavior: String, CaseIterable, Defaults.Serializable {
-    case keepPreviewsOpenNoFocus
-    case closePreviewsNoFocus
-    case closePreviewsAndFocus
-
-    var localizedName: String {
-        switch self {
-        case .keepPreviewsOpenNoFocus:
-            String(localized: "Keep previews open, do not change focus", comment: "Post-action behavior option")
-        case .closePreviewsNoFocus:
-            String(localized: "Close previews, do not change focus", comment: "Post-action behavior option")
-        case .closePreviewsAndFocus:
-            String(localized: "Close previews, focus window/app", comment: "Post-action behavior option")
         }
     }
 }

@@ -275,7 +275,7 @@ struct PreviewPostActionBehaviorSection: View {
                         )
                         .settingsSearchTarget("gestures.postActionMovingResizing")
 
-                        if movingResizingBehavior == .keepPreviewsOpenNoFocus {
+                        if movingResizingBehavior {
                             Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
                                 .settingsSearchTarget("gestures.moveResizeForeground")
                                 .padding(.leading, 32)
@@ -284,20 +284,14 @@ struct PreviewPostActionBehaviorSection: View {
                 }
             }
         }
-        .onAppear { sanitizeSelections() }
-        .onChange(of: movingResizingBehavior) { _ in sanitizeSelections() }
-        .onChange(of: hidingBehavior) { _ in sanitizeSelections() }
-        .onChange(of: unhidingBehavior) { _ in sanitizeSelections() }
-        .onChange(of: closingBehavior) { _ in sanitizeSelections() }
-        .onChange(of: newWindowBehavior) { _ in sanitizeSelections() }
     }
 
     private func postActionBehaviorRow(
         category: WindowAction.PostActionCategory,
         icon: String,
-        selection: Binding<PreviewPostActionBehavior>
+        selection: Binding<Bool>
     ) -> some View {
-        Toggle(isOn: keepOpenBinding(for: category, selection: selection)) {
+        Toggle(isOn: selection) {
             HStack(spacing: 6) {
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .medium))
@@ -308,32 +302,5 @@ struct PreviewPostActionBehaviorSection: View {
             }
         }
         .toggleStyle(.checkbox)
-    }
-
-    private func keepOpenBinding(
-        for category: WindowAction.PostActionCategory,
-        selection: Binding<PreviewPostActionBehavior>
-    ) -> Binding<Bool> {
-        Binding<Bool>(
-            get: { selection.wrappedValue == .keepPreviewsOpenNoFocus },
-            set: { keepOpen in
-                selection.wrappedValue = keepOpen ? .keepPreviewsOpenNoFocus : category.closeBehavior
-            }
-        )
-    }
-
-    private func sanitizeSelections() {
-        movingResizingBehavior = sanitizeBehavior(movingResizingBehavior, for: .movingAndResizing)
-        hidingBehavior = sanitizeBehavior(hidingBehavior, for: .hiding)
-        unhidingBehavior = sanitizeBehavior(unhidingBehavior, for: .unhiding)
-        closingBehavior = sanitizeBehavior(closingBehavior, for: .closing)
-        newWindowBehavior = sanitizeBehavior(newWindowBehavior, for: .newWindow)
-    }
-
-    private func sanitizeBehavior(_ behavior: PreviewPostActionBehavior, for category: WindowAction.PostActionCategory) -> PreviewPostActionBehavior {
-        if behavior == .keepPreviewsOpenNoFocus {
-            return .keepPreviewsOpenNoFocus
-        }
-        return category.closeBehavior
     }
 }

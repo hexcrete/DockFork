@@ -936,7 +936,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 .filter { $0.app.processIdentifier == appPID && !$0.isWindowlessApp }
                 .map(\.id)
         )
-        let postActionBehavior = action.resolvedPostActionBehavior(
+        let keepPreviewsOpen = action.keepPreviewsOpenAfterAction(
             for: window,
             preferredWindows: coordinator.windows
         )
@@ -944,14 +944,17 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             for: window,
             preferredWindows: coordinator.windows
         )
-        let shouldClosePreviews = postActionBehavior != .keepPreviewsOpenNoFocus
-        let focusBeforeClose = postActionBehavior == .closePreviewsAndFocus
+        let shouldClosePreviews = !keepPreviewsOpen
+        let focusBeforeClose = false
         let shouldForegroundMoveResize = !shouldClosePreviews &&
             Defaults[.moveResizeBringToForeground] &&
             action.postActionCategory(for: window, preferredWindows: coordinator.windows) == .movingAndResizing
-        let forceImmediateCloseForFullscreenTransition = action.shouldForcePreviewCloseForFullscreenTransition(on: window)
+        let forceImmediateCloseForFullscreenTransition = action.shouldForcePreviewCloseForFullscreenTransition(
+            on: window,
+            preferredWindows: coordinator.windows
+        )
         let skipToggleFullscreenRefresh = action == .toggleFullScreen &&
-            (postActionBehavior == .keepPreviewsOpenNoFocus || forceImmediateCloseForFullscreenTransition)
+            (keepPreviewsOpen || forceImmediateCloseForFullscreenTransition)
         let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
             !skipToggleFullscreenRefresh
         let hideBlockedByFullscreenOnly = action == .hide &&
@@ -1141,7 +1144,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 .filter { $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp }
                 .map(\.id)
         )
-        let postActionBehavior = action.resolvedPostActionBehavior(
+        let keepPreviewsOpen = action.keepPreviewsOpenAfterAction(
             for: windowlessEntry,
             preferredWindows: windowSwitcherCoordinator.windows
         )
@@ -1149,10 +1152,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             for: windowlessEntry,
             preferredWindows: windowSwitcherCoordinator.windows
         )
-        let shouldClosePreviews = postActionBehavior != .keepPreviewsOpenNoFocus
-        let focusBeforeClose = postActionBehavior == .closePreviewsAndFocus
+        let shouldClosePreviews = !keepPreviewsOpen
+        let focusBeforeClose = false
         let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
-            !(action == .toggleFullScreen && postActionBehavior == .keepPreviewsOpenNoFocus)
+            !(action == .toggleFullScreen && keepPreviewsOpen)
         let hideBlockedByFullscreenOnly = action == .hide &&
             WindowUtil.hasOnlyFullscreenWindows(for: app, preferredWindows: windowSwitcherCoordinator.windows)
         let result = action.perform(

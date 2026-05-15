@@ -241,11 +241,22 @@ class PreviewStateCoordinator: ObservableObject {
         var hasPublishedChanges = false
 
         for index in updatedWindows.indices where updatedWindows[index].app.processIdentifier == pid {
-            if updatedWindows[index].isHidden != isHidden {
-                updatedWindows[index].isHidden = isHidden
+            var row = updatedWindows[index]
+
+            // Keep fullscreen cache fresh so hidden-tag semantics remain correct across mixed fullscreen/non-fullscreen apps.
+            let liveFullscreen = try? row.axElement.isFullscreen()
+            if row.isFullscreen != liveFullscreen {
+                row.isFullscreen = liveFullscreen
                 hasPublishedChanges = true
             }
-            WindowUtil.updateCachedWindowState(updatedWindows[index], isHidden: isHidden)
+
+            if row.isHidden != isHidden {
+                row.isHidden = isHidden
+                hasPublishedChanges = true
+            }
+
+            updatedWindows[index] = row
+            WindowUtil.updateCachedWindowState(row, isHidden: isHidden, isFullscreen: row.isFullscreen)
         }
 
         if hasPublishedChanges {
@@ -290,8 +301,19 @@ class PreviewStateCoordinator: ObservableObject {
                 hasPublishedChanges = true
             }
 
+            let isFullscreen = try? row.axElement.isFullscreen()
+            if row.isFullscreen != isFullscreen {
+                row.isFullscreen = isFullscreen
+                hasPublishedChanges = true
+            }
+
             updatedWindows[index] = row
-            WindowUtil.updateCachedWindowState(row, isMinimized: row.isMinimized, isHidden: row.isHidden)
+            WindowUtil.updateCachedWindowState(
+                row,
+                isMinimized: row.isMinimized,
+                isHidden: row.isHidden,
+                isFullscreen: row.isFullscreen
+            )
         }
 
         if hasPublishedChanges {
