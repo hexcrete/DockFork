@@ -669,11 +669,14 @@ class KeybindHelper {
 
             if previewCoordinator.isVisible, isWindowSwitcherActive || isCmdTabActive {
                 let clickLocation = NSEvent.mouseLocation
-                let windowFrame = previewCoordinator.frame
+                let interactiveWindowFrame = previewCoordinator.frame.insetBy(
+                    dx: HoverContainerPadding.container,
+                    dy: HoverContainerPadding.container
+                )
 
                 let searchFrame = SharedPreviewWindowCoordinator.activeInstance?.searchWindowFrame
                 let isInSearchWindow = searchFrame?.contains(clickLocation) ?? false
-                if windowFrame.contains(clickLocation) || isInSearchWindow {
+                if interactiveWindowFrame.contains(clickLocation) || isInSearchWindow {
                     let flags = event.flags
                     if flags.contains(.maskControl) {
                         var newFlags = flags
