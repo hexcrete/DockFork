@@ -209,6 +209,14 @@ func shouldAcceptWindow(axWindow: AXUIElement,
     let axIsMinimized = (try? axWindow.isMinimized()) ?? false
     let windowSpaces = Set(windowID.cgsSpaces().map { Int($0) })
 
+    // Keep DockDoor's Settings window, but reject its borderless preview and helper panels.
+    if app.processIdentifier == ProcessInfo.processInfo.processIdentifier,
+       (try? axWindow.closeButton()) == nil,
+       (try? axWindow.minimizeButton()) == nil
+    {
+        return false
+    }
+
     if isNoninteractiveUntitledDialog(axWindow) { return false }
 
     let isOnActiveSpace = !windowSpaces.isEmpty && !windowSpaces.isDisjoint(with: activeSpaceIDs)
