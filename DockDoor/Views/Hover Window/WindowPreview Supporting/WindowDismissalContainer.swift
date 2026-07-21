@@ -6,15 +6,19 @@ struct WindowDismissalContainer: NSViewRepresentable {
     let bestGuessMonitor: NSScreen
     let dockPosition: DockPosition
     let dockItemElement: AXUIElement?
+    let applicationProcessIdentifier: pid_t?
+    let applicationBundleIdentifier: String?
     let dockItemFrameOverride: CGRect?
     let originalMouseLocation: CGPoint?
     let minimizeAllWindowsCallback: (_ wasAppActiveBeforeClick: Bool) -> Void
 
-    init(appName: String, bestGuessMonitor: NSScreen, dockPosition: DockPosition, dockItemElement: AXUIElement?, dockItemFrameOverride: CGRect? = nil, originalMouseLocation: CGPoint? = nil, minimizeAllWindowsCallback: @escaping (_ wasAppActiveBeforeClick: Bool) -> Void) {
+    init(appName: String, bestGuessMonitor: NSScreen, dockPosition: DockPosition, dockItemElement: AXUIElement?, applicationProcessIdentifier: pid_t? = nil, applicationBundleIdentifier: String? = nil, dockItemFrameOverride: CGRect? = nil, originalMouseLocation: CGPoint? = nil, minimizeAllWindowsCallback: @escaping (_ wasAppActiveBeforeClick: Bool) -> Void) {
         self.appName = appName
         self.bestGuessMonitor = bestGuessMonitor
         self.dockPosition = dockPosition
         self.dockItemElement = dockItemElement
+        self.applicationProcessIdentifier = applicationProcessIdentifier
+        self.applicationBundleIdentifier = applicationBundleIdentifier
         self.dockItemFrameOverride = dockItemFrameOverride
         self.originalMouseLocation = originalMouseLocation
         self.minimizeAllWindowsCallback = minimizeAllWindowsCallback
@@ -25,6 +29,8 @@ struct WindowDismissalContainer: NSViewRepresentable {
                                        bestGuessMonitor: bestGuessMonitor,
                                        dockPosition: dockPosition,
                                        dockItemElement: dockItemElement,
+                                       applicationProcessIdentifier: applicationProcessIdentifier,
+                                       applicationBundleIdentifier: applicationBundleIdentifier,
                                        dockItemFrameOverride: dockItemFrameOverride,
                                        originalMouseLocation: originalMouseLocation,
                                        minimizeAllWindowsCallback: minimizeAllWindowsCallback)
@@ -40,6 +46,8 @@ class MouseTrackingNSView: NSView {
     private let bestGuessMonitor: NSScreen
     private let dockPosition: DockPosition
     private let dockItemElement: AXUIElement?
+    private let applicationProcessIdentifier: pid_t?
+    private let applicationBundleIdentifier: String?
     private let dockItemFrameOverride: CGRect?
     private let originalMouseLocation: CGPoint?
     private let minimizeAllWindowsCallback: (_ wasAppActiveBeforeClick: Bool) -> Void
@@ -48,11 +56,13 @@ class MouseTrackingNSView: NSView {
     private var inactivityCheckTimer: Timer?
     private let inactivityCheckInterval: TimeInterval
 
-    init(appName: String, bestGuessMonitor: NSScreen, dockPosition: DockPosition, dockItemElement: AXUIElement?, dockItemFrameOverride: CGRect? = nil, originalMouseLocation: CGPoint? = nil, minimizeAllWindowsCallback: @escaping (_ wasAppActiveBeforeClick: Bool) -> Void, frame frameRect: NSRect = .zero) {
+    init(appName: String, bestGuessMonitor: NSScreen, dockPosition: DockPosition, dockItemElement: AXUIElement?, applicationProcessIdentifier: pid_t? = nil, applicationBundleIdentifier: String? = nil, dockItemFrameOverride: CGRect? = nil, originalMouseLocation: CGPoint? = nil, minimizeAllWindowsCallback: @escaping (_ wasAppActiveBeforeClick: Bool) -> Void, frame frameRect: NSRect = .zero) {
         self.appName = appName
         self.bestGuessMonitor = bestGuessMonitor
         self.dockPosition = dockPosition
         self.dockItemElement = dockItemElement
+        self.applicationProcessIdentifier = applicationProcessIdentifier
+        self.applicationBundleIdentifier = applicationBundleIdentifier
         self.dockItemFrameOverride = dockItemFrameOverride
         self.originalMouseLocation = originalMouseLocation
         self.minimizeAllWindowsCallback = minimizeAllWindowsCallback
@@ -108,25 +118,38 @@ class MouseTrackingNSView: NSView {
 
     private func checkIfMouseIsOverDockIcon() -> Bool {
         if dockPosition == .cli {
-            let currentMouseLocation = NSEvent.mouseLocation
             if let frameOverride = dockItemFrameOverride {
-                let expandedFrame = frameOverride.insetBy(dx: -15, dy: -15)
-                return expandedFrame.contains(currentMouseLocation)
+                return frameOverride.insetBy(dx: -15, dy: -15).contains(NSEvent.mouseLocation)
             }
-            if let originalPos = originalMouseLocation {
-                let proximityThreshold: CGFloat = 50
-                let distance = hypot(currentMouseLocation.x - originalPos.x, currentMouseLocation.y - originalPos.y)
-                return distance < proximityThreshold
-            }
-            return false
+            return isNearOriginalMouseLocation()
         }
 
         guard let activeDockObserver = DockObserver.activeInstance else { return false }
         guard let originalDockItem = dockItemElement else { return false }
 
+        if let applicationProcessIdentifier {
+            switch activeDockObserver.getDockItemAppStatusUnderMouse().status {
+            case let .success(app):
+                return app.processIdentifier == applicationProcessIdentifier
+            case .notFound:
+                return isNearOriginalMouseLocation()
+            case let .notRunning(bundleIdentifier):
+                return bundleIdentifier == applicationBundleIdentifier
+            }
+        }
+
         guard let currentDockItem = activeDockObserver.getHoveredApplicationDockItem() else { return false }
 
         return originalDockItem == currentDockItem
+    }
+
+    private func isNearOriginalMouseLocation() -> Bool {
+        guard let originalMouseLocation else { return false }
+        let currentMouseLocation = NSEvent.mouseLocation
+        return hypot(
+            currentMouseLocation.x - originalMouseLocation.x,
+            currentMouseLocation.y - originalMouseLocation.y
+        ) < 50
     }
 
     func resetOpacity() {

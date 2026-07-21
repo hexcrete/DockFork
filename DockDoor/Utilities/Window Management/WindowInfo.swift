@@ -163,11 +163,6 @@ extension WindowInfo {
                 bringToFront()
             }
 
-            let confirmedHidden = (try? appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? app.isHidden
-            guard confirmedHidden == newHiddenState else {
-                return nil
-            }
-
             isHidden = newHiddenState
             WindowUtil.updateCachedWindowState(self, isHidden: newHiddenState)
             return newHiddenState

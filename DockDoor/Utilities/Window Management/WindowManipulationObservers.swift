@@ -143,7 +143,12 @@ class WindowManipulationObservers {
             return
         }
 
-        if !previewCoordinator.windowSwitcherCoordinator.isKeybindSessionActive {
+        let suppressPreviewDismissal = previewCoordinator.shouldSuppressActionDrivenActivationDismissal(
+            for: app.processIdentifier
+        )
+        if !previewCoordinator.windowSwitcherCoordinator.isKeybindSessionActive,
+           !suppressPreviewDismissal
+        {
             previewCoordinator.hideWindow()
         }
 

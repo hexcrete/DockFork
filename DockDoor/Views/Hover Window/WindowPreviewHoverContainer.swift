@@ -572,6 +572,8 @@ struct WindowPreviewHoverContainer: View {
                                              bestGuessMonitor: bestGuessMonitor,
                                              dockPosition: dockPosition,
                                              dockItemElement: dockItemElement,
+                                             applicationProcessIdentifier: previewStateCoordinator.windows.first?.app.processIdentifier,
+                                             applicationBundleIdentifier: previewStateCoordinator.windows.first?.app.bundleIdentifier,
                                              dockItemFrameOverride: dockItemFrameOverride,
                                              originalMouseLocation: mouseLocation,
                                              minimizeAllWindowsCallback: { wasAppActiveBeforeClick in
@@ -1286,6 +1288,19 @@ struct WindowPreviewHoverContainer: View {
             expectedMinimizeAllState = nil
         }
 
+        let activationDismissalSuppressionToken: UUID? = if action == .hide,
+                                                            keepPreviewsOpen,
+                                                            !forceImmediateCloseForFullscreenTransitionPreAction,
+                                                            let hiddenStateBeforeAction
+        {
+            SharedPreviewWindowCoordinator.activeInstance?.suppressNextActionDrivenActivationDismissal(
+                for: window.app,
+                wasHidden: hiddenStateBeforeAction
+            )
+        } else {
+            nil
+        }
+
         if action.shouldScheduleDockReconciliation, !skipToggleFullscreenRefresh {
             scheduleDockActionReconciliationIfNeeded(for: window.app)
         }
@@ -1296,6 +1311,11 @@ struct WindowPreviewHoverContainer: View {
             preferredWindows: previewStateCoordinator.windows,
             hiddenStateBeforeAction: hiddenStateBeforeAction
         )
+        if case .noChange = result {
+            SharedPreviewWindowCoordinator.activeInstance?.cancelActionDrivenActivationDismissalSuppression(
+                token: activationDismissalSuppressionToken
+            )
+        }
         previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
 
         var actionConfirmedSuccess = false

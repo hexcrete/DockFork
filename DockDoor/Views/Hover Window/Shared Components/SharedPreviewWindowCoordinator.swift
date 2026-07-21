@@ -35,8 +35,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let task: Task<Void, Never>
     }
 
+    private struct ActivationDismissalSuppression {
+        let token: UUID
+        let expectedProcessIdentifier: pid_t?
+        let expiresAt: Date
+    }
+
     private var deferredActionWatchersByKey: [String: DeferredActionWatcher] = [:]
     private var deferredRefreshTasksByKey: [String: DeferredRefreshTask] = [:]
+    private var activationDismissalSuppression: ActivationDismissalSuppression?
 
     var windowSize: CGSize = getWindowSize()
 
@@ -144,6 +151,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     func hideWindow() {
         cancelPendingShow()
         cancelAllDeferredActionWatchers()
+        activationDismissalSuppression = nil
 
         // Always restore dock auto-hide state, even if the preview isn't visible.
         dockManager.restoreDockState()
@@ -169,6 +177,49 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         windowSwitcherCoordinator.setWindows([], dockPosition: currentDockPos, bestGuessMonitor: currentScreen)
         windowSwitcherCoordinator.setShowing(.both, toState: false)
         orderOut(nil)
+    }
+
+    @discardableResult
+    func suppressNextActionDrivenActivationDismissal(for app: NSRunningApplication, wasHidden: Bool) -> UUID? {
+        guard isVisible else { return nil }
+
+        let expectedProcessIdentifier: pid_t?
+        if wasHidden {
+            expectedProcessIdentifier = app.processIdentifier
+        } else {
+            guard let frontmostProcessIdentifier = NSWorkspace.shared.frontmostApplication?.processIdentifier else { return nil }
+            expectedProcessIdentifier = frontmostProcessIdentifier == app.processIdentifier
+                ? nil
+                : frontmostProcessIdentifier
+        }
+
+        let token = UUID()
+        activationDismissalSuppression = ActivationDismissalSuppression(
+            token: token,
+            expectedProcessIdentifier: expectedProcessIdentifier,
+            expiresAt: Date().addingTimeInterval(1)
+        )
+        return token
+    }
+
+    func cancelActionDrivenActivationDismissalSuppression(token: UUID?) {
+        guard let token, activationDismissalSuppression?.token == token else { return }
+        activationDismissalSuppression = nil
+    }
+
+    func shouldSuppressActionDrivenActivationDismissal(for processIdentifier: pid_t) -> Bool {
+        guard let suppression = activationDismissalSuppression else { return false }
+        guard suppression.expiresAt >= Date() else {
+            activationDismissalSuppression = nil
+            return false
+        }
+
+        let matches = suppression.expectedProcessIdentifier == nil ||
+            suppression.expectedProcessIdentifier == processIdentifier
+        if !matches {
+            activationDismissalSuppression = nil
+        }
+        return matches
     }
 
     @MainActor
@@ -1006,12 +1057,28 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             expectedMinimizeAllState = nil
         }
 
+        let activationDismissalSuppressionToken: UUID? = if action == .hide,
+                                                            keepPreviewsOpen,
+                                                            !forceImmediateCloseForFullscreenTransitionPreAction,
+                                                            let hiddenStateBeforeAction
+        {
+            suppressNextActionDrivenActivationDismissal(
+                for: window.app,
+                wasHidden: hiddenStateBeforeAction
+            )
+        } else {
+            nil
+        }
+
         let result = action.perform(
             on: actionStateWindow,
             keepPreviewOnQuit: false,
             preferredWindows: coordinator.windows,
             hiddenStateBeforeAction: hiddenStateBeforeAction
         )
+        if case .noChange = result {
+            cancelActionDrivenActivationDismissalSuppression(token: activationDismissalSuppressionToken)
+        }
         coordinator.scheduleActiveFocusedWindowRefresh()
 
         var actionConfirmedSuccess = false
