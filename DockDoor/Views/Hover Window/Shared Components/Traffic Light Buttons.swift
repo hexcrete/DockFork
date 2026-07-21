@@ -52,8 +52,6 @@ struct TrafficLightButtons: View {
                     }
                 }
                 .padding(4)
-                .opacity(opacity)
-                .allowsHitTesting(opacity != 0)
                 .simultaneousGesture(TapGesture())
                 .onHover { isHovering in
                     withAnimation(.snappy(duration: 0.175)) {
@@ -62,9 +60,11 @@ struct TrafficLightButtons: View {
                 }
             }
         }
-        .if(pillStyling && opacity > 0 && displayMode != .never && enabledButtons.count > 0) { view in
+        .if(pillStyling && displayMode != .never && !enabledButtons.isEmpty) { view in
             view.materialPill(backgroundAppearance: backgroundAppearance)
         }
+        .opacity(opacity)
+        .allowsHitTesting(opacity != 0)
     }
 
     private var opacity: Double {
