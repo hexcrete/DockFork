@@ -70,13 +70,16 @@ struct TrafficLightButtons: View {
     private var opacity: Double {
         switch displayMode {
         case .dimmedOnPreviewHover:
-            (hoveringOverParentWindow && isHovering) || mockPreviewActive ? 1.0 : 0.25
+            if hoveringOverParentWindow || mockPreviewActive {
+                return isHovering || mockPreviewActive ? 1 : 0.25
+            }
+            return 0
         case .fullOpacityOnPreviewHover:
-            hoveringOverParentWindow || mockPreviewActive ? 1 : 0.25
+            return hoveringOverParentWindow || mockPreviewActive ? 1 : 0
         case .alwaysVisible:
-            1
+            return 1
         case .never:
-            0
+            return 0
         }
     }
 
