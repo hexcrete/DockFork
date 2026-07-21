@@ -951,29 +951,36 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 .filter { $0.app.processIdentifier == appPID && !$0.isWindowlessApp }
                 .map(\.id)
         )
-        let keepPreviewsOpen = action.keepPreviewsOpenAfterAction(
-            for: window,
+        let hiddenStateBeforeAction: Bool? = if action == .hide {
+            (try? window.appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? window.isHidden
+        } else {
+            nil
+        }
+        var actionStateWindow = window
+        if let hiddenStateBeforeAction {
+            actionStateWindow.isHidden = hiddenStateBeforeAction
+        }
+        let category = action.postActionCategory(
+            for: actionStateWindow,
             preferredWindows: coordinator.windows
         )
+        let keepPreviewsOpen = category?.keepPreviewsOpen ?? true
         let closeAfterSuccess = action.closePreviewsOnlyAfterSuccess(
-            for: window,
-            preferredWindows: coordinator.windows
+            for: actionStateWindow,
+            category: category
         )
         let shouldClosePreviews = !keepPreviewsOpen
         let shouldForegroundMoveResize = !shouldClosePreviews &&
             Defaults[.moveResizeBringToForeground] &&
-            action.postActionCategory(for: window, preferredWindows: coordinator.windows) == .movingAndResizing
-        let forceImmediateCloseForFullscreenTransition = action.shouldForcePreviewCloseForFullscreenTransition(
-            on: window,
+            category == .movingAndResizing
+        let forceImmediateCloseForFullscreenTransitionPreAction = action.shouldForcePreviewCloseForFullscreenTransition(
+            on: actionStateWindow,
             preferredWindows: coordinator.windows
         )
         let skipToggleFullscreenRefresh = action == .toggleFullScreen &&
-            (keepPreviewsOpen || forceImmediateCloseForFullscreenTransition)
+            (keepPreviewsOpen || forceImmediateCloseForFullscreenTransitionPreAction)
         let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
             !skipToggleFullscreenRefresh
-        let hideBlockedByFullscreenOnly = action == .hide &&
-            !window.isEffectivelyHiddenForUI &&
-            WindowUtil.hasOnlyFullscreenWindows(for: window.app, preferredWindows: coordinator.windows)
         let expectedFullscreenState: Bool? = if action == .toggleFullScreen {
             (try? window.axElement.isFullscreen()).map(!)
         } else {
@@ -984,14 +991,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         } else {
             nil
         }
-        let expectedHiddenState: Bool? = if action == .hide {
-            !window.isEffectivelyHiddenForUI
-        } else {
-            nil
-        }
+        let expectedHiddenState = hiddenStateBeforeAction.map { !$0 }
         let expectedMinimizeAllState: Bool?
         if action == .minimizeAllWindows {
-            let category = action.postActionCategory(for: window, preferredWindows: coordinator.windows)
             switch category {
             case .hiding:
                 expectedMinimizeAllState = true
@@ -1004,20 +1006,13 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             expectedMinimizeAllState = nil
         }
 
-        if forceImmediateCloseForFullscreenTransition {
-            hideWindow()
-        }
-
         let result = action.perform(
-            on: window,
+            on: actionStateWindow,
             keepPreviewOnQuit: false,
-            preferredWindows: coordinator.windows
+            preferredWindows: coordinator.windows,
+            hiddenStateBeforeAction: hiddenStateBeforeAction
         )
         coordinator.scheduleActiveFocusedWindowRefresh()
-
-        if forceImmediateCloseForFullscreenTransition {
-            return true
-        }
 
         var actionConfirmedSuccess = false
         switch result {
@@ -1067,6 +1062,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             window.bringToFront()
         }
 
+        if action.shouldForcePreviewCloseAfterAction(
+            predictedTransition: forceImmediateCloseForFullscreenTransitionPreAction,
+            hiddenStateBeforeAction: hiddenStateBeforeAction,
+            result: result
+        ) {
+            hideWindow()
+            return true
+        }
+
         guard shouldClosePreviews else { return false }
 
         if action == .close || action == .quit {
@@ -1080,7 +1084,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
 
         if !closeAfterSuccess {
-            if hideBlockedByFullscreenOnly {
+            if action == .hide, case .noChange = result {
                 return false
             }
             hideWindow()
@@ -1146,19 +1150,18 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 .filter { $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp }
                 .map(\.id)
         )
-        let keepPreviewsOpen = action.keepPreviewsOpenAfterAction(
+        let category = action.postActionCategory(
             for: windowlessEntry,
             preferredWindows: windowSwitcherCoordinator.windows
         )
+        let keepPreviewsOpen = category?.keepPreviewsOpen ?? true
         let closeAfterSuccess = action.closePreviewsOnlyAfterSuccess(
             for: windowlessEntry,
-            preferredWindows: windowSwitcherCoordinator.windows
+            category: category
         )
         let shouldClosePreviews = !keepPreviewsOpen
         let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
             !(action == .toggleFullScreen && keepPreviewsOpen)
-        let hideBlockedByFullscreenOnly = action == .hide &&
-            WindowUtil.hasOnlyFullscreenWindows(for: app, preferredWindows: windowSwitcherCoordinator.windows)
         let result = action.perform(
             on: windowlessEntry,
             keepPreviewOnQuit: false,
@@ -1188,7 +1191,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
 
         if !closeAfterSuccess {
-            if hideBlockedByFullscreenOnly {
+            if action == .hide, case .noChange = result {
                 return false
             }
             hideWindow()

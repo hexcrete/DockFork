@@ -149,9 +149,11 @@ extension WindowInfo {
     }
 
     @discardableResult
-    mutating func toggleHidden() -> Bool? {
+    mutating func toggleHidden(from currentHiddenState: Bool? = nil) -> Bool? {
         guard !isWindowlessApp else { return nil }
-        let newHiddenState = !isEffectivelyHiddenForUI
+        let resolvedHiddenState = currentHiddenState ??
+            ((try? appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? isHidden)
+        let newHiddenState = !resolvedHiddenState
 
         do {
             try appAxElement.setAttribute(kAXHiddenAttribute, newHiddenState)

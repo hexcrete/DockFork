@@ -177,7 +177,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .openNewWindow:
             return .newWindow
         case .hide:
-            return window.isEffectivelyHiddenForUI ? .unhiding : .hiding
+            return window.isHidden ? .unhiding : .hiding
         case .minimize:
             return window.isMinimized ? .unhiding : .hiding
         case .minimizeAllWindows:
@@ -207,14 +207,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         }
     }
 
-    func keepPreviewsOpenAfterAction(for window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> Bool {
-        guard let category = postActionCategory(for: window, preferredWindows: preferredWindows) else {
-            return true
-        }
-        return category.keepPreviewsOpen
-    }
-
-    func closePreviewsOnlyAfterSuccess(for window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> Bool {
+    func closePreviewsOnlyAfterSuccess(for window: WindowInfo, category: PostActionCategory?) -> Bool {
         switch self {
         case .openNewWindow, .toggleFullScreen,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
@@ -224,7 +217,6 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .minimize:
             return !window.isMinimized
         case .minimizeAllWindows:
-            let category = postActionCategory(for: window, preferredWindows: preferredWindows)
             return category == .hiding
         case .hide, .close, .quit, .closeAllWindows, .none:
             return false
@@ -301,6 +293,24 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         }
     }
 
+    func shouldForcePreviewCloseAfterAction(
+        predictedTransition: Bool,
+        hiddenStateBeforeAction: Bool?,
+        result: ActionResult
+    ) -> Bool {
+        guard predictedTransition else { return false }
+
+        if self == .hide {
+            guard hiddenStateBeforeAction == true,
+                  case let .windowUpdated(updatedWindow) = result
+            else { return false }
+            return !updatedWindow.isHidden
+        }
+
+        if case .noChange = result { return false }
+        return true
+    }
+
     var shouldScheduleAppRefresh: Bool {
         switch self {
         case .openNewWindow, .close, .quit, .closeAllWindows,
@@ -354,11 +364,13 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     ///   - window: The window to perform the action on
     ///   - keepPreviewOnQuit: Whether to keep the preview open after quitting
     ///   - preferredWindows: Optional in-context windows for app-wide actions to avoid stale cache reads
+    ///   - hiddenStateBeforeAction: Optional resolved app hidden state for consistent hide/unhide handling
     /// - Returns: The result indicating what happened
     func perform(
         on window: WindowInfo,
         keepPreviewOnQuit: Bool = false,
-        preferredWindows: [WindowInfo]? = nil
+        preferredWindows: [WindowInfo]? = nil,
+        hiddenStateBeforeAction: Bool? = nil
     ) -> ActionResult {
         switch self {
         case .quit:
@@ -411,11 +423,16 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             return .noChange
 
         case .hide:
-            if WindowUtil.hasOnlyFullscreenWindows(for: window.app, preferredWindows: preferredWindows) {
+            let currentHiddenState = hiddenStateBeforeAction ??
+                ((try? window.appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? window.isHidden)
+            let attemptingHide = !currentHiddenState
+            if attemptingHide,
+               WindowUtil.hasOnlyFullscreenWindows(for: window.app, preferredWindows: preferredWindows)
+            {
                 return .noChange
             }
             var updatedWindow = window
-            if updatedWindow.toggleHidden() != nil {
+            if updatedWindow.toggleHidden(from: currentHiddenState) != nil {
                 return .windowUpdated(updatedWindow)
             }
             return .noChange
@@ -657,7 +674,10 @@ extension WindowUtil {
         screenIdentifier: String?? = nil
     ) {
         desktopSpaceWindowCacheManager.updateCache(pid: windowInfo.app.processIdentifier) { windowSet in
-            if let existingIndex = windowSet.firstIndex(of: windowInfo) {
+            if let existingIndex = windowSet.firstIndex(where: {
+                $0.id == windowInfo.id &&
+                    $0.app.processIdentifier == windowInfo.app.processIdentifier
+            }) {
                 var updatedWindow = windowSet[existingIndex]
                 if let isMinimized {
                     updatedWindow.isMinimized = isMinimized

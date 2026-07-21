@@ -1231,29 +1231,36 @@ struct WindowPreviewHoverContainer: View {
                 .filter { $0.app.processIdentifier == appPID && !$0.isWindowlessApp }
                 .map(\.id)
         )
-        let keepPreviewsOpen = action.keepPreviewsOpenAfterAction(
-            for: window,
+        let hiddenStateBeforeAction: Bool? = if action == .hide {
+            (try? window.appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? window.isHidden
+        } else {
+            nil
+        }
+        var actionStateWindow = window
+        if let hiddenStateBeforeAction {
+            actionStateWindow.isHidden = hiddenStateBeforeAction
+        }
+        let category = action.postActionCategory(
+            for: actionStateWindow,
             preferredWindows: previewStateCoordinator.windows
         )
+        let keepPreviewsOpen = category?.keepPreviewsOpen ?? true
         let closeAfterSuccess = action.closePreviewsOnlyAfterSuccess(
-            for: window,
-            preferredWindows: previewStateCoordinator.windows
+            for: actionStateWindow,
+            category: category
         )
         let shouldClosePreviews = !keepPreviewsOpen
         let shouldForegroundMoveResize = !shouldClosePreviews &&
             Defaults[.moveResizeBringToForeground] &&
-            action.postActionCategory(for: window, preferredWindows: previewStateCoordinator.windows) == .movingAndResizing
-        let forceImmediateCloseForFullscreenTransition = action.shouldForcePreviewCloseForFullscreenTransition(
-            on: window,
+            category == .movingAndResizing
+        let forceImmediateCloseForFullscreenTransitionPreAction = action.shouldForcePreviewCloseForFullscreenTransition(
+            on: actionStateWindow,
             preferredWindows: previewStateCoordinator.windows
         )
         let skipToggleFullscreenRefresh = action == .toggleFullScreen &&
-            (keepPreviewsOpen || forceImmediateCloseForFullscreenTransition)
+            (keepPreviewsOpen || forceImmediateCloseForFullscreenTransitionPreAction)
         let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
             !skipToggleFullscreenRefresh
-        let hideBlockedByFullscreenOnly = action == .hide &&
-            !window.isEffectivelyHiddenForUI &&
-            WindowUtil.hasOnlyFullscreenWindows(for: window.app, preferredWindows: previewStateCoordinator.windows)
         let expectedFullscreenState: Bool? = if action == .toggleFullScreen {
             (try? window.axElement.isFullscreen()).map(!)
         } else {
@@ -1264,14 +1271,9 @@ struct WindowPreviewHoverContainer: View {
         } else {
             nil
         }
-        let expectedHiddenState: Bool? = if action == .hide {
-            !window.isEffectivelyHiddenForUI
-        } else {
-            nil
-        }
+        let expectedHiddenState = hiddenStateBeforeAction.map { !$0 }
         let expectedMinimizeAllState: Bool?
         if action == .minimizeAllWindows {
-            let category = action.postActionCategory(for: window, preferredWindows: previewStateCoordinator.windows)
             switch category {
             case .hiding:
                 expectedMinimizeAllState = true
@@ -1288,20 +1290,13 @@ struct WindowPreviewHoverContainer: View {
             scheduleDockActionReconciliationIfNeeded(for: window.app)
         }
 
-        if forceImmediateCloseForFullscreenTransition {
-            onWindowTap?()
-        }
-
         let result = action.perform(
-            on: window,
+            on: actionStateWindow,
             keepPreviewOnQuit: false,
-            preferredWindows: previewStateCoordinator.windows
+            preferredWindows: previewStateCoordinator.windows,
+            hiddenStateBeforeAction: hiddenStateBeforeAction
         )
         previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
-
-        if forceImmediateCloseForFullscreenTransition {
-            return
-        }
 
         var actionConfirmedSuccess = false
         switch result {
@@ -1352,6 +1347,15 @@ struct WindowPreviewHoverContainer: View {
             window.bringToFront()
         }
 
+        if action.shouldForcePreviewCloseAfterAction(
+            predictedTransition: forceImmediateCloseForFullscreenTransitionPreAction,
+            hiddenStateBeforeAction: hiddenStateBeforeAction,
+            result: result
+        ) {
+            onWindowTap?()
+            return
+        }
+
         guard shouldClosePreviews else { return }
 
         if action == .close || action == .quit {
@@ -1365,7 +1369,7 @@ struct WindowPreviewHoverContainer: View {
         }
 
         if !closeAfterSuccess {
-            if hideBlockedByFullscreenOnly {
+            if action == .hide, case .noChange = result {
                 return
             }
             onWindowTap?()
