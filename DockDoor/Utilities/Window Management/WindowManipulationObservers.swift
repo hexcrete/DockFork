@@ -219,9 +219,21 @@ class WindowManipulationObservers {
     func handleNewWindow(for pid: pid_t) {
         debounce(key: "windowCreation") {
             if let app = NSRunningApplication(processIdentifier: pid) {
+                let existingWindowIDs = Set(WindowUtil.readCachedWindows(for: pid).map(\.id))
                 DebugLogger.log("handleNewWindow", details: "App: \(app.localizedName ?? "Unknown") (PID: \(pid))")
                 await DebugLogger.measureAsync("updateNewWindowsForApp", details: "PID: \(pid)") {
                     await WindowUtil.updateNewWindowsForApp(app)
+                }
+
+                let discoveredWindowIDs = Set(WindowUtil.readCachedWindows(for: pid).map(\.id))
+                    .subtracting(existingWindowIDs)
+                if !discoveredWindowIDs.isEmpty {
+                    axObserverWorkQueue.asyncAfter(deadline: .now() + 0.25) {
+                        WindowUtil.removeNoninteractiveUntitledDialogs(
+                            for: app,
+                            candidateWindowIDs: discoveredWindowIDs
+                        )
+                    }
                 }
             }
         }

@@ -145,6 +145,25 @@ func isValidCGWindowEntry(_ match: [String: AnyObject]) -> Bool {
     return true
 }
 
+func isNoninteractiveUntitledDialog(_ axWindow: AXUIElement) -> Bool {
+    guard (try? axWindow.subrole()) == kAXDialogSubrole,
+          let title = try? axWindow.title(),
+          title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+          ((try? axWindow.attribute(kAXIdentifierAttribute, String.self)) ?? "").isEmpty,
+          (try? axWindow.closeButton()) == nil,
+          (try? axWindow.minimizeButton()) == nil,
+          (try? axWindow.attribute(kAXMainAttribute, Bool.self)) == false,
+          (try? axWindow.attribute(kAXFocusedAttribute, Bool.self)) == false,
+          (try? axWindow.attribute(kAXModalAttribute, Bool.self)) == false,
+          (try? axWindow.isMinimized()) != true,
+          (try? axWindow.isFullscreen()) != true,
+          let children = try? axWindow.children(),
+          children.isEmpty
+    else { return false }
+
+    return true
+}
+
 // Returns the set of currently active Space IDs across all displays.
 func currentActiveSpaceIDs() -> Set<Int> {
     // Primary: ask macOS directly for the current space per display
@@ -189,6 +208,8 @@ func shouldAcceptWindow(axWindow: AXUIElement,
     let axIsFullscreen = (try? axWindow.isFullscreen()) ?? false
     let axIsMinimized = (try? axWindow.isMinimized()) ?? false
     let windowSpaces = Set(windowID.cgsSpaces().map { Int($0) })
+
+    if isNoninteractiveUntitledDialog(axWindow) { return false }
 
     let isOnActiveSpace = !windowSpaces.isEmpty && !windowSpaces.isDisjoint(with: activeSpaceIDs)
     let isGhostWindow = !isOnscreen && isOnActiveSpace && !axIsMinimized && !axIsFullscreen && !app.isHidden

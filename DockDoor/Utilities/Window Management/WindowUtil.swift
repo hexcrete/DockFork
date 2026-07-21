@@ -1179,6 +1179,22 @@ extension WindowUtil {
         await refreshAXFallbackWindowImages(for: app.processIdentifier)
     }
 
+    static func removeNoninteractiveUntitledDialogs(
+        for app: NSRunningApplication,
+        candidateWindowIDs: Set<CGWindowID>
+    ) {
+        guard !candidateWindowIDs.isEmpty else { return }
+
+        let pid = app.processIdentifier
+        let candidates = desktopSpaceWindowCacheManager.readCache(pid: pid).filter {
+            candidateWindowIDs.contains($0.id) && $0.scWindow == nil
+        }
+
+        for window in candidates where isNoninteractiveUntitledDialog(window.axElement) {
+            desktopSpaceWindowCacheManager.removeFromCache(pid: pid, windowId: window.id)
+        }
+    }
+
     // MARK: - AX Fallback Discovery
 
     /// Discovers and caches windows via AX + CGS when SCK misses them (e.g., certain Adobe apps)
