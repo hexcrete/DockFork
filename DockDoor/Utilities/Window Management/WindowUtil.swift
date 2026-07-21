@@ -2310,6 +2310,7 @@ extension WindowUtil {
         app.activate(options: [.activateIgnoringOtherApps])
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             openNewWindow(app: app)
+            reactivateAfterWindowRequest(app)
         }
     }
 
@@ -2326,6 +2327,7 @@ extension WindowUtil {
 
     static func simulateDockClickForWindowlessApp(app: NSRunningApplication) {
         app.activate(options: [.activateIgnoringOtherApps])
+        defer { reactivateAfterWindowRequest(app) }
 
         let targetDescriptor = NSAppleEventDescriptor(processIdentifier: app.processIdentifier)
         let reopenEvent = NSAppleEventDescriptor.appleEvent(
@@ -2343,6 +2345,13 @@ extension WindowUtil {
         let status = AESendMessage(eventDesc, nil, AESendMode(kAENoReply), kAEDefaultTimeout)
         if status != noErr {
             DebugLogger.log("WindowlessApp", details: "Failed to send reopen event to \(app.localizedName ?? "Unknown"): \(status)")
+        }
+    }
+
+    private static func reactivateAfterWindowRequest(_ app: NSRunningApplication) {
+        DispatchQueue.main.async {
+            guard !app.isTerminated else { return }
+            app.activate(options: [.activateIgnoringOtherApps])
         }
     }
 }
