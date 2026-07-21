@@ -151,6 +151,28 @@ struct WindowPreview: View, Equatable {
         windowInfo.isEffectivelyHiddenForUI
     }
 
+    private var windowStateLabel: String? {
+        guard appearance.showMinimizedHiddenLabels else { return nil }
+        if windowInfo.isMinimized {
+            return String(localized: "Minimized", comment: "Window state label")
+        } else if isEffectivelyHidden {
+            return String(localized: "Hidden", comment: "Window state label")
+        } else if windowInfo.isFullscreen == true {
+            return String(localized: "Full Screen", comment: "Window state label")
+        }
+        return nil
+    }
+
+    private var windowStateSymbol: String? {
+        guard appearance.showMinimizedHiddenLabels else { return nil }
+        if windowInfo.isMinimized || isEffectivelyHidden {
+            return "eye.slash"
+        } else if windowInfo.isFullscreen == true {
+            return "arrow.up.left.and.arrow.down.right"
+        }
+        return nil
+    }
+
     private var canRenderTrafficLightButtons: Bool {
         appearance.trafficLightVisibility != .never &&
             !effectiveTrafficLightButtons.isEmpty &&
@@ -190,6 +212,7 @@ struct WindowPreview: View, Equatable {
     @ViewBuilder
     private func windowContent(isMinimized: Bool, isHidden: Bool, isSelected: Bool) -> some View {
         let inactive = (isMinimized || isHidden) && appearance.showMinimizedHiddenLabels
+        let stateSymbol = windowStateSymbol
         let quality = appearance.livePreviewQuality
         let frameRate = appearance.livePreviewFrameRate
 
@@ -206,15 +229,15 @@ struct WindowPreview: View, Equatable {
         }
         .markHidden(isHidden: inactive || (windowSwitcherActive && !isSelected))
         .overlay {
-            if inactive, appearance.showMinimizedHiddenLabels {
-                Image(systemName: "eye.slash")
+            if let stateSymbol {
+                Image(systemName: stateSymbol)
                     .font(.largeTitle)
                     .foregroundColor(.primary)
                     .shadow(radius: 2)
                     .transition(.opacity)
             }
         }
-        .animation(appearance.showAnimations ? .easeInOut(duration: 0.15) : nil, value: inactive)
+        .animation(appearance.showAnimations ? .easeInOut(duration: 0.15) : nil, value: stateSymbol)
         .clipShape(RoundedRectangle(cornerRadius: CardRadius.image, style: .continuous))
         .dynamicWindowFrame(
             allowDynamicSizing: appearance.allowDynamicImageSizing && !windowSwitcherActive,
@@ -270,11 +293,10 @@ struct WindowPreview: View, Equatable {
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
                 )
-            } else if windowInfo.isMinimized || isEffectivelyHidden,
-                      appearance.showMinimizedHiddenLabels,
+            } else if let windowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
-                Text(windowInfo.isMinimized ? "Minimized" : "Hidden")
+                Text(windowStateLabel)
                     .font(appearance.windowTitleFontSize.font)
                     .italic()
                     .foregroundStyle(.secondary)
@@ -528,11 +550,10 @@ struct WindowPreview: View, Equatable {
                     useMonochrome: appearance.useMonochromeTrafficLights,
                     backgroundAppearance: backgroundAppearance
                 )
-            } else if windowInfo.isMinimized || isEffectivelyHidden,
-                      appearance.showMinimizedHiddenLabels,
+            } else if let windowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
-                Text(windowInfo.isMinimized ? "Minimized" : "Hidden")
+                Text(windowStateLabel)
                     .font(appearance.windowTitleFontSize.font)
                     .italic()
                     .foregroundStyle(.secondary)
@@ -609,11 +630,10 @@ struct WindowPreview: View, Equatable {
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
                 )
-            } else if windowInfo.isMinimized || isEffectivelyHidden,
-                      appearance.showMinimizedHiddenLabels,
+            } else if let windowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
-                Text(windowInfo.isMinimized ? "Minimized" : "Hidden")
+                Text(windowStateLabel)
                     .font(appearance.windowTitleFontSize.font)
                     .italic()
                     .foregroundStyle(.secondary)

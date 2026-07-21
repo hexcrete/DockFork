@@ -78,9 +78,11 @@ struct WindowPreviewCompact: View, Equatable {
               appearance.trafficLightVisibility != .never
         else { return nil }
         if windowInfo.isMinimized {
-            return "Minimized"
+            return String(localized: "Minimized", comment: "Window state label")
         } else if windowInfo.isEffectivelyHiddenForUI {
-            return "Hidden"
+            return String(localized: "Hidden", comment: "Window state label")
+        } else if windowInfo.isFullscreen == true {
+            return String(localized: "Full Screen", comment: "Window state label")
         }
         return nil
     }

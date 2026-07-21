@@ -78,10 +78,10 @@ struct GeneralAppearanceSection: View {
 
                 VStack(alignment: .leading) {
                     Toggle(isOn: $showMinimizedHiddenLabels) {
-                        Text("Distinguish minimized/hidden windows")
+                        Text("Show window state indicators")
                     }
                     .settingsSearchTarget("appearance.distinguishMinimized")
-                    Text("When enabled, shows visual indicators and dims minimized/hidden windows. When disabled, treats them as normal windows with full functionality.")
+                    Text("Shows visual indicators for minimized, hidden, and full-screen windows. Minimized and hidden previews are also dimmed.")
                         .font(.footnote)
                         .foregroundColor(.gray)
                         .padding(.leading, 20)

@@ -637,9 +637,9 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "appearance.distinguishMinimized",
-            title: String(localized: "Distinguish minimized/hidden windows"),
-            description: String(localized: "When enabled, shows visual indicators and dims minimized/hidden windows. When disabled, treats them as normal windows with full functionality."),
-            keywords: ["minimized", "hidden", "dim", "visual"],
+            title: String(localized: "Show window state indicators"),
+            description: String(localized: "Shows visual indicators for minimized, hidden, and full-screen windows. Minimized and hidden previews are also dimmed."),
+            keywords: ["minimized", "hidden", "fullscreen", "dim", "visual"],
             tab: "Appearance",
             section: String(localized: "General Appearance"),
             icon: "eye.trianglebadge.exclamationmark"
