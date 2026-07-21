@@ -493,6 +493,7 @@ enum TrafficLightButtonsVisibility: String, CaseIterable, Defaults.Serializable 
     case never
     case dimmedOnPreviewHover
     case fullOpacityOnPreviewHover
+    case dimmedUntilButtonHover
     case alwaysVisible
 
     var localizedName: String {
@@ -503,6 +504,8 @@ enum TrafficLightButtonsVisibility: String, CaseIterable, Defaults.Serializable 
             String(localized: "On window hover; Dimmed until button hover", comment: "Traffic light buttons visibility option")
         case .fullOpacityOnPreviewHover:
             String(localized: "On window hover; Full opacity", comment: "Traffic light buttons visibility option")
+        case .dimmedUntilButtonHover:
+            String(localized: "Always visible; Dimmed until button hover", comment: "Traffic light buttons visibility option")
         case .alwaysVisible:
             String(localized: "Always visible; Full opacity", comment: "Traffic light buttons visibility option")
         }
