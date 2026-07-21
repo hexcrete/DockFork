@@ -42,6 +42,10 @@ struct WindowlessAppPreview: View, Equatable {
     private func titleBar(isLeadingControls: Bool, showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View {
         let shouldShowSubtitle = appearance.showWindowTitle &&
             (appearance.windowTitleVisibility == .alwaysVisible || isSelected || isHovering)
+        let showTrafficLightButtons = appearance.trafficLightVisibility.isVisible(
+            hoveringOverParentWindow: isSelected || isHovering,
+            mockPreviewActive: mockPreviewActive
+        )
 
         let controlsContent = Group {
             if showControlsContent, canRenderTrafficLightButtons {
@@ -56,6 +60,8 @@ struct WindowlessAppPreview: View, Equatable {
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
                 )
+                .frame(width: showTrafficLightButtons ? nil : 0)
+                .clipped()
             }
         }
 
@@ -84,6 +90,7 @@ struct WindowlessAppPreview: View, Equatable {
                 controlsContent
             }
         }
+        .animation(nil, value: showTrafficLightButtons)
     }
 
     @ViewBuilder

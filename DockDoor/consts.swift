@@ -496,6 +496,17 @@ enum TrafficLightButtonsVisibility: String, CaseIterable, Defaults.Serializable 
     case dimmedUntilButtonHover
     case alwaysVisible
 
+    func isVisible(hoveringOverParentWindow: Bool, mockPreviewActive: Bool) -> Bool {
+        switch self {
+        case .never:
+            false
+        case .dimmedOnPreviewHover, .fullOpacityOnPreviewHover:
+            hoveringOverParentWindow || mockPreviewActive
+        case .dimmedUntilButtonHover, .alwaysVisible:
+            true
+        }
+    }
+
     var localizedName: String {
         switch self {
         case .never:

@@ -88,6 +88,11 @@ struct WindowPreviewCompact: View, Equatable {
     }
 
     var body: some View {
+        let showTrafficLightButtons = appearance.trafficLightVisibility.isVisible(
+            hoveringOverParentWindow: isSelected || isHovering,
+            mockPreviewActive: mockPreviewActive
+        )
+
         HStack(spacing: 10) {
             // App icon
             if let appIcon = windowInfo.app.icon {
@@ -148,8 +153,11 @@ struct WindowPreviewCompact: View, Equatable {
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
                 )
+                .frame(width: showTrafficLightButtons ? nil : 0)
+                .clipped()
             }
         }
+        .animation(nil, value: showTrafficLightButtons)
         .padding(.vertical, 8)
         .frame(width: rowWidth, height: appearance.compactModeItemSize.rowHeight, alignment: .leading)
         .clipped()
@@ -214,7 +222,7 @@ struct WindowPreviewCompact: View, Equatable {
         let font = isPrimary ? appearance.compactModeItemSize.primaryFont : appearance.compactModeItemSize.secondaryFont
         switch appearance.titleOverflowStyle {
         case .marquee:
-            MarqueeText(text: text, startDelay: 1)
+            MarqueeText(text: text, startDelay: 1, adaptsToAvailableWidth: true)
                 .font(font)
                 .foregroundStyle(isPrimary ? .primary : .secondary)
         case .truncateTail:

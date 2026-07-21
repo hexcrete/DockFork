@@ -179,6 +179,13 @@ struct WindowPreview: View, Equatable {
             (windowInfo.closeButton != nil || windowInfo.isWindowlessApp || windowInfo.isMinimized || isEffectivelyHidden)
     }
 
+    private func shouldShowTrafficLightButtons(parentHovered: Bool) -> Bool {
+        appearance.trafficLightVisibility.isVisible(
+            hoveringOverParentWindow: parentHovered,
+            mockPreviewActive: mockPreviewActive
+        )
+    }
+
     static func == (l: Self, r: Self) -> Bool {
         l.index == r.index && l.isSelected == r.isSelected && l.useLivePreview == r.useLivePreview
             && l.skeletonMode == r.skeletonMode && l.dimensions == r.dimensions
@@ -196,16 +203,31 @@ struct WindowPreview: View, Equatable {
     }
 
     @ViewBuilder
-    private func titleLabel(_ text: String) -> some View {
+    private func titleLabel(_ text: String, adaptsToAvailableWidth: Bool = false) -> some View {
         switch appearance.titleOverflowStyle {
         case .marquee:
-            MarqueeText(text: text, startDelay: 1)
+            MarqueeText(text: text, startDelay: 1, adaptsToAvailableWidth: adaptsToAvailableWidth)
         case .truncateTail:
-            MarqueeText(text: text, truncationMode: .tail, enableScrolling: false)
+            MarqueeText(
+                text: text,
+                truncationMode: .tail,
+                enableScrolling: false,
+                adaptsToAvailableWidth: adaptsToAvailableWidth
+            )
         case .truncateMiddle:
-            MarqueeText(text: text, truncationMode: .middle, enableScrolling: false)
+            MarqueeText(
+                text: text,
+                truncationMode: .middle,
+                enableScrolling: false,
+                adaptsToAvailableWidth: adaptsToAvailableWidth
+            )
         case .truncateHead:
-            MarqueeText(text: text, truncationMode: .head, enableScrolling: false)
+            MarqueeText(
+                text: text,
+                truncationMode: .head,
+                enableScrolling: false,
+                adaptsToAvailableWidth: adaptsToAvailableWidth
+            )
         }
     }
 
@@ -268,15 +290,19 @@ struct WindowPreview: View, Equatable {
             (appearance.windowTitleVisibility == .alwaysVisible || selected)
 
         let hasTrafficLights = canRenderTrafficLightButtons
-
+        let showTrafficLights = shouldShowTrafficLightButtons(
+            parentHovered: selected || isHoveringOverDockPeekPreview
+        )
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
-                titleLabel(title)
+                titleLabel(title, adaptsToAvailableWidth: true)
                     .font(appearance.windowTitleFontSize.font)
                     .padding(4)
                     .if(!appearance.disableDockStyleTitles) { view in
                         view.materialPill(backgroundAppearance: backgroundAppearance)
                     }
+                    .frame(minWidth: 0)
+                    .clipped()
             }
         }
 
@@ -293,6 +319,9 @@ struct WindowPreview: View, Equatable {
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
                 )
+                .frame(width: showTrafficLights ? nil : 0)
+                .clipped()
+                .animation(nil, value: showTrafficLights)
             } else if let windowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
@@ -509,7 +538,9 @@ struct WindowPreview: View, Equatable {
     private func windowSwitcherContent(_ selected: Bool, isLeadingControls: Bool, showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View {
         let shouldShowWindowTitle = appearance.showWindowTitle &&
             (appearance.windowTitleVisibility == .alwaysVisible || selected || isHoveringOverWindowSwitcherPreview)
-
+        let showTrafficLights = shouldShowTrafficLightButtons(
+            parentHovered: selected || isHoveringOverWindowSwitcherPreview
+        )
         let titleAndSubtitleContent = VStack(alignment: .leading, spacing: 0) {
             if !showAppIconOnly {
                 Text(windowInfo.app.localizedName ?? "Unknown")
@@ -522,7 +553,7 @@ struct WindowPreview: View, Equatable {
                windowTitle != windowInfo.app.localizedName,
                shouldShowWindowTitle
             {
-                titleLabel(windowTitle)
+                titleLabel(windowTitle, adaptsToAvailableWidth: true)
                     .font(appearance.windowTitleFontSize.font)
                     .foregroundStyle(.secondary)
             }
@@ -550,6 +581,8 @@ struct WindowPreview: View, Equatable {
                     useMonochrome: appearance.useMonochromeTrafficLights,
                     backgroundAppearance: backgroundAppearance
                 )
+                .frame(width: showTrafficLights ? nil : 0)
+                .clipped()
             } else if let windowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
@@ -564,32 +597,34 @@ struct WindowPreview: View, Equatable {
                     }
             }
         }
+        .fixedSize()
+
+        let titleContent = HStack(spacing: 4) {
+            appIconContent
+            titleAndSubtitleContent
+        }
+        .layoutPriority(1)
 
         return HStack(spacing: 4) {
             if appearance.controlPosition.isCentered {
                 Spacer(minLength: 0)
                 if showTitleContent {
-                    appIconContent
-                    titleAndSubtitleContent
+                    titleContent
                 }
                 if showControlsContent { controlsContent }
                 Spacer(minLength: 0)
             } else if isLeadingControls {
                 if showControlsContent { controlsContent }
                 Spacer(minLength: 8)
-                if showTitleContent {
-                    appIconContent
-                    titleAndSubtitleContent
-                }
+                if showTitleContent { titleContent }
             } else {
-                if showTitleContent {
-                    appIconContent
-                    titleAndSubtitleContent
-                }
+                if showTitleContent { titleContent }
                 Spacer(minLength: 8)
                 if showControlsContent { controlsContent }
             }
         }
+        .frame(width: dimensions.size.width)
+        .animation(nil, value: showTrafficLights)
     }
 
     private func dockPreviewContent(_ selected: Bool, isLeadingControls: Bool, showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View {
@@ -605,15 +640,19 @@ struct WindowPreview: View, Equatable {
             (appearance.windowTitleVisibility == .alwaysVisible || selected)
 
         let hasTrafficLights = canRenderTrafficLightButtons
-
+        let showTrafficLights = shouldShowTrafficLightButtons(
+            parentHovered: selected || isHoveringOverDockPeekPreview
+        )
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
-                titleLabel(title)
+                titleLabel(title, adaptsToAvailableWidth: true)
                     .font(appearance.windowTitleFontSize.font)
                     .padding(4)
                     .if(!appearance.disableDockStyleTitles) { view in
                         view.materialPill(backgroundAppearance: backgroundAppearance)
                     }
+                    .frame(minWidth: 0)
+                    .clipped()
             }
         }
 
@@ -630,6 +669,8 @@ struct WindowPreview: View, Equatable {
                     buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
                 )
+                .frame(width: showTrafficLights ? nil : 0)
+                .clipped()
             } else if let windowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
@@ -644,6 +685,7 @@ struct WindowPreview: View, Equatable {
                     }
             }
         }
+        .fixedSize()
 
         if hasTitle || hasTrafficLights {
             if appearance.controlPosition.isCentered {
@@ -654,6 +696,8 @@ struct WindowPreview: View, Equatable {
                         if showControlsContent { controlsContent }
                         Spacer(minLength: 0)
                     }
+                    .frame(width: dimensions.size.width)
+                    .animation(nil, value: showTrafficLights)
                 )
             } else {
                 return AnyView(
@@ -668,6 +712,8 @@ struct WindowPreview: View, Equatable {
                             if showControlsContent { controlsContent }
                         }
                     }
+                    .frame(width: dimensions.size.width)
+                    .animation(nil, value: showTrafficLights)
                 )
             }
         } else {

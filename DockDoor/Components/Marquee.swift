@@ -6,23 +6,39 @@ struct MarqueeText: View {
     var maxWidth: Double?
     var truncationMode: Text.TruncationMode
     var enableScrolling: Bool
+    var adaptsToAvailableWidth: Bool
 
     @State private var textSize: CGSize = .zero
     @State private var containerWidth: CGFloat = 0
 
-    init(text: String, startDelay: Double = 3.0, maxWidth: Double? = nil, truncationMode: Text.TruncationMode = .tail, enableScrolling: Bool = true) {
+    init(
+        text: String,
+        startDelay: Double = 3.0,
+        maxWidth: Double? = nil,
+        truncationMode: Text.TruncationMode = .tail,
+        enableScrolling: Bool = true,
+        adaptsToAvailableWidth: Bool = false
+    ) {
         self.text = text
         self.startDelay = startDelay
         self.maxWidth = maxWidth
         self.truncationMode = truncationMode
         self.enableScrolling = enableScrolling
+        self.adaptsToAvailableWidth = adaptsToAvailableWidth
     }
 
     private var measured: Bool { textSize != .zero }
 
     private var available: CGFloat {
+        if adaptsToAvailableWidth { return containerWidth }
         if let maxWidth { return CGFloat(maxWidth) }
         return containerWidth
+    }
+
+    private var adaptiveWidth: CGFloat? {
+        guard measured else { return nil }
+        if let maxWidth { return min(textSize.width, CGFloat(maxWidth)) }
+        return textSize.width
     }
 
     private var shouldScroll: Bool {
@@ -57,7 +73,13 @@ struct MarqueeText: View {
                 containerWidth = newWidth
             }
         }
-        .frame(width: outerWidth, height: measured ? textSize.height : nil)
+        .frame(
+            minWidth: adaptsToAvailableWidth ? 0 : outerWidth,
+            idealWidth: adaptsToAvailableWidth ? adaptiveWidth : outerWidth,
+            maxWidth: adaptsToAvailableWidth ? adaptiveWidth : outerWidth,
+            minHeight: measured ? textSize.height : nil,
+            maxHeight: measured ? textSize.height : nil
+        )
         .background {
             Text(text)
                 .lineLimit(1)
@@ -101,7 +123,7 @@ private struct MarqueeScrollEffect: View {
         .frame(width: containerWidth, alignment: .leading)
         .clipped()
         .mask {
-            let r = fadeLength / containerWidth
+            let r = min(fadeLength / containerWidth, 0.5)
             LinearGradient(
                 stops: [
                     .init(color: .clear, location: 0),
