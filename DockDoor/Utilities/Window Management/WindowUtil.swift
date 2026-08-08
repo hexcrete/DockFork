@@ -213,13 +213,13 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center:
-            return true
+            true
         case .minimize:
-            return !window.isMinimized
+            !window.isMinimized
         case .minimizeAllWindows:
-            return category == .hiding
+            category == .hiding
         case .hide, .close, .quit, .closeAllWindows, .none:
-            return false
+            false
         }
     }
 

@@ -1043,18 +1043,17 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             nil
         }
         let expectedHiddenState = hiddenStateBeforeAction.map { !$0 }
-        let expectedMinimizeAllState: Bool?
-        if action == .minimizeAllWindows {
+        let expectedMinimizeAllState: Bool? = if action == .minimizeAllWindows {
             switch category {
             case .hiding:
-                expectedMinimizeAllState = true
+                true
             case .unhiding:
-                expectedMinimizeAllState = false
+                false
             default:
-                expectedMinimizeAllState = nil
+                nil
             }
         } else {
-            expectedMinimizeAllState = nil
+            nil
         }
 
         let activationDismissalSuppressionToken: UUID? = if action == .hide,
