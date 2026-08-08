@@ -47,6 +47,10 @@ struct WindowInfo: Identifiable, Hashable {
 
     var frame: CGRect { windowProvider.frame }
     var scWindow: SCWindow? { _scWindow }
+    var spaceNumber: Int? {
+        guard !isWindowlessApp else { return nil }
+        return SpaceNumberResolver.number(for: spaceID)
+    }
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
@@ -66,6 +70,7 @@ struct WindowInfo: Identifiable, Hashable {
         let isMinimized: Bool
         let isHidden: Bool
         let isFullscreen: Bool?
+        let spaceID: Int?
         let imagePointer: UnsafeRawPointer?
     }
 
@@ -77,6 +82,7 @@ struct WindowInfo: Identifiable, Hashable {
             isMinimized: isMinimized,
             isHidden: isHidden,
             isFullscreen: isFullscreen,
+            spaceID: spaceID,
             imagePointer: image.map { Unmanaged.passUnretained($0).toOpaque() }
         )
     }

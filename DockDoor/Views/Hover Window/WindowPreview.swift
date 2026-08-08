@@ -2,6 +2,23 @@ import Defaults
 import SwiftUI
 import UniformTypeIdentifiers
 
+struct SpaceNumberIndicator: View {
+    let number: Int
+
+    var body: some View {
+        Text("\(number)")
+            .font(.system(size: 10, weight: .semibold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(.secondary)
+            .frame(minWidth: 18, minHeight: 18)
+            .padding(.horizontal, number > 9 ? 2 : 0)
+            .overlay {
+                Capsule().stroke(.secondary, lineWidth: 1)
+            }
+            .accessibilityLabel(Text("Space \(number)"))
+    }
+}
+
 struct PreviewAppearanceSettings: Equatable {
     let trafficLightVisibility: TrafficLightButtonsVisibility
     let enabledTrafficLightButtons: Set<WindowAction>
@@ -173,6 +190,56 @@ struct WindowPreview: View, Equatable {
         return nil
     }
 
+    private var hasSpaceIndicator: Bool {
+        windowInfo.spaceNumber != nil
+    }
+
+    private var embeddedControlsAreLeading: Bool {
+        let topConfiguration = appearance.controlPosition.topConfiguration
+        return topConfiguration.showControls
+            ? topConfiguration.isLeadingControls
+            : appearance.controlPosition.bottomConfiguration.isLeadingControls
+    }
+
+    @ViewBuilder
+    private func spaceIndicator(
+        controlsAreLeading: Bool,
+        nonAlignmentPadding: CGFloat
+    ) -> some View {
+        if let spaceNumber = windowInfo.spaceNumber {
+            let adjustedPadding = max(0, nonAlignmentPadding)
+            SpaceNumberIndicator(number: spaceNumber)
+                .padding(.leading, controlsAreLeading ? 0 : -adjustedPadding)
+                .padding(.trailing, controlsAreLeading ? -adjustedPadding : 0)
+        }
+    }
+
+    @ViewBuilder
+    private func controlsWithSpaceIndicator(
+        controlsAreLeading: Bool,
+        nonAlignmentPadding: CGFloat = 0,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        let sideInset: CGFloat = nonAlignmentPadding > 0 ? 2 : 0
+        HStack(spacing: 8) {
+            if controlsAreLeading {
+                content()
+                spaceIndicator(
+                    controlsAreLeading: true,
+                    nonAlignmentPadding: nonAlignmentPadding
+                )
+            } else {
+                spaceIndicator(
+                    controlsAreLeading: false,
+                    nonAlignmentPadding: nonAlignmentPadding
+                )
+                content()
+            }
+        }
+        .padding(.leading, controlsAreLeading ? 0 : sideInset)
+        .padding(.trailing, controlsAreLeading ? sideInset : 0)
+    }
+
     private var canRenderTrafficLightButtons: Bool {
         appearance.trafficLightVisibility != .never &&
             !effectiveTrafficLightButtons.isEmpty &&
@@ -306,7 +373,10 @@ struct WindowPreview: View, Equatable {
             }
         }
 
-        let controlsContent = Group {
+        let controlsContent = controlsWithSpaceIndicator(
+            controlsAreLeading: embeddedControlsAreLeading,
+            nonAlignmentPadding: hasTrafficLights && showTrafficLights ? 10 : 0
+        ) {
             if hasTrafficLights {
                 TrafficLightButtons(
                     displayMode: appearance.trafficLightVisibility,
@@ -337,7 +407,7 @@ struct WindowPreview: View, Equatable {
             }
         }
 
-        if hasTitle || hasTrafficLights {
+        if hasTitle || hasTrafficLights || hasSpaceIndicator {
             switch appearance.controlPosition {
             case .topLeading, .topTrailing:
                 VStack {
@@ -558,7 +628,6 @@ struct WindowPreview: View, Equatable {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(.trailing, 8)
 
         let appIconContent = Group {
             if let appIcon = windowInfo.app.icon {
@@ -569,7 +638,10 @@ struct WindowPreview: View, Equatable {
             }
         }
 
-        let controlsContent = Group {
+        let controlsContent = controlsWithSpaceIndicator(
+            controlsAreLeading: isLeadingControls,
+            nonAlignmentPadding: 0
+        ) {
             if canRenderTrafficLightButtons {
                 TrafficLightButtons(
                     displayMode: appearance.trafficLightVisibility,
@@ -599,32 +671,44 @@ struct WindowPreview: View, Equatable {
         }
         .fixedSize()
 
+        let controlsGap: CGFloat = (canRenderTrafficLightButtons && showTrafficLights) ? 0 : 8
+
         let titleContent = HStack(spacing: 4) {
             appIconContent
             titleAndSubtitleContent
         }
         .layoutPriority(1)
 
-        return HStack(spacing: 4) {
-            if appearance.controlPosition.isCentered {
-                Spacer(minLength: 0)
-                if showTitleContent {
-                    titleContent
+        if appearance.controlPosition.isCentered {
+            return AnyView(
+                HStack(spacing: 4) {
+                    Spacer(minLength: 0)
+                    if showTitleContent {
+                        titleContent
+                    }
+                    if showControlsContent { controlsContent }
+                    Spacer(minLength: 0)
                 }
-                if showControlsContent { controlsContent }
-                Spacer(minLength: 0)
-            } else if isLeadingControls {
-                if showControlsContent { controlsContent }
-                Spacer(minLength: 8)
-                if showTitleContent { titleContent }
-            } else {
-                if showTitleContent { titleContent }
-                Spacer(minLength: 8)
-                if showControlsContent { controlsContent }
-            }
+                .frame(width: dimensions.size.width)
+                .animation(nil, value: showTrafficLights)
+            )
+        } else {
+            return AnyView(
+                HStack(spacing: 0) {
+                    if isLeadingControls {
+                        if showControlsContent { controlsContent }
+                        Spacer(minLength: controlsGap)
+                        if showTitleContent { titleContent }
+                    } else {
+                        if showTitleContent { titleContent }
+                        Spacer(minLength: controlsGap)
+                        if showControlsContent { controlsContent }
+                    }
+                }
+                .frame(width: dimensions.size.width)
+                .animation(nil, value: showTrafficLights)
+            )
         }
-        .frame(width: dimensions.size.width)
-        .animation(nil, value: showTrafficLights)
     }
 
     private func dockPreviewContent(_ selected: Bool, isLeadingControls: Bool, showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View {
@@ -656,7 +740,10 @@ struct WindowPreview: View, Equatable {
             }
         }
 
-        let controlsContent = Group {
+        let controlsContent = controlsWithSpaceIndicator(
+            controlsAreLeading: isLeadingControls,
+            nonAlignmentPadding: 0
+        ) {
             if hasTrafficLights {
                 TrafficLightButtons(
                     displayMode: appearance.trafficLightVisibility,
@@ -687,7 +774,7 @@ struct WindowPreview: View, Equatable {
         }
         .fixedSize()
 
-        if hasTitle || hasTrafficLights {
+        if hasTitle || hasTrafficLights || hasSpaceIndicator {
             if appearance.controlPosition.isCentered {
                 return AnyView(
                     HStack(spacing: 4) {
@@ -701,7 +788,7 @@ struct WindowPreview: View, Equatable {
                 )
             } else {
                 return AnyView(
-                    HStack(spacing: 4) {
+                    HStack(spacing: 0) {
                         if isLeadingControls {
                             if showControlsContent { controlsContent }
                             Spacer(minLength: 8)

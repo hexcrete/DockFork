@@ -41,6 +41,7 @@ class WindowManipulationObservers {
 
     deinit {
         NSWorkspace.shared.notificationCenter.removeObserver(self)
+        NotificationCenter.default.removeObserver(self)
         removeAllObservers()
         if activeWindowManipulationObserversInstance === self {
             activeWindowManipulationObserversInstance = nil
@@ -70,6 +71,8 @@ class WindowManipulationObservers {
 
             notificationCenter.addObserver(self, selector: #selector(activeSpaceDidChange(_:)), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
             notificationCenter.addObserver(self, selector: #selector(appDidActivate(_:)), name: NSWorkspace.didActivateApplicationNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(screenParametersDidChange(_:)), name: NSApplication.didChangeScreenParametersNotification, object: nil)
+            SpaceNumberResolver.refresh()
 
             let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
             DebugLogger.log("setupObservers", details: "Setting up observers for \(apps.count) running apps")
@@ -131,10 +134,15 @@ class WindowManipulationObservers {
             ActiveAppIndicatorCoordinator.shared?.handleSpaceChanged()
         }
         debounce(key: "spaceChange") {
+            SpaceNumberResolver.refresh()
             await DebugLogger.measureAsync("updateAllWindowsInCurrentSpace") {
                 await WindowUtil.updateAllWindowsInCurrentSpace()
             }
         }
+    }
+
+    @objc private func screenParametersDidChange(_ notification: Notification) {
+        SpaceNumberResolver.refresh()
     }
 
     @objc private func appDidActivate(_ notification: Notification) {
@@ -254,7 +262,7 @@ class WindowManipulationObservers {
                 guard let self else { return }
                 let windowID = try? element.cgWindowId()
                 update(windowSet: &windowSet, matching: windowID, element: element) { window in
-                    window.spaceID = window.id.cgsSpaces().first.map { Int($0) }
+                    window.spaceID = window.id.cgsSpaces().first.map { Int($0) } ?? window.spaceID
                     if let pos = try? element.position() {
                         window.screenIdentifier = WindowUtil.screenIdentifier(forWindowAt: pos)
                     }
@@ -267,7 +275,7 @@ class WindowManipulationObservers {
             handleWindowEvent(element: element, app: app, notification: notificationName, validate: false) { [weak self] windowSet in
                 guard let self else { return }
                 update(windowSet: &windowSet, matching: resizedWindowID, element: element) { window in
-                    window.spaceID = window.id.cgsSpaces().first.map { Int($0) }
+                    window.spaceID = window.id.cgsSpaces().first.map { Int($0) } ?? window.spaceID
                     if let pos = try? element.position() {
                         window.screenIdentifier = WindowUtil.screenIdentifier(forWindowAt: pos)
                     }
@@ -281,7 +289,7 @@ class WindowManipulationObservers {
             handleWindowEvent(element: element, app: app, notification: notificationName, validate: false) { [weak self] windowSet in
                 guard let self else { return }
                 update(windowSet: &windowSet, matching: movedWindowID, element: element) { window in
-                    window.spaceID = window.id.cgsSpaces().first.map { Int($0) }
+                    window.spaceID = window.id.cgsSpaces().first.map { Int($0) } ?? window.spaceID
                     if let pos = try? element.position() {
                         window.screenIdentifier = WindowUtil.screenIdentifier(forWindowAt: pos)
                     }
@@ -323,7 +331,7 @@ class WindowManipulationObservers {
                 windowSet = Set(windowSet.map { window in
                     var updated = window
                     updated.isHidden = false
-                    updated.spaceID = updated.id.cgsSpaces().first.map { Int($0) }
+                    updated.spaceID = updated.id.cgsSpaces().first.map { Int($0) } ?? updated.spaceID
                     if let pos = try? updated.axElement.position() {
                         updated.screenIdentifier = WindowUtil.screenIdentifier(forWindowAt: pos)
                     }

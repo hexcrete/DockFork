@@ -731,7 +731,7 @@ extension WindowUtil {
 
                 refreshedWindowInfo.image = image
                 refreshedWindowInfo.imageCapturedTime = Date()
-                refreshedWindowInfo.spaceID = windowID.cgsSpaces().first.map { Int($0) }
+                refreshedWindowInfo.spaceID = windowID.cgsSpaces().first.map { Int($0) } ?? refreshedWindowInfo.spaceID
                 if let targetScreenIdentifier {
                     refreshedWindowInfo.screenIdentifier = targetScreenIdentifier
                 } else if let pos = try? refreshedWindowInfo.axElement.position() {
@@ -762,7 +762,7 @@ extension WindowUtil {
     }
 
     static func refreshCachedPreviewAfterProgrammaticResize(_ windowInfo: WindowInfo, targetScreenIdentifier: String?) {
-        let newSpaceID = windowInfo.id.cgsSpaces().first.map { Int($0) }
+        let newSpaceID = windowInfo.id.cgsSpaces().first.map { Int($0) } ?? windowInfo.spaceID
 
         // Apply geometry metadata immediately so filtering and ordering stay accurate.
         updateCachedWindowState(windowInfo, spaceID: newSpaceID, screenIdentifier: targetScreenIdentifier)
@@ -1281,7 +1281,7 @@ extension WindowUtil {
             let image = try await captureWindowImage(windowID: window.id, pid: pid, windowTitle: window.windowName, forceRefresh: true)
             var updated = window
             updated.image = image
-            updated.spaceID = window.id.cgsSpaces().first.map { Int($0) }
+            updated.spaceID = window.id.cgsSpaces().first.map { Int($0) } ?? updated.spaceID
             updateDesktopSpaceWindowCache(with: updated)
         }
     }

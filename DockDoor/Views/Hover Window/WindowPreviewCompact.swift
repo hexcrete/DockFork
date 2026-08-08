@@ -138,23 +138,29 @@ struct WindowPreviewCompact: View, Equatable {
 
             Spacer(minLength: 0)
 
-            // Traffic light buttons
-            if !appearance.compactModeHideTrafficLights,
-               canRenderTrafficLightButtons
-            {
-                TrafficLightButtons(
-                    displayMode: appearance.trafficLightVisibility,
-                    hoveringOverParentWindow: isSelected || isHovering,
-                    onWindowAction: handleWindowAction,
-                    pillStyling: true,
-                    mockPreviewActive: mockPreviewActive,
-                    enabledButtons: effectiveTrafficLightButtons,
-                    useMonochrome: appearance.useMonochromeTrafficLights,
-                    buttonScale: appearance.trafficLightButtonScale,
-                    backgroundAppearance: backgroundAppearance
-                )
-                .frame(width: showTrafficLightButtons ? nil : 0)
-                .clipped()
+            HStack(spacing: 8) {
+                if let spaceNumber = windowInfo.spaceNumber {
+                    SpaceNumberIndicator(number: spaceNumber)
+                }
+
+                // Traffic light buttons
+                if !appearance.compactModeHideTrafficLights,
+                   canRenderTrafficLightButtons
+                {
+                    TrafficLightButtons(
+                        displayMode: appearance.trafficLightVisibility,
+                        hoveringOverParentWindow: isSelected || isHovering,
+                        onWindowAction: handleWindowAction,
+                        pillStyling: true,
+                        mockPreviewActive: mockPreviewActive,
+                        enabledButtons: effectiveTrafficLightButtons,
+                        useMonochrome: appearance.useMonochromeTrafficLights,
+                        buttonScale: appearance.trafficLightButtonScale,
+                        backgroundAppearance: backgroundAppearance
+                    )
+                    .frame(width: showTrafficLightButtons ? nil : 0)
+                    .clipped()
+                }
             }
         }
         .animation(nil, value: showTrafficLightButtons)

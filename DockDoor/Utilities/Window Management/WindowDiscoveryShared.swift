@@ -194,6 +194,53 @@ func currentActiveSpaceIDs() -> Set<Int> {
     return result
 }
 
+enum SpaceNumberResolver {
+    private static let lock = NSLock()
+    private static var numbersByID: [Int: Int] = [:]
+    private static var hasLoaded = false
+
+    static func refresh() {
+        guard let displays = CGSCopyManagedDisplaySpaces(CGSMainConnectionID()) as? [[String: AnyObject]] else {
+            return
+        }
+
+        var refreshed: [Int: Int] = [:]
+        var number = 1
+        for display in displays {
+            guard let spaces = display["Spaces"] as? [[String: AnyObject]] else { continue }
+            for space in spaces {
+                let spaceID = (space["id64"] as? NSNumber)?.intValue ??
+                    (space["ManagedSpaceID"] as? NSNumber)?.intValue
+                if let spaceID {
+                    refreshed[spaceID] = number
+                    number += 1
+                }
+            }
+        }
+
+        lock.lock()
+        numbersByID = refreshed
+        hasLoaded = true
+        lock.unlock()
+    }
+
+    static func number(for spaceID: Int?) -> Int? {
+        guard let spaceID else { return nil }
+
+        lock.lock()
+        let needsInitialLoad = !hasLoaded
+        lock.unlock()
+        if needsInitialLoad {
+            refresh()
+        }
+
+        lock.lock()
+        defer { lock.unlock() }
+        guard numbersByID.count > 1 else { return nil }
+        return numbersByID[spaceID]
+    }
+}
+
 // Decide if a window should be accepted considering on-screen state,
 // ScreenCaptureKit presence, multi-Space, and window/app state.
 func shouldAcceptWindow(axWindow: AXUIElement,
