@@ -40,6 +40,7 @@ struct SettingsMockPreview: View {
     @Default(.useEmbeddedDockPreviewElements) private var dockUseEmbedded
     @Default(.dockLivePreviewQuality) private var dockLivePreviewQuality
     @Default(.dockLivePreviewFrameRate) private var dockLivePreviewFrameRate
+    @Default(.showDockPreviewSpaceNumberIndicator) private var showDockPreviewSpaceNumberIndicator
 
     // MARK: - Window Switcher appearance settings
 
@@ -52,6 +53,7 @@ struct SettingsMockPreview: View {
     @Default(.switcherDisableDockStyleTrafficLights) private var switcherDisableStyleTrafficLights
     @Default(.windowSwitcherLivePreviewQuality) private var switcherLivePreviewQuality
     @Default(.windowSwitcherLivePreviewFrameRate) private var switcherLivePreviewFrameRate
+    @Default(.showSwitcherSpaceNumberIndicator) private var showSwitcherSpaceNumberIndicator
 
     // MARK: - Cmd+Tab appearance settings
 
@@ -64,6 +66,7 @@ struct SettingsMockPreview: View {
     @Default(.cmdTabDisableDockStyleTrafficLights) private var cmdTabDisableStyleTrafficLights
     @Default(.cmdTabDisableDockStyleTitles) private var cmdTabDisableStyleTitles
     @Default(.cmdTabUseEmbeddedDockPreviewElements) private var cmdTabUseEmbedded
+    @Default(.showCmdTabSpaceNumberIndicator) private var showCmdTabSpaceNumberIndicator
 
     // MARK: - Shared appearance settings
 
@@ -204,6 +207,13 @@ struct SettingsMockPreview: View {
         } else {
             previewHoverAction
         }
+        let showSpaceNumberIndicator: Bool = if isWindowSwitcher {
+            showSwitcherSpaceNumberIndicator
+        } else if isCmdTab {
+            showCmdTabSpaceNumberIndicator
+        } else {
+            showDockPreviewSpaceNumberIndicator
+        }
 
         return PreviewAppearanceSettings(
             trafficLightVisibility: trafficLightVisibility,
@@ -236,6 +246,7 @@ struct SettingsMockPreview: View {
             compactModeTitleFormat: compactModeTitleFormat,
             compactModeItemSize: compactModeItemSize,
             compactModeHideTrafficLights: compactModeHideTrafficLights,
+            showSpaceNumberIndicator: showSpaceNumberIndicator,
             titleOverflowStyle: titleOverflowStyle
         )
     }
@@ -295,6 +306,7 @@ struct SettingsMockPreview: View {
                 appAxElement: dummyAXElement,
                 closeButton: dummyAXElement,
                 lastAccessedTime: Date(),
+                spaceNumberOverride: i + 1,
                 isMinimized: false,
                 isHidden: false
             ))

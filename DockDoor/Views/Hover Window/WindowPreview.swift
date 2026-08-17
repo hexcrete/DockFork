@@ -50,6 +50,7 @@ struct PreviewAppearanceSettings: Equatable {
     let compactModeTitleFormat: CompactModeTitleFormat
     let compactModeItemSize: CompactModeItemSize
     let compactModeHideTrafficLights: Bool
+    let showSpaceNumberIndicator: Bool
     let titleOverflowStyle: TitleOverflowStyle
 
     var isDiagonalPosition: Bool {
@@ -74,6 +75,7 @@ struct PreviewAppearanceSettings: Equatable {
         .disableDockStyleTitles, .cmdTabDisableDockStyleTitles,
         .dockLivePreviewQuality, .windowSwitcherLivePreviewQuality,
         .dockLivePreviewFrameRate, .windowSwitcherLivePreviewFrameRate,
+        .showDockPreviewSpaceNumberIndicator, .showSwitcherSpaceNumberIndicator, .showCmdTabSpaceNumberIndicator,
         .showMinimizedHiddenLabels, .selectionOpacity, .unselectedContentOpacity, .hoverHighlightColor,
         .allowDynamicImageSizing, .hidePreviewCardBackground,
         .tapEquivalentInterval, .switcherTapEquivalentInterval, .cmdTabTapEquivalentInterval,
@@ -126,6 +128,7 @@ struct PreviewAppearanceSettings: Equatable {
             compactModeTitleFormat: Defaults[.compactModeTitleFormat],
             compactModeItemSize: Defaults[.compactModeItemSize],
             compactModeHideTrafficLights: Defaults[.compactModeHideTrafficLights],
+            showSpaceNumberIndicator: pick(.showDockPreviewSpaceNumberIndicator, switcher: .showSwitcherSpaceNumberIndicator, cmdTab: .showCmdTabSpaceNumberIndicator),
             titleOverflowStyle: Defaults[.titleOverflowStyle]
         )
     }
@@ -191,7 +194,7 @@ struct WindowPreview: View, Equatable {
     }
 
     private var hasSpaceIndicator: Bool {
-        windowInfo.spaceNumber != nil
+        appearance.showSpaceNumberIndicator && windowInfo.spaceNumber != nil
     }
 
     private var embeddedControlsAreLeading: Bool {
@@ -206,7 +209,7 @@ struct WindowPreview: View, Equatable {
         controlsAreLeading: Bool,
         nonAlignmentPadding: CGFloat
     ) -> some View {
-        if let spaceNumber = windowInfo.spaceNumber {
+        if appearance.showSpaceNumberIndicator, let spaceNumber = windowInfo.spaceNumber {
             let adjustedPadding = max(0, nonAlignmentPadding)
             SpaceNumberIndicator(number: spaceNumber)
                 .padding(.leading, controlsAreLeading ? 0 : -adjustedPadding)

@@ -12,6 +12,7 @@ struct WindowSwitcherAppearanceSection: View {
     @Default(.switcherMaxRows) var switcherMaxRows
     @Default(.switcherIgnoreScreenLimit) var switcherIgnoreScreenLimit
     @Default(.windowSwitcherScrollDirection) var windowSwitcherScrollDirection
+    @Default(.showSwitcherSpaceNumberIndicator) var showSwitcherSpaceNumberIndicator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -69,6 +70,11 @@ struct WindowSwitcherAppearanceSection: View {
                         .foregroundColor(.gray)
                 }
             }
+
+            Divider().padding(.vertical, 2)
+            Text("Space Number Indicator").font(.headline).padding(.bottom, -2)
+            Toggle("Show Space Number Indicator", isOn: $showSwitcherSpaceNumberIndicator)
+                .settingsSearchTarget("appearance.switcherSpaceNumberIndicator")
 
             Divider().padding(.vertical, 2)
             Text("Window Title").font(.headline).padding(.bottom, -2)

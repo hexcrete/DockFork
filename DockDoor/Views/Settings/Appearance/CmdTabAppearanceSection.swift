@@ -14,6 +14,7 @@ struct CmdTabAppearanceSection: View {
     @Default(.cmdTabUseMonochromeTrafficLights) var cmdTabUseMonochromeTrafficLights
     @Default(.cmdTabDisableDockStyleTrafficLights) var cmdTabDisableDockStyleTrafficLights
     @Default(.cmdTabUseEmbeddedDockPreviewElements) var cmdTabUseEmbeddedDockPreviewElements
+    @Default(.showCmdTabSpaceNumberIndicator) var showCmdTabSpaceNumberIndicator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -117,6 +118,11 @@ struct CmdTabAppearanceSection: View {
                         .padding(.leading, 20)
                 }
             }
+
+            Divider().padding(.vertical, 2)
+            Text("Space Number Indicator").font(.headline).padding(.bottom, -2)
+            Toggle("Show Space Number Indicator", isOn: $showCmdTabSpaceNumberIndicator)
+                .settingsSearchTarget("appearance.cmdTabSpaceNumberIndicator")
 
             // Layout section
             Divider().padding(.vertical, 2)

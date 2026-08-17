@@ -139,7 +139,7 @@ struct WindowPreviewCompact: View, Equatable {
             Spacer(minLength: 0)
 
             HStack(spacing: 8) {
-                if let spaceNumber = windowInfo.spaceNumber {
+                if appearance.showSpaceNumberIndicator, let spaceNumber = windowInfo.spaceNumber {
                     SpaceNumberIndicator(number: spaceNumber)
                 }
 

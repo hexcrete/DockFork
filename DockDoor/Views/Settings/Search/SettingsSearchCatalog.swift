@@ -943,6 +943,15 @@ enum SettingsSearchCatalog {
             icon: "minus.circle"
         ),
         SettingsSearchItem(
+            id: "appearance.dockSpaceNumberIndicator",
+            title: String(localized: "Show Space Number Indicator"),
+            description: String(localized: "Shows the Space number for each window in dock previews."),
+            keywords: ["space", "desktop", "number", "indicator", "dock"],
+            tab: "Appearance",
+            section: String(localized: "Dock Preview Appearance"),
+            icon: "number.circle"
+        ),
+        SettingsSearchItem(
             id: "appearance.dockMassActionButtons",
             title: String(localized: "Show Close All and Minimize All buttons"),
             description: String(localized: "Displays Close All and Minimize All buttons when hovering the app icon in dock previews."),
@@ -1013,6 +1022,15 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "Window Switcher Appearance"),
             icon: "minus.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherSpaceNumberIndicator",
+            title: String(localized: "Show Space Number Indicator"),
+            description: String(localized: "Shows the Space number for each window in the window switcher."),
+            keywords: ["space", "desktop", "number", "indicator", "switcher"],
+            tab: "Appearance",
+            section: String(localized: "Window Switcher Appearance"),
+            icon: "number.circle"
         ),
         SettingsSearchItem(
             id: "appearance.switcherShowWindowTitle",
@@ -1144,6 +1162,15 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "Cmd+Tab Appearance"),
             icon: "minus.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabSpaceNumberIndicator",
+            title: String(localized: "Show Space Number Indicator"),
+            description: String(localized: "Shows the Space number for each window in Cmd+Tab previews."),
+            keywords: ["space", "desktop", "number", "indicator", "cmd tab"],
+            tab: "Appearance",
+            section: String(localized: "Cmd+Tab Appearance"),
+            icon: "number.circle"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabEmbedControls",

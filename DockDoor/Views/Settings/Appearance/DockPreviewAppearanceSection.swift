@@ -15,6 +15,7 @@ struct DockPreviewAppearanceSection: View {
     @Default(.previewMaxColumns) var previewMaxColumns
     @Default(.previewMaxRows) var previewMaxRows
     @Default(.windowTitleFontSize) var windowTitleFontSize
+    @Default(.showDockPreviewSpaceNumberIndicator) var showDockPreviewSpaceNumberIndicator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -99,6 +100,11 @@ struct DockPreviewAppearanceSection: View {
                     .foregroundColor(.gray)
                     .padding(.leading, 20)
             }
+
+            Divider().padding(.vertical, 2)
+            Text("Space Number Indicator").font(.headline).padding(.bottom, -2)
+            Toggle("Show Space Number Indicator", isOn: $showDockPreviewSpaceNumberIndicator)
+                .settingsSearchTarget("appearance.dockSpaceNumberIndicator")
 
             Divider().padding(.vertical, 2)
             Text("Mass Action Buttons").font(.headline).padding(.bottom, -2)
