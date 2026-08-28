@@ -952,6 +952,15 @@ enum SettingsSearchCatalog {
             icon: "number.circle"
         ),
         SettingsSearchItem(
+            id: "appearance.dockDisableSpaceNumberIndicatorStyling",
+            title: String(localized: "Disable dock styling on Space number indicator"),
+            description: String(localized: "Removes the pill-shaped background styling from the Space number indicator in dock previews."),
+            keywords: ["space", "number", "indicator", "styling", "pill", "dock"],
+            tab: "Appearance",
+            section: String(localized: "Dock Preview Appearance"),
+            icon: "minus.circle"
+        ),
+        SettingsSearchItem(
             id: "appearance.dockMassActionButtons",
             title: String(localized: "Show Close All and Minimize All buttons"),
             description: String(localized: "Displays Close All and Minimize All buttons when hovering the app icon in dock previews."),
@@ -1031,6 +1040,15 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "Window Switcher Appearance"),
             icon: "number.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherDisableSpaceNumberIndicatorStyling",
+            title: String(localized: "Disable dock styling on Space number indicator"),
+            description: String(localized: "Removes the pill-shaped background styling from the Space number indicator in the window switcher."),
+            keywords: ["space", "number", "indicator", "styling", "pill", "switcher"],
+            tab: "Appearance",
+            section: String(localized: "Window Switcher Appearance"),
+            icon: "minus.circle"
         ),
         SettingsSearchItem(
             id: "appearance.switcherShowWindowTitle",
@@ -1171,6 +1189,15 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "Cmd+Tab Appearance"),
             icon: "number.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabDisableSpaceNumberIndicatorStyling",
+            title: String(localized: "Disable dock styling on Space number indicator"),
+            description: String(localized: "Removes the pill-shaped background styling from the Space number indicator in Cmd+Tab previews."),
+            keywords: ["space", "number", "indicator", "styling", "pill", "cmd tab"],
+            tab: "Appearance",
+            section: String(localized: "Cmd+Tab Appearance"),
+            icon: "minus.circle"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabEmbedControls",

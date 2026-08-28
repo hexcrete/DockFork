@@ -41,6 +41,7 @@ struct SettingsMockPreview: View {
     @Default(.dockLivePreviewQuality) private var dockLivePreviewQuality
     @Default(.dockLivePreviewFrameRate) private var dockLivePreviewFrameRate
     @Default(.showDockPreviewSpaceNumberIndicator) private var showDockPreviewSpaceNumberIndicator
+    @Default(.disableDockStyleSpaceNumberIndicator) private var disableDockStyleSpaceNumberIndicator
 
     // MARK: - Window Switcher appearance settings
 
@@ -54,6 +55,7 @@ struct SettingsMockPreview: View {
     @Default(.windowSwitcherLivePreviewQuality) private var switcherLivePreviewQuality
     @Default(.windowSwitcherLivePreviewFrameRate) private var switcherLivePreviewFrameRate
     @Default(.showSwitcherSpaceNumberIndicator) private var showSwitcherSpaceNumberIndicator
+    @Default(.switcherDisableDockStyleSpaceNumberIndicator) private var switcherDisableDockStyleSpaceNumberIndicator
 
     // MARK: - Cmd+Tab appearance settings
 
@@ -67,6 +69,7 @@ struct SettingsMockPreview: View {
     @Default(.cmdTabDisableDockStyleTitles) private var cmdTabDisableStyleTitles
     @Default(.cmdTabUseEmbeddedDockPreviewElements) private var cmdTabUseEmbedded
     @Default(.showCmdTabSpaceNumberIndicator) private var showCmdTabSpaceNumberIndicator
+    @Default(.cmdTabDisableDockStyleSpaceNumberIndicator) private var cmdTabDisableDockStyleSpaceNumberIndicator
 
     // MARK: - Shared appearance settings
 
@@ -214,6 +217,13 @@ struct SettingsMockPreview: View {
         } else {
             showDockPreviewSpaceNumberIndicator
         }
+        let disableDockStyleSpaceNumberIndicator: Bool = if isWindowSwitcher {
+            switcherDisableDockStyleSpaceNumberIndicator
+        } else if isCmdTab {
+            cmdTabDisableDockStyleSpaceNumberIndicator
+        } else {
+            disableDockStyleSpaceNumberIndicator
+        }
 
         return PreviewAppearanceSettings(
             trafficLightVisibility: trafficLightVisibility,
@@ -247,6 +257,7 @@ struct SettingsMockPreview: View {
             compactModeItemSize: compactModeItemSize,
             compactModeHideTrafficLights: compactModeHideTrafficLights,
             showSpaceNumberIndicator: showSpaceNumberIndicator,
+            disableDockStyleSpaceNumberIndicator: disableDockStyleSpaceNumberIndicator,
             titleOverflowStyle: titleOverflowStyle
         )
     }

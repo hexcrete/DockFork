@@ -13,6 +13,7 @@ struct WindowSwitcherAppearanceSection: View {
     @Default(.switcherIgnoreScreenLimit) var switcherIgnoreScreenLimit
     @Default(.windowSwitcherScrollDirection) var windowSwitcherScrollDirection
     @Default(.showSwitcherSpaceNumberIndicator) var showSwitcherSpaceNumberIndicator
+    @Default(.switcherDisableDockStyleSpaceNumberIndicator) var switcherDisableDockStyleSpaceNumberIndicator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -75,6 +76,10 @@ struct WindowSwitcherAppearanceSection: View {
             Text("Space Number Indicator").font(.headline).padding(.bottom, -2)
             Toggle("Show Space Number Indicator", isOn: $showSwitcherSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.switcherSpaceNumberIndicator")
+            if showSwitcherSpaceNumberIndicator {
+                Toggle("Disable dock styling on Space number indicator", isOn: $switcherDisableDockStyleSpaceNumberIndicator)
+                    .settingsSearchTarget("appearance.switcherDisableSpaceNumberIndicatorStyling")
+            }
 
             Divider().padding(.vertical, 2)
             Text("Window Title").font(.headline).padding(.bottom, -2)

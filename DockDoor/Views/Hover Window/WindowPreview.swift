@@ -3,19 +3,43 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SpaceNumberIndicator: View {
-    let number: Int
+    static let unstyledControlLineHeight: CGFloat = 24
+    private static let styledBadgeMinimumSize = CGSize(width: 14, height: 14)
 
-    var body: some View {
+    let number: Int
+    let disableDockStyling: Bool
+    let backgroundAppearance: BackgroundAppearance
+
+    @ViewBuilder
+    private func badgeContent(minimumWidth: CGFloat?, minimumHeight: CGFloat) -> some View {
         Text("\(number)")
             .font(.system(size: 10, weight: .semibold, design: .rounded))
             .monospacedDigit()
-            .foregroundStyle(.secondary)
-            .frame(minWidth: 18, minHeight: 18)
+            .foregroundStyle(.primary)
+            .frame(minWidth: minimumWidth, minHeight: minimumHeight)
             .padding(.horizontal, number > 9 ? 2 : 0)
-            .overlay {
-                Capsule().stroke(.secondary, lineWidth: 1)
+    }
+
+    var body: some View {
+        Group {
+            if disableDockStyling {
+                badgeContent(minimumWidth: 18, minimumHeight: 18)
+                    .overlay {
+                        Capsule().stroke(.secondary, lineWidth: 1)
+                    }
+                    .frame(height: Self.unstyledControlLineHeight)
+                    .shadow(color: .black.opacity(0.6), radius: 3, y: 2)
+            } else {
+                badgeContent(minimumWidth: nil, minimumHeight: 0)
+                    .frame(
+                        minWidth: Self.styledBadgeMinimumSize.width,
+                        minHeight: Self.styledBadgeMinimumSize.height
+                    )
+                    .padding(4)
+                    .materialPill(backgroundAppearance: backgroundAppearance)
             }
-            .accessibilityLabel(Text("Space \(number)"))
+        }
+        .accessibilityLabel(Text("Space \(number)"))
     }
 }
 
@@ -51,6 +75,7 @@ struct PreviewAppearanceSettings: Equatable {
     let compactModeItemSize: CompactModeItemSize
     let compactModeHideTrafficLights: Bool
     let showSpaceNumberIndicator: Bool
+    let disableDockStyleSpaceNumberIndicator: Bool
     let titleOverflowStyle: TitleOverflowStyle
 
     var isDiagonalPosition: Bool {
@@ -76,6 +101,7 @@ struct PreviewAppearanceSettings: Equatable {
         .dockLivePreviewQuality, .windowSwitcherLivePreviewQuality,
         .dockLivePreviewFrameRate, .windowSwitcherLivePreviewFrameRate,
         .showDockPreviewSpaceNumberIndicator, .showSwitcherSpaceNumberIndicator, .showCmdTabSpaceNumberIndicator,
+        .disableDockStyleSpaceNumberIndicator, .switcherDisableDockStyleSpaceNumberIndicator, .cmdTabDisableDockStyleSpaceNumberIndicator,
         .showMinimizedHiddenLabels, .selectionOpacity, .unselectedContentOpacity, .hoverHighlightColor,
         .allowDynamicImageSizing, .hidePreviewCardBackground,
         .tapEquivalentInterval, .switcherTapEquivalentInterval, .cmdTabTapEquivalentInterval,
@@ -129,6 +155,7 @@ struct PreviewAppearanceSettings: Equatable {
             compactModeItemSize: Defaults[.compactModeItemSize],
             compactModeHideTrafficLights: Defaults[.compactModeHideTrafficLights],
             showSpaceNumberIndicator: pick(.showDockPreviewSpaceNumberIndicator, switcher: .showSwitcherSpaceNumberIndicator, cmdTab: .showCmdTabSpaceNumberIndicator),
+            disableDockStyleSpaceNumberIndicator: pick(.disableDockStyleSpaceNumberIndicator, switcher: .switcherDisableDockStyleSpaceNumberIndicator, cmdTab: .cmdTabDisableDockStyleSpaceNumberIndicator),
             titleOverflowStyle: Defaults[.titleOverflowStyle]
         )
     }
@@ -211,9 +238,13 @@ struct WindowPreview: View, Equatable {
     ) -> some View {
         if appearance.showSpaceNumberIndicator, let spaceNumber = windowInfo.spaceNumber {
             let adjustedPadding = max(0, nonAlignmentPadding)
-            SpaceNumberIndicator(number: spaceNumber)
-                .padding(.leading, controlsAreLeading ? 0 : -adjustedPadding)
-                .padding(.trailing, controlsAreLeading ? -adjustedPadding : 0)
+            SpaceNumberIndicator(
+                number: spaceNumber,
+                disableDockStyling: appearance.disableDockStyleSpaceNumberIndicator,
+                backgroundAppearance: backgroundAppearance
+            )
+            .padding(.leading, controlsAreLeading ? 0 : -adjustedPadding)
+            .padding(.trailing, controlsAreLeading ? -adjustedPadding : 0)
         }
     }
 
@@ -221,10 +252,11 @@ struct WindowPreview: View, Equatable {
     private func controlsWithSpaceIndicator(
         controlsAreLeading: Bool,
         nonAlignmentPadding: CGFloat = 0,
+        spacing: CGFloat = 8,
         @ViewBuilder content: () -> some View
     ) -> some View {
         let sideInset: CGFloat = nonAlignmentPadding > 0 ? 2 : 0
-        HStack(spacing: 8) {
+        HStack(spacing: spacing) {
             if controlsAreLeading {
                 content()
                 spaceIndicator(
@@ -241,6 +273,10 @@ struct WindowPreview: View, Equatable {
         }
         .padding(.leading, controlsAreLeading ? 0 : sideInset)
         .padding(.trailing, controlsAreLeading ? sideInset : 0)
+    }
+
+    private func controlsSpacing(hasAdjacentControl: Bool) -> CGFloat {
+        appearance.disableDockStyleSpaceNumberIndicator || hasAdjacentControl ? 8 : 0
     }
 
     private var canRenderTrafficLightButtons: Bool {
@@ -363,6 +399,8 @@ struct WindowPreview: View, Equatable {
         let showTrafficLights = shouldShowTrafficLightButtons(
             parentHovered: selected || isHoveringOverDockPeekPreview
         )
+        let hasVisibleAdjacentControl = (hasTrafficLights && showTrafficLights) ||
+            (!hasTrafficLights && windowStateLabel != nil && appearance.trafficLightVisibility != .never)
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
                 titleLabel(title, adaptsToAvailableWidth: true)
@@ -378,7 +416,8 @@ struct WindowPreview: View, Equatable {
 
         let controlsContent = controlsWithSpaceIndicator(
             controlsAreLeading: embeddedControlsAreLeading,
-            nonAlignmentPadding: hasTrafficLights && showTrafficLights ? 10 : 0
+            nonAlignmentPadding: hasTrafficLights && showTrafficLights ? 10 : 0,
+            spacing: controlsSpacing(hasAdjacentControl: hasVisibleAdjacentControl)
         ) {
             if hasTrafficLights {
                 TrafficLightButtons(
@@ -614,6 +653,8 @@ struct WindowPreview: View, Equatable {
         let showTrafficLights = shouldShowTrafficLightButtons(
             parentHovered: selected || isHoveringOverWindowSwitcherPreview
         )
+        let hasVisibleAdjacentControl = (canRenderTrafficLightButtons && showTrafficLights) ||
+            (!canRenderTrafficLightButtons && windowStateLabel != nil && appearance.trafficLightVisibility != .never)
         let titleAndSubtitleContent = VStack(alignment: .leading, spacing: 0) {
             if !showAppIconOnly {
                 Text(windowInfo.app.localizedName ?? "Unknown")
@@ -643,7 +684,8 @@ struct WindowPreview: View, Equatable {
 
         let controlsContent = controlsWithSpaceIndicator(
             controlsAreLeading: isLeadingControls,
-            nonAlignmentPadding: 0
+            nonAlignmentPadding: 0,
+            spacing: controlsSpacing(hasAdjacentControl: hasVisibleAdjacentControl)
         ) {
             if canRenderTrafficLightButtons {
                 TrafficLightButtons(
@@ -730,6 +772,8 @@ struct WindowPreview: View, Equatable {
         let showTrafficLights = shouldShowTrafficLightButtons(
             parentHovered: selected || isHoveringOverDockPeekPreview
         )
+        let hasVisibleAdjacentControl = (hasTrafficLights && showTrafficLights) ||
+            (!hasTrafficLights && windowStateLabel != nil && appearance.trafficLightVisibility != .never)
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
                 titleLabel(title, adaptsToAvailableWidth: true)
@@ -745,7 +789,8 @@ struct WindowPreview: View, Equatable {
 
         let controlsContent = controlsWithSpaceIndicator(
             controlsAreLeading: isLeadingControls,
-            nonAlignmentPadding: 0
+            nonAlignmentPadding: 0,
+            spacing: controlsSpacing(hasAdjacentControl: hasVisibleAdjacentControl)
         ) {
             if hasTrafficLights {
                 TrafficLightButtons(

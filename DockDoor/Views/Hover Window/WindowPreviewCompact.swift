@@ -92,6 +92,9 @@ struct WindowPreviewCompact: View, Equatable {
             hoveringOverParentWindow: isSelected || isHovering,
             mockPreviewActive: mockPreviewActive
         )
+        let hasVisibleTrafficLightButtons = !appearance.compactModeHideTrafficLights &&
+            canRenderTrafficLightButtons && showTrafficLightButtons
+        let controlsSpacing: CGFloat = appearance.disableDockStyleSpaceNumberIndicator || hasVisibleTrafficLightButtons ? 8 : 0
 
         HStack(spacing: 10) {
             // App icon
@@ -138,9 +141,13 @@ struct WindowPreviewCompact: View, Equatable {
 
             Spacer(minLength: 0)
 
-            HStack(spacing: 8) {
+            HStack(spacing: controlsSpacing) {
                 if appearance.showSpaceNumberIndicator, let spaceNumber = windowInfo.spaceNumber {
-                    SpaceNumberIndicator(number: spaceNumber)
+                    SpaceNumberIndicator(
+                        number: spaceNumber,
+                        disableDockStyling: appearance.disableDockStyleSpaceNumberIndicator,
+                        backgroundAppearance: backgroundAppearance
+                    )
                 }
 
                 // Traffic light buttons

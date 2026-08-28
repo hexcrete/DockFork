@@ -16,6 +16,7 @@ struct DockPreviewAppearanceSection: View {
     @Default(.previewMaxRows) var previewMaxRows
     @Default(.windowTitleFontSize) var windowTitleFontSize
     @Default(.showDockPreviewSpaceNumberIndicator) var showDockPreviewSpaceNumberIndicator
+    @Default(.disableDockStyleSpaceNumberIndicator) var disableDockStyleSpaceNumberIndicator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -105,6 +106,10 @@ struct DockPreviewAppearanceSection: View {
             Text("Space Number Indicator").font(.headline).padding(.bottom, -2)
             Toggle("Show Space Number Indicator", isOn: $showDockPreviewSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.dockSpaceNumberIndicator")
+            if showDockPreviewSpaceNumberIndicator {
+                Toggle("Disable dock styling on Space number indicator", isOn: $disableDockStyleSpaceNumberIndicator)
+                    .settingsSearchTarget("appearance.dockDisableSpaceNumberIndicatorStyling")
+            }
 
             Divider().padding(.vertical, 2)
             Text("Mass Action Buttons").font(.headline).padding(.bottom, -2)
