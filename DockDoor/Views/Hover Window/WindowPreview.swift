@@ -9,7 +9,9 @@ enum PreviewWindowStateIndicator {
         enabled: Bool
     ) -> [String] {
         guard enabled else { return [] }
-        if windowInfo.isMinimized || isEffectivelyHidden {
+        if windowInfo.isMinimized {
+            return ["minus.circle"]
+        } else if isEffectivelyHidden {
             return ["eye.slash"]
         } else if windowInfo.isFullscreen == true {
             return ["arrow.up.left.and.arrow.down.right"]
@@ -271,7 +273,9 @@ struct WindowPreview: View, Equatable {
         guard !movesWindowStateToSpaceIndicator,
               appearance.showMinimizedHiddenLabels
         else { return nil }
-        if windowInfo.isMinimized || isEffectivelyHidden {
+        if windowInfo.isMinimized {
+            return "minus.circle"
+        } else if isEffectivelyHidden {
             return "eye.slash"
         } else if windowInfo.isFullscreen == true {
             return "arrow.up.left.and.arrow.down.right"
