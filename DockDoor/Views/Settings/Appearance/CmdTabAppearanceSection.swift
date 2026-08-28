@@ -125,8 +125,14 @@ struct CmdTabAppearanceSection: View {
             Toggle("Show Space Number Indicator", isOn: $showCmdTabSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.cmdTabSpaceNumberIndicator")
             if showCmdTabSpaceNumberIndicator {
-                Toggle("Disable dock styling on Space number indicator", isOn: $cmdTabDisableDockStyleSpaceNumberIndicator)
-                    .settingsSearchTarget("appearance.cmdTabDisableSpaceNumberIndicatorStyling")
+                VStack(alignment: .leading) {
+                    Toggle("Disable dock styling on Space number indicator", isOn: $cmdTabDisableDockStyleSpaceNumberIndicator)
+                        .settingsSearchTarget("appearance.cmdTabDisableSpaceNumberIndicatorStyling")
+                    Text("Removes the pill-shaped background styling from the Space number indicator in Cmd+Tab previews.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                        .padding(.leading, 20)
+                }
             }
 
             // Layout section

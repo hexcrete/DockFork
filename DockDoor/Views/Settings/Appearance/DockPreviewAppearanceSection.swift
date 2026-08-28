@@ -107,8 +107,14 @@ struct DockPreviewAppearanceSection: View {
             Toggle("Show Space Number Indicator", isOn: $showDockPreviewSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.dockSpaceNumberIndicator")
             if showDockPreviewSpaceNumberIndicator {
-                Toggle("Disable dock styling on Space number indicator", isOn: $disableDockStyleSpaceNumberIndicator)
-                    .settingsSearchTarget("appearance.dockDisableSpaceNumberIndicatorStyling")
+                VStack(alignment: .leading) {
+                    Toggle("Disable dock styling on Space number indicator", isOn: $disableDockStyleSpaceNumberIndicator)
+                        .settingsSearchTarget("appearance.dockDisableSpaceNumberIndicatorStyling")
+                    Text("Removes the pill-shaped background styling from the Space number indicator in dock previews.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                        .padding(.leading, 20)
+                }
             }
 
             Divider().padding(.vertical, 2)

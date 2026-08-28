@@ -77,8 +77,13 @@ struct WindowSwitcherAppearanceSection: View {
             Toggle("Show Space Number Indicator", isOn: $showSwitcherSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.switcherSpaceNumberIndicator")
             if showSwitcherSpaceNumberIndicator {
-                Toggle("Disable dock styling on Space number indicator", isOn: $switcherDisableDockStyleSpaceNumberIndicator)
-                    .settingsSearchTarget("appearance.switcherDisableSpaceNumberIndicatorStyling")
+                VStack(alignment: .leading) {
+                    Toggle("Disable dock styling on Space number indicator", isOn: $switcherDisableDockStyleSpaceNumberIndicator)
+                        .settingsSearchTarget("appearance.switcherDisableSpaceNumberIndicatorStyling")
+                    Text("Removes the pill-shaped background styling from the Space number indicator in the window switcher.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                }
             }
 
             Divider().padding(.vertical, 2)
