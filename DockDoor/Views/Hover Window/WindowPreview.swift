@@ -2,11 +2,28 @@ import Defaults
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum PreviewWindowStateIndicator {
+    static func symbols(
+        for windowInfo: WindowInfo,
+        isEffectivelyHidden: Bool,
+        enabled: Bool
+    ) -> [String] {
+        guard enabled else { return [] }
+        if windowInfo.isMinimized || isEffectivelyHidden {
+            return ["eye.slash"]
+        } else if windowInfo.isFullscreen == true {
+            return ["arrow.up.left.and.arrow.down.right"]
+        }
+        return []
+    }
+}
+
 struct SpaceNumberIndicator: View {
     static let unstyledControlLineHeight: CGFloat = 24
     private static let styledBadgeMinimumSize = CGSize(width: 14, height: 14)
 
     let number: Int
+    let statusSymbols: [String]
     let disableDockStyling: Bool
     let backgroundAppearance: BackgroundAppearance
 
@@ -20,23 +37,38 @@ struct SpaceNumberIndicator: View {
             .padding(.horizontal, number > 9 ? 2 : 0)
     }
 
+    @ViewBuilder
+    private func statusIcons() -> some View {
+        ForEach(statusSymbols, id: \.self) { symbol in
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+        }
+    }
+
     var body: some View {
         Group {
             if disableDockStyling {
-                badgeContent(minimumWidth: 18, minimumHeight: 18)
-                    .overlay {
-                        Capsule().stroke(.secondary, lineWidth: 1)
-                    }
-                    .frame(height: Self.unstyledControlLineHeight)
-                    .shadow(color: .black.opacity(0.6), radius: 3, y: 2)
+                HStack(spacing: 4) {
+                    badgeContent(minimumWidth: 18, minimumHeight: 18)
+                        .overlay {
+                            Capsule().stroke(.secondary, lineWidth: 1)
+                        }
+                    statusIcons()
+                }
+                .frame(height: Self.unstyledControlLineHeight)
+                .shadow(color: .black.opacity(0.6), radius: 3, y: 2)
             } else {
-                badgeContent(minimumWidth: nil, minimumHeight: 0)
-                    .frame(
-                        minWidth: Self.styledBadgeMinimumSize.width,
-                        minHeight: Self.styledBadgeMinimumSize.height
-                    )
-                    .padding(4)
-                    .materialPill(backgroundAppearance: backgroundAppearance)
+                HStack(spacing: 4) {
+                    badgeContent(minimumWidth: nil, minimumHeight: 0)
+                    statusIcons()
+                }
+                .frame(
+                    minWidth: Self.styledBadgeMinimumSize.width,
+                    minHeight: Self.styledBadgeMinimumSize.height
+                )
+                .padding(4)
+                .materialPill(backgroundAppearance: backgroundAppearance)
             }
         }
         .accessibilityLabel(Text("Space \(number)"))
@@ -75,6 +107,7 @@ struct PreviewAppearanceSettings: Equatable {
     let compactModeItemSize: CompactModeItemSize
     let compactModeHideTrafficLights: Bool
     let showSpaceNumberIndicator: Bool
+    let showWindowStatusIndicatorsInSpaceIndicator: Bool
     let disableDockStyleSpaceNumberIndicator: Bool
     let titleOverflowStyle: TitleOverflowStyle
 
@@ -101,6 +134,7 @@ struct PreviewAppearanceSettings: Equatable {
         .dockLivePreviewQuality, .windowSwitcherLivePreviewQuality,
         .dockLivePreviewFrameRate, .windowSwitcherLivePreviewFrameRate,
         .showDockPreviewSpaceNumberIndicator, .showSwitcherSpaceNumberIndicator, .showCmdTabSpaceNumberIndicator,
+        .showDockPreviewWindowStatusIndicators, .showSwitcherWindowStatusIndicators, .showCmdTabWindowStatusIndicators,
         .disableDockStyleSpaceNumberIndicator, .switcherDisableDockStyleSpaceNumberIndicator, .cmdTabDisableDockStyleSpaceNumberIndicator,
         .showMinimizedHiddenLabels, .selectionOpacity, .unselectedContentOpacity, .hoverHighlightColor,
         .allowDynamicImageSizing, .hidePreviewCardBackground,
@@ -155,6 +189,7 @@ struct PreviewAppearanceSettings: Equatable {
             compactModeItemSize: Defaults[.compactModeItemSize],
             compactModeHideTrafficLights: Defaults[.compactModeHideTrafficLights],
             showSpaceNumberIndicator: pick(.showDockPreviewSpaceNumberIndicator, switcher: .showSwitcherSpaceNumberIndicator, cmdTab: .showCmdTabSpaceNumberIndicator),
+            showWindowStatusIndicatorsInSpaceIndicator: pick(.showDockPreviewWindowStatusIndicators, switcher: .showSwitcherWindowStatusIndicators, cmdTab: .showCmdTabWindowStatusIndicators),
             disableDockStyleSpaceNumberIndicator: pick(.disableDockStyleSpaceNumberIndicator, switcher: .switcherDisableDockStyleSpaceNumberIndicator, cmdTab: .cmdTabDisableDockStyleSpaceNumberIndicator),
             titleOverflowStyle: Defaults[.titleOverflowStyle]
         )
@@ -210,18 +245,38 @@ struct WindowPreview: View, Equatable {
         return nil
     }
 
+    private var hasSpaceIndicator: Bool {
+        appearance.showSpaceNumberIndicator && windowInfo.spaceNumber != nil
+    }
+
+    private var windowStateSymbols: [String] {
+        PreviewWindowStateIndicator.symbols(
+            for: windowInfo,
+            isEffectivelyHidden: isEffectivelyHidden,
+            enabled: appearance.showMinimizedHiddenLabels
+        )
+    }
+
+    private var movesWindowStateToSpaceIndicator: Bool {
+        appearance.showWindowStatusIndicatorsInSpaceIndicator &&
+            hasSpaceIndicator &&
+            !windowStateSymbols.isEmpty
+    }
+
+    private var visibleWindowStateLabel: String? {
+        movesWindowStateToSpaceIndicator ? nil : windowStateLabel
+    }
+
     private var windowStateSymbol: String? {
-        guard appearance.showMinimizedHiddenLabels else { return nil }
+        guard !movesWindowStateToSpaceIndicator,
+              appearance.showMinimizedHiddenLabels
+        else { return nil }
         if windowInfo.isMinimized || isEffectivelyHidden {
             return "eye.slash"
         } else if windowInfo.isFullscreen == true {
             return "arrow.up.left.and.arrow.down.right"
         }
         return nil
-    }
-
-    private var hasSpaceIndicator: Bool {
-        appearance.showSpaceNumberIndicator && windowInfo.spaceNumber != nil
     }
 
     private var embeddedControlsAreLeading: Bool {
@@ -237,12 +292,16 @@ struct WindowPreview: View, Equatable {
         nonAlignmentPadding: CGFloat
     ) -> some View {
         if appearance.showSpaceNumberIndicator, let spaceNumber = windowInfo.spaceNumber {
-            let adjustedPadding = max(0, nonAlignmentPadding)
+            let statusSymbols = appearance.showWindowStatusIndicatorsInSpaceIndicator ? windowStateSymbols : []
+            let adjustedPadding = statusSymbols.isEmpty ? max(0, nonAlignmentPadding) : 0
             SpaceNumberIndicator(
                 number: spaceNumber,
+                statusSymbols: statusSymbols,
                 disableDockStyling: appearance.disableDockStyleSpaceNumberIndicator,
                 backgroundAppearance: backgroundAppearance
             )
+            .fixedSize(horizontal: true, vertical: false)
+            .layoutPriority(1)
             .padding(.leading, controlsAreLeading ? 0 : -adjustedPadding)
             .padding(.trailing, controlsAreLeading ? -adjustedPadding : 0)
         }
@@ -400,7 +459,7 @@ struct WindowPreview: View, Equatable {
             parentHovered: selected || isHoveringOverDockPeekPreview
         )
         let hasVisibleAdjacentControl = (hasTrafficLights && showTrafficLights) ||
-            (!hasTrafficLights && windowStateLabel != nil && appearance.trafficLightVisibility != .never)
+            (!hasTrafficLights && visibleWindowStateLabel != nil && appearance.trafficLightVisibility != .never)
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
                 titleLabel(title, adaptsToAvailableWidth: true)
@@ -434,10 +493,10 @@ struct WindowPreview: View, Equatable {
                 .frame(width: showTrafficLights ? nil : 0)
                 .clipped()
                 .animation(nil, value: showTrafficLights)
-            } else if let windowStateLabel,
+            } else if let stateLabel = visibleWindowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
-                Text(windowStateLabel)
+                Text(stateLabel)
                     .font(appearance.windowTitleFontSize.font)
                     .italic()
                     .foregroundStyle(.secondary)
@@ -654,7 +713,7 @@ struct WindowPreview: View, Equatable {
             parentHovered: selected || isHoveringOverWindowSwitcherPreview
         )
         let hasVisibleAdjacentControl = (canRenderTrafficLightButtons && showTrafficLights) ||
-            (!canRenderTrafficLightButtons && windowStateLabel != nil && appearance.trafficLightVisibility != .never)
+            (!canRenderTrafficLightButtons && visibleWindowStateLabel != nil && appearance.trafficLightVisibility != .never)
         let titleAndSubtitleContent = VStack(alignment: .leading, spacing: 0) {
             if !showAppIconOnly {
                 Text(windowInfo.app.localizedName ?? "Unknown")
@@ -700,10 +759,10 @@ struct WindowPreview: View, Equatable {
                 )
                 .frame(width: showTrafficLights ? nil : 0)
                 .clipped()
-            } else if let windowStateLabel,
+            } else if let stateLabel = visibleWindowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
-                Text(windowStateLabel)
+                Text(stateLabel)
                     .font(appearance.windowTitleFontSize.font)
                     .italic()
                     .foregroundStyle(.secondary)
@@ -773,7 +832,7 @@ struct WindowPreview: View, Equatable {
             parentHovered: selected || isHoveringOverDockPeekPreview
         )
         let hasVisibleAdjacentControl = (hasTrafficLights && showTrafficLights) ||
-            (!hasTrafficLights && windowStateLabel != nil && appearance.trafficLightVisibility != .never)
+            (!hasTrafficLights && visibleWindowStateLabel != nil && appearance.trafficLightVisibility != .never)
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
                 titleLabel(title, adaptsToAvailableWidth: true)
@@ -806,10 +865,10 @@ struct WindowPreview: View, Equatable {
                 )
                 .frame(width: showTrafficLights ? nil : 0)
                 .clipped()
-            } else if let windowStateLabel,
+            } else if let stateLabel = visibleWindowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
-                Text(windowStateLabel)
+                Text(stateLabel)
                     .font(appearance.windowTitleFontSize.font)
                     .italic()
                     .foregroundStyle(.secondary)

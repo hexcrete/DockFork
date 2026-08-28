@@ -87,6 +87,21 @@ struct WindowPreviewCompact: View, Equatable {
         return nil
     }
 
+    private var secondaryStateIndicator: String? {
+        if windowInfo.isWindowlessApp {
+            return stateIndicator
+        }
+        return appearance.showSpaceNumberIndicator ? nil : stateIndicator
+    }
+
+    private var windowStateSymbols: [String] {
+        PreviewWindowStateIndicator.symbols(
+            for: windowInfo,
+            isEffectivelyHidden: windowInfo.isEffectivelyHiddenForUI,
+            enabled: appearance.showMinimizedHiddenLabels
+        )
+    }
+
     var body: some View {
         let showTrafficLightButtons = appearance.trafficLightVisibility.isVisible(
             hoveringOverParentWindow: isSelected || isHovering,
@@ -116,24 +131,29 @@ struct WindowPreviewCompact: View, Equatable {
                 switch appearance.compactModeTitleFormat {
                 case .appNameAndTitle:
                     titleText(appName, isPrimary: true)
-                    // Show state instead of window title when minimized/hidden
-                    if let state = stateIndicator {
+                    if let title = windowTitle {
+                        HStack(spacing: 0) {
+                            titleText(title, isPrimary: false)
+                            if let state = secondaryStateIndicator {
+                                Text("  \u{2022}  ")
+                                    .font(appearance.compactModeItemSize.secondaryFont)
+                                    .foregroundStyle(.secondary)
+                                stateText(state)
+                            }
+                        }
+                    } else if let state = secondaryStateIndicator {
                         stateText(state)
-                    } else if let title = windowTitle {
-                        titleText(title, isPrimary: false)
                     }
 
                 case .titleOnly:
                     titleText(windowTitle ?? appName, isPrimary: true)
-                    // Show state below the title
-                    if let state = stateIndicator {
+                    if let state = secondaryStateIndicator {
                         stateText(state)
                     }
 
                 case .appNameOnly:
                     titleText(appName, isPrimary: true)
-                    // Show state below app name
-                    if let state = stateIndicator {
+                    if let state = secondaryStateIndicator {
                         stateText(state)
                     }
                 }
@@ -145,6 +165,7 @@ struct WindowPreviewCompact: View, Equatable {
                 if appearance.showSpaceNumberIndicator, let spaceNumber = windowInfo.spaceNumber {
                     SpaceNumberIndicator(
                         number: spaceNumber,
+                        statusSymbols: windowStateSymbols,
                         disableDockStyling: appearance.disableDockStyleSpaceNumberIndicator,
                         backgroundAppearance: backgroundAppearance
                     )

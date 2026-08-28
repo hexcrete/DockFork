@@ -41,6 +41,7 @@ struct SettingsMockPreview: View {
     @Default(.dockLivePreviewQuality) private var dockLivePreviewQuality
     @Default(.dockLivePreviewFrameRate) private var dockLivePreviewFrameRate
     @Default(.showDockPreviewSpaceNumberIndicator) private var showDockPreviewSpaceNumberIndicator
+    @Default(.showDockPreviewWindowStatusIndicators) private var showDockPreviewWindowStatusIndicators
     @Default(.disableDockStyleSpaceNumberIndicator) private var disableDockStyleSpaceNumberIndicator
 
     // MARK: - Window Switcher appearance settings
@@ -55,6 +56,7 @@ struct SettingsMockPreview: View {
     @Default(.windowSwitcherLivePreviewQuality) private var switcherLivePreviewQuality
     @Default(.windowSwitcherLivePreviewFrameRate) private var switcherLivePreviewFrameRate
     @Default(.showSwitcherSpaceNumberIndicator) private var showSwitcherSpaceNumberIndicator
+    @Default(.showSwitcherWindowStatusIndicators) private var showSwitcherWindowStatusIndicators
     @Default(.switcherDisableDockStyleSpaceNumberIndicator) private var switcherDisableDockStyleSpaceNumberIndicator
 
     // MARK: - Cmd+Tab appearance settings
@@ -69,6 +71,7 @@ struct SettingsMockPreview: View {
     @Default(.cmdTabDisableDockStyleTitles) private var cmdTabDisableStyleTitles
     @Default(.cmdTabUseEmbeddedDockPreviewElements) private var cmdTabUseEmbedded
     @Default(.showCmdTabSpaceNumberIndicator) private var showCmdTabSpaceNumberIndicator
+    @Default(.showCmdTabWindowStatusIndicators) private var showCmdTabWindowStatusIndicators
     @Default(.cmdTabDisableDockStyleSpaceNumberIndicator) private var cmdTabDisableDockStyleSpaceNumberIndicator
 
     // MARK: - Shared appearance settings
@@ -217,6 +220,13 @@ struct SettingsMockPreview: View {
         } else {
             showDockPreviewSpaceNumberIndicator
         }
+        let showWindowStatusIndicatorsInSpaceIndicator: Bool = if isWindowSwitcher {
+            showSwitcherWindowStatusIndicators
+        } else if isCmdTab {
+            showCmdTabWindowStatusIndicators
+        } else {
+            showDockPreviewWindowStatusIndicators
+        }
         let disableDockStyleSpaceNumberIndicator: Bool = if isWindowSwitcher {
             switcherDisableDockStyleSpaceNumberIndicator
         } else if isCmdTab {
@@ -257,6 +267,7 @@ struct SettingsMockPreview: View {
             compactModeItemSize: compactModeItemSize,
             compactModeHideTrafficLights: compactModeHideTrafficLights,
             showSpaceNumberIndicator: showSpaceNumberIndicator,
+            showWindowStatusIndicatorsInSpaceIndicator: showWindowStatusIndicatorsInSpaceIndicator,
             disableDockStyleSpaceNumberIndicator: disableDockStyleSpaceNumberIndicator,
             titleOverflowStyle: titleOverflowStyle
         )
@@ -319,7 +330,8 @@ struct SettingsMockPreview: View {
                 lastAccessedTime: Date(),
                 spaceNumberOverride: i + 1,
                 isMinimized: false,
-                isHidden: false
+                isHidden: false,
+                isFullscreen: i == 1
             ))
         }
         return windows

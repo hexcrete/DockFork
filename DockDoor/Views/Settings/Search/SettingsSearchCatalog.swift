@@ -952,6 +952,15 @@ enum SettingsSearchCatalog {
             icon: "number.circle"
         ),
         SettingsSearchItem(
+            id: "appearance.dockSpaceWindowStatusIndicators",
+            title: String(localized: "Show window status indicators"),
+            description: String(localized: "Moves the Minimized, Hidden, and Full Screen indicators in line with the Space number indicator."),
+            keywords: ["space", "status", "minimized", "hidden", "full screen", "dock"],
+            tab: "Appearance",
+            section: String(localized: "Dock Preview Appearance"),
+            icon: "eye.slash"
+        ),
+        SettingsSearchItem(
             id: "appearance.dockDisableSpaceNumberIndicatorStyling",
             title: String(localized: "Disable dock styling on Space number indicator"),
             description: String(localized: "Removes the pill-shaped background styling from the Space number indicator in dock previews."),
@@ -1040,6 +1049,15 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "Window Switcher Appearance"),
             icon: "number.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherSpaceWindowStatusIndicators",
+            title: String(localized: "Show window status indicators"),
+            description: String(localized: "Moves the Minimized, Hidden, and Full Screen indicators in line with the Space number indicator."),
+            keywords: ["space", "status", "minimized", "hidden", "full screen", "switcher"],
+            tab: "Appearance",
+            section: String(localized: "Window Switcher Appearance"),
+            icon: "eye.slash"
         ),
         SettingsSearchItem(
             id: "appearance.switcherDisableSpaceNumberIndicatorStyling",
@@ -1189,6 +1207,15 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "Cmd+Tab Appearance"),
             icon: "number.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabSpaceWindowStatusIndicators",
+            title: String(localized: "Show window status indicators"),
+            description: String(localized: "Moves the Minimized, Hidden, and Full Screen indicators in line with the Space number indicator."),
+            keywords: ["space", "status", "minimized", "hidden", "full screen", "cmd tab"],
+            tab: "Appearance",
+            section: String(localized: "Cmd+Tab Appearance"),
+            icon: "eye.slash"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabDisableSpaceNumberIndicatorStyling",

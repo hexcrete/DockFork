@@ -15,6 +15,7 @@ struct CmdTabAppearanceSection: View {
     @Default(.cmdTabDisableDockStyleTrafficLights) var cmdTabDisableDockStyleTrafficLights
     @Default(.cmdTabUseEmbeddedDockPreviewElements) var cmdTabUseEmbeddedDockPreviewElements
     @Default(.showCmdTabSpaceNumberIndicator) var showCmdTabSpaceNumberIndicator
+    @Default(.showCmdTabWindowStatusIndicators) var showCmdTabWindowStatusIndicators
     @Default(.cmdTabDisableDockStyleSpaceNumberIndicator) var cmdTabDisableDockStyleSpaceNumberIndicator
 
     var body: some View {
@@ -125,6 +126,14 @@ struct CmdTabAppearanceSection: View {
             Toggle("Show Space Number Indicator", isOn: $showCmdTabSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.cmdTabSpaceNumberIndicator")
             if showCmdTabSpaceNumberIndicator {
+                VStack(alignment: .leading) {
+                    Toggle("Show window status indicators", isOn: $showCmdTabWindowStatusIndicators)
+                        .settingsSearchTarget("appearance.cmdTabSpaceWindowStatusIndicators")
+                    Text("Moves the Minimized, Hidden, and Full Screen indicators in line with the Space number indicator.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                        .padding(.leading, 20)
+                }
                 VStack(alignment: .leading) {
                     Toggle("Disable dock styling on Space number indicator", isOn: $cmdTabDisableDockStyleSpaceNumberIndicator)
                         .settingsSearchTarget("appearance.cmdTabDisableSpaceNumberIndicatorStyling")
