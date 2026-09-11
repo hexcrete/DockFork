@@ -162,9 +162,11 @@ struct WindowPreviewCompact: View, Equatable {
             Spacer(minLength: 0)
 
             HStack(spacing: controlsSpacing) {
-                if appearance.showSpaceNumberIndicator, let spaceNumber = windowInfo.spaceNumber {
+                if appearance.showSpaceNumberIndicator,
+                   windowInfo.spaceNumber != nil || !windowStateSymbols.isEmpty
+                {
                     SpaceNumberIndicator(
-                        number: spaceNumber,
+                        number: windowInfo.spaceNumber,
                         statusSymbols: windowStateSymbols,
                         disableDockStyling: appearance.disableDockStyleSpaceNumberIndicator,
                         backgroundAppearance: backgroundAppearance

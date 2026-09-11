@@ -24,19 +24,21 @@ struct SpaceNumberIndicator: View {
     static let unstyledControlLineHeight: CGFloat = 24
     private static let styledBadgeMinimumSize = CGSize(width: 14, height: 14)
 
-    let number: Int
+    let number: Int?
     let statusSymbols: [String]
     let disableDockStyling: Bool
     let backgroundAppearance: BackgroundAppearance
 
     @ViewBuilder
     private func badgeContent(minimumWidth: CGFloat?, minimumHeight: CGFloat) -> some View {
-        Text("\(number)")
-            .font(.system(size: 10, weight: .semibold, design: .rounded))
-            .monospacedDigit()
-            .foregroundStyle(.primary)
-            .frame(minWidth: minimumWidth, minHeight: minimumHeight)
-            .padding(.horizontal, number > 9 ? 2 : 0)
+        if let number {
+            Text("\(number)")
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+                .frame(minWidth: minimumWidth, minHeight: minimumHeight)
+                .padding(.horizontal, number > 9 ? 2 : 0)
+        }
     }
 
     @ViewBuilder
@@ -52,10 +54,12 @@ struct SpaceNumberIndicator: View {
         Group {
             if disableDockStyling {
                 HStack(spacing: 4) {
-                    badgeContent(minimumWidth: 18, minimumHeight: 18)
-                        .overlay {
-                            Capsule().stroke(.secondary, lineWidth: 1)
-                        }
+                    if number != nil {
+                        badgeContent(minimumWidth: 18, minimumHeight: 18)
+                            .overlay {
+                                Capsule().stroke(.secondary, lineWidth: 1)
+                            }
+                    }
                     statusIcons()
                 }
                 .frame(height: Self.unstyledControlLineHeight)
@@ -73,7 +77,7 @@ struct SpaceNumberIndicator: View {
                 .materialPill(backgroundAppearance: backgroundAppearance)
             }
         }
-        .accessibilityLabel(Text("Space \(number)"))
+        .accessibilityLabel(Text(number.map { "Space \($0)" } ?? "Window status"))
     }
 }
 
@@ -248,7 +252,9 @@ struct WindowPreview: View, Equatable {
     }
 
     private var hasSpaceIndicator: Bool {
-        appearance.showSpaceNumberIndicator && windowInfo.spaceNumber != nil
+        appearance.showSpaceNumberIndicator &&
+            (windowInfo.spaceNumber != nil ||
+                (appearance.showWindowStatusIndicatorsInSpaceIndicator && !windowStateSymbols.isEmpty))
     }
 
     private var windowStateSymbols: [String] {
@@ -295,11 +301,13 @@ struct WindowPreview: View, Equatable {
         controlsAreLeading: Bool,
         nonAlignmentPadding: CGFloat
     ) -> some View {
-        if appearance.showSpaceNumberIndicator, let spaceNumber = windowInfo.spaceNumber {
-            let statusSymbols = appearance.showWindowStatusIndicatorsInSpaceIndicator ? windowStateSymbols : []
+        let statusSymbols = appearance.showWindowStatusIndicatorsInSpaceIndicator ? windowStateSymbols : []
+        if appearance.showSpaceNumberIndicator,
+           windowInfo.spaceNumber != nil || !statusSymbols.isEmpty
+        {
             let adjustedPadding = statusSymbols.isEmpty ? max(0, nonAlignmentPadding) : 0
             SpaceNumberIndicator(
-                number: spaceNumber,
+                number: windowInfo.spaceNumber,
                 statusSymbols: statusSymbols,
                 disableDockStyling: appearance.disableDockStyleSpaceNumberIndicator,
                 backgroundAppearance: backgroundAppearance
