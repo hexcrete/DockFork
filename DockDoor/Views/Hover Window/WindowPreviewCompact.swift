@@ -141,7 +141,9 @@ struct WindowPreviewCompact: View, Equatable {
                 switch appearance.compactModeTitleFormat {
                 case .appNameAndTitle:
                     titleText(appName, isPrimary: true)
-                    if let title = windowTitle {
+                    if windowInfo.isWindowlessApp, let state = secondaryStateIndicator {
+                        stateText(state)
+                    } else if let title = windowTitle {
                         HStack(spacing: 0) {
                             if let state = secondaryStateIndicator {
                                 stateText(state)
@@ -156,7 +158,7 @@ struct WindowPreviewCompact: View, Equatable {
                     }
 
                 case .titleOnly:
-                    titleText(windowTitle ?? appName, isPrimary: true)
+                    titleText(windowInfo.isWindowlessApp ? appName : windowTitle ?? appName, isPrimary: true)
                     if let state = secondaryStateIndicator {
                         stateText(state)
                     }
