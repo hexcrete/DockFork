@@ -91,7 +91,7 @@ struct WindowPreviewCompact: View, Equatable {
         if windowInfo.isWindowlessApp {
             return stateIndicator
         }
-        return appearance.showSpaceNumberIndicator ? nil : stateIndicator
+        return movesWindowStateToSpaceIndicator ? nil : stateIndicator
     }
 
     private var windowStateSymbols: [String] {
@@ -100,6 +100,16 @@ struct WindowPreviewCompact: View, Equatable {
             isEffectivelyHidden: windowInfo.isEffectivelyHiddenForUI,
             enabled: appearance.showMinimizedHiddenLabels
         )
+    }
+
+    private var movesWindowStateToSpaceIndicator: Bool {
+        appearance.showSpaceNumberIndicator &&
+            appearance.showWindowStatusIndicatorsInSpaceIndicator &&
+            !windowStateSymbols.isEmpty
+    }
+
+    private var spaceIndicatorStatusSymbols: [String] {
+        movesWindowStateToSpaceIndicator ? windowStateSymbols : []
     }
 
     var body: some View {
@@ -163,11 +173,11 @@ struct WindowPreviewCompact: View, Equatable {
 
             HStack(spacing: controlsSpacing) {
                 if appearance.showSpaceNumberIndicator,
-                   windowInfo.spaceNumber != nil || !windowStateSymbols.isEmpty
+                   windowInfo.spaceNumber != nil || !spaceIndicatorStatusSymbols.isEmpty
                 {
                     SpaceNumberIndicator(
                         number: windowInfo.spaceNumber,
-                        statusSymbols: windowStateSymbols,
+                        statusSymbols: spaceIndicatorStatusSymbols,
                         disableDockStyling: appearance.disableDockStyleSpaceNumberIndicator,
                         backgroundAppearance: backgroundAppearance
                     )
