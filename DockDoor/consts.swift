@@ -823,6 +823,7 @@ enum AeroShakeAction: String, CaseIterable, Defaults.Serializable {
 enum DockClickAction: String, CaseIterable, Defaults.Serializable {
     case minimize
     case hide
+    case cycleWindows
 
     var localizedName: String {
         switch self {
@@ -830,6 +831,8 @@ enum DockClickAction: String, CaseIterable, Defaults.Serializable {
             String(localized: "Minimize windows", comment: "Dock click action option")
         case .hide:
             String(localized: "Hide application", comment: "Dock click action option")
+        case .cycleWindows:
+            String(localized: "Cycle through windows", comment: "Dock click action option")
         }
     }
 }

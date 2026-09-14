@@ -1196,6 +1196,8 @@ struct WindowPreviewHoverContainer: View {
                     }
                     runSharedMinimizeAll(with: preferredToMinimize)
                     previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
+                case .cycleWindows:
+                    break
                 }
             } else {
                 if WindowUtil.hasOnlyFullscreenWindows(for: app, preferredWindows: originalWindows) {

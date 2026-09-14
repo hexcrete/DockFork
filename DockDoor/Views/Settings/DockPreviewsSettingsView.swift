@@ -136,7 +136,7 @@ struct DockPreviewsSettingsView: View {
                     .disabled(previewHoverAction == .none)
                     .settingsSearchTarget("dockPreviews.hoverDelay")
 
-                Toggle(isOn: $shouldHideOnDockItemClick) { Text("Hide all app windows on dock icon click") }
+                Toggle(isOn: $shouldHideOnDockItemClick) { Text("Override Dock icon click") }
                     .settingsSearchTarget("dockPreviews.hideOnClick")
                 if shouldHideOnDockItemClick {
                     Picker("Dock Click Action", selection: $dockClickAction) {
@@ -146,6 +146,7 @@ struct DockPreviewsSettingsView: View {
                     }
                     .pickerStyle(MenuPickerStyle())
                     .padding(.leading, 20)
+                    .settingsSearchTarget("dockPreviews.clickAction")
                 }
 
                 Toggle(isOn: $enableCmdRightClickQuit) { Text("CMD + Right Click on dock icon to quit app") }

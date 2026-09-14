@@ -51,6 +51,11 @@ final class DockObserver {
         let timestamp: Date
     }
 
+    private struct WindowCycleState {
+        let orderedWindowIDs: [CGWindowID]
+        var nextIndex: Int
+    }
+
     weak static var activeInstance: DockObserver?
     let previewCoordinator: SharedPreviewWindowCoordinator
 
@@ -74,6 +79,9 @@ final class DockObserver {
     var lastHoveredAppWasFrontmost: Bool = false
     var lastHoveredAppNeedsRestore: Bool = false
     var lastHoveredAppHadWindows: Bool = false
+    private var windowCycleState: WindowCycleState?
+    private var cycleHoverProcessIdentifier: pid_t?
+    private var cycleHoverGeneration = 0
 
     // Scroll gesture state
     private var lastDockScrollActionTime: Date = .distantPast
@@ -265,10 +273,12 @@ final class DockObserver {
         guard !previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive,
               let dockItemElement = appUnderMouseElement.dockItemElement
         else {
+            resetWindowCycleHover()
             return
         }
 
         if case let .notRunning(bundleIdentifier) = appUnderMouseElement.status {
+            resetWindowCycleHover()
             let isCalendar = bundleIdentifier == calendarAppIdentifier && Defaults[.enableCalendarWidget]
             let mr = MediaRemoteService.shared
             let isActiveMedia = bundleIdentifier == mr.activeBundleIdentifier
@@ -297,8 +307,11 @@ final class DockObserver {
         }
 
         guard case let .success(currentApp) = appUnderMouseElement.status else {
+            resetWindowCycleHover()
             return
         }
+
+        _ = updateWindowCycleHover(for: currentApp.processIdentifier)
 
         if WindowUtil.isAppFiltered(currentApp) {
             return
@@ -746,6 +759,15 @@ final class DockObserver {
 
         guard Defaults[.shouldHideOnDockItemClick] else { return false }
 
+        switch Defaults[.dockClickAction] {
+        case .cycleWindows:
+            prepareForOverriddenDockClick()
+            cycleThroughWindows(of: app)
+            return true
+        case .minimize, .hide:
+            break
+        }
+
         // Defer to native behavior for simple activation
         if hasValidHoverState, !lastHoveredAppWasFrontmost, !lastHoveredAppNeedsRestore {
             lastHoveredPID = nil
@@ -796,24 +818,125 @@ final class DockObserver {
                     return
                 }
 
-                let windows = try await WindowUtil.getActiveWindows(of: app, ignoreSingleWindowFilter: true)
-                let currentlyHasMinimizedWindows = windows.contains(where: \.isMinimized)
+                do {
+                    let windows = try await WindowUtil.getActiveWindows(of: app, ignoreSingleWindowFilter: true)
+                    let currentlyHasMinimizedWindows = windows.contains(where: \.isMinimized)
 
-                // Use the state captured at click time to determine intent
-                // This prevents native dock's restore from confusing our logic
-                let needsRestore = restorationNeededAtClickTime || currentlyHasMinimizedWindows
+                    // Use the state captured at click time to determine intent
+                    // This prevents native dock's restore from confusing our logic
+                    let needsRestore = restorationNeededAtClickTime || currentlyHasMinimizedWindows
 
-                if needsRestore {
-                    DebugLogger.log("DockClick", details: "\(appName): restoring (needsRestore=true, minimized=\(currentlyHasMinimizedWindows))")
-                    restoreAppWindows(windows: windows, app: app, appName: appName)
-                } else if wasFrontmostOnHover, !windows.isEmpty {
-                    DebugLogger.log("DockClick", details: "\(appName): hiding (wasFrontmost=true, windows=\(windows.count))")
-                    hideAppWindows(windows: windows, app: app, appName: appName)
+                    if needsRestore {
+                        DebugLogger.log("DockClick", details: "\(appName): restoring (needsRestore=true, minimized=\(currentlyHasMinimizedWindows))")
+                        restoreAppWindows(windows: windows, app: app, appName: appName)
+                    } else if wasFrontmostOnHover, !windows.isEmpty {
+                        DebugLogger.log("DockClick", details: "\(appName): hiding (wasFrontmost=true, windows=\(windows.count))")
+                        hideAppWindows(windows: windows, app: app, appName: appName)
+                    }
+                } catch {
+                    DebugLogger.log("DockClick", details: "\(appName): failed to fetch windows after dock click: \(error)")
                 }
             }
         }
 
         return false
+    }
+
+    private func prepareForOverriddenDockClick() {
+        lastHoveredPID = nil
+        previewCoordinator.cancelPendingShow()
+        previewCoordinator.hideWindow()
+    }
+
+    private func updateWindowCycleHover(for processIdentifier: pid_t) -> Int {
+        guard cycleHoverProcessIdentifier != processIdentifier else { return cycleHoverGeneration }
+        resetWindowCycleHover()
+        cycleHoverProcessIdentifier = processIdentifier
+        return cycleHoverGeneration
+    }
+
+    private func resetWindowCycleHover() {
+        cycleHoverGeneration &+= 1
+        windowCycleState = nil
+        cycleHoverProcessIdentifier = nil
+    }
+
+    private func cycleThroughWindows(of app: NSRunningApplication) {
+        let hoverGeneration = updateWindowCycleHover(for: app.processIdentifier)
+        let cachedWindows = WindowUtil.readCachedWindows(for: app.processIdentifier)
+            .filter { !$0.isWindowlessApp }
+
+        if cachedWindows.isEmpty {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let windows = await (try? WindowUtil.getActiveWindows(of: app, ignoreSingleWindowFilter: true)) ?? []
+                activateNextWindow(of: app, from: windows, hoverGeneration: hoverGeneration)
+            }
+        } else {
+            activateNextWindow(of: app, from: cachedWindows, hoverGeneration: hoverGeneration)
+        }
+    }
+
+    private func activateNextWindow(of app: NSRunningApplication, from windows: [WindowInfo], hoverGeneration: Int) {
+        guard cycleHoverProcessIdentifier == app.processIdentifier,
+              cycleHoverGeneration == hoverGeneration
+        else {
+            return
+        }
+
+        let windowsByRecentUse = windows
+            .filter { !$0.isWindowlessApp }
+            .sorted { $0.lastAccessedTime > $1.lastAccessedTime }
+
+        guard !windowsByRecentUse.isEmpty else {
+            windowCycleState = nil
+            WindowUtil.activateWindowlessApp(app: app)
+            return
+        }
+
+        let windowIDs = windowsByRecentUse.map(\.id)
+        let processIdentifier = app.processIdentifier
+        let focusedWindow = (try? AXUIElementCreateApplication(processIdentifier).focusedWindow()) ?? nil
+        let focusedWindowID = focusedWindow.flatMap { try? $0.cgWindowId() }
+
+        let nextIndex: Int
+        if var state = windowCycleState,
+           Set(state.orderedWindowIDs) == Set(windowIDs)
+        {
+            state.nextIndex %= state.orderedWindowIDs.count
+            nextIndex = state.nextIndex
+            state.nextIndex = (nextIndex + 1) % state.orderedWindowIDs.count
+            windowCycleState = state
+        } else {
+            if NSWorkspace.shared.frontmostApplication?.processIdentifier == processIdentifier,
+               let focusedWindowID,
+               let focusedIndex = windowIDs.firstIndex(of: focusedWindowID)
+            {
+                nextIndex = (focusedIndex + 1) % windowIDs.count
+            } else {
+                nextIndex = 0
+            }
+            windowCycleState = WindowCycleState(
+                orderedWindowIDs: windowIDs,
+                nextIndex: (nextIndex + 1) % windowIDs.count
+            )
+        }
+
+        let targetWindowID = windowCycleState?.orderedWindowIDs[nextIndex] ?? windowIDs[nextIndex]
+        guard let targetWindow = windowsByRecentUse.first(where: { $0.id == targetWindowID }) else {
+            windowCycleState = nil
+            return
+        }
+
+        var mutableWindow = targetWindow
+        if mutableWindow.isMinimized {
+            _ = mutableWindow.toggleMinimize()
+        } else {
+            if app.isHidden {
+                app.unhide()
+            }
+            targetWindow.bringToFront()
+        }
     }
 
     private func handleShiftClickNewWindow(app: NSRunningApplication) {
