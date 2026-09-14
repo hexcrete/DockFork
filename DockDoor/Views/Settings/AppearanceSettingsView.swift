@@ -18,6 +18,8 @@ struct AppearanceSettingsView: View {
 
                 WindowSizeSettingsSection()
 
+                FullSizePreviewAppearanceSection()
+
                 BackgroundAppearanceSection()
 
                 GeneralAppearanceSection()

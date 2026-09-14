@@ -689,6 +689,33 @@ enum SettingsSearchCatalog {
             section: String(localized: "General Appearance"),
             icon: "rectangle.inset.filled.and.person.filled"
         ),
+        SettingsSearchItem(
+            id: "appearance.fullSizePreviewOpacity",
+            title: String(localized: "Opacity"),
+            description: String(localized: "Adjusts the transparency of full size previews."),
+            keywords: ["full", "size", "preview", "opacity", "transparency"],
+            tab: "Appearance",
+            section: String(localized: "Full Size Previews"),
+            icon: "circle.lefthalf.filled"
+        ),
+        SettingsSearchItem(
+            id: "appearance.fullSizePreviewBackgroundBlur",
+            title: String(localized: "Blur background behind full size previews"),
+            description: String(localized: "Blurs the content behind full size previews without blurring the preview itself."),
+            keywords: ["full", "size", "preview", "blur", "background", "backdrop"],
+            tab: "Appearance",
+            section: String(localized: "Full Size Previews"),
+            icon: "drop.halffull"
+        ),
+        SettingsSearchItem(
+            id: "appearance.fullSizePreviewBorder",
+            title: String(localized: "Show full size preview border"),
+            description: String(localized: "Uses the active window border color and stays inside the preview bounds."),
+            keywords: ["full", "size", "preview", "border", "active", "highlight"],
+            tab: "Appearance",
+            section: String(localized: "Full Size Previews"),
+            icon: "rectangle.inset.filled"
+        ),
         // Compact Mode
         SettingsSearchItem(
             id: "appearance.compactMode",

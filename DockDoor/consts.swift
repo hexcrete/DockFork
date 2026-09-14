@@ -217,6 +217,9 @@ extension Defaults.Keys {
     static let customBackgroundColor = Key<Color?>("customBackgroundColor", default: nil)
     static let appAppearanceMode = Key<AppAppearanceMode>("appAppearanceMode", default: .system)
     static let showActiveWindowBorder = Key<Bool>("showActiveWindowBorder", default: false)
+    static let fullSizePreviewOpacity = Key<CGFloat>("fullSizePreviewOpacity", default: 1.0)
+    static let enableFullSizePreviewBackdropBlur = Key<Bool>("enableFullSizePreviewBackdropBlur", default: false)
+    static let showFullSizePreviewBorder = Key<Bool>("showFullSizePreviewBorder", default: false)
 
     // MARK: - Glass Effect
 

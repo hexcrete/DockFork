@@ -134,3 +134,47 @@ struct GeneralAppearanceSection: View {
         }
     }
 }
+
+struct FullSizePreviewAppearanceSection: View {
+    @Default(.fullSizePreviewOpacity) var fullSizePreviewOpacity
+    @Default(.enableFullSizePreviewBackdropBlur) var enableFullSizePreviewBackdropBlur
+    @Default(.showFullSizePreviewBorder) var showFullSizePreviewBorder
+
+    var body: some View {
+        SettingsGroup(header: "Full Size Previews") {
+            VStack(alignment: .leading, spacing: 10) {
+                sliderSetting(
+                    title: "Opacity",
+                    value: $fullSizePreviewOpacity,
+                    range: 0 ... 1,
+                    step: 0.05,
+                    unit: "",
+                    formatter: NumberFormatter.percentFormatter
+                )
+                .settingsSearchTarget("appearance.fullSizePreviewOpacity")
+
+                VStack(alignment: .leading) {
+                    Toggle(isOn: $enableFullSizePreviewBackdropBlur) {
+                        Text("Blur background behind full size previews")
+                    }
+                    .settingsSearchTarget("appearance.fullSizePreviewBackgroundBlur")
+                    Text("Blurs the content behind full size previews without blurring the preview itself.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                        .padding(.leading, 20)
+                }
+
+                VStack(alignment: .leading) {
+                    Toggle(isOn: $showFullSizePreviewBorder) {
+                        Text("Show full size preview border")
+                    }
+                    .settingsSearchTarget("appearance.fullSizePreviewBorder")
+                    Text("Uses the active window border color and stays inside the preview bounds.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                        .padding(.leading, 20)
+                }
+            }
+        }
+    }
+}
