@@ -6,7 +6,7 @@ struct GeneralAppearanceSection: View {
     @Default(.globalPaddingMultiplier) var globalPaddingMultiplier
     @Default(.unselectedContentOpacity) var unselectedContentOpacity
     @Default(.titleOverflowStyle) var titleOverflowStyle
-    @Default(.showMinimizedHiddenLabels) var showMinimizedHiddenLabels
+    @Default(.dimMinimizedHiddenPreviews) var dimMinimizedHiddenPreviews
     @Default(.hidePreviewCardBackground) var hidePreviewCardBackground
     @Default(.hideHoverContainerBackground) var hideHoverContainerBackground
     @Default(.hideWidgetContainerBackground) var hideWidgetContainerBackground
@@ -77,11 +77,11 @@ struct GeneralAppearanceSection: View {
                 }
 
                 VStack(alignment: .leading) {
-                    Toggle(isOn: $showMinimizedHiddenLabels) {
-                        Text("Show window state indicators")
+                    Toggle(isOn: $dimMinimizedHiddenPreviews) {
+                        Text("Dim minimized and hidden previews")
                     }
-                    .settingsSearchTarget("appearance.distinguishMinimized")
-                    Text("Shows visual indicators for minimized, hidden, and full-screen windows. Minimized and hidden previews are also dimmed.")
+                    .settingsSearchTarget("appearance.dimMinimizedHiddenPreviews")
+                    Text("Dims minimized and hidden window preview images without changing window state indicator visibility.")
                         .font(.footnote)
                         .foregroundColor(.gray)
                         .padding(.leading, 20)

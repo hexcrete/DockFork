@@ -243,10 +243,11 @@ extension Defaults.Keys {
     static let enabledTrafficLightButtons = Key<Set<WindowAction>>("enabledTrafficLightButtons", default: [.quit, .close, .minimize, .toggleFullScreen])
     static let useMonochromeTrafficLights = Key<Bool>("useMonochromeTrafficLights", default: false)
     static let trafficLightButtonScale = Key<CGFloat>("trafficLightButtonScale", default: 1.0)
-    static let showMinimizedHiddenLabels = Key<Bool>("showMinimizedHiddenLabels", default: true)
+    static let dimMinimizedHiddenPreviews = Key<Bool>("showMinimizedHiddenLabels", default: true)
+    static let didMigrateWindowStateIndicatorPlacement = Key<Bool>("didMigrateWindowStateIndicatorPlacement", default: false)
     static let showDockPreviewSpaceNumberIndicator = Key<Bool>("showDockPreviewSpaceNumberIndicator", default: true)
-    static let showDockPreviewWindowStatusIndicators = Key<Bool>("showDockPreviewWindowStatusIndicators", default: false)
-    static let disableDockStyleSpaceNumberIndicator = Key<Bool>("disableDockStyleSpaceNumberIndicator", default: true)
+    static let dockPreviewWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("dockPreviewWindowStateIndicatorPlacement", default: .onWindowPreviews)
+    static let disableDockStyleWindowStateIndicator = Key<Bool>("disableDockStyleSpaceNumberIndicator", default: true)
 
     // MARK: - Window Switcher Appearance Settings
 
@@ -257,8 +258,8 @@ extension Defaults.Keys {
     static let switcherUseMonochromeTrafficLights = Key<Bool>("switcherUseMonochromeTrafficLights", default: false)
     static let switcherDisableDockStyleTrafficLights = Key<Bool>("switcherDisableDockStyleTrafficLights", default: false)
     static let showSwitcherSpaceNumberIndicator = Key<Bool>("showSwitcherSpaceNumberIndicator", default: true)
-    static let showSwitcherWindowStatusIndicators = Key<Bool>("showSwitcherWindowStatusIndicators", default: false)
-    static let switcherDisableDockStyleSpaceNumberIndicator = Key<Bool>("switcherDisableDockStyleSpaceNumberIndicator", default: true)
+    static let switcherWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("switcherWindowStateIndicatorPlacement", default: .onWindowPreviews)
+    static let switcherDisableDockStyleWindowStateIndicator = Key<Bool>("switcherDisableDockStyleSpaceNumberIndicator", default: true)
 
     // MARK: - Cmd+Tab Appearance Settings
 
@@ -277,8 +278,8 @@ extension Defaults.Keys {
     static let cmdTabDisableDockStyleTrafficLights = Key<Bool>("cmdTabDisableDockStyleTrafficLights", default: false)
     static let cmdTabDisableDockStyleTitles = Key<Bool>("cmdTabDisableDockStyleTitles", default: false)
     static let showCmdTabSpaceNumberIndicator = Key<Bool>("showCmdTabSpaceNumberIndicator", default: true)
-    static let showCmdTabWindowStatusIndicators = Key<Bool>("showCmdTabWindowStatusIndicators", default: false)
-    static let cmdTabDisableDockStyleSpaceNumberIndicator = Key<Bool>("cmdTabDisableDockStyleSpaceNumberIndicator", default: true)
+    static let cmdTabWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("cmdTabWindowStateIndicatorPlacement", default: .onWindowPreviews)
+    static let cmdTabDisableDockStyleWindowStateIndicator = Key<Bool>("cmdTabDisableDockStyleSpaceNumberIndicator", default: true)
 
     static let previewMaxColumns = Key<Int>("previewMaxColumns", default: 2) // For left/right dock
     static let previewMaxRows = Key<Int>("previewMaxRows", default: 1) // For bottom dock only
@@ -474,6 +475,23 @@ enum WindowTitleVisibility: String, CaseIterable, Defaults.Serializable {
             String(localized: "When hovering over the preview", comment: "Window title visibility option")
         case .alwaysVisible:
             String(localized: "Always visible", comment: "Window title visibility option")
+        }
+    }
+}
+
+enum WindowStateIndicatorPlacement: String, CaseIterable, Defaults.Serializable {
+    case off
+    case onWindowPreviews
+    case nextToTrafficLightButtons
+
+    var localizedName: String {
+        switch self {
+        case .off:
+            String(localized: "Off", comment: "Window state indicator placement option")
+        case .onWindowPreviews:
+            String(localized: "On Window Previews", comment: "Window state indicator placement option")
+        case .nextToTrafficLightButtons:
+            String(localized: "Next to Traffic Light Buttons", comment: "Window state indicator placement option")
         }
     }
 }

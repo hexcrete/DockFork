@@ -16,8 +16,8 @@ struct DockPreviewAppearanceSection: View {
     @Default(.previewMaxRows) var previewMaxRows
     @Default(.windowTitleFontSize) var windowTitleFontSize
     @Default(.showDockPreviewSpaceNumberIndicator) var showDockPreviewSpaceNumberIndicator
-    @Default(.showDockPreviewWindowStatusIndicators) var showDockPreviewWindowStatusIndicators
-    @Default(.disableDockStyleSpaceNumberIndicator) var disableDockStyleSpaceNumberIndicator
+    @Default(.dockPreviewWindowStateIndicatorPlacement) var dockPreviewWindowStateIndicatorPlacement
+    @Default(.disableDockStyleWindowStateIndicator) var disableDockStyleWindowStateIndicator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -104,22 +104,26 @@ struct DockPreviewAppearanceSection: View {
             }
 
             Divider().padding(.vertical, 2)
-            Text("Space Number Indicator").font(.headline).padding(.bottom, -2)
+            Text("Window State Indicator").font(.headline).padding(.bottom, -2)
             Toggle("Show Space Number Indicator", isOn: $showDockPreviewSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.dockSpaceNumberIndicator")
-            if showDockPreviewSpaceNumberIndicator {
-                VStack(alignment: .leading) {
-                    Toggle("Show window status indicators", isOn: $showDockPreviewWindowStatusIndicators)
-                        .settingsSearchTarget("appearance.dockSpaceWindowStatusIndicators")
-                    Text("Moves the Minimized, Hidden, and Full Screen indicators in line with the Space number indicator.")
-                        .font(.footnote)
-                        .foregroundColor(.gray)
-                        .padding(.leading, 20)
+
+            Picker("Show Window State Indicator", selection: $dockPreviewWindowStateIndicatorPlacement) {
+                ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
+                    Text(placement.localizedName).tag(placement)
                 }
+            }
+            .pickerStyle(.menu)
+            .settingsSearchTarget("appearance.dockWindowStateIndicator")
+            Text("Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons.")
+                .font(.footnote)
+                .foregroundColor(.gray)
+
+            if showDockPreviewSpaceNumberIndicator || dockPreviewWindowStateIndicatorPlacement == .nextToTrafficLightButtons {
                 VStack(alignment: .leading) {
-                    Toggle("Disable dock styling on Space number indicator", isOn: $disableDockStyleSpaceNumberIndicator)
-                        .settingsSearchTarget("appearance.dockDisableSpaceNumberIndicatorStyling")
-                    Text("Removes the pill-shaped background styling from the Space number indicator in dock previews.")
+                    Toggle("Disable dock styling on Window State Indicator", isOn: $disableDockStyleWindowStateIndicator)
+                        .settingsSearchTarget("appearance.dockDisableWindowStateIndicatorStyling")
+                    Text("Removes the pill-shaped background styling from the Window State Indicator in dock previews.")
                         .font(.footnote)
                         .foregroundColor(.gray)
                         .padding(.leading, 20)

@@ -15,8 +15,8 @@ struct CmdTabAppearanceSection: View {
     @Default(.cmdTabDisableDockStyleTrafficLights) var cmdTabDisableDockStyleTrafficLights
     @Default(.cmdTabUseEmbeddedDockPreviewElements) var cmdTabUseEmbeddedDockPreviewElements
     @Default(.showCmdTabSpaceNumberIndicator) var showCmdTabSpaceNumberIndicator
-    @Default(.showCmdTabWindowStatusIndicators) var showCmdTabWindowStatusIndicators
-    @Default(.cmdTabDisableDockStyleSpaceNumberIndicator) var cmdTabDisableDockStyleSpaceNumberIndicator
+    @Default(.cmdTabWindowStateIndicatorPlacement) var cmdTabWindowStateIndicatorPlacement
+    @Default(.cmdTabDisableDockStyleWindowStateIndicator) var cmdTabDisableDockStyleWindowStateIndicator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -122,22 +122,26 @@ struct CmdTabAppearanceSection: View {
             }
 
             Divider().padding(.vertical, 2)
-            Text("Space Number Indicator").font(.headline).padding(.bottom, -2)
+            Text("Window State Indicator").font(.headline).padding(.bottom, -2)
             Toggle("Show Space Number Indicator", isOn: $showCmdTabSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.cmdTabSpaceNumberIndicator")
-            if showCmdTabSpaceNumberIndicator {
-                VStack(alignment: .leading) {
-                    Toggle("Show window status indicators", isOn: $showCmdTabWindowStatusIndicators)
-                        .settingsSearchTarget("appearance.cmdTabSpaceWindowStatusIndicators")
-                    Text("Moves the Minimized, Hidden, and Full Screen indicators in line with the Space number indicator.")
-                        .font(.footnote)
-                        .foregroundColor(.gray)
-                        .padding(.leading, 20)
+
+            Picker("Show Window State Indicator", selection: $cmdTabWindowStateIndicatorPlacement) {
+                ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
+                    Text(placement.localizedName).tag(placement)
                 }
+            }
+            .pickerStyle(.menu)
+            .settingsSearchTarget("appearance.cmdTabWindowStateIndicator")
+            Text("Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons.")
+                .font(.footnote)
+                .foregroundColor(.gray)
+
+            if showCmdTabSpaceNumberIndicator || cmdTabWindowStateIndicatorPlacement == .nextToTrafficLightButtons {
                 VStack(alignment: .leading) {
-                    Toggle("Disable dock styling on Space number indicator", isOn: $cmdTabDisableDockStyleSpaceNumberIndicator)
-                        .settingsSearchTarget("appearance.cmdTabDisableSpaceNumberIndicatorStyling")
-                    Text("Removes the pill-shaped background styling from the Space number indicator in Cmd+Tab previews.")
+                    Toggle("Disable dock styling on Window State Indicator", isOn: $cmdTabDisableDockStyleWindowStateIndicator)
+                        .settingsSearchTarget("appearance.cmdTabDisableWindowStateIndicatorStyling")
+                    Text("Removes the pill-shaped background styling from the Window State Indicator in Cmd+Tab previews.")
                         .font(.footnote)
                         .foregroundColor(.gray)
                         .padding(.leading, 20)

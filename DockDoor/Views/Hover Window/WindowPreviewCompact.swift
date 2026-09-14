@@ -74,9 +74,7 @@ struct WindowPreviewCompact: View, Equatable {
         if windowInfo.isWindowlessApp {
             return String(localized: "No Open Windows", comment: "Label for running apps without any open windows in the window switcher")
         }
-        guard appearance.showMinimizedHiddenLabels,
-              appearance.trafficLightVisibility != .never
-        else { return nil }
+        guard appearance.windowStateIndicatorPlacement == .onWindowPreviews else { return nil }
         if windowInfo.isMinimized {
             return String(localized: "Minimized", comment: "Window state label")
         } else if windowInfo.isEffectivelyHiddenForUI {
@@ -88,28 +86,23 @@ struct WindowPreviewCompact: View, Equatable {
     }
 
     private var secondaryStateIndicator: String? {
-        if windowInfo.isWindowlessApp {
-            return stateIndicator
-        }
-        return movesWindowStateToSpaceIndicator ? nil : stateIndicator
+        stateIndicator
     }
 
     private var windowStateSymbols: [String] {
-        PreviewWindowStateIndicator.symbols(
+        WindowStateSymbolResolver.symbols(
             for: windowInfo,
-            isEffectivelyHidden: windowInfo.isEffectivelyHiddenForUI,
-            enabled: appearance.showMinimizedHiddenLabels
+            isEffectivelyHidden: windowInfo.isEffectivelyHiddenForUI
         )
     }
 
-    private var movesWindowStateToSpaceIndicator: Bool {
-        appearance.showSpaceNumberIndicator &&
-            appearance.showWindowStatusIndicatorsInSpaceIndicator &&
+    private var movesWindowStateToIndicator: Bool {
+        appearance.windowStateIndicatorPlacement == .nextToTrafficLightButtons &&
             !windowStateSymbols.isEmpty
     }
 
-    private var spaceIndicatorStatusSymbols: [String] {
-        movesWindowStateToSpaceIndicator ? windowStateSymbols : []
+    private var indicatorStateSymbols: [String] {
+        movesWindowStateToIndicator ? windowStateSymbols : []
     }
 
     var body: some View {
@@ -119,7 +112,7 @@ struct WindowPreviewCompact: View, Equatable {
         )
         let hasVisibleTrafficLightButtons = !appearance.compactModeHideTrafficLights &&
             canRenderTrafficLightButtons && showTrafficLightButtons
-        let controlsSpacing: CGFloat = appearance.disableDockStyleSpaceNumberIndicator || hasVisibleTrafficLightButtons ? 8 : 0
+        let controlsSpacing: CGFloat = appearance.disableDockStyleWindowStateIndicator || hasVisibleTrafficLightButtons ? 8 : 0
 
         HStack(spacing: 10) {
             // App icon
@@ -174,13 +167,12 @@ struct WindowPreviewCompact: View, Equatable {
             Spacer(minLength: 0)
 
             HStack(spacing: controlsSpacing) {
-                if appearance.showSpaceNumberIndicator,
-                   windowInfo.spaceNumber != nil || !spaceIndicatorStatusSymbols.isEmpty
-                {
-                    SpaceNumberIndicator(
-                        number: windowInfo.spaceNumber,
-                        statusSymbols: spaceIndicatorStatusSymbols,
-                        disableDockStyling: appearance.disableDockStyleSpaceNumberIndicator,
+                let spaceNumber = appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : nil
+                if spaceNumber != nil || !indicatorStateSymbols.isEmpty {
+                    WindowStateIndicator(
+                        number: spaceNumber,
+                        stateSymbols: indicatorStateSymbols,
+                        disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
                         backgroundAppearance: backgroundAppearance
                     )
                 }

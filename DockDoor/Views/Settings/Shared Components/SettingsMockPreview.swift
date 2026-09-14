@@ -41,8 +41,8 @@ struct SettingsMockPreview: View {
     @Default(.dockLivePreviewQuality) private var dockLivePreviewQuality
     @Default(.dockLivePreviewFrameRate) private var dockLivePreviewFrameRate
     @Default(.showDockPreviewSpaceNumberIndicator) private var showDockPreviewSpaceNumberIndicator
-    @Default(.showDockPreviewWindowStatusIndicators) private var showDockPreviewWindowStatusIndicators
-    @Default(.disableDockStyleSpaceNumberIndicator) private var disableDockStyleSpaceNumberIndicator
+    @Default(.dockPreviewWindowStateIndicatorPlacement) private var dockPreviewWindowStateIndicatorPlacement
+    @Default(.disableDockStyleWindowStateIndicator) private var disableDockStyleWindowStateIndicator
 
     // MARK: - Window Switcher appearance settings
 
@@ -56,8 +56,8 @@ struct SettingsMockPreview: View {
     @Default(.windowSwitcherLivePreviewQuality) private var switcherLivePreviewQuality
     @Default(.windowSwitcherLivePreviewFrameRate) private var switcherLivePreviewFrameRate
     @Default(.showSwitcherSpaceNumberIndicator) private var showSwitcherSpaceNumberIndicator
-    @Default(.showSwitcherWindowStatusIndicators) private var showSwitcherWindowStatusIndicators
-    @Default(.switcherDisableDockStyleSpaceNumberIndicator) private var switcherDisableDockStyleSpaceNumberIndicator
+    @Default(.switcherWindowStateIndicatorPlacement) private var switcherWindowStateIndicatorPlacement
+    @Default(.switcherDisableDockStyleWindowStateIndicator) private var switcherDisableDockStyleWindowStateIndicator
 
     // MARK: - Cmd+Tab appearance settings
 
@@ -71,12 +71,12 @@ struct SettingsMockPreview: View {
     @Default(.cmdTabDisableDockStyleTitles) private var cmdTabDisableStyleTitles
     @Default(.cmdTabUseEmbeddedDockPreviewElements) private var cmdTabUseEmbedded
     @Default(.showCmdTabSpaceNumberIndicator) private var showCmdTabSpaceNumberIndicator
-    @Default(.showCmdTabWindowStatusIndicators) private var showCmdTabWindowStatusIndicators
-    @Default(.cmdTabDisableDockStyleSpaceNumberIndicator) private var cmdTabDisableDockStyleSpaceNumberIndicator
+    @Default(.cmdTabWindowStateIndicatorPlacement) private var cmdTabWindowStateIndicatorPlacement
+    @Default(.cmdTabDisableDockStyleWindowStateIndicator) private var cmdTabDisableDockStyleWindowStateIndicator
 
     // MARK: - Shared appearance settings
 
-    @Default(.showMinimizedHiddenLabels) private var showMinimizedHiddenLabels
+    @Default(.dimMinimizedHiddenPreviews) private var dimMinimizedHiddenPreviews
     @Default(.selectionOpacity) private var selectionOpacity
     @Default(.unselectedContentOpacity) private var unselectedContentOpacity
     @Default(.hoverHighlightColor) private var hoverHighlightColor
@@ -220,19 +220,19 @@ struct SettingsMockPreview: View {
         } else {
             showDockPreviewSpaceNumberIndicator
         }
-        let showWindowStatusIndicatorsInSpaceIndicator: Bool = if isWindowSwitcher {
-            showSwitcherWindowStatusIndicators
+        let windowStateIndicatorPlacement: WindowStateIndicatorPlacement = if isWindowSwitcher {
+            switcherWindowStateIndicatorPlacement
         } else if isCmdTab {
-            showCmdTabWindowStatusIndicators
+            cmdTabWindowStateIndicatorPlacement
         } else {
-            showDockPreviewWindowStatusIndicators
+            dockPreviewWindowStateIndicatorPlacement
         }
-        let disableDockStyleSpaceNumberIndicator: Bool = if isWindowSwitcher {
-            switcherDisableDockStyleSpaceNumberIndicator
+        let disableDockStyleWindowStateIndicator: Bool = if isWindowSwitcher {
+            switcherDisableDockStyleWindowStateIndicator
         } else if isCmdTab {
-            cmdTabDisableDockStyleSpaceNumberIndicator
+            cmdTabDisableDockStyleWindowStateIndicator
         } else {
-            disableDockStyleSpaceNumberIndicator
+            disableDockStyleWindowStateIndicator
         }
 
         return PreviewAppearanceSettings(
@@ -245,7 +245,7 @@ struct SettingsMockPreview: View {
             useEmbeddedElements: useEmbedded,
             disableDockStyleTrafficLights: disableStyleTrafficLights,
             disableDockStyleTitles: disableStyleTitles,
-            showMinimizedHiddenLabels: showMinimizedHiddenLabels,
+            dimMinimizedHiddenPreviews: dimMinimizedHiddenPreviews,
             selectionOpacity: selectionOpacity,
             unselectedContentOpacity: unselectedContentOpacity,
             hoverHighlightColor: hoverHighlightColor,
@@ -267,8 +267,8 @@ struct SettingsMockPreview: View {
             compactModeItemSize: compactModeItemSize,
             compactModeHideTrafficLights: compactModeHideTrafficLights,
             showSpaceNumberIndicator: showSpaceNumberIndicator,
-            showWindowStatusIndicatorsInSpaceIndicator: showWindowStatusIndicatorsInSpaceIndicator,
-            disableDockStyleSpaceNumberIndicator: disableDockStyleSpaceNumberIndicator,
+            windowStateIndicatorPlacement: windowStateIndicatorPlacement,
+            disableDockStyleWindowStateIndicator: disableDockStyleWindowStateIndicator,
             titleOverflowStyle: titleOverflowStyle
         )
     }

@@ -13,8 +13,8 @@ struct WindowSwitcherAppearanceSection: View {
     @Default(.switcherIgnoreScreenLimit) var switcherIgnoreScreenLimit
     @Default(.windowSwitcherScrollDirection) var windowSwitcherScrollDirection
     @Default(.showSwitcherSpaceNumberIndicator) var showSwitcherSpaceNumberIndicator
-    @Default(.showSwitcherWindowStatusIndicators) var showSwitcherWindowStatusIndicators
-    @Default(.switcherDisableDockStyleSpaceNumberIndicator) var switcherDisableDockStyleSpaceNumberIndicator
+    @Default(.switcherWindowStateIndicatorPlacement) var switcherWindowStateIndicatorPlacement
+    @Default(.switcherDisableDockStyleWindowStateIndicator) var switcherDisableDockStyleWindowStateIndicator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -74,21 +74,26 @@ struct WindowSwitcherAppearanceSection: View {
             }
 
             Divider().padding(.vertical, 2)
-            Text("Space Number Indicator").font(.headline).padding(.bottom, -2)
+            Text("Window State Indicator").font(.headline).padding(.bottom, -2)
             Toggle("Show Space Number Indicator", isOn: $showSwitcherSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.switcherSpaceNumberIndicator")
-            if showSwitcherSpaceNumberIndicator {
-                VStack(alignment: .leading) {
-                    Toggle("Show window status indicators", isOn: $showSwitcherWindowStatusIndicators)
-                        .settingsSearchTarget("appearance.switcherSpaceWindowStatusIndicators")
-                    Text("Moves the Minimized, Hidden, and Full Screen indicators in line with the Space number indicator.")
-                        .font(.footnote)
-                        .foregroundColor(.gray)
+
+            Picker("Show Window State Indicator", selection: $switcherWindowStateIndicatorPlacement) {
+                ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
+                    Text(placement.localizedName).tag(placement)
                 }
+            }
+            .pickerStyle(.menu)
+            .settingsSearchTarget("appearance.switcherWindowStateIndicator")
+            Text("Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons.")
+                .font(.footnote)
+                .foregroundColor(.gray)
+
+            if showSwitcherSpaceNumberIndicator || switcherWindowStateIndicatorPlacement == .nextToTrafficLightButtons {
                 VStack(alignment: .leading) {
-                    Toggle("Disable dock styling on Space number indicator", isOn: $switcherDisableDockStyleSpaceNumberIndicator)
-                        .settingsSearchTarget("appearance.switcherDisableSpaceNumberIndicatorStyling")
-                    Text("Removes the pill-shaped background styling from the Space number indicator in the window switcher.")
+                    Toggle("Disable dock styling on Window State Indicator", isOn: $switcherDisableDockStyleWindowStateIndicator)
+                        .settingsSearchTarget("appearance.switcherDisableWindowStateIndicatorStyling")
+                    Text("Removes the pill-shaped background styling from the Window State Indicator in the window switcher.")
                         .font(.footnote)
                         .foregroundColor(.gray)
                 }

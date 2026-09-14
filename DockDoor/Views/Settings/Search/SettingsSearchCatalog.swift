@@ -636,10 +636,10 @@ enum SettingsSearchCatalog {
             icon: "text.badge.star"
         ),
         SettingsSearchItem(
-            id: "appearance.distinguishMinimized",
-            title: String(localized: "Show window state indicators"),
-            description: String(localized: "Shows visual indicators for minimized, hidden, and full-screen windows. Minimized and hidden previews are also dimmed."),
-            keywords: ["minimized", "hidden", "fullscreen", "dim", "visual"],
+            id: "appearance.dimMinimizedHiddenPreviews",
+            title: String(localized: "Dim minimized and hidden previews"),
+            description: String(localized: "Dims minimized and hidden window preview images without changing window state indicator visibility."),
+            keywords: ["minimized", "hidden", "dim", "preview"],
             tab: "Appearance",
             section: String(localized: "General Appearance"),
             icon: "eye.trianglebadge.exclamationmark"
@@ -952,19 +952,19 @@ enum SettingsSearchCatalog {
             icon: "number.circle"
         ),
         SettingsSearchItem(
-            id: "appearance.dockSpaceWindowStatusIndicators",
-            title: String(localized: "Show window status indicators"),
-            description: String(localized: "Moves the Minimized, Hidden, and Full Screen indicators in line with the Space number indicator."),
-            keywords: ["space", "status", "minimized", "hidden", "full screen", "dock"],
+            id: "appearance.dockWindowStateIndicator",
+            title: String(localized: "Show Window State Indicator"),
+            description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
+            keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "dock"],
             tab: "Appearance",
             section: String(localized: "Dock Preview Appearance"),
             icon: "eye.slash"
         ),
         SettingsSearchItem(
-            id: "appearance.dockDisableSpaceNumberIndicatorStyling",
-            title: String(localized: "Disable dock styling on Space number indicator"),
-            description: String(localized: "Removes the pill-shaped background styling from the Space number indicator in dock previews."),
-            keywords: ["space", "number", "indicator", "styling", "pill", "dock"],
+            id: "appearance.dockDisableWindowStateIndicatorStyling",
+            title: String(localized: "Disable dock styling on Window State Indicator"),
+            description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in dock previews."),
+            keywords: ["window", "state", "space", "indicator", "styling", "pill", "dock"],
             tab: "Appearance",
             section: String(localized: "Dock Preview Appearance"),
             icon: "minus.circle"
@@ -1051,19 +1051,19 @@ enum SettingsSearchCatalog {
             icon: "number.circle"
         ),
         SettingsSearchItem(
-            id: "appearance.switcherSpaceWindowStatusIndicators",
-            title: String(localized: "Show window status indicators"),
-            description: String(localized: "Moves the Minimized, Hidden, and Full Screen indicators in line with the Space number indicator."),
-            keywords: ["space", "status", "minimized", "hidden", "full screen", "switcher"],
+            id: "appearance.switcherWindowStateIndicator",
+            title: String(localized: "Show Window State Indicator"),
+            description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
+            keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "switcher"],
             tab: "Appearance",
             section: String(localized: "Window Switcher Appearance"),
             icon: "eye.slash"
         ),
         SettingsSearchItem(
-            id: "appearance.switcherDisableSpaceNumberIndicatorStyling",
-            title: String(localized: "Disable dock styling on Space number indicator"),
-            description: String(localized: "Removes the pill-shaped background styling from the Space number indicator in the window switcher."),
-            keywords: ["space", "number", "indicator", "styling", "pill", "switcher"],
+            id: "appearance.switcherDisableWindowStateIndicatorStyling",
+            title: String(localized: "Disable dock styling on Window State Indicator"),
+            description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in the window switcher."),
+            keywords: ["window", "state", "space", "indicator", "styling", "pill", "switcher"],
             tab: "Appearance",
             section: String(localized: "Window Switcher Appearance"),
             icon: "minus.circle"
@@ -1209,19 +1209,19 @@ enum SettingsSearchCatalog {
             icon: "number.circle"
         ),
         SettingsSearchItem(
-            id: "appearance.cmdTabSpaceWindowStatusIndicators",
-            title: String(localized: "Show window status indicators"),
-            description: String(localized: "Moves the Minimized, Hidden, and Full Screen indicators in line with the Space number indicator."),
-            keywords: ["space", "status", "minimized", "hidden", "full screen", "cmd tab"],
+            id: "appearance.cmdTabWindowStateIndicator",
+            title: String(localized: "Show Window State Indicator"),
+            description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
+            keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "cmd tab"],
             tab: "Appearance",
             section: String(localized: "Cmd+Tab Appearance"),
             icon: "eye.slash"
         ),
         SettingsSearchItem(
-            id: "appearance.cmdTabDisableSpaceNumberIndicatorStyling",
-            title: String(localized: "Disable dock styling on Space number indicator"),
-            description: String(localized: "Removes the pill-shaped background styling from the Space number indicator in Cmd+Tab previews."),
-            keywords: ["space", "number", "indicator", "styling", "pill", "cmd tab"],
+            id: "appearance.cmdTabDisableWindowStateIndicatorStyling",
+            title: String(localized: "Disable dock styling on Window State Indicator"),
+            description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in Cmd+Tab previews."),
+            keywords: ["window", "state", "space", "indicator", "styling", "pill", "cmd tab"],
             tab: "Appearance",
             section: String(localized: "Cmd+Tab Appearance"),
             icon: "minus.circle"
