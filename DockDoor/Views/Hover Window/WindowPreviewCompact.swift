@@ -143,13 +143,13 @@ struct WindowPreviewCompact: View, Equatable {
                     titleText(appName, isPrimary: true)
                     if let title = windowTitle {
                         HStack(spacing: 0) {
-                            titleText(title, isPrimary: false)
                             if let state = secondaryStateIndicator {
+                                stateText(state)
                                 Text("  \u{2022}  ")
                                     .font(appearance.compactModeItemSize.secondaryFont)
                                     .foregroundStyle(.secondary)
-                                stateText(state)
                             }
+                            titleText(title, isPrimary: false)
                         }
                     } else if let state = secondaryStateIndicator {
                         stateText(state)
