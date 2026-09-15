@@ -117,28 +117,25 @@ extension DockObserver {
             return
         }
 
-        let resolvedApp = selectedItem.app
-        let appName = resolvedApp?.localizedName ?? selectedItem.title ?? "Unknown"
-        let bundleId = resolvedApp?.bundleIdentifier ?? selectedItem.bundleId
-
-        var cachedWindows: [WindowInfo] = []
-        if let app = resolvedApp {
-            cachedWindows = WindowUtil.readCachedWindows(for: app.processIdentifier, sortedBy: .cmdTab)
+        let appCandidates = cmdTabApplicationCandidates(
+            resolvedApp: selectedItem.app,
+            bundleIdentifier: selectedItem.bundleId ?? selectedItem.app?.bundleIdentifier,
+            title: selectedItem.title
+        )
+        guard let resolvedApp = preferredCmdTabApplication(from: appCandidates) else {
+            previewCoordinator.hideWindow()
+            return
         }
+        let appName = resolvedApp.localizedName ?? selectedItem.title ?? "Unknown"
+        let bundleId = resolvedApp.bundleIdentifier ?? selectedItem.bundleId
 
-        let shouldIgnoreSingleWindowApp = Defaults[.ignoreAppsWithSingleWindowInCmdTab] && cachedWindows.count == 1
-
-        if Defaults[.showWindowsFromCurrentSpaceOnlyInCmdTab] {
-            cachedWindows = WindowUtil.filterWindowsByCurrentSpace(cachedWindows)
+        let cachedSource = appCandidates.flatMap {
+            WindowUtil.readCachedWindows(for: $0.processIdentifier, sortedBy: .cmdTab)
         }
-
-        if Defaults[.showWindowsFromCurrentMonitorOnlyInCmdTab] {
-            cachedWindows = WindowUtil.filterWindowsByCurrentMonitor(cachedWindows)
-        }
-
-        if !Defaults[.includeHiddenWindowsInCmdTab] {
-            cachedWindows = cachedWindows.filter { !$0.isHidden && !$0.isMinimized }
-        }
+        let cachedWindows = WindowUtil.cmdTabPreviewWindows(
+            from: WindowUtil.sortWindows(cachedSource, for: .cmdTab),
+            app: resolvedApp
+        )
 
         let elementPos = try? selectedItem.element.position()
         let bestScreen = if let elementPos { NSScreen.screenFromQuartzPoint(elementPos) } else { NSScreen.main! }
@@ -146,18 +143,9 @@ extension DockObserver {
         Task { @MainActor [weak self] in
             guard let self else { return }
 
-            if shouldIgnoreSingleWindowApp {
+            guard let cachedWindows else {
                 previewCoordinator.hideWindow()
                 return
-            }
-
-            if cachedWindows.isEmpty {
-                if let app = resolvedApp, Defaults[.showWindowlessAppsInCmdTab] {
-                    cachedWindows = [WindowInfo.windowlessEntry(for: app)]
-                } else {
-                    previewCoordinator.hideWindow()
-                    return
-                }
             }
 
             let initialIndex = Defaults[.cmdTabAutoSelectFirstWindow] ? 0 : nil
@@ -179,44 +167,49 @@ extension DockObserver {
             )
         }
 
-        if let app = resolvedApp {
-            let appPID = app.processIdentifier
+        if !appCandidates.isEmpty {
+            let displayedPID = cachedWindows?.first?.app.processIdentifier ?? resolvedApp.processIdentifier
             let screenOrigin = bestScreen.frame.origin
 
             Task.detached { [weak self] in
                 guard let self else { return }
 
-                do {
-                    var windows = try await WindowUtil.getActiveWindows(of: app, context: .cmdTab)
-
-                    if Defaults[.showWindowsFromCurrentSpaceOnlyInCmdTab] {
-                        windows = WindowUtil.filterWindowsByCurrentSpace(windows)
-                    }
-
-                    if Defaults[.showWindowsFromCurrentMonitorOnlyInCmdTab] {
-                        windows = WindowUtil.filterWindowsByCurrentMonitor(windows)
-                    }
-
-                    if !Defaults[.includeHiddenWindowsInCmdTab] {
-                        windows = windows.filter { !$0.isHidden && !$0.isMinimized }
-                    }
-
-                    let freshWindows = windows
-
-                    await MainActor.run { [weak self] in
-                        guard let self else { return }
-                        guard let screen = screenOrigin.screen() else { return }
-
-                        let didMerge = previewCoordinator.mergeWindowsIfNeeded(
-                            appPID,
-                            windows: freshWindows,
-                            dockPosition: .cmdTab,
-                            bestGuessMonitor: screen
+                var discoveredWindows: [WindowInfo] = []
+                var completedDiscovery = false
+                for app in appCandidates {
+                    do {
+                        let appWindows = try await WindowUtil.getActiveWindows(
+                            of: app,
+                            context: .cmdTab,
+                            ignoreSingleWindowFilter: true
                         )
-                        DebugLogger.log("WindowRefresh", details: "Cmd+Tab final merge, PID: \(appPID), windows: \(freshWindows.count), merged: \(didMerge)")
+                        discoveredWindows.append(contentsOf: appWindows)
+                        completedDiscovery = true
+                    } catch {
+                        DebugLogger.log("DockObserver+CmdTab", details: "Failed to fetch windows for \(app.localizedName ?? "Unknown"): \(error)")
                     }
-                } catch {
-                    DebugLogger.log("DockObserver+CmdTab", details: "Failed to fetch windows for Cmd+Tab: \(error)")
+                }
+                guard completedDiscovery else { return }
+
+                let freshWindows = WindowUtil.cmdTabPreviewWindows(
+                    from: WindowUtil.sortWindows(discoveredWindows, for: .cmdTab),
+                    app: resolvedApp
+                )
+
+                await MainActor.run { [weak self] in
+                    guard let self else { return }
+                    guard let screen = screenOrigin.screen() else { return }
+
+                    let didMerge = previewCoordinator.mergeWindowsIfNeeded(
+                        displayedPID,
+                        windows: freshWindows ?? [],
+                        dockPosition: .cmdTab,
+                        bestGuessMonitor: screen
+                    )
+                    if didMerge, freshWindows == nil {
+                        previewCoordinator.hideWindow()
+                    }
+                    DebugLogger.log("WindowRefresh", details: "Cmd+Tab final merge, PID: \(displayedPID), windows: \(freshWindows?.count ?? 0), merged: \(didMerge)")
                 }
             }
         }
@@ -232,15 +225,11 @@ extension DockObserver {
             return nil
         }
 
-        if let app = selectedItem.app {
-            return app
-        }
-
-        if let bundleId = selectedItem.bundleId, !bundleId.isEmpty {
-            return NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first
-        }
-
-        return nil
+        return preferredCmdTabApplication(from: cmdTabApplicationCandidates(
+            resolvedApp: selectedItem.app,
+            bundleIdentifier: selectedItem.bundleId ?? selectedItem.app?.bundleIdentifier,
+            title: selectedItem.title
+        ))
     }
 
     // MARK: - Cmd+Tab Session State
@@ -248,6 +237,36 @@ extension DockObserver {
     /// Cached state tracking whether the Cmd+Tab switcher is currently active.
     /// Updated by the AXObserver when the switcher appears/disappears.
     static var isCmdTabSwitcherActive = false
+
+    private func cmdTabApplicationCandidates(
+        resolvedApp: NSRunningApplication?,
+        bundleIdentifier: String?,
+        title: String?
+    ) -> [NSRunningApplication] {
+        var candidates: [NSRunningApplication] = []
+
+        if let resolvedApp, !resolvedApp.isTerminated {
+            candidates.append(resolvedApp)
+        }
+        if let bundleIdentifier, !bundleIdentifier.isEmpty {
+            candidates.append(contentsOf: NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier))
+        } else if let title, !title.isEmpty {
+            candidates.append(contentsOf: NSWorkspace.shared.runningApplications.filter {
+                $0.activationPolicy == .regular && $0.localizedName == title
+            })
+        }
+
+        var seenPIDs = Set<pid_t>()
+        return candidates.filter {
+            !$0.isTerminated && $0.activationPolicy == .regular && seenPIDs.insert($0.processIdentifier).inserted
+        }
+    }
+
+    private func preferredCmdTabApplication(from candidates: [NSRunningApplication]) -> NSRunningApplication? {
+        candidates.first {
+            !WindowUtil.readCachedWindows(for: $0.processIdentifier, sortedBy: .cmdTab).isEmpty
+        } ?? candidates.first
+    }
 
     private func getSelectedCmdTabItem(dockElement: AXUIElement) -> (element: AXUIElement, app: NSRunningApplication?, bundleId: String?, title: String?)? {
         guard let appSwitcherElement = findCmdTabSwitcherElement(in: dockElement) else {
@@ -277,12 +296,17 @@ extension DockObserver {
                 do {
                     if let title = try selectedElement.title(), !title.isEmpty {
                         resolvedTitle = title
-                        let allApps = NSWorkspace.shared.runningApplications
-                        if let app = allApps.first(where: { $0.localizedName == title }) {
+                        let namedApps = NSWorkspace.shared.runningApplications.filter {
+                            $0.activationPolicy == .regular && !($0.localizedName ?? "").isEmpty
+                        }
+                        if let app = namedApps.first(where: { $0.localizedName == title }) {
                             resolvedApp = app
                         } else {
                             let lowerTitle = title.lowercased()
-                            if let app = allApps.first(where: { ($0.localizedName ?? "").lowercased().contains(lowerTitle) || lowerTitle.contains(($0.localizedName ?? "").lowercased()) }) {
+                            if let app = namedApps.first(where: {
+                                let appName = ($0.localizedName ?? "").lowercased()
+                                return appName.contains(lowerTitle) || lowerTitle.contains(appName)
+                            }) {
                                 resolvedApp = app
                             }
                         }

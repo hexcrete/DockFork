@@ -1603,17 +1603,21 @@ struct WindowPreviewHoverContainer: View {
         }
 
         if dockPosition == .cmdTab {
-            if Defaults[.showWindowsFromCurrentSpaceOnlyInCmdTab] {
-                replacement = WindowUtil.filterWindowsByCurrentSpace(replacement)
+            let hasOtherInstanceRows = previewStateCoordinator.windows.contains {
+                !$0.isWindowlessApp &&
+                    $0.app.processIdentifier != pid &&
+                    $0.app.bundleIdentifier == windowlessApp.bundleIdentifier
             }
-            if Defaults[.showWindowsFromCurrentMonitorOnlyInCmdTab] {
-                replacement = WindowUtil.filterWindowsByCurrentMonitor(replacement)
-            }
-            if !Defaults[.includeHiddenWindowsInCmdTab] {
-                replacement = replacement.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
-            }
-            if canAddWindowlessEntry, replacement.isEmpty, Defaults[.showWindowlessAppsInCmdTab] {
-                replacement = [WindowInfo.windowlessEntry(for: windowlessApp)]
+            replacement = canAddWindowlessEntry
+                ? WindowUtil.cmdTabPreviewWindows(
+                    from: replacement,
+                    app: windowlessApp,
+                    allowWindowlessPlaceholder: !hasOtherInstanceRows
+                ) ?? []
+                : []
+            if replacement.isEmpty, !hasOtherInstanceRows {
+                onWindowTap?()
+                return
             }
         } else if previewStateCoordinator.windowSwitcherActive {
             if Defaults[.showWindowsFromCurrentSpaceOnlyInSwitcher] {
@@ -2028,18 +2032,17 @@ struct WindowPreviewHoverContainer: View {
                 return true
             }()
 
-            let useWindowlessCompactRowInDock = windowInfo.isWindowlessApp &&
-                !previewStateCoordinator.windowSwitcherActive &&
-                dockPosition != .cmdTab &&
+            let useWindowlessCompactRowInDockLikeMode = windowInfo.isWindowlessApp &&
+                (!previewStateCoordinator.windowSwitcherActive || dockPosition == .cmdTab) &&
                 !shouldUseCompactMode
-            // Use compact mode if the container requires it, for Dock windowless rows, or as an image fallback.
+            // Use compact mode if the container requires it, for windowless Dock/Cmd+Tab rows, or as an image fallback.
             let useCompactForThisWindow = shouldUseCompactMode ||
-                useWindowlessCompactRowInDock ||
+                useWindowlessCompactRowInDockLikeMode ||
                 (windowInfo.image == nil && !useLivePreview)
 
             let isSelected = index == currIndex
 
-            if windowInfo.isWindowlessApp, !shouldUseCompactMode, !useWindowlessCompactRowInDock {
+            if windowInfo.isWindowlessApp, !shouldUseCompactMode, !useWindowlessCompactRowInDockLikeMode {
                 WindowlessAppPreview(
                     windowInfo: windowInfo,
                     index: index,
@@ -2061,7 +2064,7 @@ struct WindowPreviewHoverContainer: View {
             } else if useCompactForThisWindow {
                 let compactRowWidth = if shouldUseCompactMode {
                     appearance.compactModeWidth
-                } else if useWindowlessCompactRowInDock {
+                } else if useWindowlessCompactRowInDockLikeMode {
                     appearance.previewWidth
                 } else {
                     resolvedDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews).size.width

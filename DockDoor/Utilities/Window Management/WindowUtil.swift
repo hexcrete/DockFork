@@ -1153,6 +1153,41 @@ extension WindowUtil {
         return WindowInfo.windowlessEntry(for: app)
     }
 
+    // Keep genuinely windowless apps distinct from apps whose windows are filtered out.
+    static func cmdTabPreviewWindows(
+        from sourceWindows: [WindowInfo],
+        app: NSRunningApplication,
+        allowWindowlessPlaceholder: Bool = true
+    ) -> [WindowInfo]? {
+        guard !app.isTerminated else { return nil }
+
+        let realWindows = sourceWindows.filter { !$0.isWindowlessApp }
+        var visibleWindows = realWindows
+
+        if Defaults[.showWindowsFromCurrentSpaceOnlyInCmdTab] {
+            visibleWindows = filterWindowsByCurrentSpace(visibleWindows)
+        }
+        if Defaults[.showWindowsFromCurrentMonitorOnlyInCmdTab] {
+            visibleWindows = filterWindowsByCurrentMonitor(visibleWindows)
+        }
+        if !Defaults[.includeHiddenWindowsInCmdTab] {
+            visibleWindows = visibleWindows.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
+        }
+
+        if Defaults[.ignoreAppsWithSingleWindowInCmdTab], visibleWindows.count == 1 {
+            return nil
+        }
+        if !visibleWindows.isEmpty {
+            return visibleWindows
+        }
+
+        guard realWindows.isEmpty,
+              allowWindowlessPlaceholder,
+              Defaults[.showWindowlessAppsInCmdTab]
+        else { return nil }
+        return [WindowInfo.windowlessEntry(for: app)]
+    }
+
     static func isProcessAlive(_ pid: pid_t) -> Bool {
         pid > 0 && (kill(pid, 0) == 0 || errno == EPERM)
     }

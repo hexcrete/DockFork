@@ -347,12 +347,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         deferredActionWatchersByKey[key] = DeferredActionWatcher(token: token, task: task)
     }
 
-    /// Merges fresh windows if currently displaying the expected app.
+    /// Merges fresh windows if currently displaying the expected app and mode.
     @MainActor
     @discardableResult
     func mergeWindowsIfNeeded(_ pid: pid_t? = nil, windows: [WindowInfo], dockPosition: DockPosition, bestGuessMonitor: NSScreen) -> Bool {
-        guard windowSwitcherCoordinator.windowSwitcherActive || currentlyDisplayedPID == pid else { return false }
+        guard currentlyDisplayedPID == pid, currentDockPosition == dockPosition else { return false }
         windowSwitcherCoordinator.mergeWindows(windows, dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
+        if dockPosition == .cmdTab, let refreshedPID = windows.first?.app.processIdentifier {
+            currentlyDisplayedPID = refreshedPID
+        }
         return true
     }
 
@@ -1461,17 +1464,23 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
 
         if currentDockPosition == .cmdTab {
-            if Defaults[.showWindowsFromCurrentSpaceOnlyInCmdTab] {
-                fresh = WindowUtil.filterWindowsByCurrentSpace(fresh)
+            let hasOtherInstanceRows = windowSwitcherCoordinator.windows.contains {
+                !$0.isWindowlessApp &&
+                    $0.app.processIdentifier != pid &&
+                    $0.app.bundleIdentifier == runningApp?.bundleIdentifier
             }
-            if Defaults[.showWindowsFromCurrentMonitorOnlyInCmdTab] {
-                fresh = WindowUtil.filterWindowsByCurrentMonitor(fresh)
+            fresh = if canAddWindowlessEntry, let runningApp {
+                WindowUtil.cmdTabPreviewWindows(
+                    from: fresh,
+                    app: runningApp,
+                    allowWindowlessPlaceholder: !hasOtherInstanceRows
+                ) ?? []
+            } else {
+                []
             }
-            if !Defaults[.includeHiddenWindowsInCmdTab] {
-                fresh = fresh.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
-            }
-            if canAddWindowlessEntry, fresh.isEmpty, Defaults[.showWindowlessAppsInCmdTab], let runningApp {
-                fresh = [WindowInfo.windowlessEntry(for: runningApp)]
+            if fresh.isEmpty, !hasOtherInstanceRows {
+                hideWindow()
+                return
             }
         } else {
             if Defaults[.showWindowsFromCurrentSpaceOnlyInSwitcher] {
