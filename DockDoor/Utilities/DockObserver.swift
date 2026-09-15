@@ -388,7 +388,7 @@ final class DockObserver {
         lastHoveredAppNeedsRestore = currentApp.isHidden || cachedWindows.contains(where: \.isMinimized)
         lastHoveredAppHadWindows = !cachedWindows.isEmpty
 
-        if Defaults[.ignoreAppsWithSingleWindow], cachedWindows.count <= 1 {
+        if WindowFetchContext.dockPreview.shouldIgnoreAppsWithSingleWindow, cachedWindows.count == 1 {
             cachedWindows = []
         }
 

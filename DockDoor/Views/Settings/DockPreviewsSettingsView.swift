@@ -100,6 +100,18 @@ struct DockPreviewsSettingsView: View {
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)
 
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(isOn: $ignoreAppsWithSingleWindow) { Text("Ignore apps with one window") }
+                        .settingsSearchTarget("dockPreviews.ignoreSingleWindow")
+                    Text("Prevents apps with exactly one open window from appearing in previews.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 20)
+                }
+                .padding(.leading, 20)
+                .disabled(showWindowlessAppsInDockPreview)
+                .opacity(showWindowlessAppsInDockPreview ? 0.5 : 1)
+
                 Toggle(isOn: $keepPreviewOnAppTerminate) { Text("Keep preview when app terminates") }
                     .settingsSearchTarget("dockPreviews.keepOnTerminate")
                 Text("Remove only terminated app's windows instead of hiding the entire preview.")
@@ -117,13 +129,6 @@ struct DockPreviewsSettingsView: View {
                 Toggle(isOn: $collapseNativeTabsIntoSingleWindow) { Text("Collapse native tabs into a single window") }
                     .settingsSearchTarget("dockPreviews.collapseNativeTabs")
                 Text("Show one preview for apps that use native macOS window tabs (e.g. Ghostty, Finder, Terminal) instead of one preview per tab. Restart the app for this to take effect.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
-
-                Toggle(isOn: $ignoreAppsWithSingleWindow) { Text("Ignore apps with one window") }
-                    .settingsSearchTarget("dockPreviews.ignoreSingleWindow")
-                Text("Prevents apps that only ever have a single window from appearing in previews.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)

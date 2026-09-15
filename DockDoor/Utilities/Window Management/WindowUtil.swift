@@ -9,6 +9,15 @@ let filteredBundleIdentifiers: [String] = ["com.apple.notificationcenterui"] // 
 enum WindowFetchContext {
     case dockPreview
     case cmdTab
+
+    var shouldIgnoreAppsWithSingleWindow: Bool {
+        switch self {
+        case .dockPreview:
+            Defaults[.ignoreAppsWithSingleWindow] && !Defaults[.showWindowlessAppsInDockPreview]
+        case .cmdTab:
+            Defaults[.ignoreAppsWithSingleWindowInCmdTab] && !Defaults[.showWindowlessAppsInCmdTab]
+        }
+    }
 }
 
 protocol WindowPropertiesProviding {
@@ -1172,7 +1181,7 @@ extension WindowUtil {
             visibleWindows = visibleWindows.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
         }
 
-        if Defaults[.ignoreAppsWithSingleWindowInCmdTab], visibleWindows.count == 1 {
+        if WindowFetchContext.cmdTab.shouldIgnoreAppsWithSingleWindow, visibleWindows.count == 1 {
             return nil
         }
         if !visibleWindows.isEmpty {
@@ -1395,14 +1404,7 @@ extension WindowUtil {
 
         // Purify cache and return
         if let finalWindows = await WindowUtil.purifyAppCache(with: app.processIdentifier, removeAll: false) {
-            let shouldIgnoreSingleWindowApp = switch context {
-            case .dockPreview:
-                Defaults[.ignoreAppsWithSingleWindow]
-            case .cmdTab:
-                Defaults[.ignoreAppsWithSingleWindowInCmdTab]
-            }
-
-            guard ignoreSingleWindowFilter || !shouldIgnoreSingleWindowApp || finalWindows.count > 1 else { return [] }
+            guard ignoreSingleWindowFilter || !context.shouldIgnoreAppsWithSingleWindow || finalWindows.count > 1 else { return [] }
             return sortWindows(collapseNativeTabsIfNeeded(Array(finalWindows)), for: context)
         }
 

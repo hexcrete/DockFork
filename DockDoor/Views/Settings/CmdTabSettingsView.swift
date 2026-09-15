@@ -151,12 +151,17 @@ struct CmdTabSettingsView: View {
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)
 
-                Toggle(isOn: $ignoreAppsWithSingleWindowInCmdTab) { Text("Ignore apps with one window") }
-                    .settingsSearchTarget("cmdTab.ignoreSingleWindow")
-                Text("Prevents apps with a single window from appearing in Cmd+Tab previews.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(isOn: $ignoreAppsWithSingleWindowInCmdTab) { Text("Ignore apps with one window") }
+                        .settingsSearchTarget("cmdTab.ignoreSingleWindow")
+                    Text("Prevents apps with exactly one open window from appearing in previews.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 20)
+                }
+                .padding(.leading, 20)
+                .disabled(showWindowlessAppsInCmdTab)
+                .opacity(showWindowlessAppsInCmdTab ? 0.5 : 1)
 
                 Picker("Window sort order", selection: $cmdTabSortOrder) {
                     ForEach(WindowPreviewSortOrder.allCases.filter { !$0.isWindowSwitcherOnly }) { order in

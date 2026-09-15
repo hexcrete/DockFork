@@ -202,7 +202,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "dockPreviews.ignoreSingleWindow",
             title: String(localized: "Ignore apps with one window"),
-            description: String(localized: "Prevents apps that only ever have a single window from appearing in previews."),
+            description: String(localized: "Prevents apps with exactly one open window from appearing in previews."),
             keywords: ["single", "ignore", "one"],
             tab: "DockPreviews",
             section: String(localized: "Window Display"),
@@ -577,7 +577,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "cmdTab.ignoreSingleWindow",
             title: String(localized: "Ignore apps with one window"),
-            description: String(localized: "Prevents apps with a single window from appearing in Cmd+Tab previews."),
+            description: String(localized: "Prevents apps with exactly one open window from appearing in previews."),
             keywords: ["single", "one", "window", "ignore"],
             tab: "CmdTab",
             section: String(localized: "Window Display"),
