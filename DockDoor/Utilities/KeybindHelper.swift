@@ -723,9 +723,9 @@ class KeybindHelper {
                            let action = getActionForCmdShortcut(keyCode: keyCode)
                         {
                             let supportsHighlightedAppAction = action == .close || action == .quit
-                            let highlightedApp = hasSelection ? nil : DockObserver.activeInstance?.selectedCmdTabApplication()
+                            let highlightedApps = hasSelection ? [] : DockObserver.activeInstance?.selectedCmdTabApplications() ?? []
 
-                            if hasSelection || (supportsHighlightedAppAction && highlightedApp != nil) {
+                            if hasSelection || (supportsHighlightedAppAction && !highlightedApps.isEmpty) {
                                 cmdTabActionPerformed = true
                                 Task { @MainActor in
                                     if hasSelection {
@@ -733,10 +733,10 @@ class KeybindHelper {
                                         if didClosePreviews {
                                             DockObserver.activeInstance?.teardownCmdTabObserver()
                                         }
-                                    } else if let highlightedApp {
-                                        let didClosePreviews = self.previewCoordinator.performActionOnCmdTabHighlightedApp(
+                                    } else {
+                                        let didClosePreviews = self.previewCoordinator.performActionOnCmdTabHighlightedApps(
                                             action: action,
-                                            app: highlightedApp
+                                            apps: highlightedApps
                                         )
                                         if didClosePreviews {
                                             DockObserver.activeInstance?.teardownCmdTabObserver()

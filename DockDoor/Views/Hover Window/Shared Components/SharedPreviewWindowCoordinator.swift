@@ -1334,90 +1334,43 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     @discardableResult
-    func performActionOnCmdTabHighlightedApp(action: WindowAction, app: NSRunningApplication) -> Bool {
-        let windowlessEntry = WindowInfo.windowlessEntry(for: app)
-        let willQuitOnClose = action == .close &&
-            WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: app.processIdentifier)
-        let existingWindowIDs = Set(
-            windowSwitcherCoordinator.windows
-                .filter { $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp }
-                .map(\.id)
-        )
-        let category = action.postActionCategory(
-            for: windowlessEntry,
-            preferredWindows: windowSwitcherCoordinator.windows
-        )
-        let keepPreviewsOpen = category?.keepPreviewsOpen ?? (action != .openAppWindow)
-        let closeAfterSuccess = action.closePreviewsOnlyAfterSuccess(
-            for: windowlessEntry,
-            category: category
-        )
-        let shouldClosePreviews = !keepPreviewsOpen
-        let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
-            !(action == .toggleFullScreen && keepPreviewsOpen)
-        let result = action.perform(
-            on: windowlessEntry,
-            keepPreviewOnQuit: false,
-            preferredWindows: windowSwitcherCoordinator.windows
-        )
+    func performActionOnCmdTabHighlightedApps(action: WindowAction, apps: [NSRunningApplication]) -> Bool {
+        guard action == .close || action == .quit else { return false }
+
+        var seenPIDs = Set<pid_t>()
+        let targetApps = apps.filter {
+            !$0.isTerminated && seenPIDs.insert($0.processIdentifier).inserted
+        }
+        guard !targetApps.isEmpty else { return false }
+
+        let preferredWindows = windowSwitcherCoordinator.windows
+        let targets = targetApps.map { ($0, WindowInfo.windowlessEntry(for: $0)) }
+        let keepPreviewsOpen = WindowAction.PostActionCategory.closing.keepPreviewsOpen
+
+        for (app, entry) in targets {
+            let appRows = preferredWindows.filter {
+                $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp
+            }
+            _ = action.perform(
+                on: entry,
+                keepPreviewOnQuit: false,
+                preferredWindows: appRows.isEmpty ? nil : appRows
+            )
+            if action.shouldScheduleAppRefresh {
+                scheduleInPlaceActionRefresh(for: app)
+            }
+        }
         windowSwitcherCoordinator.scheduleActiveFocusedWindowRefresh()
 
-        if shouldRunInPlaceRefresh {
-            scheduleInPlaceActionRefresh(
-                for: app,
-                forceImageRefresh: action == .openNewWindow,
-                previousWindowIDs: action == .openNewWindow ? existingWindowIDs : nil,
-                sourceWindowID: action == .openNewWindow ? windowlessEntry.id : nil
-            )
-        }
+        guard !keepPreviewsOpen else { return false }
 
-        guard shouldClosePreviews else { return false }
-
-        if action == .close || action == .quit {
+        for (app, entry) in targets {
             scheduleFailedClosingFocusNotification(
                 action: action,
-                window: windowlessEntry,
-                willQuitOnClose: willQuitOnClose
+                window: entry,
+                willQuitOnClose: action == .close &&
+                    WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: app.processIdentifier)
             )
-            hideWindow()
-            return true
-        }
-
-        if !closeAfterSuccess {
-            if action == .hide, case .noChange = result {
-                return false
-            }
-            hideWindow()
-            return true
-        }
-
-        if case .noChange = result {
-            switch action {
-            case .close:
-                scheduleCloseAllDismissConfirmation(window: windowlessEntry, sourceAction: .close)
-            case .quit:
-                scheduleAppTerminationDismissConfirmation(window: windowlessEntry, sourceAction: .quit)
-            default:
-                break
-            }
-            return false
-        }
-
-        if action.requiresDeferredSuccessWatcher {
-            switch action {
-            case .openNewWindow:
-                scheduleNewWindowDismissConfirmation(
-                    window: windowlessEntry,
-                    previousWindowIDs: existingWindowIDs
-                )
-            case .closeAllWindows:
-                scheduleCloseAllDismissConfirmation(window: windowlessEntry, sourceAction: .closeAllWindows)
-            case .quit:
-                scheduleAppTerminationDismissConfirmation(window: windowlessEntry, sourceAction: .quit)
-            default:
-                break
-            }
-            return false
         }
         hideWindow()
         return true

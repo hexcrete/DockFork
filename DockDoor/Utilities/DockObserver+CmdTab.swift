@@ -296,21 +296,23 @@ extension DockObserver {
         return CFEqual(selectedItem.element, expectedElement)
     }
 
-    func selectedCmdTabApplication() -> NSRunningApplication? {
+    func selectedCmdTabApplications() -> [NSRunningApplication] {
         guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
-            return nil
+            return []
         }
 
         let dockAppElement = AXUIElementCreateApplication(dockApp.processIdentifier)
         guard let selectedItem = getSelectedCmdTabItem(dockElement: dockAppElement) else {
-            return nil
+            return []
         }
 
-        return preferredCmdTabApplication(from: cmdTabApplicationCandidates(
+        let candidates = cmdTabApplicationCandidates(
             resolvedApp: selectedItem.app,
             bundleIdentifier: selectedItem.bundleId ?? selectedItem.app?.bundleIdentifier,
             title: selectedItem.title
-        ))
+        )
+        guard let preferred = preferredCmdTabApplication(from: candidates) else { return [] }
+        return [preferred] + candidates.filter { $0.processIdentifier != preferred.processIdentifier }
     }
 
     // MARK: - Cmd+Tab Session State
@@ -332,9 +334,7 @@ extension DockObserver {
         if let bundleIdentifier, !bundleIdentifier.isEmpty {
             candidates.append(contentsOf: NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier))
         } else if let title, !title.isEmpty {
-            candidates.append(contentsOf: NSWorkspace.shared.runningApplications.filter {
-                $0.activationPolicy == .regular && $0.localizedName == title
-            })
+            candidates.append(contentsOf: cmdTabApplications(matching: title))
         }
 
         var seenPIDs = Set<pid_t>()
@@ -347,6 +347,41 @@ extension DockObserver {
         candidates.first {
             !WindowUtil.readCachedWindows(for: $0.processIdentifier, sortedBy: .cmdTab).isEmpty
         } ?? candidates.first
+    }
+
+    private func cmdTabApplications(matching title: String) -> [NSRunningApplication] {
+        let normalizedTitle = normalizedCmdTabAppName(title)
+        guard !normalizedTitle.isEmpty else { return [] }
+
+        let namedApps = NSWorkspace.shared.runningApplications.filter {
+            $0.activationPolicy == .regular && !($0.localizedName ?? "").isEmpty
+        }
+        let exactMatches = namedApps.filter {
+            normalizedCmdTabAppName($0.localizedName ?? "") == normalizedTitle
+        }
+        if !exactMatches.isEmpty {
+            return unambiguousCmdTabApplicationGroup(exactMatches)
+        }
+
+        let fuzzyMatches = namedApps.filter {
+            let appName = normalizedCmdTabAppName($0.localizedName ?? "")
+            return appName.contains(normalizedTitle) || normalizedTitle.contains(appName)
+        }
+        return unambiguousCmdTabApplicationGroup(fuzzyMatches)
+    }
+
+    private func normalizedCmdTabAppName(_ name: String) -> String {
+        name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private func unambiguousCmdTabApplicationGroup(_ apps: [NSRunningApplication]) -> [NSRunningApplication] {
+        let identities = Set(apps.map {
+            $0.bundleIdentifier ?? "pid:\($0.processIdentifier)"
+        })
+        return identities.count == 1 ? apps : []
     }
 
     private func getSelectedCmdTabItem(dockElement: AXUIElement) -> (element: AXUIElement, app: NSRunningApplication?, bundleId: String?, title: String?)? {
@@ -377,20 +412,7 @@ extension DockObserver {
                 do {
                     if let title = try selectedElement.title(), !title.isEmpty {
                         resolvedTitle = title
-                        let namedApps = NSWorkspace.shared.runningApplications.filter {
-                            $0.activationPolicy == .regular && !($0.localizedName ?? "").isEmpty
-                        }
-                        if let app = namedApps.first(where: { $0.localizedName == title }) {
-                            resolvedApp = app
-                        } else {
-                            let lowerTitle = title.lowercased()
-                            if let app = namedApps.first(where: {
-                                let appName = ($0.localizedName ?? "").lowercased()
-                                return appName.contains(lowerTitle) || lowerTitle.contains(appName)
-                            }) {
-                                resolvedApp = app
-                            }
-                        }
+                        resolvedApp = preferredCmdTabApplication(from: cmdTabApplications(matching: title))
                         if resolvedBundleId == nil { resolvedBundleId = resolvedApp?.bundleIdentifier }
                     }
                 } catch {

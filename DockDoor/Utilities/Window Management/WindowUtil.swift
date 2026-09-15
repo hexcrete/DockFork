@@ -1159,8 +1159,6 @@ extension WindowUtil {
         app: NSRunningApplication,
         allowWindowlessPlaceholder: Bool = true
     ) -> [WindowInfo]? {
-        guard !app.isTerminated else { return nil }
-
         let realWindows = sourceWindows.filter { !$0.isWindowlessApp }
         var visibleWindows = realWindows
 
@@ -1182,6 +1180,7 @@ extension WindowUtil {
         }
 
         guard realWindows.isEmpty,
+              !app.isTerminated,
               allowWindowlessPlaceholder,
               Defaults[.showWindowlessAppsInCmdTab]
         else { return nil }
