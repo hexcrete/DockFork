@@ -263,12 +263,6 @@ struct WindowPreviewHoverContainer: View {
             permissionAllowsIt
     }
 
-    private var highlightedWindowID: CGWindowID? {
-        let selectedIndex = previewStateCoordinator.currIndex
-        guard selectedIndex >= 0, selectedIndex < previewStateCoordinator.windows.count else { return nil }
-        return previewStateCoordinator.windows[selectedIndex].id
-    }
-
     private func cancelDockHighlightAction() {
         dockHighlightActionTimer?.invalidate()
         dockHighlightActionTimer = nil
@@ -548,8 +542,13 @@ struct WindowPreviewHoverContainer: View {
                 }
             }
         }
-        .onChange(of: highlightedWindowID) { _ in
-            refreshHighlightActionIfNeeded()
+        .background {
+            SelectionReader(selection: previewStateCoordinator.selection) { currIndex in
+                Color.clear
+                    .onChange(of: currIndex) { _ in
+                        refreshHighlightActionIfNeeded()
+                    }
+            }
         }
         .onChange(of: previewStateCoordinator.selectionInputSource) { _ in
             refreshHighlightActionIfNeeded()

@@ -233,6 +233,7 @@ private class WindowSwitchingCoordinator {
         bestGuessMonitor: NSScreen
     ) {
         let selectedWindow = coordinator.getCurrentWindow()
+        let previousSelectionSource = coordinator.selectionInputSource
         let previousWindowCount = coordinator.windows.count
 
         // Replace the global switcher list rather than using the single-app merge path.
@@ -242,7 +243,7 @@ private class WindowSwitchingCoordinator {
         if let selectedWindow,
            let newIndex = coordinator.windows.firstIndex(where: { isSameSwitcherWindow($0, selectedWindow) })
         {
-            coordinator.setIndex(to: newIndex)
+            coordinator.setIndex(to: newIndex, source: previousSelectionSource)
         }
 
         if coordinator.windows.count != previousWindowCount {
