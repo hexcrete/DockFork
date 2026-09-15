@@ -171,6 +171,12 @@ final class WindowLiveCapture: ObservableObject {
         guard let content = await WindowUtil.getShareableContent(onScreenWindowsOnly: false),
               let scWindow = content.windows.first(where: { $0.windowID == windowID })
         else { return }
+        guard WindowCandidateDiscriminator.hasUsableSize(scWindow.frame.size) else { return }
+        guard !WindowCandidateDiscriminator.isLiveCaptureControlProxy(
+            title: scWindow.title,
+            size: scWindow.frame.size,
+            level: Int32(scWindow.windowLayer)
+        ) else { return }
         await startStream(for: scWindow)
     }
 

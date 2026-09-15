@@ -146,6 +146,17 @@ enum WindowCandidateDiscriminator {
         return size.width >= minimumSize.width && size.height >= minimumSize.height
     }
 
+    static func isLiveCaptureControlProxy(title: String?, size: CGSize?, level: Int32) -> Bool {
+        guard Defaults[.enableLivePreview],
+              Defaults[.disableMinWindowSizeFilter],
+              title?.trimmingCharacters(in: .whitespacesAndNewlines) == "Window",
+              level == normalLevel,
+              let size
+        else { return false }
+        return size.width > 0 && size.height > 0 &&
+            size.width <= minimumSize.width && size.height <= minimumSize.height
+    }
+
     static func hasUsableGeometry(_ attributes: WindowCandidateAttributes) -> Bool {
         guard hasUsableSize(attributes.size) else { return false }
         if let position = attributes.position {
@@ -182,6 +193,9 @@ enum WindowCandidateDiscriminator {
                                                  level: Int32?,
                                                  attributes: WindowCandidateAttributes) -> String?
     {
+        if let level, isLiveCaptureControlProxy(title: attributes.title, size: attributes.size, level: level) {
+            return "live capture control proxy"
+        }
         guard hasUsableGeometry(attributes) else { return "unusable geometry" }
 
         let specialApp = books(app) ||

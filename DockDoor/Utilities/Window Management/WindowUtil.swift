@@ -1615,6 +1615,15 @@ extension WindowUtil {
         let displayPid = displayApp.processIdentifier
         let ownerPid = ownerApp.processIdentifier
 
+        if WindowCandidateDiscriminator.isLiveCaptureControlProxy(
+            title: window.title,
+            size: window.frame.size,
+            level: Int32(window.windowLayer)
+        ) {
+            removeWindowFromDesktopSpaceCache(with: windowID, in: displayPid)
+            return
+        }
+
         // Fast path: skip if pre-computed by caller as fresh cached
         if skipWindowIDs.contains(windowID) {
             return
