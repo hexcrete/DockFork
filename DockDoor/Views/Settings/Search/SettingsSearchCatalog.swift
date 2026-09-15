@@ -1421,8 +1421,8 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.cmdShortcuts",
             title: String(localized: "Window Preview Keyboard Shortcuts"),
-            description: String(localized: "Cmd+key shortcuts for quick actions on the selected window preview. These work in both the window switcher and Cmd+Tab enhancement mode."),
-            keywords: ["shortcut", "cmd", "keyboard", "hotkey"],
+            description: String(localized: "Uses the active Window Switcher modifier for preview actions. Cmd+Tab uses Command while the macOS switcher is active."),
+            keywords: ["shortcut", "modifier", "command", "option", "control", "keyboard", "hotkey"],
             tab: "GesturesKeybinds",
             section: String(localized: "Window Preview Keyboard Shortcuts"),
             icon: "command"

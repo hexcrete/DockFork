@@ -3,12 +3,13 @@ import SwiftUI
 
 struct CmdKeyShortcutsSection: View {
     @Default(.cmdShortcuts) var cmdShortcuts
+    @Default(.UserKeybind) private var windowSwitcherKeybind
     @State private var autoCaptureShortcutID: UUID?
 
     var body: some View {
         SettingsGroup(header: "Window Preview Keyboard Shortcuts") {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Cmd+key shortcuts for quick actions on the selected window preview. These work in both the window switcher and Cmd+Tab enhancement mode.")
+                Text("Uses the active Window Switcher modifier for preview actions. Cmd+Tab uses Command while the macOS switcher is active.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
@@ -71,7 +72,7 @@ struct CmdKeyShortcutsSection: View {
 
         return HStack(spacing: 12) {
             HStack(spacing: 4) {
-                Text("⌘")
+                Text(modifierConverter.toSymbol(windowSwitcherKeybind.modifierFlags))
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
                 KeyCaptureButton(

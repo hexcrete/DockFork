@@ -720,7 +720,7 @@ class KeybindHelper {
                         }
 
                         if flags.contains(.maskCommand),
-                           let action = getActionForCmdShortcut(keyCode: keyCode)
+                           let action = getActionForPreviewShortcut(keyCode: keyCode)
                         {
                             let supportsHighlightedAppAction = action == .close || action == .quit
                             let highlightedApps = hasSelection ? [] : DockObserver.activeInstance?.selectedCmdTabApplications() ?? []
@@ -1009,8 +1009,10 @@ class KeybindHelper {
         }
 
         if previewIsCurrentlyVisible {
-            if flags.contains(.maskCommand), previewCoordinator.windowSwitcherCoordinator.currIndex >= 0 {
-                if let action = getActionForCmdShortcut(keyCode: keyCode) {
+            if modifierFlagsMatch(sessionKeybind().modifierFlags, flags: flags),
+               previewCoordinator.windowSwitcherCoordinator.currIndex >= 0
+            {
+                if let action = getActionForPreviewShortcut(keyCode: keyCode) {
                     preventSwitcherHideOnRelease = true
                     return (true, { @MainActor in
                         let didClosePreviews = self.previewCoordinator.performActionOnCurrentWindow(action: action)
@@ -1272,8 +1274,8 @@ class KeybindHelper {
         }
     }
 
-    /// Returns the action for a Cmd+key shortcut if the keyCode matches any configured shortcut
-    private func getActionForCmdShortcut(keyCode: Int64) -> WindowAction? {
+    /// Returns the first active preview action matching the configured key.
+    private func getActionForPreviewShortcut(keyCode: Int64) -> WindowAction? {
         for shortcut in Defaults[.cmdShortcuts] where !shortcut.isPending && Int64(shortcut.keyCode) == keyCode {
             if shortcut.action != .none {
                 return shortcut.action

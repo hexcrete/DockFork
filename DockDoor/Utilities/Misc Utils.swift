@@ -51,6 +51,18 @@ enum modifierConverter {
             ""
         }
     }
+
+    static func toSymbol(_ modifierIntValue: Int) -> String {
+        if (modifierIntValue & Int(CGEventFlags.maskCommand.rawValue)) != 0 {
+            "⌘"
+        } else if (modifierIntValue & Int(CGEventFlags.maskAlternate.rawValue)) != 0 {
+            "⌥"
+        } else if (modifierIntValue & Int(CGEventFlags.maskControl.rawValue)) != 0 {
+            "⌃"
+        } else {
+            ""
+        }
+    }
 }
 
 enum KeyCodeConverter {

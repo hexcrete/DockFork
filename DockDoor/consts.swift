@@ -371,7 +371,7 @@ extension Defaults.Keys {
 
     static let middleClickAction = Key<WindowAction>("middleClickAction", default: .close)
 
-    // MARK: - Window Preview Keyboard Shortcuts (Cmd+key)
+    // MARK: - Window Preview Keyboard Shortcuts
 
     static let cmdShortcuts = Key<[CmdShortcut]>("cmdShortcuts", default: CmdShortcut.defaultShortcuts)
     static let movingResizingPostActionBehavior = Key<Bool>("movingResizingPostActionBehavior", default: true)
