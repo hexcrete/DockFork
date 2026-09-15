@@ -9,6 +9,15 @@ enum SettingsSearchCatalog {
 
     private static let generalItems: [SettingsSearchItem] = [
         SettingsSearchItem(
+            id: "general.leaveReview",
+            title: String(localized: "Leave a Review"),
+            description: String(localized: "Share your experience on Product Hunt"),
+            keywords: ["review", "product hunt", "rating", "feedback"],
+            tab: "General",
+            section: String(localized: "Support & Contributions"),
+            icon: "star.bubble.fill"
+        ),
+        SettingsSearchItem(
             id: "general.launchAtLogin",
             title: String(localized: "Launch DockDoor at login"),
             keywords: ["startup", "boot", "open", "auto"],
@@ -23,14 +32,6 @@ enum SettingsSearchCatalog {
             tab: "General",
             section: String(localized: "Application Basics"),
             icon: "menubar.rectangle"
-        ),
-        SettingsSearchItem(
-            id: "general.activateOnWake",
-            title: String(localized: "Restore settings window to front on wake from sleep"),
-            keywords: ["wake", "sleep", "restore"],
-            tab: "General",
-            section: String(localized: "Application Basics"),
-            icon: "moon.zzz"
         ),
         SettingsSearchItem(
             id: "general.reduceMotion",
@@ -122,7 +123,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "dockPreviews.enable",
             title: String(localized: "Enable Dock Previews"),
-            description: String(localized: "Show window previews when hovering over Dock icons."),
+            description: String(localized: "Show window previews for Dock icons."),
             keywords: ["dock", "hover", "preview"],
             tab: "DockPreviews",
             section: "",
@@ -190,6 +191,15 @@ enum SettingsSearchCatalog {
             icon: "square.stack"
         ),
         SettingsSearchItem(
+            id: "dockPreviews.collapseNativeTabs",
+            title: String(localized: "Collapse native tabs into a single window"),
+            description: String(localized: "Show one preview for apps that use native macOS window tabs (e.g. Ghostty, Finder, Terminal) instead of one preview per tab."),
+            keywords: ["tab", "tabs", "native", "collapse", "ghostty", "finder", "terminal"],
+            tab: "DockPreviews",
+            section: String(localized: "Window Display"),
+            icon: "square.on.square"
+        ),
+        SettingsSearchItem(
             id: "dockPreviews.ignoreSingleWindow",
             title: String(localized: "Ignore apps with one window"),
             description: String(localized: "Prevents apps that only ever have a single window from appearing in previews."),
@@ -199,12 +209,38 @@ enum SettingsSearchCatalog {
             icon: "1.square"
         ),
         SettingsSearchItem(
+            id: "dockPreviews.activationTrigger",
+            title: String(localized: "Dock Preview Trigger"),
+            description: String(localized: "Show previews automatically on hover, or require a click trigger on the Dock icon."),
+            keywords: ["trigger", "hover", "middle", "click", "modifier", "dock"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "cursorarrow.click"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.activationModifier",
+            title: String(localized: "Dock Preview Modifier"),
+            keywords: ["modifier", "option", "control", "shift", "command", "click"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "keyboard"
+        ),
+        SettingsSearchItem(
             id: "dockPreviews.hoverAction",
             title: String(localized: "Dock Preview Hover Action"),
             keywords: ["hover", "action", "click", "tap"],
             tab: "DockPreviews",
             section: String(localized: "Dock Interaction"),
             icon: "cursorarrow.click"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.keepOnHoverActivation",
+            title: String(localized: "Keep preview open after hover activation"),
+            description: String(localized: "Keep Dock previews visible while the pointer remains over them after a hover brings a window to the front."),
+            keywords: ["hover", "activate", "front", "keep", "preview", "windows"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "rectangle.on.rectangle"
         ),
         SettingsSearchItem(
             id: "dockPreviews.hoverDelay",
@@ -232,6 +268,14 @@ enum SettingsSearchCatalog {
             icon: "cursorarrow.click.2"
         ),
         SettingsSearchItem(
+            id: "dockPreviews.restoreAllMinimizedOnClick",
+            title: String(localized: "Restore all minimized windows on dock icon click"),
+            keywords: ["restore", "click", "minimize", "open"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "rectangle.stack"
+        ),
+        SettingsSearchItem(
             id: "dockPreviews.cmdRightClickQuit",
             title: String(localized: "CMD + Right Click on dock icon to quit app"),
             keywords: ["quit", "right click", "command", "force"],
@@ -242,7 +286,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "dockPreviews.quitOnClose",
             title: String(localized: "Quit app when closing its last window"),
-            description: String(localized: "When an app has only one window left, closing it from the preview will quit the app. Hold Option to force quit. Useful as a replacement for Swift Quit."),
+            description: String(localized: "When an app has only one window left, closing it will quit the app. Useful as a replacement for Swift Quit."),
             keywords: ["quit", "close", "last window"],
             tab: "DockPreviews",
             section: String(localized: "Dock Interaction"),
@@ -531,6 +575,15 @@ enum SettingsSearchCatalog {
             icon: "macwindow.badge.plus"
         ),
         SettingsSearchItem(
+            id: "cmdTab.ignoreSingleWindow",
+            title: String(localized: "Ignore apps with one window"),
+            description: String(localized: "Prevents apps with a single window from appearing in Cmd+Tab previews."),
+            keywords: ["single", "one", "window", "ignore"],
+            tab: "CmdTab",
+            section: String(localized: "Window Display"),
+            icon: "macwindow.badge.minus"
+        ),
+        SettingsSearchItem(
             id: "cmdTab.sortOrder",
             title: String(localized: "Window sort order"),
             keywords: ["sort", "order"],
@@ -652,6 +705,15 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "General Appearance"),
             icon: "eye.trianglebadge.exclamationmark"
+        ),
+        SettingsSearchItem(
+            id: "appearance.windowlessQuitButton",
+            title: String(localized: "Show quit button for apps with no open windows"),
+            description: String(localized: "Shows a quit-only control on previews for running apps with no open windows."),
+            keywords: ["windowless", "quit", "button", "running", "no windows"],
+            tab: "Appearance",
+            section: String(localized: "General Appearance"),
+            icon: "power"
         ),
         SettingsSearchItem(
             id: "appearance.hidePreviewBackground",
@@ -845,10 +907,19 @@ enum SettingsSearchCatalog {
             id: "appearance.glassTuning",
             title: String(localized: "Glass Tuning"),
             description: String(localized: "Fine-tune opacity, blur, saturation, tint, and border for glass background style."),
-            keywords: ["glass", "opacity", "blur", "saturation", "tint", "border", "tuning"],
+            keywords: ["glass", "opacity", "blur", "saturation", "tint", "border", "tuning", "variant"],
             tab: "Appearance",
             section: String(localized: "Background"),
             icon: "slider.horizontal.3"
+        ),
+        SettingsSearchItem(
+            id: "appearance.glassVariant",
+            title: String(localized: "Glass Variant"),
+            description: String(localized: "Selects the liquid glass material variant used for the background."),
+            keywords: ["glass", "variant", "liquid", "material", "style", "look"],
+            tab: "Appearance",
+            section: String(localized: "Background"),
+            icon: "sparkles"
         ),
         // Window Background
         SettingsSearchItem(
@@ -1043,6 +1114,23 @@ enum SettingsSearchCatalog {
         ),
         // Window Switcher Appearance
         SettingsSearchItem(
+            id: "appearance.switcherShowAppHeader",
+            title: String(localized: "Show App Header"),
+            description: String(localized: "Show app header in the window switcher."),
+            keywords: ["app", "header", "name", "switcher"],
+            tab: "Appearance",
+            section: String(localized: "Window Switcher Appearance"),
+            icon: "textformat"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherAppIconSize",
+            title: String(localized: "App Icon Size"),
+            keywords: ["app", "icon", "size", "header", "switcher", "title"],
+            tab: "Appearance",
+            section: String(localized: "Window Switcher Appearance"),
+            icon: "app"
+        ),
+        SettingsSearchItem(
             id: "appearance.switcherControlPosition",
             title: String(localized: "Position Window Controls"),
             description: String(localized: "Position of window controls in the switcher."),
@@ -1129,6 +1217,15 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "Window Switcher Appearance"),
             icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherEmbedControls",
+            title: String(localized: "Embed controls in preview frames"),
+            description: String(localized: "Places traffic light buttons and window titles directly inside the window switcher preview frames."),
+            keywords: ["embed", "controls", "frame", "switcher"],
+            tab: "Appearance",
+            section: String(localized: "Window Switcher Appearance"),
+            icon: "rectangle.inset.filled"
         ),
         SettingsSearchItem(
             id: "appearance.switcherMaxRows",
@@ -1279,7 +1376,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.dockScroll",
             title: String(localized: "Enable scroll gestures on dock icons"),
-            description: String(localized: "Scroll up on a dock icon to bring the app to front, scroll down to hide all its windows."),
+            description: String(localized: "Choose what happens when scrolling directly on a dock icon."),
             keywords: ["scroll", "dock", "gesture", "hide", "front"],
             tab: "GesturesKeybinds",
             section: String(localized: "Dock Icon Scroll Gesture"),
@@ -1316,7 +1413,7 @@ enum SettingsSearchCatalog {
             id: "gestures.middleClick",
             title: String(localized: "Middle Click"),
             description: String(localized: "Action performed when middle-clicking on a window preview."),
-            keywords: ["middle", "click", "mouse", "button"],
+            keywords: ["middle", "click", "mouse", "button", "open", "activate", "window", "app"],
             tab: "GesturesKeybinds",
             section: String(localized: "Mouse Actions"),
             icon: "computermouse"
@@ -1419,6 +1516,15 @@ enum SettingsSearchCatalog {
             icon: "hand.draw"
         ),
         // Dock Scroll - additional
+        SettingsSearchItem(
+            id: "gestures.dockIconScroll",
+            title: String(localized: "Dock icon scroll:"),
+            description: String(localized: "Choose what happens when scrolling directly on a dock icon."),
+            keywords: ["scroll", "dock", "space", "desktop", "activate", "hide"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Dock Icon Scroll Gesture"),
+            icon: "dock.rectangle"
+        ),
         SettingsSearchItem(
             id: "gestures.musicScroll",
             title: String(localized: "Music & Spotify dock icon scroll"),
@@ -1536,8 +1642,8 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.alternateShortcut",
             title: String(localized: "Alternate Shortcut"),
-            description: String(localized: "An additional trigger key using the same modifier, invoking the switcher with a different filter mode."),
-            keywords: ["alternate", "shortcut", "trigger", "mode"],
+            description: String(localized: "An additional trigger key, with its own modifier if desired, invoking the switcher with a different filter mode."),
+            keywords: ["alternate", "shortcut", "trigger", "mode", "modifier", "escape"],
             tab: "GesturesKeybinds",
             section: String(localized: "Window Switcher Shortcuts"),
             icon: "keyboard"
@@ -1634,17 +1740,17 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "widgets.embedded",
-            title: String(localized: "Embed controls alongside window previews"),
-            description: String(localized: "Show controls inline with window previews when both are available."),
-            keywords: ["embed", "inline", "alongside"],
+            title: String(localized: "Show widget controls alongside window previews"),
+            description: String(localized: "Keeps window previews visible when widget controls are shown."),
+            keywords: ["embed", "inline", "alongside", "previews"],
             tab: "Widgets",
             section: String(localized: "Display"),
             icon: "rectangle.on.rectangle"
         ),
         SettingsSearchItem(
             id: "widgets.fullSize",
-            title: String(localized: "Use full-size controls when no windows are open"),
-            keywords: ["full", "size", "big", "large"],
+            title: String(localized: "Use full-size controls when all windows are minimized or hidden"),
+            keywords: ["full", "size", "big", "large", "minimized", "hidden"],
             tab: "Widgets",
             section: String(localized: "Display"),
             icon: "rectangle.expand.vertical"
@@ -1683,6 +1789,47 @@ enum SettingsSearchCatalog {
             tab: "Widgets",
             section: String(localized: "Media Widget Scroll"),
             icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "widgets.folder",
+            title: String(localized: "Show folder contents on hover"),
+            description: String(localized: "Preview a folder's contents when hovering it in the Dock."),
+            keywords: ["folder", "directory", "dock", "hover", "files", "widget"],
+            tab: "DockPreviews",
+            section: String(localized: "Folder Previews"),
+            icon: "folder"
+        ),
+        SettingsSearchItem(
+            id: "widgets.folderSort",
+            title: String(localized: "Default sort:"),
+            keywords: ["folder", "sort", "order", "name", "date", "kind", "size"],
+            tab: "DockPreviews",
+            section: String(localized: "Folder Previews"),
+            icon: "arrow.up.arrow.down"
+        ),
+        SettingsSearchItem(
+            id: "widgets.folderSortDirection",
+            title: String(localized: "Sort descending by default"),
+            keywords: ["folder", "sort", "descending", "ascending", "direction"],
+            tab: "DockPreviews",
+            section: String(localized: "Folder Previews"),
+            icon: "arrow.down"
+        ),
+        SettingsSearchItem(
+            id: "widgets.folderRememberSort",
+            title: String(localized: "Remember sorting per folder"),
+            keywords: ["folder", "sort", "remember", "per", "directory"],
+            tab: "DockPreviews",
+            section: String(localized: "Folder Previews"),
+            icon: "folder.badge.gearshape"
+        ),
+        SettingsSearchItem(
+            id: "widgets.folderHiddenFiles",
+            title: String(localized: "Show hidden files"),
+            keywords: ["folder", "hidden", "dotfiles", "files"],
+            tab: "DockPreviews",
+            section: String(localized: "Folder Previews"),
+            icon: "eye"
         ),
     ]
 

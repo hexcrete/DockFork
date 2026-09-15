@@ -33,7 +33,8 @@ struct FullSizePreviewView: View {
                         glassOpacity: 1,
                         tintOpacity: 0,
                         blurRadius: 20,
-                        saturation: 1
+                        saturation: 1,
+                        variant: 4
                     )
                 } else {
                     MaterialBlurView(material: .hudWindow)

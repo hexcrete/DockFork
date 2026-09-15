@@ -1,7 +1,13 @@
+import ApplicationServices
 import Defaults
 import SwiftUI
 
-// Pure UI state container for window preview presentation
+/// Isolated so index changes only invalidate views that read it, not the entire preview container.
+final class SwitcherSelectionState: ObservableObject {
+    @Published var currIndex: Int = -1
+}
+
+/// Pure UI state container for window preview presentation
 class PreviewStateCoordinator: ObservableObject {
     enum SelectionInputSource {
         case programmatic
@@ -9,9 +15,14 @@ class PreviewStateCoordinator: ObservableObject {
         case mouse
     }
 
-    @Published var currIndex: Int = -1
+    let selection = SwitcherSelectionState()
+    var currIndex: Int {
+        get { selection.currIndex }
+        set { selection.currIndex = newValue }
+    }
+
     @Published private(set) var selectionInputSource: SelectionInputSource = .programmatic
-    @Published private(set) var activeFocusedWindowID: CGWindowID?
+
     @Published var windowSwitcherActive: Bool = false {
         didSet { invalidateFilterCache() }
     }
@@ -41,6 +52,8 @@ class PreviewStateCoordinator: ObservableObject {
         didSet { invalidateFilterCache() }
     }
 
+    @Published private(set) var focusedWindowID: CGWindowID?
+
     var shouldScrollToIndex: Bool = true
 
     @Published var searchQuery: String = "" {
@@ -49,13 +62,33 @@ class PreviewStateCoordinator: ObservableObject {
             if windowSwitcherActive {
                 Task { @MainActor in
                     updateIndexForSearch()
+                    onFrameRefreshNeeded?()
                 }
             }
         }
     }
 
     private var cachedFilteredIndices: [Int]?
-    private func invalidateFilterCache() { cachedFilteredIndices = nil }
+    private func invalidateFilterCache() {
+        cachedFilteredIndices = nil
+    }
+
+    @MainActor
+    func setFocusedWindowID(_ windowID: CGWindowID?) {
+        focusedWindowID = windowID
+    }
+
+    @MainActor
+    func refreshFocusedWindowID(from newWindows: [WindowInfo]? = nil) {
+        focusedWindowID = Self.currentFocusedWindowID(in: newWindows ?? windows)
+    }
+
+    private static func currentFocusedWindowID(in windows: [WindowInfo]) -> CGWindowID? {
+        guard let activeAppWindow = windows.first(where: { $0.app.isActive }),
+              let focusedWindow = try? activeAppWindow.appAxElement.focusedWindow()
+        else { return nil }
+        return try? focusedWindow.cgWindowId()
+    }
 
     var hasActiveSearch: Bool {
         !searchQuery.isEmpty
@@ -135,7 +168,9 @@ class PreviewStateCoordinator: ObservableObject {
         } else {
             currIndex = -1
         }
-        selectionInputSource = source
+        if selectionInputSource != source {
+            selectionInputSource = source
+        }
     }
 
     @MainActor
@@ -152,6 +187,7 @@ class PreviewStateCoordinator: ObservableObject {
     @MainActor
     func setWindows(_ newWindows: [WindowInfo], dockPosition: DockPosition, bestGuessMonitor: NSScreen, isMockPreviewActive: Bool = false) {
         windows = newWindows
+        refreshFocusedWindowID(from: newWindows)
         lastKnownBestGuessMonitor = bestGuessMonitor
 
         if currIndex >= windows.count {
@@ -294,6 +330,7 @@ class PreviewStateCoordinator: ObservableObject {
         }
 
         lastKnownBestGuessMonitor = bestGuessMonitor
+        refreshFocusedWindowID()
         recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
 
         if windows.count != previousWindowCount {
@@ -400,6 +437,34 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
+    func applyCacheChanges(removed: [WindowInfo], added: [WindowInfo], updated: [WindowInfo]) {
+        guard !windows.isEmpty else { return }
+
+        if !updated.isEmpty {
+            var merged = windows
+            var changed = false
+            for fresh in updated {
+                guard let index = merged.firstIndex(where: { $0.id == fresh.id && $0.app.processIdentifier == fresh.app.processIdentifier }),
+                      merged[index].viewSnapshot != fresh.viewSnapshot || merged[index] != fresh
+                else { continue }
+                merged[index] = fresh
+                changed = true
+            }
+            if changed {
+                windows = merged
+            }
+        }
+
+        for window in removed {
+            removeWindow(byAx: window.axElement)
+        }
+
+        if !added.isEmpty {
+            addWindows(added)
+        }
+    }
+
+    @MainActor
     func removeWindow(at indexToRemove: Int) {
         guard indexToRemove >= 0, indexToRemove < windows.count else { return }
 
@@ -460,16 +525,26 @@ class PreviewStateCoordinator: ObservableObject {
     @MainActor
     func addWindows(_ newWindowsToAdd: [WindowInfo]) {
         guard !newWindowsToAdd.isEmpty else { return }
-        // Gate additions by PID of the currently displayed windows (if any)
-        guard let currentPid = windows.first?.app.processIdentifier else {
-            // No active windows context; ignore additions to avoid cross-app injection
-            return
+        let gated: [WindowInfo]
+        if isKeybindSessionActive {
+            // The switcher shows every app, so cache discoveries from any PID belong here.
+            gated = newWindowsToAdd
+        } else {
+            // Dock previews are single-app: gate by the displayed PID to avoid cross-app injection.
+            guard let currentPid = windows.first?.app.processIdentifier else { return }
+            gated = newWindowsToAdd.filter { $0.app.processIdentifier == currentPid }
         }
-        let gated: [WindowInfo] = newWindowsToAdd.filter { $0.app.processIdentifier == currentPid }
 
         var windowsWereAdded = false
         for newWin in gated {
-            if !windows.contains(where: { $0.id == newWin.id }) {
+            if let placeholderIndex = windows.firstIndex(where: {
+                $0.isWindowlessApp && $0.app.processIdentifier == newWin.app.processIdentifier
+            }) {
+                windows[placeholderIndex] = newWin
+                windowsWereAdded = true
+                continue
+            }
+            if !windows.contains(where: { $0.id == newWin.id && $0.app.processIdentifier == newWin.app.processIdentifier }) {
                 windows.append(newWin)
                 windowsWereAdded = true
             }
@@ -491,7 +566,7 @@ class PreviewStateCoordinator: ObservableObject {
         activeFocusRefreshTask?.cancel()
         activeFocusRefreshTask = nil
         pendingActiveFocusRefreshRequest = false
-        activeFocusedWindowID = nil
+        focusedWindowID = nil
         windows.removeAll()
         updateSelectionIndex(-1, source: .programmatic)
         SharedPreviewWindowCoordinator.activeInstance?.hideWindow()
@@ -500,14 +575,14 @@ class PreviewStateCoordinator: ObservableObject {
     @MainActor
     func refreshActiveFocusedWindowID() {
         guard Defaults[.showActiveWindowBorder] else {
-            if activeFocusedWindowID != nil {
-                activeFocusedWindowID = nil
+            if focusedWindowID != nil {
+                focusedWindowID = nil
             }
             return
         }
-        let focusedWindowID = WindowUtil.getFocusedWindowForFrontmostApp()?.id
-        if activeFocusedWindowID != focusedWindowID {
-            activeFocusedWindowID = focusedWindowID
+        let refreshedWindowID = WindowUtil.getFocusedWindowForFrontmostApp()?.id
+        if focusedWindowID != refreshedWindowID {
+            focusedWindowID = refreshedWindowID
         }
     }
 
@@ -580,22 +655,149 @@ class PreviewStateCoordinator: ObservableObject {
             effectiveGridRows: rows
         )
 
-        let compactThreshold = Defaults[.dockPreviewCompactThreshold]
+        let compactThreshold = if windowSwitcherActive {
+            Defaults[.windowSwitcherCompactThreshold]
+        } else if dockPosition == .cmdTab {
+            Defaults[.cmdTabCompactThreshold]
+        } else {
+            Defaults[.dockPreviewCompactThreshold]
+        }
         let wouldUseCompactMode = Defaults[.disableImagePreview]
             || (compactThreshold > 0 && windows.count >= compactThreshold)
 
-        if Defaults[.allowDynamicImageSizing], !windowSwitcherActive, !wouldUseCompactMode {
-            expectedContentSize = Self.computeExpectedContentSize(
-                windowCount: windows.count,
-                dimensionsMap: newDimensionsMap,
-                isHorizontal: dockPosition.isHorizontalFlow,
-                maxColumns: cols,
-                maxRows: rows,
-                hasEmbeddedContent: hasEmbeddedContent
-            )
+        if Defaults[.allowDynamicImageSizing], !wouldUseCompactMode {
+            if windowSwitcherActive {
+                expectedContentSize = computeSwitcherContentSize(
+                    dimensionsMap: newDimensionsMap,
+                    maxColumns: cols,
+                    maxRows: rows,
+                    fillToLimit: Defaults[.windowSwitcherScrollDirection] == .vertical,
+                    minimumItemWidth: min(newOverallMaxDimension.x, WindowPreviewHoverContainer.dynamicSwitcherMinimumCardWidth),
+                    dockPosition: dockPosition,
+                    bestGuessMonitor: bestGuessMonitor
+                )
+            } else {
+                expectedContentSizeIsExact = false
+                expectedContentSize = Self.computeExpectedContentSize(
+                    windowCount: windows.count,
+                    dimensionsMap: newDimensionsMap,
+                    isHorizontal: dockPosition.isHorizontalFlow,
+                    maxColumns: cols,
+                    maxRows: rows,
+                    hasEmbeddedContent: hasEmbeddedContent,
+                    fillToLimit: false,
+                    minimumItemWidth: 0
+                )
+            }
         } else {
+            expectedContentSizeIsExact = false
             expectedContentSize = .zero
         }
+    }
+
+    /// True when `expectedContentSize` faithfully predicts the laid-out size, letting the panel skip the synchronous fittingSize pass.
+    private(set) var expectedContentSizeIsExact: Bool = false
+
+    @MainActor
+    private func computeSwitcherContentSize(
+        dimensionsMap: [Int: WindowPreviewHoverContainer.WindowDimensions],
+        maxColumns: Int,
+        maxRows: Int,
+        fillToLimit: Bool,
+        minimumItemWidth: CGFloat,
+        dockPosition: DockPosition,
+        bestGuessMonitor: NSScreen
+    ) -> CGSize {
+        expectedContentSizeIsExact = false
+
+        guard !windows.isEmpty, maxColumns > 0, maxRows > 0,
+              windows.allSatisfy({ !$0.isWindowlessApp && $0.image != nil }),
+              dimensionsMap.count == windows.count,
+              let chromeHeight = measureSwitcherCardChromeHeight(
+                  dimensionsMap: dimensionsMap,
+                  dockPosition: dockPosition,
+                  bestGuessMonitor: bestGuessMonitor
+              )
+        else {
+            return Self.computeExpectedContentSize(
+                windowCount: windows.count,
+                dimensionsMap: dimensionsMap,
+                isHorizontal: true,
+                maxColumns: maxColumns,
+                maxRows: maxRows,
+                hasEmbeddedContent: hasEmbeddedContent,
+                fillToLimit: fillToLimit,
+                minimumItemWidth: minimumItemWidth
+            )
+        }
+
+        let itemSpacing = HoverContainerPadding.itemSpacing
+        let padding = HoverContainerPadding.totalPerSide()
+        let chunks = WindowPreviewHoverContainer.chunkArray(
+            items: Array(windows.indices),
+            isHorizontal: true,
+            maxColumns: maxColumns,
+            maxRows: maxRows,
+            fillToLimit: fillToLimit
+        )
+
+        var maxRowWidth: CGFloat = 0
+        var totalHeight: CGFloat = 0
+        for row in chunks {
+            var rowWidth: CGFloat = 0
+            var rowImageHeight: CGFloat = 0
+            for index in row {
+                guard let dims = dimensionsMap[index] else { continue }
+                rowWidth += max(dims.size.width, minimumItemWidth)
+                rowImageHeight = max(rowImageHeight, dims.size.height)
+            }
+            rowWidth += CGFloat(max(0, row.count - 1)) * itemSpacing
+            maxRowWidth = max(maxRowWidth, rowWidth)
+            totalHeight += rowImageHeight + chromeHeight
+        }
+        totalHeight += CGFloat(max(0, chunks.count - 1)) * itemSpacing
+
+        expectedContentSizeIsExact = true
+        return CGSize(width: maxRowWidth + padding * 2, height: totalHeight + padding * 2)
+    }
+
+    /// Measures one skeleton card in the selected state (the tallest case) to learn how much vertical chrome cards add around their image.
+    @MainActor
+    private func measureSwitcherCardChromeHeight(
+        dimensionsMap: [Int: WindowPreviewHoverContainer.WindowDimensions],
+        dockPosition: DockPosition,
+        bestGuessMonitor: NSScreen
+    ) -> CGFloat? {
+        let sampleIndex = windows.indices.first(where: { i in
+            let title = windows[i].windowName
+            return title?.isEmpty == false && title != windows[i].app.localizedName
+        }) ?? 0
+        guard let dims = dimensionsMap[sampleIndex] else { return nil }
+
+        let sample = WindowPreview(
+            windowInfo: windows[sampleIndex],
+            onTap: nil,
+            index: sampleIndex,
+            dockPosition: dockPosition,
+            bestGuessMonitor: bestGuessMonitor,
+            uniformCardRadius: Defaults[.uniformCardRadius],
+            handleWindowAction: { _ in },
+            isSelected: true,
+            windowSwitcherActive: true,
+            dimensions: dims,
+            showAppIconOnly: Defaults[.showAppIconOnly],
+            mockPreviewActive: false,
+            onHoverIndexChange: nil,
+            onDragHoverIndexChange: nil,
+            useLivePreview: false,
+            skeletonMode: true,
+            appearance: PreviewAppearanceSettings.resolve(windowSwitcherActive: true, dockPosition: dockPosition),
+            backgroundAppearance: BackgroundAppearance.resolve(),
+            focusedWindowID: nil
+        )
+        let measured = NSHostingView(rootView: sample).fittingSize
+        guard measured.height > 0 else { return nil }
+        return max(0, measured.height - dims.size.height)
     }
 
     private static let estimatedEmbeddedWidgetHeight: CGFloat = 100
@@ -606,7 +808,9 @@ class PreviewStateCoordinator: ObservableObject {
         isHorizontal: Bool,
         maxColumns: Int,
         maxRows: Int,
-        hasEmbeddedContent: Bool = false
+        hasEmbeddedContent: Bool = false,
+        fillToLimit: Bool = false,
+        minimumItemWidth: CGFloat = 0
     ) -> CGSize {
         guard windowCount > 0 else { return .zero }
 
@@ -617,14 +821,15 @@ class PreviewStateCoordinator: ObservableObject {
             items: Array(0 ..< windowCount),
             isHorizontal: isHorizontal,
             maxColumns: maxColumns,
-            maxRows: maxRows
+            maxRows: maxRows,
+            fillToLimit: fillToLimit
         )
 
         // Collect both flow-axis total and cross-axis max from all windows
         var maxItemWidth: CGFloat = 0
         var maxItemHeight: CGFloat = 0
         for dim in dimensionsMap.values {
-            maxItemWidth = max(maxItemWidth, dim.size.width)
+            maxItemWidth = max(maxItemWidth, max(dim.size.width, minimumItemWidth))
             maxItemHeight = max(maxItemHeight, dim.size.height)
         }
 
@@ -635,14 +840,15 @@ class PreviewStateCoordinator: ObservableObject {
                 var rowWidth: CGFloat = 0
                 for windowIndex in row {
                     let dims = dimensionsMap[windowIndex]
-                    rowWidth += dims?.size.width ?? dims?.maxDimensions.width ?? 0
+                    let itemWidth = dims?.size.width ?? dims?.maxDimensions.width ?? 0
+                    rowWidth += max(itemWidth, minimumItemWidth)
                 }
                 rowWidth += CGFloat(max(0, row.count - 1)) * itemSpacing
                 maxRowWidth = max(maxRowWidth, rowWidth)
             }
 
             if hasEmbeddedContent, let firstDims = dimensionsMap[0] {
-                maxRowWidth += firstDims.size.width + itemSpacing
+                maxRowWidth += max(firstDims.size.width, minimumItemWidth) + itemSpacing
             }
 
             // Provide both axes: flow width from item sum, cross height from tallest preview
@@ -822,6 +1028,8 @@ class PreviewStateCoordinator: ObservableObject {
     func initializeForWindowSwitcher(with newWindows: [WindowInfo], dockPosition: DockPosition, bestGuessMonitor: NSScreen) {
         setWindows(newWindows, dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
         searchQuery = ""
+        hasMovedSinceOpen = false
+        initialHoverLocation = NSEvent.mouseLocation
 
         if !windows.isEmpty {
             if Defaults[.useClassicWindowOrdering], windows.count >= 2 {

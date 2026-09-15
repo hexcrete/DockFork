@@ -15,7 +15,7 @@ struct WindowPreviewCompact: View, Equatable {
     let widthOverride: CGFloat?
     var appearance: PreviewAppearanceSettings
     let backgroundAppearance: BackgroundAppearance
-    let activeFocusedWindowID: CGWindowID?
+    let focusedWindowID: CGWindowID?
 
     @State private var isHovering = false
 
@@ -31,7 +31,7 @@ struct WindowPreviewCompact: View, Equatable {
             && l.appearance == r.appearance
             && l.windowInfo.viewSnapshot == r.windowInfo.viewSnapshot
             && l.backgroundAppearance == r.backgroundAppearance
-            && l.activeFocusedWindowID == r.activeFocusedWindowID
+            && l.focusedWindowID == r.focusedWindowID
     }
 
     private var rowWidth: CGFloat {
@@ -40,6 +40,7 @@ struct WindowPreviewCompact: View, Equatable {
 
     private var effectiveTrafficLightButtons: Set<WindowAction> {
         if windowInfo.isWindowlessApp {
+            guard appearance.showWindowlessAppQuitButton else { return [] }
             return appearance.enabledTrafficLightButtons.intersection([.quit])
         }
         return appearance.enabledTrafficLightButtons
@@ -54,8 +55,8 @@ struct WindowPreviewCompact: View, Equatable {
     /// Checks if this window is the currently active (focused) window on the system and adds a border if so.
     private var isActiveWindow: Bool {
         guard appearance.showActiveWindowBorder else { return false }
-        guard let activeFocusedWindowID else { return false }
-        return windowInfo.id == activeFocusedWindowID
+        guard windowInfo.app.isActive else { return false }
+        return windowInfo.id == focusedWindowID
     }
 
     private var appName: String {
@@ -129,37 +130,39 @@ struct WindowPreviewCompact: View, Equatable {
                     .foregroundStyle(.secondary)
             }
 
-            // Title content based on format
-            VStack(alignment: .leading, spacing: 2) {
-                switch appearance.compactModeTitleFormat {
-                case .appNameAndTitle:
-                    titleText(appName, isPrimary: true)
-                    if windowInfo.isWindowlessApp, let state = secondaryStateIndicator {
-                        stateText(state)
-                    } else if let title = windowTitle {
-                        HStack(spacing: 0) {
-                            if let state = secondaryStateIndicator {
-                                stateText(state)
-                                Text("  \u{2022}  ")
-                                    .font(appearance.compactModeItemSize.secondaryFont)
-                                    .foregroundStyle(.secondary)
+            if appearance.showAppHeader {
+                // Title content based on format
+                VStack(alignment: .leading, spacing: 2) {
+                    switch appearance.compactModeTitleFormat {
+                    case .appNameAndTitle:
+                        titleText(appName, isPrimary: true)
+                        if windowInfo.isWindowlessApp, let state = secondaryStateIndicator {
+                            stateText(state)
+                        } else if let title = windowTitle {
+                            HStack(spacing: 0) {
+                                if let state = secondaryStateIndicator {
+                                    stateText(state)
+                                    Text("  \u{2022}  ")
+                                        .font(appearance.compactModeItemSize.secondaryFont)
+                                        .foregroundStyle(.secondary)
+                                }
+                                titleText(title, isPrimary: false)
                             }
-                            titleText(title, isPrimary: false)
+                        } else if let state = secondaryStateIndicator {
+                            stateText(state)
                         }
-                    } else if let state = secondaryStateIndicator {
-                        stateText(state)
-                    }
 
-                case .titleOnly:
-                    titleText(windowInfo.isWindowlessApp ? appName : windowTitle ?? appName, isPrimary: true)
-                    if let state = secondaryStateIndicator {
-                        stateText(state)
-                    }
+                    case .titleOnly:
+                        titleText(windowInfo.isWindowlessApp ? appName : windowTitle ?? appName, isPrimary: true)
+                        if let state = secondaryStateIndicator {
+                            stateText(state)
+                        }
 
-                case .appNameOnly:
-                    titleText(appName, isPrimary: true)
-                    if let state = secondaryStateIndicator {
-                        stateText(state)
+                    case .appNameOnly:
+                        titleText(appName, isPrimary: true)
+                        if let state = secondaryStateIndicator {
+                            stateText(state)
+                        }
                     }
                 }
             }
@@ -225,6 +228,15 @@ struct WindowPreviewCompact: View, Equatable {
                         }
                     }
             }
+
+            // Selection border drawn outside the card-background branch so the
+            // selected item stays visible when hidePreviewCardBackground is on.
+            if appearance.hidePreviewCardBackground, isHighlighted {
+                let highlightColor = appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor)
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(highlightColor, lineWidth: 2.5)
+                    .padding(.horizontal, -CardRadius.innerPadding)
+            }
         }
         .opacity(isHighlighted ? 1.0 : appearance.unselectedContentOpacity)
         .padding(.horizontal, CardRadius.innerPadding)
@@ -255,6 +267,7 @@ struct WindowPreviewCompact: View, Equatable {
             handleWindowAction: handleWindowAction,
             onTap: onTap
         )
+        .allowsHitTesting(!mockPreviewActive)
     }
 
     @ViewBuilder

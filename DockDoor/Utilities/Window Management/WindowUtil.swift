@@ -22,8 +22,13 @@ protocol WindowPropertiesProviding {
 }
 
 extension SCWindow: WindowPropertiesProviding {
-    var owningApplicationBundleIdentifier: String? { owningApplication?.bundleIdentifier }
-    var owningApplicationProcessID: pid_t? { owningApplication?.processID }
+    var owningApplicationBundleIdentifier: String? {
+        owningApplication?.bundleIdentifier
+    }
+
+    var owningApplicationProcessID: pid_t? {
+        owningApplication?.processID
+    }
 }
 
 enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
@@ -76,10 +81,12 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     case minimize
     case toggleFullScreen
     case hide
+    case openAppWindow
     case openNewWindow
     case closeAllWindows
     case minimizeAllWindows
     case maximize
+    case bringToCurrentSpace
 
     // Window positioning actions
     case fillLeftHalf
@@ -92,7 +99,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     case fillBottomRightQuarter
     case center
 
-    // No action
+    /// No action
     case none
 
     var localizedName: String {
@@ -107,6 +114,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             String(localized: "Toggle Full Screen", comment: "Window action")
         case .hide:
             String(localized: "Hide App", comment: "Window action")
+        case .openAppWindow:
+            String(localized: "Open App Window", comment: "Window action")
         case .openNewWindow:
             String(localized: "Open New Window", comment: "Window action")
         case .closeAllWindows:
@@ -115,6 +124,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             String(localized: "Minimize All Windows", comment: "Window action")
         case .maximize:
             String(localized: "Maximize", comment: "Window action")
+        case .bringToCurrentSpace:
+            String(localized: "Bring to Current Space", comment: "Window action")
         case .fillLeftHalf:
             String(localized: "Fill Left Half", comment: "Window action")
         case .fillRightHalf:
@@ -145,10 +156,12 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .minimize: "minus.circle"
         case .toggleFullScreen: "arrow.up.left.and.arrow.down.right"
         case .hide: "eye.slash"
+        case .openAppWindow: "macwindow"
         case .openNewWindow: "plus.rectangle.on.rectangle"
         case .closeAllWindows: "xmark.square.fill"
         case .minimizeAllWindows: "minus.circle.fill"
         case .maximize: "arrow.up.backward.and.arrow.down.forward"
+        case .bringToCurrentSpace: "arrow.right.to.line"
         case .fillLeftHalf: "rectangle.lefthalf.filled"
         case .fillRightHalf: "rectangle.righthalf.filled"
         case .fillTopHalf: "rectangle.tophalf.filled"
@@ -197,19 +210,19 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
                 return .unhiding
             }
             return nonFullscreenWindows.allSatisfy(\.isMinimized) ? .unhiding : .hiding
-        case .maximize, .toggleFullScreen,
+        case .maximize, .toggleFullScreen, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center:
             return .movingAndResizing
-        case .none:
+        case .openAppWindow, .none:
             return nil
         }
     }
 
     func closePreviewsOnlyAfterSuccess(for window: WindowInfo, category: PostActionCategory?) -> Bool {
         switch self {
-        case .openNewWindow, .toggleFullScreen,
+        case .openNewWindow, .toggleFullScreen, .bringToCurrentSpace,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center:
@@ -218,7 +231,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             !window.isMinimized
         case .minimizeAllWindows:
             category == .hiding
-        case .hide, .close, .quit, .closeAllWindows, .none:
+        case .openAppWindow, .hide, .close, .quit, .closeAllWindows, .none:
             false
         }
     }
@@ -285,7 +298,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             // This avoids hard-closing the container in the common edge case of mixed-space minimized sets.
             return false
 
-        case .quit, .close, .openNewWindow, .closeAllWindows,
+        case .quit, .close, .openAppWindow, .openNewWindow, .closeAllWindows, .bringToCurrentSpace,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center, .none:
@@ -313,7 +326,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
     var shouldScheduleAppRefresh: Bool {
         switch self {
-        case .openNewWindow, .close, .quit, .closeAllWindows,
+        case .openAppWindow, .openNewWindow, .close, .quit, .closeAllWindows, .bringToCurrentSpace,
              .minimize, .hide, .minimizeAllWindows,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
@@ -330,7 +343,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         switch self {
         case .openNewWindow, .close, .quit, .closeAllWindows, .toggleFullScreen:
             true
-        case .minimize, .hide, .minimizeAllWindows, .maximize,
+        case .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center, .none:
@@ -342,7 +355,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         switch self {
         case .toggleFullScreen, .openNewWindow, .close, .quit, .closeAllWindows:
             true
-        case .minimize, .hide, .minimizeAllWindows, .maximize,
+        case .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center, .none:
@@ -350,12 +363,18 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         }
     }
 
+    /// Actions that can be assigned to middle-clicking a window preview
+    static var middleClickActions: [WindowAction] {
+        [.none, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
+         .minimize, .minimizeAllWindows, .maximize, .toggleFullScreen, .hide, .quit,
+         .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+         .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center]
+    }
+
     /// Result of performing a window action
     enum ActionResult {
         case dismissed
         case windowUpdated(WindowInfo)
-        case windowRemoved
-        case appWindowsRemoved(pid: pid_t)
         case noChange
     }
 
@@ -437,6 +456,25 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             }
             return .noChange
 
+        case .openAppWindow:
+            if window.isWindowlessApp {
+                window.app.activate(options: [.activateIgnoringOtherApps])
+                return .dismissed
+            }
+
+            if window.isMinimized {
+                var updatedWindow = window
+                return updatedWindow.toggleMinimize() != nil ? .dismissed : .noChange
+            }
+
+            if window.isHidden {
+                var updatedWindow = window
+                return updatedWindow.toggleHidden() != nil ? .dismissed : .noChange
+            }
+
+            window.bringToFront()
+            return .dismissed
+
         case .openNewWindow:
             WindowUtil.openNewWindow(app: window.app)
             return .dismissed
@@ -453,6 +491,12 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             window.zoom()
             return .dismissed
+
+        case .bringToCurrentSpace:
+            if WindowUtil.moveWindowToCurrentManagedSpace(window) {
+                return .dismissed
+            }
+            return .noChange
 
         case .fillLeftHalf:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
@@ -536,6 +580,10 @@ enum WindowUtil {
         PermissionsChecker.hasScreenRecordingPermission()
     }
 
+    static func shouldCaptureWindowImages() -> Bool {
+        !Defaults[.disableImagePreview] && hasScreenRecordingPermission()
+    }
+
     static func matchesAppFilters(bundleIdentifier: String?, appName: String, filters: [String]) -> Bool {
         guard !filters.isEmpty else { return false }
 
@@ -602,7 +650,9 @@ extension WindowUtil {
     /// Reads cached windows for an app without triggering any SCK/AX fetches.
     /// Returns immediately with whatever is in cache, sorted by the given context.
     static func readCachedWindows(for pid: pid_t, sortedBy context: WindowFetchContext = .dockPreview) -> [WindowInfo] {
-        let cached = desktopSpaceWindowCacheManager.readCache(pid: pid)
+        let cached = deduplicatedByWindowID(desktopSpaceWindowCacheManager.readCache(pid: pid).filter {
+            WindowOwnerResolver.ownerBelongsToDisplayApp($0.ownerApp, displayApp: $0.app)
+        })
         return sortWindows(cached, for: context)
     }
 
@@ -634,7 +684,14 @@ extension WindowUtil {
         }
 
         desktopSpaceWindowCacheManager.updateCache(pid: app.processIdentifier) { windowSet in
-            if let index = windowSet.firstIndex(where: { $0.axElement == element }) {
+            let windowID = try? element.cgWindowId()
+            if let index = windowSet.firstIndex(where: { cachedWindow in
+                if cachedWindow.axElement == element {
+                    return true
+                }
+                guard let windowID else { return false }
+                return cachedWindow.id == windowID
+            }) {
                 var updatedWindow = windowSet[index]
                 updatedWindow.lastAccessedTime = now
                 windowSet.remove(at: index)
@@ -649,7 +706,7 @@ extension WindowUtil {
     static func updateTimestampOptimistically(for windowInfo: WindowInfo) {
         let now = Date()
         desktopSpaceWindowCacheManager.updateCache(pid: windowInfo.app.processIdentifier) { windowSet in
-            if let index = windowSet.firstIndex(where: { $0.axElement == windowInfo.axElement }) {
+            if let index = windowSet.firstIndex(where: { $0.axElement == windowInfo.axElement || $0.id == windowInfo.id }) {
                 var updatedWindow = windowSet[index]
                 updatedWindow.lastAccessedTime = now
                 windowSet.remove(at: index)
@@ -675,8 +732,7 @@ extension WindowUtil {
     ) {
         desktopSpaceWindowCacheManager.updateCache(pid: windowInfo.app.processIdentifier) { windowSet in
             if let existingIndex = windowSet.firstIndex(where: {
-                $0.id == windowInfo.id &&
-                    $0.app.processIdentifier == windowInfo.app.processIdentifier
+                $0.id == windowInfo.id || $0.axElement == windowInfo.axElement
             }) {
                 var updatedWindow = windowSet[existingIndex]
                 if let isMinimized {
@@ -790,6 +846,57 @@ extension WindowUtil {
             delayNanos: axResizeRefreshDelayNanos
         )
     }
+
+    @discardableResult
+    static func moveWindowToCurrentManagedSpace(_ windowInfo: WindowInfo, mouseLocation: CGPoint = NSEvent.mouseLocation) -> Bool {
+        guard !windowInfo.isWindowlessApp,
+              let targetSpaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: mouseLocation)
+        else {
+            return false
+        }
+
+        let moved = WindowSpaces.move(windowID: windowInfo.id, toManagedSpace: targetSpaceID)
+        if moved {
+            updateCachedWindowState(windowInfo, spaceID: .some(Int(targetSpaceID)))
+        }
+        return moved
+    }
+
+    @discardableResult
+    static func moveAppWindowsToCurrentManagedSpace(for app: NSRunningApplication, mouseLocation: CGPoint = NSEvent.mouseLocation) -> Bool {
+        guard let targetSpaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: mouseLocation) else {
+            return false
+        }
+
+        let windows = desktopSpaceWindowCacheManager.readCache(pid: app.processIdentifier)
+        let appWindows = windows.filter { !$0.isWindowlessApp }
+        let mostRecentWindow = appWindows.max { first, second in
+            first.lastAccessedTime < second.lastAccessedTime
+        }
+
+        var movedAnyWindow = false
+        for window in appWindows {
+            let moved = WindowSpaces.move(windowID: window.id, toManagedSpace: targetSpaceID)
+            if moved {
+                updateCachedWindowState(window, spaceID: .some(Int(targetSpaceID)))
+                movedAnyWindow = true
+            }
+        }
+
+        if movedAnyWindow, var mostRecentWindow {
+            if app.isHidden {
+                app.unhide()
+            }
+
+            if mostRecentWindow.isMinimized {
+                _ = mostRecentWindow.toggleMinimize()
+            } else {
+                mostRecentWindow.bringToFront()
+            }
+        }
+
+        return movedAnyWindow
+    }
 }
 
 // MARK: - Window Capture
@@ -810,7 +917,7 @@ extension WindowUtil {
 
     static func captureWindowImage(windowID: CGWindowID, pid: pid_t, windowTitle: String? = nil, forceRefresh: Bool = false) async throws -> CGImage {
         // CGSHWCaptureWindowList requires screen recording permission
-        guard hasScreenRecordingPermission() else {
+        guard shouldCaptureWindowImages() else {
             throw captureError
         }
 
@@ -831,14 +938,19 @@ extension WindowUtil {
         let connectionID = CGSMainConnectionID()
         var windowIDUInt32 = UInt32(windowID)
         let qualityOption: CGSWindowCaptureOptions = (Defaults[.windowImageCaptureQuality] == .best) ? .bestResolution : .nominalResolution
-        guard let capturedWindows = CGSHWCaptureWindowList(
+        let capturedWindows = CGSHWCaptureWindowList(
             connectionID,
             &windowIDUInt32,
             1,
-            [.ignoreGlobalClipShape, qualityOption]
-        ) as? [CGImage],
-            let capturedImage = capturedWindows.first
-        else {
+            [.ignoreGlobalClipShape, .fullSize, qualityOption]
+        ) as? [CGImage]
+        let capturedImage = capturedWindows?.first
+        let entry = (CGWindowListCopyWindowInfo(.optionIncludingWindow, windowID) as? [[String: AnyObject]])?.first
+        let bounds = (entry?[kCGWindowBounds as String] as? NSDictionary).flatMap { CGRect(dictionaryRepresentation: $0) }
+        let transparent = capturedImage.map(isFullyTransparent) ?? false
+        let clipped = capturedImage.map { isClippedBySpaceTransition($0, bounds: bounds, windowID: windowID) } ?? false
+        logCapture(windowID: windowID, pid: pid, title: windowTitle, image: capturedImage, transparent: transparent, clipped: clipped, entry: entry, quality: qualityOption)
+        guard let capturedImage, !transparent, !clipped else {
             throw captureError
         }
         cgImage = capturedImage
@@ -871,8 +983,61 @@ extension WindowUtil {
         return cgImage
     }
 
+    private static func isClippedBySpaceTransition(_ image: CGImage, bounds: CGRect?, windowID: CGWindowID) -> Bool {
+        guard let bounds, bounds.width > 0, bounds.height > 0, image.height > 0 else { return false }
+        let imageAspect = CGFloat(image.width) / CGFloat(image.height)
+        let boundsAspect = bounds.width / bounds.height
+        guard abs(imageAspect - boundsAspect) / boundsAspect > 0.02 else { return false }
+        let spaces = Set(windowID.cgsSpaces().map { Int($0) })
+        return !spaces.isEmpty && spaces.isDisjoint(with: currentActiveSpaceIDs())
+    }
+
+    private static func logCapture(windowID: CGWindowID, pid: pid_t, title: String?, image: CGImage?, transparent: Bool, clipped: Bool, entry: [String: AnyObject]?, quality: CGSWindowCaptureOptions) {
+        guard Defaults[.debugMode] else { return }
+        let bounds = (entry?[kCGWindowBounds as String] as? [String: AnyObject]).map {
+            "\(($0["Width"] as? NSNumber)?.intValue ?? -1)x\(($0["Height"] as? NSNumber)?.intValue ?? -1)@\(($0["X"] as? NSNumber)?.intValue ?? -1),\(($0["Y"] as? NSNumber)?.intValue ?? -1)"
+        } ?? "none"
+        let onscreen = (entry?[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
+        let spaces = windowID.cgsSpaces()
+        let active = currentActiveSpaceIDs()
+        let result = image.map { "\($0.width)x\($0.height)\(transparent ? " transparent" : "")\(clipped ? " clipped" : "")" } ?? "nil"
+        DebugLogger.log("captureWindowImage", details: "PID: \(pid), window: \(windowID), title: \(title ?? ""), image: \(result), bounds: \(bounds), onscreen: \(onscreen), spaces: \(spaces), activeSpaces: \(active.sorted()), quality: \(quality == .bestResolution ? "best" : "nominal")")
+    }
+
+    private static func isFullyTransparent(_ image: CGImage) -> Bool {
+        let alphaOffset: Int
+        switch image.alphaInfo {
+        case .premultipliedFirst, .first: alphaOffset = 0
+        case .premultipliedLast, .last: alphaOffset = 3
+        default: return false
+        }
+        guard image.bitsPerPixel == 32,
+              let data = image.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data)
+        else { return false }
+        let length = CFDataGetLength(data)
+        let stepX = max(image.width / 16, 1)
+        let stepY = max(image.height / 16, 1)
+        var y = 0
+        while y < image.height {
+            var x = 0
+            while x < image.width {
+                let offset = y * image.bytesPerRow + x * 4 + alphaOffset
+                if offset < length, bytes[offset] != 0 { return false }
+                x += stepX
+            }
+            y += stepY
+        }
+        return true
+    }
+
     static func isValidElement(_ element: AXUIElement) -> Bool {
         DebugLogger.measureSlow("isValidElement", thresholdMs: 50) {
+            var pid = pid_t(0)
+            if AXUIElementGetPid(element, &pid) == .success, AXResponsiveness.isUnresponsive(pid) {
+                return true
+            }
+
             // Fast path: check geometry
             do {
                 let position = try element.position()
@@ -881,7 +1046,7 @@ extension WindowUtil {
                     return true
                 }
             } catch AxError.runtimeError {
-                return false
+                return true
             } catch {
                 // Geometry check failed, fall through to AX windows list validation
             }
@@ -920,9 +1085,9 @@ extension WindowUtil {
             return matchedWindow
         }
 
-        // Fallback metohd
+        let windowTitle = window.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         for axWindow in axWindows {
-            if let windowTitle = window.title, let axTitle = try? axWindow.title(), isFuzzyMatch(windowTitle: windowTitle, axTitleString: axTitle) {
+            if !windowTitle.isEmpty, let axTitle = try? axWindow.title(), isFuzzyMatch(windowTitle: windowTitle, axTitleString: axTitle) {
                 return axWindow
             }
 
@@ -948,11 +1113,12 @@ extension WindowUtil {
     static func isFuzzyMatch(windowTitle: String, axTitleString: String) -> Bool {
         let axTitleWords = axTitleString.lowercased().split(separator: " ")
         let windowTitleWords = windowTitle.lowercased().split(separator: " ")
+        guard !windowTitleWords.isEmpty else { return false }
 
         let matchingWords = axTitleWords.filter { windowTitleWords.contains($0) }
         let matchPercentage = Double(matchingWords.count) / Double(windowTitleWords.count)
 
-        return matchPercentage >= 0.90 || matchPercentage.isNaN || axTitleString.lowercased().contains(windowTitle.lowercased())
+        return matchPercentage >= 0.90 || axTitleString.lowercased().contains(windowTitle.lowercased())
     }
 
     static func findRunningApplicationByName(named applicationName: String) -> NSRunningApplication? {
@@ -963,23 +1129,46 @@ extension WindowUtil {
 // MARK: - Window Discovery
 
 extension WindowUtil {
+    private static func isWindowlessAppEligible(
+        _ app: NSRunningApplication,
+        pidsWithWindows: Set<pid_t>,
+        ownBundleId: String?
+    ) -> Bool {
+        app.activationPolicy == .regular &&
+            !pidsWithWindows.contains(app.processIdentifier) &&
+            !WindowOwnerResolver.isAuxiliaryOwner(app) &&
+            !filteredBundleIdentifiers.contains(app.bundleIdentifier ?? "") &&
+            !isAppFiltered(app) &&
+            app.bundleIdentifier != ownBundleId
+    }
+
     static func windowlessEntryIfEligible(for app: NSRunningApplication, existingWindows: [WindowInfo]) -> WindowInfo? {
         let pidsWithWindows = Set(existingWindows.map(\.app.processIdentifier))
         let ownBundleId = Bundle.main.bundleIdentifier
 
-        guard app.activationPolicy == .regular,
-              !pidsWithWindows.contains(app.processIdentifier),
-              !filteredBundleIdentifiers.contains(app.bundleIdentifier ?? ""),
-              !isAppFiltered(app),
-              app.bundleIdentifier != ownBundleId
-        else {
+        guard isWindowlessAppEligible(app, pidsWithWindows: pidsWithWindows, ownBundleId: ownBundleId) else {
             return nil
         }
 
         return WindowInfo.windowlessEntry(for: app)
     }
 
+    static func isProcessAlive(_ pid: pid_t) -> Bool {
+        pid > 0 && (kill(pid, 0) == 0 || errno == EPERM)
+    }
+
+    static func evictTerminatedApps() {
+        let dead = desktopSpaceWindowCacheManager.cachedPIDs().filter { !isProcessAlive($0) }
+        guard !dead.isEmpty else { return }
+        for pid in dead {
+            DebugLogger.log("evictTerminatedApp", details: "PID: \(pid)")
+            purgeAppCache(with: pid)
+        }
+        Task { @MainActor in WindowManipulationObservers.didEvictTerminatedApps(dead) }
+    }
+
     static func getAllWindowsOfAllApps() -> [WindowInfo] {
+        evictTerminatedApps()
         let windows = desktopSpaceWindowCacheManager.getAllWindows()
         var filteredWindows = !Defaults[.includeHiddenWindowsInSwitcher]
             ? windows.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
@@ -990,7 +1179,12 @@ extension WindowUtil {
             filteredWindows = getWindowsForFrontmostApp(from: filteredWindows)
         }
 
-        return sortWindowsForSwitcher(filteredWindows)
+        return sortWindowsForSwitcher(collapseNativeTabsIfNeeded(filteredWindows))
+    }
+
+    static func getAllWindowsIgnoringSwitcherFilters() -> [WindowInfo] {
+        evictTerminatedApps()
+        return sortWindowsForSwitcher(desktopSpaceWindowCacheManager.getAllWindows())
     }
 
     static func getWindowsForFrontmostApp(from windows: [WindowInfo]) -> [WindowInfo] {
@@ -1004,9 +1198,15 @@ extension WindowUtil {
     }
 
     static func getWindowlessRunningApps(existingWindows: [WindowInfo]) -> [WindowInfo] {
-        NSWorkspace.shared.runningApplications
+        let pidsWithWindows = Set(existingWindows.map(\.app.processIdentifier))
+        let ownBundleId = Bundle.main.bundleIdentifier
+
+        return NSWorkspace.shared.runningApplications
+            .filter {
+                isWindowlessAppEligible($0, pidsWithWindows: pidsWithWindows, ownBundleId: ownBundleId)
+            }
             .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
-            .compactMap { windowlessEntryIfEligible(for: $0, existingWindows: existingWindows) }
+            .map { WindowInfo.windowlessEntry(for: $0) }
     }
 
     static func getFocusedWindowForFrontmostApp() -> WindowInfo? {
@@ -1076,19 +1276,74 @@ extension WindowUtil {
         return windows.filter { windowBelongsToScreen($0, screenIdentifier: id) }
     }
 
+    /// Collapses native macOS window-tab groups (e.g. Ghostty, Finder, Terminal) so a tabbed
+    /// window appears as a single entry instead of one per tab. Grouping is keyed by process and
+    /// frame, so windows from different apps are never merged and passing a multi-app list is safe.
+    static func collapseNativeTabsIfNeeded(_ windows: [WindowInfo]) -> [WindowInfo] {
+        guard Defaults[.collapseNativeTabsIntoSingleWindow] else { return windows }
+
+        let onScreenIDs = Set(
+            ((CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]]) ?? [])
+                .compactMap { $0[kCGWindowNumber as String] as? CGWindowID }
+        )
+        let candidates = windows.map { window in
+            NativeTabGrouping.Candidate(
+                id: window.id,
+                pid: window.app.processIdentifier,
+                frame: window.frame,
+                recency: window.lastAccessedTime,
+                groupable: !window.isMinimized
+                    && !window.isHidden
+                    && !window.isWindowlessApp
+                    && window.frame.width > 0
+                    && window.frame.height > 0,
+                isOnScreen: onScreenIDs.contains(window.id)
+            )
+        }
+
+        let keptIDs = NativeTabGrouping.representativeIDs(from: candidates)
+        guard keptIDs.count < windows.count else { return windows }
+        return windows.filter { keptIDs.contains($0.id) }
+    }
+
     static func getActiveWindows(of app: NSRunningApplication, context: WindowFetchContext = .dockPreview, ignoreSingleWindowFilter: Bool = false) async throws -> [WindowInfo] {
         if isAppFiltered(app) {
             purgeAppCache(with: app.processIdentifier)
             return []
         }
 
+        let contextName = switch context {
+        case .dockPreview: "dockPreview"
+        case .cmdTab: "cmdTab"
+        }
+
+        DebugLogger.log("WindowRefresh", details: "begin, context: \(contextName), app: \(app.localizedName ?? "Unknown"), PID: \(app.processIdentifier)")
+        do {
+            let windows = try await desktopSpaceWindowCacheManager.withCoordinatorNotificationsSuppressed(for: app.processIdentifier) {
+                try await getActiveWindowsUpdatingCache(
+                    of: app,
+                    context: context,
+                    ignoreSingleWindowFilter: ignoreSingleWindowFilter
+                )
+            }
+            DebugLogger.log("WindowRefresh", details: "end, context: \(contextName), app: \(app.localizedName ?? "Unknown"), PID: \(app.processIdentifier), windows: \(windows.count)")
+            return windows
+        } catch {
+            DebugLogger.log("WindowRefresh", details: "failed, context: \(contextName), app: \(app.localizedName ?? "Unknown"), PID: \(app.processIdentifier), error: \(error)")
+            throw error
+        }
+    }
+
+    private static func getActiveWindowsUpdatingCache(of app: NSRunningApplication, context: WindowFetchContext, ignoreSingleWindowFilter: Bool) async throws -> [WindowInfo] {
         var sckWindowIDs = Set<CGWindowID>()
 
         // Skip SCK if user has disabled image previews (compact mode only) or screen recording permission not granted
-        if !Defaults[.disableImagePreview], hasScreenRecordingPermission() {
+        if shouldCaptureWindowImages() {
             if let content = await getShareableContent(onScreenWindowsOnly: true) {
                 // Build set of SCK window IDs
-                let appWindows = content.windows.filter { $0.owningApplication?.processID == app.processIdentifier }
+                let appWindows = content.windows.filter {
+                    WindowOwnerResolver.windowBelongsToDisplayApp($0, displayApp: app)
+                }
                 sckWindowIDs = Set(appWindows.map(\.windowID))
 
                 // Pre-compute fresh cached IDs to avoid repeated cache reads
@@ -1096,7 +1351,7 @@ extension WindowUtil {
 
                 // Process SCK windows with limited concurrency
                 await LimitedConcurrency.forEachNonThrowing(appWindows, maxConcurrent: 4, timeout: 10) { window in
-                    try await captureAndCacheWindowInfo(window: window, app: app, skipWindowIDs: freshCachedIDs)
+                    try await captureAndCacheWindowInfo(window: window, displayApp: app, skipWindowIDs: freshCachedIDs)
                 }
             }
         }
@@ -1106,8 +1361,15 @@ extension WindowUtil {
 
         // Purify cache and return
         if let finalWindows = await WindowUtil.purifyAppCache(with: app.processIdentifier, removeAll: false) {
-            guard ignoreSingleWindowFilter || !Defaults[.ignoreAppsWithSingleWindow] || finalWindows.count > 1 else { return [] }
-            return sortWindows(finalWindows, for: context)
+            let shouldIgnoreSingleWindowApp = switch context {
+            case .dockPreview:
+                Defaults[.ignoreAppsWithSingleWindow]
+            case .cmdTab:
+                Defaults[.ignoreAppsWithSingleWindowInCmdTab]
+            }
+
+            guard ignoreSingleWindowFilter || !shouldIgnoreSingleWindowApp || finalWindows.count > 1 else { return [] }
+            return sortWindows(collapseNativeTabsIfNeeded(Array(finalWindows)), for: context)
         }
 
         return []
@@ -1119,11 +1381,12 @@ extension WindowUtil {
 
     static func discoverWindowsViaAX(
         app: NSRunningApplication,
-        excludeWindowIDs: Set<CGWindowID> = []
+        excludeWindowIDs: Set<CGWindowID> = [],
+        restorePersistedOrder: Bool = true
     ) async -> Int {
         let pid = app.processIdentifier
 
-        guard let bundleId = app.bundleIdentifier, !filteredBundleIdentifiers.contains(bundleId) else {
+        if let bundleId = app.bundleIdentifier, filteredBundleIdentifiers.contains(bundleId) {
             purgeAppCache(with: pid)
             return 0
         }
@@ -1133,8 +1396,13 @@ extension WindowUtil {
             return 0
         }
 
+        if AXResponsiveness.isUnresponsive(pid) {
+            return 0
+        }
+
         let appAX = AXUIElementCreateApplication(pid)
-        let axWindows = AXUIElement.allWindows(pid, appElement: appAX)
+        let cgCandidates = getCGWindowCandidates(for: pid)
+        let axWindows = AXUIElement.allWindows(pid, appElement: appAX, app: app, cgCandidates: cgCandidates)
         guard !axWindows.isEmpty else { return 0 }
 
         // Read cache once and compute sets to skip redundant processing
@@ -1150,32 +1418,34 @@ extension WindowUtil {
                 app: app,
                 excludeWindowIDs: excludeWindowIDs,
                 skipWindowIDs: freshCachedIDs,
-                existingCachedIDs: allCachedIDs
+                existingCachedIDs: allCachedIDs,
+                cgCandidates: cgCandidates,
+                restorePersistedOrder: restorePersistedOrder
             )
         }
 
         return axWindows.count
     }
 
-    static func updateNewWindowsForApp(_ app: NSRunningApplication) async {
-        if hasScreenRecordingPermission() {
+    static func updateNewWindowsForApp(_ app: NSRunningApplication, restorePersistedOrder: Bool = true) async {
+        WindowManipulationObservers.ensureObserver(for: app)
+        if shouldCaptureWindowImages() {
             if let content = await getShareableContent(onScreenWindowsOnly: false) {
                 let appWindows = content.windows.filter { window in
-                    guard let scApp = window.owningApplication else { return false }
-                    return scApp.processID == app.processIdentifier
+                    WindowOwnerResolver.windowBelongsToDisplayApp(window, displayApp: app)
                 }
 
                 // Pre-compute fresh cached IDs to avoid repeated cache reads
                 let freshCachedIDs = freshCachedWindowIDs(for: app.processIdentifier)
 
                 await LimitedConcurrency.forEachNonThrowing(appWindows, maxConcurrent: 4, timeout: 10) { window in
-                    try await captureAndCacheWindowInfo(window: window, app: app, skipWindowIDs: freshCachedIDs)
+                    try await captureAndCacheWindowInfo(window: window, displayApp: app, skipWindowIDs: freshCachedIDs, restorePersistedOrder: restorePersistedOrder)
                 }
             }
         }
 
         // AX fallback
-        await discoverNewWindowsViaAXFallback(app: app)
+        _ = await discoverWindowsViaAX(app: app, restorePersistedOrder: restorePersistedOrder)
         await refreshAXFallbackWindowImages(for: app.processIdentifier)
     }
 
@@ -1205,18 +1475,21 @@ extension WindowUtil {
     static func updateAllWindowsInCurrentSpace() async {
         var processedPIDs = Set<pid_t>()
 
-        if hasScreenRecordingPermission() {
+        if shouldCaptureWindowImages() {
             if let content = await getShareableContent(onScreenWindowsOnly: false) {
-                let windowAppPairs: [(window: SCWindow, app: NSRunningApplication)] = content.windows.compactMap { window in
+                var displayAppsByOwner: [pid_t: NSRunningApplication] = [:]
+                let windowAppPairs: [(window: SCWindow, displayApp: NSRunningApplication, ownerApp: NSRunningApplication)] = content.windows.compactMap { window in
                     guard let scApp = window.owningApplication,
                           !filteredBundleIdentifiers.contains(scApp.bundleIdentifier),
-                          let nsApp = NSRunningApplication(processIdentifier: scApp.processID)
+                          let ownerApp = NSRunningApplication(processIdentifier: scApp.processID)
                     else { return nil }
-                    return (window, nsApp)
+                    let displayApp = displayAppsByOwner[ownerApp.processIdentifier] ?? WindowOwnerResolver.displayApp(forOwner: ownerApp)
+                    displayAppsByOwner[ownerApp.processIdentifier] = displayApp
+                    return (window, displayApp, ownerApp)
                 }
 
                 for pair in windowAppPairs {
-                    processedPIDs.insert(pair.app.processIdentifier)
+                    processedPIDs.insert(pair.displayApp.processIdentifier)
                 }
 
                 // Pre-compute fresh cached IDs per app to avoid repeated cache reads
@@ -1229,8 +1502,13 @@ extension WindowUtil {
                 }()
 
                 await LimitedConcurrency.forEachNonThrowing(windowAppPairs, maxConcurrent: 4, timeout: 10) { pair in
-                    let skipIDs = freshCachedIDsByPID[pair.app.processIdentifier] ?? []
-                    try await captureAndCacheWindowInfo(window: pair.window, app: pair.app, skipWindowIDs: skipIDs)
+                    let skipIDs = freshCachedIDsByPID[pair.displayApp.processIdentifier] ?? []
+                    try await captureAndCacheWindowInfo(
+                        window: pair.window,
+                        displayApp: pair.displayApp,
+                        ownerApp: pair.ownerApp,
+                        skipWindowIDs: skipIDs
+                    )
                 }
             }
         }
@@ -1238,12 +1516,14 @@ extension WindowUtil {
         // AX fallback
         let runningApps = NSWorkspace.shared.runningApplications.filter {
             $0.activationPolicy == .regular &&
+                !WindowOwnerResolver.isAuxiliaryOwner($0) &&
                 !filteredBundleIdentifiers.contains($0.bundleIdentifier ?? "") &&
                 !isAppFiltered($0)
         }
 
         for app in runningApps {
             let pid = app.processIdentifier
+            WindowManipulationObservers.ensureObserver(for: app)
             await discoverNewWindowsViaAXFallback(app: app)
             processedPIDs.insert(pid)
         }
@@ -1259,6 +1539,7 @@ extension WindowUtil {
     private static func refreshAXFallbackWindowImages(for pid: pid_t) async {
         let windows = desktopSpaceWindowCacheManager.readCache(pid: pid)
         guard !windows.isEmpty else { return }
+        guard shouldCaptureWindowImages() else { return }
 
         // Pre-compute fresh cached IDs to skip - use already-fetched windows
         let freshCachedIDs = freshCachedWindowIDs(for: pid, from: windows)
@@ -1286,31 +1567,46 @@ extension WindowUtil {
         }
     }
 
-    static func captureAndCacheWindowInfo(window: SCWindow, app: NSRunningApplication, skipWindowIDs: Set<CGWindowID> = []) async throws {
+    static func captureAndCacheWindowInfo(
+        window: SCWindow,
+        displayApp: NSRunningApplication,
+        ownerApp: NSRunningApplication? = nil,
+        skipWindowIDs: Set<CGWindowID> = [],
+        restorePersistedOrder: Bool = true
+    ) async throws {
         let windowID = window.windowID
-        let pid = app.processIdentifier
+        guard let ownerApp = ownerApp ?? WindowOwnerResolver.ownerApp(for: window) else {
+            return
+        }
+        let displayPid = displayApp.processIdentifier
+        let ownerPid = ownerApp.processIdentifier
 
         // Fast path: skip if pre-computed by caller as fresh cached
-        if skipWindowIDs.contains(windowID) { return }
-
-        guard window.owningApplication != nil,
-              window.isOnScreen,
-              window.windowLayer == 0,
-              Defaults[.disableMinWindowSizeFilter] || (window.frame.size.width >= AXMinWindowSize.width && window.frame.size.height >= AXMinWindowSize.height)
-        else { return }
-
-        guard let bundleId = app.bundleIdentifier else {
-            purgeAppCache(with: pid)
+        if skipWindowIDs.contains(windowID) {
             return
         }
 
-        if filteredBundleIdentifiers.contains(bundleId) {
-            purgeAppCache(with: pid)
+        guard window.owningApplication != nil else {
+            return
+        }
+        guard window.isOnScreen else {
+            return
+        }
+        guard window.windowLayer == 0 else {
+            return
+        }
+        guard Defaults[.disableMinWindowSizeFilter] || (window.frame.size.width >= AXMinWindowSize.width && window.frame.size.height >= AXMinWindowSize.height) else {
             return
         }
 
-        if isAppFiltered(app) {
-            purgeAppCache(with: pid)
+        let bundleId = displayApp.bundleIdentifier
+        if let bundleId, filteredBundleIdentifiers.contains(bundleId) {
+            purgeAppCache(with: displayPid)
+            return
+        }
+
+        if isAppFiltered(displayApp) {
+            purgeAppCache(with: displayPid)
             return
         }
 
@@ -1319,14 +1615,14 @@ extension WindowUtil {
             if !windowTitleFilters.isEmpty {
                 for filter in windowTitleFilters {
                     if windowTitle.lowercased().contains(filter.lowercased()) {
-                        removeWindowFromDesktopSpaceCache(with: windowID, in: pid)
+                        removeWindowFromDesktopSpaceCache(with: windowID, in: displayPid)
                         return
                     }
                 }
             }
         }
 
-        desktopSpaceWindowCacheManager.updateCache(pid: pid) { windowSet in
+        desktopSpaceWindowCacheManager.updateCache(pid: displayPid) { windowSet in
             windowSet = windowSet.filter { cachedWindow in
                 if let cachedTitle = cachedWindow.windowName {
                     for filter in Defaults[.windowTitleFilters] {
@@ -1339,37 +1635,57 @@ extension WindowUtil {
             }
         }
 
-        let appElement = AXUIElementCreateApplication(pid)
-
-        guard let axWindows = try? appElement.windows(), !axWindows.isEmpty else {
+        guard ownerApp.activationPolicy != .prohibited, !AXResponsiveness.isUnresponsive(ownerPid) else {
             return
         }
 
-        guard let windowRef = findWindow(matchingWindow: window, in: axWindows) else {
-            return
+        let ownerAppElement = AXUIElementCreateApplication(ownerPid)
+
+        let windowRef: AXUIElement
+        if let cached = desktopSpaceWindowCacheManager.readCache(pid: displayPid).first(where: { $0.id == windowID }),
+           isValidElement(cached.axElement)
+        {
+            windowRef = cached.axElement
+        } else {
+            let axWindows = AXUIElement.allWindows(ownerPid, appElement: ownerAppElement, app: displayApp)
+            guard let matched = findWindow(matchingWindow: window, in: axWindows) else {
+                return
+            }
+            windowRef = matched
         }
 
         let closeButton = try? windowRef.closeButton()
         let minimizeButton = try? windowRef.minimizeButton()
         let minimizedState = (try? windowRef.isMinimized()) ?? false
-        let hiddenState = app.isHidden
+        let hiddenState = displayApp.isHidden
         let fullscreenState = try? windowRef.isFullscreen()
-        let shouldWindowBeCaptured = (closeButton != nil) || (minimizeButton != nil)
+        let attributes = WindowCandidateAttributes(axWindow: windowRef)
+        let shouldWindowBeCaptured = (closeButton != nil) ||
+            (minimizeButton != nil) ||
+            WindowCandidateDiscriminator.isActualWindow(
+                app: displayApp,
+                windowID: windowID,
+                level: windowID.cgsLevel(),
+                attributes: attributes
+            )
 
         if shouldWindowBeCaptured {
-            let persistedData = WindowOrderPersistence.getPersistedTimestamp(
-                bundleIdentifier: bundleId,
-                windowTitle: window.title
-            )
+            let persistedData = restorePersistedOrder ? bundleId.flatMap {
+                WindowOrderPersistence.getPersistedTimestamp(
+                    bundleIdentifier: $0,
+                    windowTitle: window.title
+                )
+            } : nil
             let lastAccessedTime = persistedData?.lastAccessedTime ?? Date.now
             let creationTime = persistedData?.creationTime
 
             var windowInfo = WindowInfo(
                 windowProvider: window,
-                app: app,
+                app: displayApp,
+                ownerApp: ownerApp,
                 image: nil,
                 axElement: windowRef,
-                appAxElement: appElement,
+                appAxElement: ownerAppElement,
                 closeButton: closeButton,
                 lastAccessedTime: lastAccessedTime,
                 creationTime: creationTime,
@@ -1394,47 +1710,138 @@ extension WindowUtil {
         app: NSRunningApplication,
         excludeWindowIDs: Set<CGWindowID>,
         skipWindowIDs: Set<CGWindowID> = [],
-        existingCachedIDs: Set<CGWindowID> = []
+        existingCachedIDs: Set<CGWindowID> = [],
+        cgCandidates: [[String: AnyObject]]? = nil,
+        restorePersistedOrder: Bool = true
     ) async throws {
+        guard var info = buildAXWindowInfo(
+            axWindow: axWindow,
+            appAxElement: appAxElement,
+            app: app,
+            excludeWindowIDs: excludeWindowIDs,
+            skipWindowIDs: skipWindowIDs,
+            existingCachedIDs: existingCachedIDs,
+            cgCandidates: cgCandidates,
+            restorePersistedOrder: restorePersistedOrder
+        ) else { return }
+
+        if let image = try? await captureWindowImage(windowID: info.id, pid: app.processIdentifier, windowTitle: info.windowName) {
+            info.image = image
+            info.imageCapturedTime = Date()
+        }
+
+        updateDesktopSpaceWindowCache(with: info)
+    }
+
+    private static let createdWindowRetryDelays: [UInt64] = [0, 100_000_000, 250_000_000, 500_000_000, 1_000_000_000]
+    private static let createdWindowsInFlightLock = NSLock()
+    private static var createdWindowsInFlight = Set<AXUIElement>()
+
+    static func cacheCreatedWindow(axWindow: AXUIElement, app: NSRunningApplication) async {
+        let pid = app.processIdentifier
+        guard app.activationPolicy != .prohibited, !AXResponsiveness.isUnresponsive(pid) else { return }
+        if let bundleId = app.bundleIdentifier, filteredBundleIdentifiers.contains(bundleId) { return }
+        guard !isAppFiltered(app) else { return }
+
+        var cgID: CGWindowID = 0
+        guard _AXUIElementGetWindow(axWindow, &cgID) == .success, cgID != 0 else { return }
+
+        createdWindowsInFlightLock.lock()
+        let alreadyInFlight = !createdWindowsInFlight.insert(axWindow).inserted
+        createdWindowsInFlightLock.unlock()
+        guard !alreadyInFlight else { return }
+        defer {
+            createdWindowsInFlightLock.lock()
+            createdWindowsInFlight.remove(axWindow)
+            createdWindowsInFlightLock.unlock()
+        }
+
+        let appAxElement = AXUIElementCreateApplication(pid)
+        for delay in createdWindowRetryDelays {
+            if delay > 0 {
+                try? await Task.sleep(nanoseconds: delay)
+            }
+            if desktopSpaceWindowCacheManager.readCache(pid: pid).contains(where: { $0.id == cgID }) { return }
+            let cgCandidates = getCGWindowCandidates(for: pid)
+            guard isValidCGWindowCandidate(cgID, in: cgCandidates) else { continue }
+            try? await captureAndCacheAXWindowInfo(
+                axWindow: axWindow,
+                appAxElement: appAxElement,
+                app: app,
+                excludeWindowIDs: [],
+                cgCandidates: cgCandidates,
+                restorePersistedOrder: false
+            )
+        }
+    }
+
+    private static func buildAXWindowInfo(
+        axWindow: AXUIElement,
+        appAxElement: AXUIElement,
+        app: NSRunningApplication,
+        excludeWindowIDs: Set<CGWindowID>,
+        skipWindowIDs: Set<CGWindowID> = [],
+        existingCachedIDs: Set<CGWindowID> = [],
+        cgCandidates: [[String: AnyObject]]? = nil,
+        restorePersistedOrder: Bool = true
+    ) -> WindowInfo? {
         let pid = app.processIdentifier
 
         // Quick window ID check first (fast path)
         var cgID: CGWindowID = 0
         if _AXUIElementGetWindow(axWindow, &cgID) == .success, cgID != 0 {
             // Skip if already cached with fresh image (pre-computed by caller)
-            if skipWindowIDs.contains(cgID) { return }
-            guard !excludeWindowIDs.contains(cgID) else { return }
+            if skipWindowIDs.contains(cgID) {
+                return nil
+            }
+            guard !excludeWindowIDs.contains(cgID) else {
+                return nil
+            }
         }
 
-        guard isValidAXWindowCandidate(axWindow) else { return }
+        let attributes = WindowCandidateAttributes(axWindow: axWindow)
 
-        let cgCandidates = getCGWindowCandidates(for: pid)
+        let cgCandidates = cgCandidates ?? getCGWindowCandidates(for: pid)
         // Use pre-computed cached IDs if provided, otherwise read from cache
         let usedIDs = existingCachedIDs.isEmpty
             ? Set<CGWindowID>(desktopSpaceWindowCacheManager.readCache(pid: pid).map(\.id))
             : existingCachedIDs
 
         if cgID == 0 {
-            if let mapped = mapAXToCG(axWindow: axWindow, candidates: cgCandidates, excluding: usedIDs) {
+            if let mapped = mapAXToCG(attributes: attributes, candidates: cgCandidates, excluding: usedIDs) {
                 cgID = mapped
             } else {
-                return
+                return nil
             }
         }
 
-        guard !excludeWindowIDs.contains(cgID), !usedIDs.contains(cgID) else { return }
-        guard isAtLeastNormalLevel(cgID) else { return }
+        guard !excludeWindowIDs.contains(cgID) else {
+            return nil
+        }
+        guard !usedIDs.contains(cgID) else {
+            return nil
+        }
+        guard WindowCandidateDiscriminator.isActualWindow(
+            app: app,
+            windowID: cgID,
+            level: cgID.cgsLevel(),
+            attributes: attributes
+        ) else {
+            return nil
+        }
 
         let titleFilters = Defaults[.windowTitleFilters]
         if !titleFilters.isEmpty {
-            let cgTitle = cgID.cgsTitle() ?? ""
-            if titleFilters.contains(where: { cgTitle.lowercased().contains($0.lowercased()) }) {
-                return
+            let title = attributes.title ?? cgID.cgsTitle() ?? ""
+            if titleFilters.contains(where: { title.lowercased().contains($0.lowercased()) }) {
+                return nil
             }
         }
 
-        guard let cgEntry = findCGEntry(for: cgID, in: cgCandidates) ?? findCGEntry(for: cgID, ownerPID: pid) else { return }
-        guard isValidCGWindowEntry(cgEntry) else { return }
+        guard let cgEntry = findCGEntry(for: cgID, in: cgCandidates) ?? findCGEntry(for: cgID, ownerPID: pid) else {
+            return nil
+        }
+        guard isValidCGWindowEntry(cgEntry) else { return nil }
 
         let activeSpaceIDs = currentActiveSpaceIDs()
         guard shouldAcceptWindow(
@@ -1444,14 +1851,16 @@ extension WindowUtil {
             app: app,
             activeSpaceIDs: activeSpaceIDs,
             scBacked: false
-        ) else { return }
+        ) else {
+            return nil
+        }
 
-        let windowTitle = (try? axWindow.title()) ?? cgID.cgsTitle()
+        let windowTitle = attributes.title ?? cgID.cgsTitle()
         let minimizedState = (try? axWindow.isMinimized()) ?? false
         let hiddenState = app.isHidden
         let fullscreenState = try? axWindow.isFullscreen()
 
-        let persistedData: WindowOrderPersistence.PersistedWindowEntry? = if let bundleId = app.bundleIdentifier {
+        let persistedData: WindowOrderPersistence.PersistedWindowEntry? = if restorePersistedOrder, let bundleId = app.bundleIdentifier {
             WindowOrderPersistence.getPersistedTimestamp(bundleIdentifier: bundleId, windowTitle: windowTitle)
         } else {
             nil
@@ -1467,19 +1876,13 @@ extension WindowUtil {
             lastAccessedTime: persistedData?.lastAccessedTime ?? Date(),
             creationTime: persistedData?.creationTime,
             spaceID: cgID.cgsSpaces().first.map { Int($0) },
-            screenIdentifier: (try? axWindow.position()).flatMap { screenIdentifier(forWindowAt: $0) },
+            screenIdentifier: attributes.position.flatMap { screenIdentifier(forWindowAt: $0) },
             isMinimized: minimizedState,
             isHidden: hiddenState,
             isFullscreen: fullscreenState
         )
         info.windowName = windowTitle
-
-        if let image = try? await captureWindowImage(windowID: cgID, pid: pid, windowTitle: windowTitle) {
-            info.image = image
-            info.imageCapturedTime = Date()
-        }
-
-        updateDesktopSpaceWindowCache(with: info)
+        return info
     }
 
     private static let minUsableImageDimension = 10
@@ -1515,9 +1918,34 @@ extension WindowUtil {
         return mismatchFactor > maxImageAspectMismatchFactor
     }
 
+    private static func preferredCachedWindow(_ first: WindowInfo, _ second: WindowInfo) -> WindowInfo {
+        if first.scWindow == nil, second.scWindow != nil { return second }
+        if first.scWindow != nil, second.scWindow == nil { return first }
+        if first.image == nil, second.image != nil { return second }
+        if first.image != nil, second.image == nil { return first }
+        return first.lastAccessedTime >= second.lastAccessedTime ? first : second
+    }
+
+    private static func deduplicatedByWindowID(_ windows: Set<WindowInfo>) -> Set<WindowInfo> {
+        var windowsByID: [CGWindowID: WindowInfo] = [:]
+        for window in windows {
+            if let existing = windowsByID[window.id] {
+                windowsByID[window.id] = preferredCachedWindow(existing, window)
+            } else {
+                windowsByID[window.id] = window
+            }
+        }
+        return Set(windowsByID.values)
+    }
+
     static func updateDesktopSpaceWindowCache(with windowInfo: WindowInfo) {
         desktopSpaceWindowCacheManager.updateCache(pid: windowInfo.app.processIdentifier) { windowSet in
-            if let matchingWindow = windowSet.first(where: { $0.axElement == windowInfo.axElement }) {
+            let matchingWindows = windowSet.filter { $0.id == windowInfo.id || $0.axElement == windowInfo.axElement }
+            let bestMatch = matchingWindows.reduce(nil as WindowInfo?) { best, window in
+                guard let best else { return window }
+                return preferredCachedWindow(best, window)
+            }
+            if let matchingWindow = bestMatch {
                 var matchingWindowCopy = matchingWindow
                 matchingWindowCopy.windowName = windowInfo.windowName
                 if let newSpaceID = windowInfo.spaceID {
@@ -1540,7 +1968,9 @@ extension WindowUtil {
                     matchingWindowCopy.imageCapturedTime = windowInfo.imageCapturedTime
                 }
 
-                windowSet.remove(matchingWindow)
+                for duplicate in matchingWindows {
+                    windowSet.remove(duplicate)
+                }
                 windowSet.insert(matchingWindowCopy)
             } else {
                 if shouldRejectCapturedImage(windowInfo.image, for: windowInfo) {
@@ -1574,14 +2004,53 @@ extension WindowUtil {
                 return nil
             }
 
+            if !isProcessAlive(pid) {
+                evictTerminatedApps()
+                return nil
+            }
+
+            if AXResponsiveness.isUnresponsive(pid) {
+                return existingWindowsSet
+            }
+
             var purifiedSet = existingWindowsSet
+            let cgCandidates = getCGWindowCandidates(for: pid)
+            let activeSpaceIDs = currentActiveSpaceIDs()
             for window in existingWindowsSet {
-                if !isValidElement(window.axElement) {
+                var shouldRemove = !isValidElement(window.axElement) ||
+                    !WindowOwnerResolver.ownerBelongsToDisplayApp(window.ownerApp, displayApp: window.app)
+
+                if !shouldRemove {
+                    if let cgEntry = findCGEntry(for: window.id, in: cgCandidates) {
+                        let hasValidCGWindow = isValidCGWindowCandidate(window.id, in: cgCandidates)
+                        if !hasValidCGWindow, !window.isMinimized, !window.isHidden {
+                            shouldRemove = true
+                        } else if hasValidCGWindow {
+                            shouldRemove = !shouldAcceptWindow(
+                                axWindow: window.axElement,
+                                windowID: window.id,
+                                cgEntry: cgEntry,
+                                app: window.app,
+                                activeSpaceIDs: activeSpaceIDs,
+                                scBacked: window.scWindow != nil
+                            )
+                        }
+                    } else if !window.isMinimized, !window.isHidden {
+                        shouldRemove = true
+                    }
+                }
+
+                if shouldRemove {
                     purifiedSet.remove(window)
                     desktopSpaceWindowCacheManager.removeFromCache(pid: pid, windowId: window.id)
                 }
             }
-            return purifiedSet
+
+            let deduplicatedSet = deduplicatedByWindowID(purifiedSet)
+            if deduplicatedSet.count != purifiedSet.count {
+                desktopSpaceWindowCacheManager.writeCache(pid: pid, windowSet: deduplicatedSet)
+            }
+            return deduplicatedSet
         }
     }
 
@@ -1589,26 +2058,122 @@ extension WindowUtil {
         desktopSpaceWindowCacheManager.writeCache(pid: pid, windowSet: [])
     }
 
-    /// Checks if the frontmost application is fullscreen and in the blacklist
+    static func purgeAllCaches() {
+        desktopSpaceWindowCacheManager.purgeAll()
+    }
+
+    static func cachedWindowCount() -> Int {
+        desktopSpaceWindowCacheManager.getAllWindows().count
+    }
+
+    static func cachedAppCount() -> Int {
+        desktopSpaceWindowCacheManager.cachedPIDs().count
+    }
+
+    private static let pendingQuitChecksLock = NSLock()
+    private static var pendingQuitChecks = Set<pid_t>()
+
+    static func cachedWindowWasDestroyed(_ element: AXUIElement, pid: pid_t) -> Bool {
+        let cached = desktopSpaceWindowCacheManager.readCache(pid: pid)
+        guard !cached.isEmpty else { return false }
+        if cached.contains(where: { $0.axElement == element }) { return true }
+        guard let windowID = try? element.cgWindowId() else { return false }
+        return cached.contains { $0.id == windowID }
+    }
+
+    @discardableResult
+    static func quitAppOnLastWindowCloseIfNeeded(app: NSRunningApplication) -> Bool {
+        guard Defaults[.quitAppOnWindowClose],
+              app.bundleIdentifier != "com.apple.finder",
+              !app.isTerminated
+        else {
+            return false
+        }
+
+        let pid = app.processIdentifier
+        pendingQuitChecksLock.lock()
+        let scheduled = pendingQuitChecks.insert(pid).inserted
+        pendingQuitChecksLock.unlock()
+        guard scheduled else { return true }
+
+        DebugLogger.log("quitAppOnLastWindowClose", details: "Scheduled: \(app.localizedName ?? "Unknown") (PID: \(pid))")
+        verifyNoWindowsRemain(app: app, attempt: 0, confirmed: false)
+        return true
+    }
+
+    /// Live AX windows are the source of truth, and an AX failure from a busy app is never treated as "no windows".
+    private static func verifyNoWindowsRemain(app: NSRunningApplication, attempt: Int, confirmed: Bool) {
+        let pid = app.processIdentifier
+        let delay: TimeInterval = attempt == 0 ? 0.5 : 1.0
+        DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay) {
+            func finish(_ reason: String) {
+                pendingQuitChecksLock.lock()
+                pendingQuitChecks.remove(pid)
+                pendingQuitChecksLock.unlock()
+                DebugLogger.log("quitAppOnLastWindowClose", details: "\(reason): \(app.localizedName ?? "Unknown") (PID: \(pid))")
+            }
+
+            guard !app.isTerminated else { return finish("Already terminated") }
+
+            switch liveAXWindowCount(pid: pid) {
+            case nil:
+                if attempt < 3 {
+                    verifyNoWindowsRemain(app: app, attempt: attempt + 1, confirmed: confirmed)
+                } else {
+                    finish("Aborted, AX unavailable")
+                }
+            case let count? where count > 0:
+                finish("Aborted, \(count) live window(s)")
+            default:
+                if confirmed {
+                    DispatchQueue.main.async {
+                        app.terminate()
+                        purgeAppCache(with: pid)
+                        finish("Terminated")
+                    }
+                } else {
+                    verifyNoWindowsRemain(app: app, attempt: attempt + 1, confirmed: true)
+                }
+            }
+        }
+    }
+
+    private static func liveAXWindowCount(pid: pid_t) -> Int? {
+        var value: AnyObject?
+        switch AXUIElementCopyAttributeValue(AXUIElementCreateApplication(pid), kAXWindowsAttribute as CFString, &value) {
+        case .success:
+            return (value as? [AXUIElement])?.count ?? 0
+        case .noValue:
+            return 0
+        case .cannotComplete:
+            AXResponsiveness.markUnresponsive(pid)
+            return nil
+        default:
+            return nil
+        }
+    }
+
+    /// Checks if the frontmost application is fullscreen and in the blacklist.
+    /// Runs on every switcher keypress inside the event tap, so the expensive AX
+    /// fullscreen probe only happens when the frontmost app actually matches the blacklist.
     static func shouldIgnoreKeybindForFrontmostApp() -> Bool {
+        let blacklist = Defaults[.fullscreenAppBlacklist]
+        guard !blacklist.isEmpty else { return false }
+
         guard let frontmostApp = NSWorkspace.shared.frontmostApplication else {
             return false
         }
 
-        // Check if the app is in fullscreen mode
-        let isFullscreen = isAppInFullscreen(frontmostApp)
-
-        // Check if the app is in the blacklist
         let appName = frontmostApp.localizedName ?? ""
         let bundleIdentifier = frontmostApp.bundleIdentifier ?? ""
-        let blacklist = Defaults[.fullscreenAppBlacklist]
 
         let isInBlacklist = blacklist.contains { blacklistEntry in
             appName.lowercased().contains(blacklistEntry.lowercased()) ||
                 bundleIdentifier.lowercased().contains(blacklistEntry.lowercased())
         }
+        guard isInBlacklist else { return false }
 
-        return isFullscreen && isInBlacklist
+        return isAppInFullscreen(frontmostApp)
     }
 
     /// Checks if the given application is currently in fullscreen mode
@@ -1636,6 +2201,10 @@ extension WindowUtil {
 extension WindowUtil {
     /// Centralized sorting for dock preview and cmd+tab contexts (single app windows)
     static func sortWindows(_ windows: Set<WindowInfo>, for context: WindowFetchContext) -> [WindowInfo] {
+        sortWindows(Array(windows), for: context)
+    }
+
+    static func sortWindows(_ windows: [WindowInfo], for context: WindowFetchContext) -> [WindowInfo] {
         let sortOrder: WindowPreviewSortOrder = switch context {
         case .dockPreview:
             Defaults[.windowPreviewSortOrder]
@@ -1643,7 +2212,7 @@ extension WindowUtil {
             Defaults[.cmdTabSortOrder]
         }
 
-        return sortWindowsWithOptions(Array(windows), sortOrder: sortOrder)
+        return sortWindowsWithOptions(windows, sortOrder: sortOrder)
     }
 
     /// Centralized sorting for window switcher context (all apps windows)
@@ -1662,9 +2231,9 @@ extension WindowUtil {
             = switch sortOrder
         {
         case .recentlyUsed:
-            windows.sorted { $0.lastAccessedTime > $1.lastAccessedTime }
+            windows.sorted { $0.lastAccessedTime != $1.lastAccessedTime ? $0.lastAccessedTime > $1.lastAccessedTime : $0.id > $1.id }
         case .creationOrder:
-            windows.sorted { $0.creationTime < $1.creationTime }
+            windows.sorted { $0.creationTime != $1.creationTime ? $0.creationTime < $1.creationTime : $0.id < $1.id }
         case .alphabeticalByTitle:
             windows.sorted { ($0.windowName ?? "").localizedCaseInsensitiveCompare($1.windowName ?? "") == .orderedAscending }
         case .alphabeticalByAppName:
@@ -1706,12 +2275,12 @@ extension WindowUtil {
         var result: [WindowInfo] = []
 
         for window in windows {
-            let bundleId = window.app.bundleIdentifier ?? ""
+            let bundleIds = groupingBundleIdentifiers(for: window)
 
-            if groupedApps.contains(bundleId) {
+            if let groupedBundleId = bundleIds.first(where: { groupedApps.contains($0) }) {
                 // This is a grouped app - only keep the first window we see
-                if !seenGroupedApps.contains(bundleId) {
-                    seenGroupedApps.insert(bundleId)
+                if !seenGroupedApps.contains(groupedBundleId) {
+                    seenGroupedApps.insert(groupedBundleId)
                     result.append(window)
                 }
                 // Skip subsequent windows of this grouped app
@@ -1721,6 +2290,14 @@ extension WindowUtil {
             }
         }
         return result
+    }
+
+    private static func groupingBundleIdentifiers(for window: WindowInfo) -> [String] {
+        [
+            window.app.bundleIdentifier,
+            window.ownerApp.bundleIdentifier,
+            WindowOwnerResolver.displayApp(forOwner: window.ownerApp).bundleIdentifier,
+        ].compactMap { $0 }
     }
 }
 
@@ -2359,36 +2936,17 @@ extension WindowUtil {
 // MARK: - Private Helper Methods
 
 extension WindowUtil {
-    static func focusAppBestEffort(_ app: NSRunningApplication) {
-        app.activate(options: [.activateIgnoringOtherApps, .activateAllWindows])
-
-        let pid = app.processIdentifier
-        let appAX = AXUIElementCreateApplication(pid)
-
-        if let focusedWindow = try? appAX.focusedWindow(),
-           let focusedWindowID = try? focusedWindow.cgWindowId(),
-           let cachedFocused = readCachedWindows(for: pid).first(where: { $0.id == focusedWindowID && !$0.isWindowlessApp })
-        {
-            cachedFocused.bringToFront()
-            return
-        }
-
-        if let bestCandidate = readCachedWindows(for: pid)
-            .first(where: { !$0.isWindowlessApp && !$0.isMinimized && !$0.isEffectivelyHiddenForUI })
-        {
-            bestCandidate.bringToFront()
-        }
-    }
-
-    /// Makes a window key by posting raw event bytes to the Window Server
+    /// Makes a window key by posting a synthetic left-click (down then up) to the Window Server.
     /// Ported from https://github.com/Hammerspoon/hammerspoon/issues/370#issuecomment-545545468
     static func makeKeyWindow(_ psn: inout ProcessSerialNumber, windowID: CGWindowID) {
-        var bytes = [UInt8](repeating: 0, count: 0xF8)
+        var bytes = [UInt8](repeating: 0, count: 0x100)
         bytes[0x04] = 0xF8
         bytes[0x3A] = 0x10
         var wid = UInt32(windowID)
         memcpy(&bytes[0x3C], &wid, MemoryLayout<UInt32>.size)
-        memset(&bytes[0x20], 0xFF, 0x10)
+        // Click just outside the frame: makes the window key without hit-testing content (top-left would close Chrome PWA shims).
+        var point = CGPoint(x: -1, y: -1)
+        memcpy(&bytes[0x20], &point, MemoryLayout<CGPoint>.size)
         bytes[0x08] = 0x01
         _ = SLPSPostEventRecordTo(&psn, &bytes)
         bytes[0x08] = 0x02

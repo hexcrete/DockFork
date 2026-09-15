@@ -12,6 +12,7 @@ struct SupportSettingsView: View {
     var body: some View {
         BaseSettingsView {
             VStack(alignment: .leading, spacing: 20) {
+                DockDoorProBanner()
                 permissionsSection
                 updatesSection
                 acknowledgmentsSection

@@ -7,6 +7,7 @@ struct KeyCaptureButton: View {
     var forceEmptyLabel: Bool = false
     var treatKeyCodeZeroAsEmpty: Bool = true
     var captureModifiers: Bool = false
+    var allowsEscape: Bool = false
     var autoStartCapture: Bool = false
     var onCaptureFinished: ((Bool) -> Void)? = nil
 
@@ -74,7 +75,7 @@ struct KeyCaptureButton: View {
         isCapturing = true
 
         monitors.append(NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            if event.keyCode == UInt16(kVK_Escape) {
+            if event.keyCode == UInt16(kVK_Escape), !allowsEscape {
                 stopCapture(reportAssigned: false)
                 return nil
             }

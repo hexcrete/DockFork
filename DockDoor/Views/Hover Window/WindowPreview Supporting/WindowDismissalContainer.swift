@@ -138,7 +138,7 @@ class MouseTrackingNSView: NSView {
             }
         }
 
-        guard let currentDockItem = activeDockObserver.getHoveredApplicationDockItem() else { return false }
+        guard let currentDockItem = activeDockObserver.getHoveredDockItemElement() else { return false }
 
         return originalDockItem == currentDockItem
     }
@@ -210,8 +210,19 @@ class MouseTrackingNSView: NSView {
 
     private func performHideWindow(preventLastAppClear: Bool = false) {
         DispatchQueue.main.async { [weak self] in
-            guard self != nil else { return }
-            SharedPreviewWindowCoordinator.activeInstance?.hideWindow()
+            guard let self else { return }
+            let preservePendingShow = shouldPreservePendingShowForDockIconTransition()
+            SharedPreviewWindowCoordinator.activeInstance?.hideWindow(cancelPendingShow: !preservePendingShow)
         }
+    }
+
+    private func shouldPreservePendingShowForDockIconTransition() -> Bool {
+        guard dockPosition != .cli,
+              let activeDockObserver = DockObserver.activeInstance,
+              let originalDockItem = dockItemElement,
+              let currentDockItem = activeDockObserver.getHoveredDockItemElement()
+        else { return false }
+
+        return originalDockItem != currentDockItem
     }
 }

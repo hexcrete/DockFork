@@ -24,6 +24,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     var mouseIsWithinPreviewWindow: Bool = false
     private var onWindowTap: (() -> Void)?
     private var fullPreviewWindow: NSPanel?
+    private var activeFullPreviewHoverID: UUID?
     private var pendingShowWorkItem: DispatchWorkItem?
     private struct DeferredActionWatcher {
         let token: UUID
@@ -51,10 +52,42 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private var currentDockPosition: DockPosition = .bottom
 
     private var anchoredDockItem: (element: AXUIElement, iconRect: CGRect)?
+    private var switcherAnchorCenter: CGPoint?
 
     private(set) var hasScreenRecordingPermission: Bool = PermissionsChecker.hasScreenRecordingPermission()
 
     var pinnedWindows: [String: (window: NSWindow, info: PinnedWindowInfo)] = [:]
+
+    struct TapSnapshot {
+        var isVisible = false
+        var frame: CGRect = .zero
+        var fullPreviewFrame: CGRect?
+        var searchFrame: CGRect?
+        var isSearchFocused = false
+    }
+
+    private let tapSnapshotLock = NSLock()
+    private var currentTapSnapshot = TapSnapshot()
+
+    /// Window state for event tap callbacks, which run off the main thread.
+    var tapSnapshot: TapSnapshot {
+        tapSnapshotLock.lock()
+        defer { tapSnapshotLock.unlock() }
+        return currentTapSnapshot
+    }
+
+    @objc private func publishTapSnapshot() {
+        let snapshot = TapSnapshot(
+            isVisible: isVisible,
+            frame: frame,
+            fullPreviewFrame: fullPreviewWindow.flatMap { $0.isVisible ? $0.frame : nil },
+            searchFrame: searchWindowFrame,
+            isSearchFocused: isSearchWindowFocused
+        )
+        tapSnapshotLock.lock()
+        currentTapSnapshot = snapshot
+        tapSnapshotLock.unlock()
+    }
 
     init() {
         let styleMask: NSWindow.StyleMask = [.nonactivatingPanel, .fullSizeContentView, .borderless]
@@ -63,6 +96,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         setupWindow()
         setupSearchWindow()
         setupFrameRefreshObserver()
+        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification, NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification, NSWindow.didExposeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(publishTapSnapshot), name: name, object: nil)
+        }
+        NotificationCenter.default.addObserver(self, selector: #selector(switcherFrameDidChange), name: NSWindow.didResizeNotification, object: self)
     }
 
     deinit {
@@ -115,6 +152,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         guard let searchWindow else { return }
         searchWindow.showSearch(relativeTo: self)
         searchWindow.focusSearchField()
+        publishTapSnapshot()
     }
 
     var isSearchWindowFocused: Bool {
@@ -124,6 +162,19 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     var searchWindowFrame: NSRect? {
         guard let searchWindow, searchWindow.isVisible else { return nil }
         return searchWindow.frame
+    }
+
+    func containsQuartzPoint(_ point: CGPoint) -> Bool {
+        let snapshot = tapSnapshot
+        guard snapshot.isVisible else { return false }
+
+        let screen = NSScreen.screenFromQuartzPoint(point)
+        let appKitPoint = DockObserver.nsPointFromCGPoint(point, forScreen: screen)
+        let hitSlop: CGFloat = 2
+
+        return [snapshot.frame, snapshot.fullPreviewFrame, snapshot.searchFrame]
+            .compactMap { $0 }
+            .contains { $0.insetBy(dx: -hitSlop, dy: -hitSlop).contains(appKitPoint) }
     }
 
     private func isCalendarApp(bundleIdentifier: String?) -> Bool {
@@ -148,18 +199,24 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         pendingShowWorkItem = nil
     }
 
-    func hideWindow() {
-        cancelPendingShow()
+    func restoreDockAutoHideState() {
+        dockManager.restoreDockState()
+    }
+
+    func hideWindow(cancelPendingShow shouldCancelPendingShow: Bool = true) {
+        if shouldCancelPendingShow {
+            cancelPendingShow()
+        }
         cancelAllDeferredActionWatchers()
         activationDismissalSuppression = nil
 
         // Always restore dock auto-hide state, even if the preview isn't visible.
-        dockManager.restoreDockState()
+        restoreDockAutoHideState()
+        hideFullPreviewWindow()
 
         guard isVisible else { return }
 
         DragPreviewCoordinator.shared.endDragging()
-        hideFullPreviewWindow()
 
         searchWindow?.hideSearch()
 
@@ -171,12 +228,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         currentlyDisplayedPID = nil
         mouseIsWithinPreviewWindow = false
         anchoredDockItem = nil
+        switcherAnchorCenter = nil
 
         let currentDockPos = DockUtils.getDockPosition()
         let currentScreen = NSScreen.main ?? NSScreen.screens.first!
         windowSwitcherCoordinator.setWindows([], dockPosition: currentDockPos, bestGuessMonitor: currentScreen)
         windowSwitcherCoordinator.setShowing(.both, toState: false)
         orderOut(nil)
+        publishTapSnapshot()
     }
 
     @discardableResult
@@ -311,6 +370,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let newSize = fittingSize
         guard newSize != frame.size else { return }
 
+        if let centeredFrame = centeredSwitcherFrame(for: newSize) {
+            let searchFrame = searchWindow.flatMap { $0.isVisible ? $0.targetFrame(relativeTo: centeredFrame, on: self.screen ?? screen) : nil }
+            animateWithUserPreference {
+                self.animator().setFrame(centeredFrame, display: true)
+                if let searchFrame { self.searchWindow?.animator().setFrame(searchFrame, display: true) }
+            }
+            return
+        }
+
         let wasClampedToTop = frame.maxY >= screenFrame.maxY - 1
         let wasClampedToBottom = frame.minY <= screenFrame.minY + 1
 
@@ -343,6 +411,27 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         animateWithUserPreference {
             self.animator().setFrame(CGRect(origin: newOrigin, size: newSize), display: true)
+        }
+    }
+
+    private func centeredSwitcherFrame(for size: CGSize) -> CGRect? {
+        guard let center = switcherAnchorCenter else { return nil }
+        let screen = NSScreen.screens.first { $0.frame.contains(center) } ?? NSScreen.main
+        var origin = CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
+        if let screenFrame = screen?.frame {
+            origin.x = max(screenFrame.minX, min(origin.x, screenFrame.maxX - size.width))
+            origin.y = max(screenFrame.minY, min(origin.y, screenFrame.maxY - size.height))
+        }
+        return CGRect(origin: origin, size: size)
+    }
+
+    @objc private func switcherFrameDidChange() {
+        guard let target = centeredSwitcherFrame(for: frame.size),
+              abs(target.minX - frame.minX) > 0.5 || abs(target.minY - frame.minY) > 0.5
+        else { return }
+        setFrame(target, display: true)
+        if let searchWindow, searchWindow.isVisible {
+            searchWindow.showSearch(relativeTo: self)
         }
     }
 
@@ -435,20 +524,38 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
         contentView = newHostingView
 
-        let previousFrame = frame
-        setFrame(CGRect(origin: previousFrame.origin, size: CGSize(width: 1, height: 1)), display: false)
-
         elapsed = renderStartTime.map { (CFAbsoluteTimeGetCurrent() - $0) * 1000 } ?? 0
         DebugLogger.log("PreviewRender", details: "calculating fittingSize (+\(String(format: "%.1f", elapsed))ms)")
 
         let newHoverWindowSize: CGSize
         do {
-            let fittingSize = newHostingView.fittingSize
+            let expectedContentSize = windowSwitcherCoordinator.expectedContentSize
+            let targetSize: CGSize
+            if windowSwitcherCoordinator.windowSwitcherActive,
+               windowSwitcherCoordinator.expectedContentSizeIsExact,
+               expectedContentSize != .zero
+            {
+                targetSize = expectedContentSize
 
-            elapsed = renderStartTime.map { (CFAbsoluteTimeGetCurrent() - $0) * 1000 } ?? 0
-            DebugLogger.log("PreviewRender", details: "fittingSize done: \(fittingSize) (+\(String(format: "%.1f", elapsed))ms)")
+                elapsed = renderStartTime.map { (CFAbsoluteTimeGetCurrent() - $0) * 1000 } ?? 0
+                DebugLogger.log("PreviewRender", details: "using predicted size, fittingSize skipped: \(targetSize) (+\(String(format: "%.1f", elapsed))ms)")
+            } else {
+                let fittingSize = newHostingView.fittingSize
 
-            newHoverWindowSize = fittingSize
+                elapsed = renderStartTime.map { (CFAbsoluteTimeGetCurrent() - $0) * 1000 } ?? 0
+                DebugLogger.log("PreviewRender", details: "fittingSize done: \(fittingSize) (+\(String(format: "%.1f", elapsed))ms)")
+
+                targetSize = expectedContentSize == .zero
+                    ? fittingSize
+                    : CGSize(
+                        width: max(fittingSize.width, expectedContentSize.width),
+                        height: max(fittingSize.height, expectedContentSize.height)
+                    )
+            }
+            newHoverWindowSize = CGSize(
+                width: min(targetSize.width, mouseScreen.visibleFrame.width),
+                height: min(targetSize.height, mouseScreen.visibleFrame.height)
+            )
         }
 
         let position: CGPoint
@@ -476,9 +583,13 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
         let finalFrame = CGRect(origin: position, size: newHoverWindowSize)
 
+        switcherAnchorCenter = nil
         setFrame(finalFrame, display: false)
         applyWindowFrame(finalFrame, animated: animated, dockPositionOverride: dockPositionOverride)
         previousHoverWindowOrigin = position
+        if centerOnScreen, windowSwitcherCoordinator.windowSwitcherActive {
+            switcherAnchorCenter = CGPoint(x: finalFrame.midX, y: finalFrame.midY)
+        }
 
         elapsed = renderStartTime.map { (CFAbsoluteTimeGetCurrent() - $0) * 1000 } ?? 0
         DebugLogger.log("PreviewRender", details: "window frame applied, render complete (+\(String(format: "%.1f", elapsed))ms)")
@@ -489,8 +600,26 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 guard let self else { return }
                 if searchWindow == nil { setupSearchWindow() }
                 searchWindow?.showSearch(relativeTo: self)
+                publishTapSnapshot()
             }
         }
+    }
+
+    func beginFullPreviewHover() -> UUID? {
+        guard isVisible else { return nil }
+        hideFullPreviewWindow()
+        let hoverID = UUID()
+        activeFullPreviewHoverID = hoverID
+        return hoverID
+    }
+
+    func cancelFullPreviewHover(_ hoverID: UUID) {
+        guard activeFullPreviewHoverID == hoverID else { return }
+        hideFullPreviewWindow()
+    }
+
+    func isFullPreviewHoverActive(_ hoverID: UUID?) -> Bool {
+        isVisible && hoverID != nil && activeFullPreviewHoverID == hoverID
     }
 
     @MainActor
@@ -528,17 +657,20 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         fullPreviewWindow?.setFrame(flippedIconRect, display: true)
         fullPreviewWindow?.makeKeyAndOrderFront(nil)
+        publishTapSnapshot()
     }
 
     @MainActor
     func hideFullPreviewWindow() {
         windowSwitcherCoordinator.setShowing(.fullWindowPreview, toState: false)
+        activeFullPreviewHoverID = nil
         fullPreviewWindow?.orderOut(nil)
         if let currentFullPreviewContent = fullPreviewWindow?.contentView {
             currentFullPreviewContent.removeFromSuperview()
         }
         fullPreviewWindow?.contentView = nil
         fullPreviewWindow = nil
+        publishTapSnapshot()
     }
 
     private func centerWindowOnScreen(size: CGSize, screen: NSScreen) -> CGPoint {
@@ -720,6 +852,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         alphaValue = 1.0
         makeKeyAndOrderFront(nil)
+        publishTapSnapshot()
     }
 
     @MainActor
@@ -808,7 +941,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
 
         if let dockItemElement {
-            let newPID = try? dockItemElement.pid()
+            let newPID = windows.first?.app.processIdentifier ?? (try? dockItemElement.pid())
             if newPID != currentlyDisplayedPID {
                 anchoredDockItem = nil
             } else if anchoredDockItem?.element == dockItemElement, isVisible {
@@ -862,8 +995,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let shouldCenterOnScreen = centeredHoverWindowState != .none
 
         let screen = mouseScreen ?? NSScreen.main!
-        hideFullPreviewWindow()
-
         if centeredHoverWindowState == .fullWindowPreview,
            let windowInfo = windows.first
         {
@@ -876,6 +1007,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
             showFullPreviewWindow(for: windowInfo, on: targetScreen)
         } else {
+            hideFullPreviewWindow()
             self.appName = appName
             let activeDockPosition = dockPositionOverride ?? DockUtils.getDockPosition()
             currentDockPosition = activeDockPosition
@@ -942,7 +1074,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         coordinator.initialHoverLocation = nil
 
         let threshold = Defaults[.windowSwitcherCompactThreshold]
-        let isListViewMode = coordinator.windowSwitcherActive && threshold > 0 && coordinator.windows.count >= threshold
+        let forcedCompact = Defaults[.disableImagePreview] || !hasScreenRecordingPermission
+        let isListViewMode = coordinator.windowSwitcherActive
+            && (forcedCompact || (threshold > 0 && coordinator.windows.count >= threshold))
 
         // Handle list view navigation (up/down only, with filtering support)
         if isListViewMode {
@@ -1015,7 +1149,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             for: actionStateWindow,
             preferredWindows: coordinator.windows
         )
-        let keepPreviewsOpen = category?.keepPreviewsOpen ?? true
+        let keepPreviewsOpen = category?.keepPreviewsOpen ?? (action != .openAppWindow)
         let closeAfterSuccess = action.closePreviewsOnlyAfterSuccess(
             for: actionStateWindow,
             category: category
@@ -1093,16 +1227,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 )
             } else {
                 coordinator.updateWindow(at: originalIndex, with: updatedWindow)
-            }
-        case .windowRemoved:
-            actionConfirmedSuccess = true
-            coordinator.removeWindow(at: originalIndex)
-        case let .appWindowsRemoved(pid):
-            actionConfirmedSuccess = true
-            for i in stride(from: coordinator.windows.count - 1, through: 0, by: -1) {
-                if coordinator.windows[i].app.processIdentifier == pid {
-                    coordinator.removeWindow(at: i)
-                }
             }
         case .noChange:
             break
@@ -1220,7 +1344,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             for: windowlessEntry,
             preferredWindows: windowSwitcherCoordinator.windows
         )
-        let keepPreviewsOpen = category?.keepPreviewsOpen ?? true
+        let keepPreviewsOpen = category?.keepPreviewsOpen ?? (action != .openAppWindow)
         let closeAfterSuccess = action.closePreviewsOnlyAfterSuccess(
             for: windowlessEntry,
             category: category
@@ -1642,16 +1766,95 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
     }
 
+    func showFolderWidget(
+        folderURL: URL,
+        folderName: String,
+        mouseLocation: CGPoint? = nil,
+        mouseScreen: NSScreen? = nil,
+        dockItemElement: AXUIElement?
+    ) {
+        let shouldSkipDelay = Defaults[.useDelayOnlyForInitialOpen] && isVisible
+        let delay = shouldSkipDelay ? 0 : Defaults[.hoverWindowOpenDelay]
+
+        pendingShowWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+
+            if let dockItemElement {
+                guard let currentDockItem = DockObserver.activeInstance?.getHoveredDockItemElement(),
+                      currentDockItem == dockItemElement
+                else { return }
+            }
+
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+
+                let screen = mouseScreen ?? NSScreen.main!
+                let activeDockPosition = DockUtils.getDockPosition()
+                currentDockPosition = activeDockPosition
+                appName = folderName
+                currentlyDisplayedPID = nil
+                onWindowTap = nil
+                hideFullPreviewWindow()
+                searchWindow?.hideSearch()
+                windowSwitcherCoordinator.setWindows([], dockPosition: activeDockPosition, bestGuessMonitor: screen)
+                windowSwitcherCoordinator.setShowing(.both, toState: false)
+
+                var dockIconRect: CGRect?
+                if let dockItemElement,
+                   let position = try? dockItemElement.position(),
+                   let size = try? dockItemElement.size()
+                {
+                    let rect = CGRect(origin: position, size: size)
+                    dockIconRect = rect
+                    anchoredDockItem = (element: dockItemElement, iconRect: rect)
+                } else {
+                    anchoredDockItem = nil
+                }
+
+                let view = FolderWidgetContainerView(
+                    folderURL: folderURL,
+                    folderName: folderName,
+                    bestGuessMonitor: screen,
+                    dockPosition: activeDockPosition,
+                    dockItemElement: dockItemElement,
+                    backgroundAppearance: BackgroundAppearance.resolve()
+                )
+
+                performShowView(
+                    view,
+                    mouseLocation: mouseLocation,
+                    mouseScreen: screen,
+                    dockItemElement: dockItemElement,
+                    dockIconRect: dockIconRect,
+                    dockPositionOverride: activeDockPosition
+                )
+
+                dockManager.preventDockHiding(false)
+            }
+        }
+
+        pendingShowWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+    }
+
     func showWindow(appName: String, windows: [WindowInfo], mouseLocation: CGPoint? = nil, mouseScreen: NSScreen? = nil,
                     dockItemElement: AXUIElement?,
                     overrideDelay: Bool = false, centeredHoverWindowState: PreviewStateCoordinator.WindowState? = nil,
                     onWindowTap: (() -> Void)? = nil, bundleIdentifier: String? = nil,
                     bypassDockMouseValidation: Bool = false,
                     dockPositionOverride: DockPosition? = nil, initialIndex: Int? = nil,
-                    dockItemFrameOverride: CGRect? = nil)
+                    dockItemFrameOverride: CGRect? = nil, fullPreviewHoverID: UUID? = nil)
     {
         let renderStartTime = CFAbsoluteTimeGetCurrent()
         DebugLogger.log("PreviewRender", details: "showWindow called: \(windows.count) windows for \(appName)")
+
+        if centeredHoverWindowState == .fullWindowPreview,
+           let fullPreviewHoverID,
+           !isFullPreviewHoverActive(fullPreviewHoverID)
+        {
+            return
+        }
 
         let shouldSkipDelay = overrideDelay || (Defaults[.useDelayOnlyForInitialOpen] && isVisible)
         let delay = shouldSkipDelay ? 0 : Defaults[.hoverWindowOpenDelay]
@@ -1691,6 +1894,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
 
             Task { @MainActor [weak self] in
+                if centeredHoverWindowState == .fullWindowPreview,
+                   let fullPreviewHoverID,
+                   self?.isFullPreviewHoverActive(fullPreviewHoverID) != true
+                {
+                    return
+                }
                 self?.performDisplay(appName: appName, windows: windows, mouseLocation: mouseLocation, mouseScreen: mouseScreen, dockItemElement: dockItemElement, centeredHoverWindowState: centeredHoverWindowState, onWindowTap: onWindowTap, bundleIdentifier: bundleIdentifier, dockPositionOverride: dockPositionOverride, initialIndex: initialIndex, dockItemFrameOverride: dockItemFrameOverride, renderStartTime: renderStartTime)
             }
         }

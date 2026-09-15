@@ -16,6 +16,8 @@ struct WindowlessAppPreview: View, Equatable {
     var appearance: PreviewAppearanceSettings
     let backgroundAppearance: BackgroundAppearance
 
+    @Default(.middleClickAction) private var middleClickAction
+
     @State private var isHovering = false
 
     static func == (l: Self, r: Self) -> Bool {
@@ -32,74 +34,99 @@ struct WindowlessAppPreview: View, Equatable {
     }
 
     private var windowlessEnabledButtons: Set<WindowAction> {
-        appearance.enabledTrafficLightButtons.intersection([.quit])
+        guard appearance.showWindowlessAppQuitButton else { return [] }
+        return appearance.enabledTrafficLightButtons.intersection([.quit])
     }
 
     private var canRenderTrafficLightButtons: Bool {
         appearance.trafficLightVisibility != .never && !windowlessEnabledButtons.isEmpty
     }
 
-    private func titleBar(isLeadingControls: Bool, showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View {
+    private var switcherToolbarHorizontalPadding: CGFloat {
+        CardRadius.switcherToolbarHorizontalPadding(
+            uniformCardRadius: windowSwitcherActive && uniformCardRadius
+        )
+    }
+
+    private func switcherAppIconSize(hasSecondaryLabel: Bool) -> CGFloat {
+        if appearance.switcherAppIconSize > 0 {
+            return min(max(appearance.switcherAppIconSize, 16), 64)
+        }
+
+        return hasSecondaryLabel ? 35 : 20
+    }
+
+    private func toolbarContent(isLeadingControls: Bool, showTitleContent: Bool, showControlsContent: Bool) -> some View {
         let shouldShowSubtitle = appearance.showWindowTitle &&
             (appearance.windowTitleVisibility == .alwaysVisible || isSelected || isHovering)
+        let shouldShowTitle = appearance.showAppHeader && showTitleContent
+        let shouldShowControls = canRenderTrafficLightButtons && showControlsContent
         let showTrafficLightButtons = appearance.trafficLightVisibility.isVisible(
             hoveringOverParentWindow: isSelected || isHovering,
             mockPreviewActive: mockPreviewActive
         )
 
-        let controlsContent = Group {
-            if showControlsContent, canRenderTrafficLightButtons {
-                TrafficLightButtons(
-                    displayMode: appearance.trafficLightVisibility,
-                    hoveringOverParentWindow: isSelected || isHovering,
-                    onWindowAction: handleTrafficLightAction,
-                    pillStyling: !appearance.disableDockStyleTrafficLights,
-                    mockPreviewActive: mockPreviewActive,
-                    enabledButtons: windowlessEnabledButtons,
-                    useMonochrome: appearance.useMonochromeTrafficLights,
-                    buttonScale: appearance.trafficLightButtonScale,
-                    backgroundAppearance: backgroundAppearance
-                )
-                .frame(width: showTrafficLightButtons ? nil : 0)
-                .clipped()
-            }
-        }
-
         return HStack(spacing: 4) {
             if appearance.controlPosition.isCentered {
                 Spacer(minLength: 0)
-                if showTitleContent {
-                    appIcon
+                if shouldShowTitle {
+                    appIcon(hasSecondaryLabel: shouldShowSubtitle)
                     titleContent(showSubtitle: shouldShowSubtitle)
                 }
-                controlsContent
+                if shouldShowControls {
+                    quitButton(alignment: .center, isVisible: showTrafficLightButtons)
+                }
                 Spacer(minLength: 0)
             } else if isLeadingControls {
-                controlsContent
+                if shouldShowControls {
+                    quitButton(alignment: .leading, isVisible: showTrafficLightButtons)
+                }
                 Spacer(minLength: 8)
-                if showTitleContent {
-                    appIcon
+                if shouldShowTitle {
+                    appIcon(hasSecondaryLabel: shouldShowSubtitle)
                     titleContent(showSubtitle: shouldShowSubtitle)
                 }
             } else {
-                if showTitleContent {
-                    appIcon
+                if shouldShowTitle {
+                    appIcon(hasSecondaryLabel: shouldShowSubtitle)
                     titleContent(showSubtitle: shouldShowSubtitle)
                 }
                 Spacer(minLength: 0)
-                controlsContent
+                if shouldShowControls {
+                    quitButton(alignment: .trailing, isVisible: showTrafficLightButtons)
+                }
             }
         }
         .animation(nil, value: showTrafficLightButtons)
     }
 
+    private func quitButton(alignment: Alignment, isVisible: Bool) -> some View {
+        TrafficLightButtons(
+            displayMode: appearance.trafficLightVisibility,
+            hoveringOverParentWindow: isSelected || isHovering,
+            onWindowAction: handleWindowAction,
+            pillStyling: !appearance.disableDockStyleTrafficLights,
+            mockPreviewActive: mockPreviewActive,
+            enabledButtons: windowlessEnabledButtons,
+            useMonochrome: appearance.useMonochromeTrafficLights,
+            buttonScale: appearance.trafficLightButtonScale,
+            backgroundAppearance: backgroundAppearance
+        )
+        .frame(minWidth: 34, minHeight: 34, alignment: alignment)
+        .frame(width: isVisible ? nil : 0)
+        .clipped()
+        .contentShape(Rectangle())
+    }
+
     @ViewBuilder
-    private var appIcon: some View {
+    private func appIcon(hasSecondaryLabel: Bool) -> some View {
+        let appIconSize = switcherAppIconSize(hasSecondaryLabel: hasSecondaryLabel)
+
         if let appIcon = windowInfo.app.icon {
             Image(nsImage: appIcon)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 35, height: 35)
+                .frame(width: appIconSize, height: appIconSize)
         }
     }
 
@@ -120,25 +147,17 @@ struct WindowlessAppPreview: View, Equatable {
         .padding(.trailing, 8)
     }
 
-    private func handleTrafficLightAction(_ action: WindowAction) {
-        switch action {
-        case .quit:
-            handleWindowAction(.quit)
-        default:
-            break
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             if appearance.controlPosition.showsOnTop {
                 let config = appearance.controlPosition.topConfiguration
-                if config.showTitle || (config.showControls && canRenderTrafficLightButtons) {
-                    titleBar(
+                if (appearance.showAppHeader && config.showTitle) || (canRenderTrafficLightButtons && config.showControls) {
+                    toolbarContent(
                         isLeadingControls: config.isLeadingControls,
                         showTitleContent: config.showTitle,
                         showControlsContent: config.showControls
                     )
+                    .padding(.horizontal, switcherToolbarHorizontalPadding)
                     .padding(.bottom, 4)
                 }
             }
@@ -155,12 +174,13 @@ struct WindowlessAppPreview: View, Equatable {
 
             if appearance.controlPosition.showsOnBottom {
                 let config = appearance.controlPosition.bottomConfiguration
-                if config.showTitle || (config.showControls && canRenderTrafficLightButtons) {
-                    titleBar(
+                if (appearance.showAppHeader && config.showTitle) || (canRenderTrafficLightButtons && config.showControls) {
+                    toolbarContent(
                         isLeadingControls: config.isLeadingControls,
                         showTitleContent: config.showTitle,
                         showControlsContent: config.showControls
                     )
+                    .padding(.horizontal, switcherToolbarHorizontalPadding)
                     .padding(.top, 4)
                 }
             }
@@ -213,27 +233,13 @@ struct WindowlessAppPreview: View, Equatable {
             WindowUtil.activateWindowlessApp(app: windowInfo.app)
             onTap?()
         }
+        .onMiddleClick {
+            if middleClickAction != .none {
+                handleWindowAction(middleClickAction)
+            }
+        }
         .contextMenu {
-            Button(action: {
-                handleWindowAction(.openNewWindow)
-            }) {
-                Label(
-                    String(localized: "Open New Window", comment: "Context menu action to open a new window for the app"),
-                    systemImage: "plus.rectangle.on.rectangle"
-                )
-            }
-
-            Divider()
-
-            Button(role: .destructive, action: {
-                handleTrafficLightAction(.quit)
-            }) {
-                if NSEvent.modifierFlags.contains(.option) {
-                    Label("Force Quit", systemImage: "power")
-                } else {
-                    Label("Quit", systemImage: "minus.square.fill")
-                }
-            }
+            WindowActionsMenuContent(windowInfo: windowInfo, handleWindowAction: handleWindowAction)
         }
         .fixedSize()
     }

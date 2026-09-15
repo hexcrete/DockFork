@@ -3,11 +3,14 @@ import SwiftUI
 
 struct WindowSwitcherAppearanceSection: View {
     @Default(.windowSwitcherControlPosition) var windowSwitcherControlPosition
+    @Default(.switcherShowAppHeader) var switcherShowAppHeader
     @Default(.switcherShowWindowTitle) var switcherShowWindowTitle
     @Default(.switcherWindowTitleVisibility) var switcherWindowTitleVisibility
+    @Default(.switcherAppIconSize) var switcherAppIconSize
     @Default(.switcherTrafficLightButtonsVisibility) var switcherTrafficLightButtonsVisibility
     @Default(.switcherEnabledTrafficLightButtons) var switcherEnabledTrafficLightButtons
     @Default(.switcherUseMonochromeTrafficLights) var switcherUseMonochromeTrafficLights
+    @Default(.switcherUseEmbeddedDockPreviewElements) var switcherUseEmbeddedDockPreviewElements
     @Default(.switcherDisableDockStyleTrafficLights) var switcherDisableDockStyleTrafficLights
     @Default(.switcherMaxRows) var switcherMaxRows
     @Default(.switcherIgnoreScreenLimit) var switcherIgnoreScreenLimit
@@ -16,8 +19,57 @@ struct WindowSwitcherAppearanceSection: View {
     @Default(.switcherWindowStateIndicatorPlacement) var switcherWindowStateIndicatorPlacement
     @Default(.switcherDisableDockStyleWindowStateIndicator) var switcherDisableDockStyleWindowStateIndicator
 
+    private var automaticAppIconSizeBinding: Binding<Bool> {
+        Binding(
+            get: { switcherAppIconSize == 0 },
+            set: { useAutomaticSize in
+                switcherAppIconSize = useAutomaticSize ? 0 : 35
+            }
+        )
+    }
+
+    private var customAppIconSizeBinding: Binding<CGFloat> {
+        Binding(
+            get: { switcherAppIconSize > 0 ? switcherAppIconSize : 35 },
+            set: { switcherAppIconSize = $0 }
+        )
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            Toggle("Show App Header", isOn: $switcherShowAppHeader)
+                .settingsSearchTarget("appearance.switcherShowAppHeader")
+
+            if switcherShowAppHeader {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("App Icon Size")
+                        Spacer()
+                        Toggle("Automatic", isOn: automaticAppIconSizeBinding)
+                    }
+
+                    if switcherAppIconSize > 0 {
+                        sliderSetting(
+                            title: "Size",
+                            value: customAppIconSizeBinding,
+                            range: 16.0 ... 64.0,
+                            step: 1.0,
+                            unit: "pt",
+                            formatter: {
+                                let f = NumberFormatter()
+                                f.minimumFractionDigits = 0
+                                f.maximumFractionDigits = 0
+                                return f
+                            }()
+                        )
+                    }
+                }
+                .settingsSearchTarget("appearance.switcherAppIconSize")
+            }
+
+            Divider().padding(.vertical, 2)
+            Text("Window Switcher Toolbar").font(.headline).padding(.bottom, -2)
+
             Picker("Position Window Controls", selection: $windowSwitcherControlPosition) {
                 ForEach(WindowSwitcherControlPosition.allCases, id: \.self) { position in
                     Text(position.localizedName)
@@ -100,23 +152,37 @@ struct WindowSwitcherAppearanceSection: View {
             }
 
             Divider().padding(.vertical, 2)
-            Text("Window Title").font(.headline).padding(.bottom, -2)
+            Group {
+                Text("Window Title").font(.headline).padding(.bottom, -2)
 
-            Toggle("Show Window Title", isOn: $switcherShowWindowTitle)
-                .settingsSearchTarget("appearance.switcherShowWindowTitle")
+                Toggle("Show Window Title", isOn: $switcherShowWindowTitle)
+                    .settingsSearchTarget("appearance.switcherShowWindowTitle")
 
-            if switcherShowWindowTitle {
-                Picker("Visibility", selection: $switcherWindowTitleVisibility) {
-                    ForEach(WindowTitleVisibility.allCases, id: \.self) { visibility in
-                        Text(visibility.localizedName)
-                            .tag(visibility)
+                if switcherShowWindowTitle {
+                    Picker("Visibility", selection: $switcherWindowTitleVisibility) {
+                        ForEach(WindowTitleVisibility.allCases, id: \.self) { visibility in
+                            Text(visibility.localizedName)
+                                .tag(visibility)
+                        }
                     }
+                    .settingsSearchTarget("appearance.switcherWindowTitleVisibility")
                 }
-                .settingsSearchTarget("appearance.switcherWindowTitleVisibility")
             }
+            .disabled(!switcherShowAppHeader)
 
             Divider().padding(.vertical, 2)
             Text("Preview Layout (Switcher)").font(.headline).padding(.bottom, -2)
+
+            VStack(alignment: .leading) {
+                Toggle(isOn: $switcherUseEmbeddedDockPreviewElements) {
+                    Text("Embed controls in preview frames")
+                }
+                .settingsSearchTarget("appearance.switcherEmbedControls")
+                Text("Places traffic light buttons and window titles directly inside the window switcher preview frames.")
+                    .font(.footnote)
+                    .foregroundColor(.gray)
+                    .padding(.leading, 20)
+            }
 
             Picker("Scroll Direction", selection: $windowSwitcherScrollDirection) {
                 ForEach(WindowSwitcherScrollDirection.allCases, id: \.self) { direction in

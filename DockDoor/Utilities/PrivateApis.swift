@@ -42,8 +42,8 @@ typealias CGSWindowCount = UInt32
 typealias CGSSpaceID = UInt64
 typealias CGSSpaceMask = UInt64
 
-// All spaces mask (private constant)
-let kCGSAllSpacesMask: CGSSpaceMask = 0xFFFF_FFFF_FFFF_FFFF
+// kCGSSpaceIncludesCurrent | kCGSSpaceIncludesOthers | kCGSSpaceIncludesUser; wider masks return no Spaces for windows on other Spaces
+let kCGSAllSpacesMask: CGSSpaceMask = 7
 
 // Define the private API functions with @_silgen_name
 @_silgen_name("CGSMainConnectionID")
@@ -155,4 +155,42 @@ func SLPSPostEventRecordTo(_ psn: UnsafeMutablePointer<ProcessSerialNumber>, _ b
     loadSkyLightFunctions()
     guard let fn = postEventRecordPtr else { return CGError(rawValue: -1)! }
     return fn(psn, bytes)
+}
+
+func SLSMoveWindowsToManagedSpace(_ windowIDs: [CGWindowID], _ spaceID: CGSSpaceID) -> Bool {
+    loadSkyLightFunctions()
+
+    guard let operationClass = NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation") else {
+        DebugLogger.log("SLSMoveWindowsToManagedSpace", details: "Move operation class unavailable")
+        return false
+    }
+
+    let initSelector = NSSelectorFromString("initWithWindows:spaceID:")
+    let performSelector = NSSelectorFromString("performWithWMBridgeDelegate")
+
+    guard let allocated = (operationClass as AnyObject).perform(NSSelectorFromString("alloc"))?.takeUnretainedValue(),
+          allocated.responds(to: initSelector)
+    else {
+        DebugLogger.log("SLSMoveWindowsToManagedSpace", details: "Move operation initializer unavailable")
+        return false
+    }
+
+    typealias InitFunction = @convention(c) (AnyObject, Selector, NSArray, UInt64) -> AnyObject
+    let initFunction = unsafeBitCast(allocated.method(for: initSelector), to: InitFunction.self)
+    let operation = initFunction(
+        allocated,
+        initSelector,
+        windowIDs.map { NSNumber(value: UInt32($0)) } as NSArray,
+        spaceID
+    )
+
+    guard operation.responds(to: performSelector) else {
+        DebugLogger.log("SLSMoveWindowsToManagedSpace", details: "Move operation perform selector unavailable")
+        return false
+    }
+
+    typealias PerformFunction = @convention(c) (AnyObject, Selector) -> Void
+    let performFunction = unsafeBitCast(operation.method(for: performSelector), to: PerformFunction.self)
+    performFunction(operation, performSelector)
+    return true
 }

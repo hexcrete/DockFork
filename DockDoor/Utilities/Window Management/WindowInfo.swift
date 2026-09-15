@@ -7,7 +7,9 @@ struct WindowInfo: Identifiable, Hashable {
     let id: CGWindowID
     let windowProvider: WindowPropertiesProviding
     let app: NSRunningApplication
+    let ownerApp: NSRunningApplication
     var windowName: String?
+    var frame: CGRect
     var image: CGImage?
     var axElement: AXUIElement
     var appAxElement: AXUIElement
@@ -25,11 +27,13 @@ struct WindowInfo: Identifiable, Hashable {
 
     private var _scWindow: SCWindow?
 
-    init(windowProvider: WindowPropertiesProviding, app: NSRunningApplication, image: CGImage?, axElement: AXUIElement, appAxElement: AXUIElement, closeButton: AXUIElement?, lastAccessedTime: Date, creationTime: Date? = nil, imageCapturedTime: Date? = nil, spaceID: Int? = nil, spaceNumberOverride: Int? = nil, screenIdentifier: String? = nil, isMinimized: Bool, isHidden: Bool, isFullscreen: Bool? = nil) {
+    init(windowProvider: WindowPropertiesProviding, app: NSRunningApplication, ownerApp: NSRunningApplication? = nil, image: CGImage?, axElement: AXUIElement, appAxElement: AXUIElement, closeButton: AXUIElement?, lastAccessedTime: Date, creationTime: Date? = nil, imageCapturedTime: Date? = nil, spaceID: Int? = nil, spaceNumberOverride: Int? = nil, screenIdentifier: String? = nil, isMinimized: Bool, isHidden: Bool, isFullscreen: Bool? = nil) {
         id = windowProvider.windowID
         self.windowProvider = windowProvider
         self.app = app
+        self.ownerApp = ownerApp ?? app
         windowName = (try? axElement.title()) ?? windowProvider.title
+        frame = windowProvider.frame
         self.image = image
         self.axElement = axElement
         self.appAxElement = appAxElement
@@ -47,7 +51,6 @@ struct WindowInfo: Identifiable, Hashable {
         _scWindow = windowProvider as? SCWindow
     }
 
-    var frame: CGRect { windowProvider.frame }
     var scWindow: SCWindow? { _scWindow }
     var spaceNumber: Int? {
         guard !isWindowlessApp else { return nil }
@@ -454,6 +457,11 @@ extension WindowInfo {
         applyWindowFrame(targetFrame, on: context.screen)
     }
 
+    @discardableResult
+    func moveToCurrentManagedSpace(mouseLocation: CGPoint = NSEvent.mouseLocation) -> Bool {
+        WindowUtil.moveWindowToCurrentManagedSpace(self, mouseLocation: mouseLocation)
+    }
+
     func bringToFront() {
         guard !isWindowlessApp else {
             WindowUtil.activateWindowlessApp(app: app)
@@ -465,7 +473,7 @@ extension WindowInfo {
         func attemptActivation() -> Bool {
             do {
                 var psn = ProcessSerialNumber()
-                _ = GetProcessForPID(app.processIdentifier, &psn)
+                _ = GetProcessForPID(ownerApp.processIdentifier, &psn)
                 _ = _SLPSSetFrontProcessWithOptions(&psn, UInt32(id), SLPSMode.userGenerated.rawValue)
 
                 WindowUtil.makeKeyWindow(&psn, windowID: id)

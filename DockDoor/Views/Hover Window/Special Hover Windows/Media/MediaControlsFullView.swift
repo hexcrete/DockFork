@@ -26,9 +26,13 @@ struct MediaControlsFullView: View {
     @State private var initialContentSize: CGSize = .zero
     @State private var hasSetInitialSize: Bool = false
 
+    private var displayAppName: String {
+        mediaInfo.appName.isEmpty ? appName : mediaInfo.appName
+    }
+
     var body: some View {
         WidgetHoverContainer(
-            appName: appName,
+            appName: displayAppName,
             bundleIdentifier: bundleIdentifier,
             bestGuessMonitor: bestGuessMonitor,
             dockPosition: dockPosition,
@@ -45,7 +49,7 @@ struct MediaControlsFullView: View {
             view.pinnable(appName: appName, bundleIdentifier: bundleIdentifier, type: .media)
         }
         .if(isMediaApp(bundleIdentifier)) { view in
-            view.mediaScrollable(bundleIdentifier: bundleIdentifier, mediaInfo: mediaInfo)
+            view.mediaScrollable(bundleIdentifier: bundleIdentifier, mediaInfo: mediaInfo, handlesSpacebar: !isPinnedMode)
         }
     }
 

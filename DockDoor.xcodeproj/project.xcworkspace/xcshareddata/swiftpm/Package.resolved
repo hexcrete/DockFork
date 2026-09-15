@@ -16,7 +16,7 @@
       "location" : "https://github.com/sindresorhus/Defaults",
       "state" : {
         "branch" : "main",
-        "revision" : "5bfac4928f000fabdbef7e4ed0251399bb0841c9"
+        "revision" : "00a7465a0668a87fa159e779b9d80f1f9652357e"
       }
     },
     {
@@ -34,7 +34,7 @@
       "location" : "https://github.com/ejbills/mediaremote-adapter.git",
       "state" : {
         "branch" : "master",
-        "revision" : "ca55d6335628186daeeec1fb2c17992b9a80fba6"
+        "revision" : "5b6afde3f501a3da567e23bf7f23d562938a1809"
       }
     },
     {
@@ -51,8 +51,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sparkle-project/Sparkle",
       "state" : {
-        "revision" : "066e75a8b3e99962685d6a90cdd5293ebffd9261",
-        "version" : "2.9.1"
+        "revision" : "ac2def288cbff5cfc7df3ffef6abdf45b72bcb0a",
+        "version" : "2.9.6"
       }
     },
     {
@@ -60,8 +60,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/swiftlang/swift-syntax",
       "state" : {
-        "revision" : "2b59c0c741e9184ab057fd22950b491076d42e91",
-        "version" : "603.0.0"
+        "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
+        "version" : "603.0.2"
       }
     }
   ],

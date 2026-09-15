@@ -8,11 +8,11 @@ struct MainSettingsView: View {
     @Default(.showMenuBarIcon) var showMenuBarIcon
     @Default(.showAnimations) var showAnimations
     @Default(.sortMinimizedToEnd) var sortMinimizedToEnd
-    @Default(.activateOnWake) var activateOnWake
 
     var body: some View {
         BaseSettingsView {
             VStack(alignment: .leading, spacing: 24) {
+                DockDoorProBanner()
                 supportAndContributionsSection
                 applicationBasicsSection
                 activeAppIndicatorSection
@@ -50,9 +50,6 @@ struct MainSettingsView: View {
                         let appDelegate = NSApplication.shared.delegate as! AppDelegate
                         if isOn { appDelegate.setupMenuBar() } else { appDelegate.removeMenuBar() }
                     }
-
-                Toggle(isOn: $activateOnWake, label: { Text("Restore settings window to front on wake from sleep") })
-                    .settingsSearchTarget("general.activateOnWake")
 
                 Toggle(isOn: Binding(
                     get: { !showAnimations },
@@ -105,13 +102,16 @@ struct MainSettingsView: View {
                 Defaults[.bufferFromDock] = Defaults.Keys.bufferFromDock.defaultValue
                 Defaults[.shouldHideOnDockItemClick] = Defaults.Keys.shouldHideOnDockItemClick.defaultValue
                 Defaults[.dockClickAction] = Defaults.Keys.dockClickAction.defaultValue
+                Defaults[.restoreAllMinimizedWindowsOnDockClick] = Defaults.Keys.restoreAllMinimizedWindowsOnDockClick.defaultValue
                 Defaults[.enableCmdRightClickQuit] = Defaults.Keys.enableCmdRightClickQuit.defaultValue
+                Defaults[.dockPreviewActivationMode] = Defaults.Keys.dockPreviewActivationMode.defaultValue
+                Defaults[.dockPreviewActivationModifier] = Defaults.Keys.dockPreviewActivationModifier.defaultValue
                 Defaults[.previewHoverAction] = Defaults.Keys.previewHoverAction.defaultValue
                 Defaults[.switcherPreviewHoverAction] = Defaults.Keys.switcherPreviewHoverAction.defaultValue
                 Defaults[.cmdTabPreviewHoverAction] = Defaults.Keys.cmdTabPreviewHoverAction.defaultValue
+                Defaults[.keepPreviewOnHoverActivation] = Defaults.Keys.keepPreviewOnHoverActivation.defaultValue
 
                 showMenuBarIcon = Defaults.Keys.showMenuBarIcon.defaultValue
-                activateOnWake = Defaults.Keys.activateOnWake.defaultValue
                 Defaults[.enableWindowSwitcher] = Defaults.Keys.enableWindowSwitcher.defaultValue
                 Defaults[.instantWindowSwitcher] = Defaults.Keys.instantWindowSwitcher.defaultValue
                 Defaults[.includeHiddenWindowsInSwitcher] = Defaults.Keys.includeHiddenWindowsInSwitcher.defaultValue
@@ -121,6 +121,7 @@ struct MainSettingsView: View {
                 Defaults[.showWindowlessAppsInDockPreview] = Defaults.Keys.showWindowlessAppsInDockPreview.defaultValue
                 Defaults[.showWindowlessAppsInCmdTab] = Defaults.Keys.showWindowlessAppsInCmdTab.defaultValue
                 Defaults[.windowlessAppActivationMode] = Defaults.Keys.windowlessAppActivationMode.defaultValue
+                Defaults[.ignoreAppsWithSingleWindowInCmdTab] = Defaults.Keys.ignoreAppsWithSingleWindowInCmdTab.defaultValue
                 Defaults[.useClassicWindowOrdering] = Defaults.Keys.useClassicWindowOrdering.defaultValue
                 Defaults[.limitSwitcherToFrontmostApp] = Defaults.Keys.limitSwitcherToFrontmostApp.defaultValue
                 Defaults[.fullscreenAppBlacklist] = Defaults.Keys.fullscreenAppBlacklist.defaultValue
@@ -151,6 +152,7 @@ struct MainSettingsView: View {
 
                 Defaults[.alternateKeybindKey] = Defaults.Keys.alternateKeybindKey.defaultValue
                 Defaults[.alternateKeybindConfigured] = Defaults.Keys.alternateKeybindConfigured.defaultValue
+                Defaults[.alternateKeybindModifierFlags] = Defaults.Keys.alternateKeybindModifierFlags.defaultValue
                 Defaults[.alternateKeybindMode] = Defaults.Keys.alternateKeybindMode.defaultValue
 
                 Defaults[.cmdTabAutoSelectFirstWindow] = Defaults.Keys.cmdTabAutoSelectFirstWindow.defaultValue
@@ -158,6 +160,13 @@ struct MainSettingsView: View {
                 Defaults[.searchTriggerKey] = Defaults.Keys.searchTriggerKey.defaultValue
 
                 Defaults[.showSpecialAppControls] = Defaults.Keys.showSpecialAppControls.defaultValue
+                Defaults[.enableFolderWidget] = Defaults.Keys.enableFolderWidget.defaultValue
+                Defaults[.folderWidgetDefaultSortOrder] = Defaults.Keys.folderWidgetDefaultSortOrder.defaultValue
+                Defaults[.folderWidgetDefaultSortReversed] = Defaults.Keys.folderWidgetDefaultSortReversed.defaultValue
+                Defaults[.folderWidgetRememberSortPerFolder] = Defaults.Keys.folderWidgetRememberSortPerFolder.defaultValue
+                Defaults[.folderWidgetSortOrders] = Defaults.Keys.folderWidgetSortOrders.defaultValue
+                Defaults[.folderWidgetSortReversed] = Defaults.Keys.folderWidgetSortReversed.defaultValue
+                Defaults[.folderWidgetShowHiddenFiles] = Defaults.Keys.folderWidgetShowHiddenFiles.defaultValue
                 Defaults[.showBigControlsWhenNoValidWindows] = Defaults.Keys.showBigControlsWhenNoValidWindows.defaultValue
                 Defaults[.showMassActionButtons] = Defaults.Keys.showMassActionButtons.defaultValue
                 Defaults[.useEmbeddedMediaControls] = Defaults.Keys.useEmbeddedMediaControls.defaultValue
