@@ -4,13 +4,20 @@ import Defaults
 
 // AXObserver callback for Cmd+Tab switcher changes
 func handleCmdTabSwitcherNotification(observer _: AXObserver, element _: AXUIElement, notificationName: CFString, context: UnsafeMutableRawPointer?) {
-    DockObserver.activeInstance?.processCmdTabSwitcherEvent(notificationName)
+    DispatchQueue.main.async {
+        DockObserver.activeInstance?.processCmdTabSwitcherEvent(notificationName)
+    }
 }
 
 extension DockObserver {
     // MARK: - Cmd+Tab Switcher Monitoring
 
     func teardownCmdTabObserver() {
+        cmdTabDiscoveryTask?.cancel()
+        cmdTabDiscoveryTask = nil
+        cmdTabSelectionRetryWorkItem?.cancel()
+        cmdTabSelectionRetryWorkItem = nil
+        cmdTabSelectionGeneration &+= 1
         if let observer = cmdTabObserver {
             CFRunLoopRemoveSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(observer), .commonModes)
         }
@@ -28,18 +35,23 @@ extension DockObserver {
         attemptCmdTabSubscription()
 
         if cmdTabObserver == nil {
-            cmdTabPollingTimer?.invalidate()
-            cmdTabPollingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
-                guard let self else {
-                    timer.invalidate()
-                    return
-                }
-                attemptCmdTabSubscription()
+            scheduleCmdTabPolling()
+        }
+    }
 
-                if cmdTabObserver != nil {
-                    timer.invalidate()
-                    cmdTabPollingTimer = nil
-                }
+    private func scheduleCmdTabPolling() {
+        guard Defaults[.enableCmdTabEnhancements], cmdTabObserver == nil, cmdTabPollingTimer == nil else { return }
+
+        cmdTabPollingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+            attemptCmdTabSubscription()
+
+            if cmdTabObserver != nil {
+                timer.invalidate()
+                cmdTabPollingTimer = nil
             }
         }
     }
@@ -84,7 +96,11 @@ extension DockObserver {
             try processSwitcherList.subscribeToNotification(cmdTabObserver, kAXUIElementDestroyedNotification as String)
             DockObserver.isCmdTabSwitcherActive = true
         } catch {
-            // Ignore subscription errors
+            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(cmdTabObserver), .commonModes)
+            self.cmdTabObserver = nil
+            DockObserver.isCmdTabSwitcherActive = false
+            scheduleCmdTabPolling()
+            DebugLogger.log("DockObserver+CmdTab", details: "Failed to subscribe to Cmd+Tab switcher: \(error)")
         }
     }
 
@@ -105,6 +121,18 @@ extension DockObserver {
     }
 
     func processCmdTabSwitcherChanged() {
+        cmdTabSelectionGeneration &+= 1
+        let generation = cmdTabSelectionGeneration
+        cmdTabDiscoveryTask?.cancel()
+        cmdTabDiscoveryTask = nil
+        cmdTabSelectionRetryWorkItem?.cancel()
+        cmdTabSelectionRetryWorkItem = nil
+
+        processCmdTabSwitcherChanged(generation: generation, retrySelectionLookup: true)
+    }
+
+    private func processCmdTabSwitcherChanged(generation: UInt, retrySelectionLookup: Bool) {
+        guard generation == cmdTabSelectionGeneration else { return }
         guard Defaults[.enableCmdTabEnhancements] else { return }
         guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
             return
@@ -113,7 +141,11 @@ extension DockObserver {
         let dockAppElement = AXUIElementCreateApplication(dockApp.processIdentifier)
 
         guard let selectedItem = getSelectedCmdTabItem(dockElement: dockAppElement) else {
-            _ = findCmdTabSwitcherElement(in: dockAppElement)
+            if retrySelectionLookup {
+                scheduleCmdTabSelectionRetry(generation: generation)
+            } else if generation == cmdTabSelectionGeneration {
+                previewCoordinator.hideWindow()
+            }
             return
         }
 
@@ -139,9 +171,14 @@ extension DockObserver {
 
         let elementPos = try? selectedItem.element.position()
         let bestScreen = if let elementPos { NSScreen.screenFromQuartzPoint(elementPos) } else { NSScreen.main! }
+        let selectedElement = selectedItem.element
 
         Task { @MainActor [weak self] in
             guard let self else { return }
+            guard generation == cmdTabSelectionGeneration,
+                  DockObserver.isCmdTabSwitcherActive,
+                  isCurrentCmdTabSelection(selectedElement)
+            else { return }
 
             guard let cachedWindows else {
                 previewCoordinator.hideWindow()
@@ -171,12 +208,11 @@ extension DockObserver {
             let displayedPID = cachedWindows?.first?.app.processIdentifier ?? resolvedApp.processIdentifier
             let screenOrigin = bestScreen.frame.origin
 
-            Task.detached { [weak self] in
-                guard let self else { return }
-
+            cmdTabDiscoveryTask = Task.detached { [weak self] in
                 var discoveredWindows: [WindowInfo] = []
                 var completedDiscovery = false
                 for app in appCandidates {
+                    guard !Task.isCancelled else { return }
                     do {
                         let appWindows = try await WindowUtil.getActiveWindows(
                             of: app,
@@ -189,7 +225,7 @@ extension DockObserver {
                         DebugLogger.log("DockObserver+CmdTab", details: "Failed to fetch windows for \(app.localizedName ?? "Unknown"): \(error)")
                     }
                 }
-                guard completedDiscovery else { return }
+                guard completedDiscovery, !Task.isCancelled else { return }
 
                 let freshWindows = WindowUtil.cmdTabPreviewWindows(
                     from: WindowUtil.sortWindows(discoveredWindows, for: .cmdTab),
@@ -198,6 +234,10 @@ extension DockObserver {
 
                 await MainActor.run { [weak self] in
                     guard let self else { return }
+                    guard generation == cmdTabSelectionGeneration,
+                          DockObserver.isCmdTabSwitcherActive,
+                          isCurrentCmdTabSelection(selectedElement)
+                    else { return }
                     guard let screen = screenOrigin.screen() else { return }
 
                     let didMerge = previewCoordinator.mergeWindowsIfNeeded(
@@ -206,13 +246,54 @@ extension DockObserver {
                         dockPosition: .cmdTab,
                         bestGuessMonitor: screen
                     )
-                    if didMerge, freshWindows == nil {
+                    if let freshWindows, !didMerge {
+                        let initialIndex = Defaults[.cmdTabAutoSelectFirstWindow] ? 0 : nil
+                        previewCoordinator.showWindow(
+                            appName: appName,
+                            windows: freshWindows,
+                            mouseLocation: DockObserver.getMousePosition(),
+                            mouseScreen: screen,
+                            dockItemElement: selectedElement,
+                            overrideDelay: true,
+                            centeredHoverWindowState: .none,
+                            onWindowTap: { [weak self] in
+                                self?.hideWindowAndResetLastApp()
+                            },
+                            bundleIdentifier: bundleId,
+                            bypassDockMouseValidation: true,
+                            dockPositionOverride: .cmdTab,
+                            initialIndex: initialIndex
+                        )
+                    } else if didMerge, freshWindows == nil {
                         previewCoordinator.hideWindow()
+                    }
+                    if generation == cmdTabSelectionGeneration {
+                        cmdTabDiscoveryTask = nil
                     }
                     DebugLogger.log("WindowRefresh", details: "Cmd+Tab final merge, PID: \(displayedPID), windows: \(freshWindows?.count ?? 0), merged: \(didMerge)")
                 }
             }
         }
+    }
+
+    private func scheduleCmdTabSelectionRetry(generation: UInt) {
+        cmdTabSelectionRetryWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            guard let self, generation == cmdTabSelectionGeneration else { return }
+            cmdTabSelectionRetryWorkItem = nil
+            processCmdTabSwitcherChanged(generation: generation, retrySelectionLookup: false)
+        }
+        cmdTabSelectionRetryWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: workItem)
+    }
+
+    private func isCurrentCmdTabSelection(_ expectedElement: AXUIElement) -> Bool {
+        guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
+            return false
+        }
+        let dockElement = AXUIElementCreateApplication(dockApp.processIdentifier)
+        guard let selectedItem = getSelectedCmdTabItem(dockElement: dockElement) else { return false }
+        return CFEqual(selectedItem.element, expectedElement)
     }
 
     func selectedCmdTabApplication() -> NSRunningApplication? {

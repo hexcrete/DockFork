@@ -75,6 +75,9 @@ final class DockObserver {
     // Cmd+Tab switcher monitoring (accessed from extension file)
     var cmdTabObserver: AXObserver?
     var cmdTabPollingTimer: Timer?
+    var cmdTabDiscoveryTask: Task<Void, Never>?
+    var cmdTabSelectionRetryWorkItem: DispatchWorkItem?
+    var cmdTabSelectionGeneration: UInt = 0
 
     private var eventTap: CFMachPort?
     private var eventTapRunLoopSource: CFRunLoopSource?
