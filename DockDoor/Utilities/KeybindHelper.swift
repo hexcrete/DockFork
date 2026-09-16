@@ -729,18 +729,16 @@ class KeybindHelper {
                                 cmdTabActionPerformed = true
                                 Task { @MainActor in
                                     if hasSelection {
-                                        let didClosePreviews = self.previewCoordinator.performActionOnCurrentWindow(action: action)
-                                        if didClosePreviews {
-                                            DockObserver.activeInstance?.teardownCmdTabObserver()
-                                        }
-                                    } else {
-                                        let didClosePreviews = self.previewCoordinator.performActionOnCmdTabHighlightedApps(
+                                        self.previewCoordinator.performActionOnCurrentWindow(
                                             action: action,
-                                            apps: highlightedApps
+                                            preservePreviews: true
                                         )
-                                        if didClosePreviews {
-                                            DockObserver.activeInstance?.teardownCmdTabObserver()
-                                        }
+                                    } else {
+                                        self.previewCoordinator.performActionOnCmdTabHighlightedApps(
+                                            action: action,
+                                            apps: highlightedApps,
+                                            preservePreviews: true
+                                        )
                                     }
                                 }
                                 return nil

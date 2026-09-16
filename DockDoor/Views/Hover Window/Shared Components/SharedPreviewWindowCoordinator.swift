@@ -1122,7 +1122,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     @discardableResult
-    func performActionOnCurrentWindow(action: WindowAction) -> Bool {
+    func performActionOnCurrentWindow(action: WindowAction, preservePreviews: Bool = false) -> Bool {
         let coordinator = windowSwitcherCoordinator
         guard coordinator.currIndex >= 0, coordinator.currIndex < coordinator.windows.count else {
             return false
@@ -1152,7 +1152,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             for: actionStateWindow,
             preferredWindows: coordinator.windows
         )
-        let keepPreviewsOpen = category?.keepPreviewsOpen ?? (action != .openAppWindow)
+        let keepPreviewsOpen = preservePreviews || (category?.keepPreviewsOpen ?? (action != .openAppWindow))
         let closeAfterSuccess = action.closePreviewsOnlyAfterSuccess(
             for: actionStateWindow,
             category: category
@@ -1255,7 +1255,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             window.bringToFront()
         }
 
-        if action.shouldForcePreviewCloseAfterAction(
+        if !preservePreviews, action.shouldForcePreviewCloseAfterAction(
             predictedTransition: forceImmediateCloseForFullscreenTransitionPreAction,
             hiddenStateBeforeAction: hiddenStateBeforeAction,
             result: result
@@ -1334,7 +1334,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     @discardableResult
-    func performActionOnCmdTabHighlightedApps(action: WindowAction, apps: [NSRunningApplication]) -> Bool {
+    func performActionOnCmdTabHighlightedApps(
+        action: WindowAction,
+        apps: [NSRunningApplication],
+        preservePreviews: Bool = false
+    ) -> Bool {
         guard action == .close || action == .quit else { return false }
 
         var seenPIDs = Set<pid_t>()
@@ -1345,7 +1349,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         let preferredWindows = windowSwitcherCoordinator.windows
         let targets = targetApps.map { ($0, WindowInfo.windowlessEntry(for: $0)) }
-        let keepPreviewsOpen = WindowAction.PostActionCategory.closing.keepPreviewsOpen
+        let keepPreviewsOpen = preservePreviews || WindowAction.PostActionCategory.closing.keepPreviewsOpen
 
         for (app, entry) in targets {
             let appRows = preferredWindows.filter {
