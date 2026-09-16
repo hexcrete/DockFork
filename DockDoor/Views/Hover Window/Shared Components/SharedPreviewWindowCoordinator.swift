@@ -1158,8 +1158,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             category: category
         )
         let shouldClosePreviews = !keepPreviewsOpen
-        let shouldForegroundMoveResize = !shouldClosePreviews &&
-            Defaults[.moveResizeBringToForeground] &&
+        let shouldForegroundMoveResize = Defaults[.moveResizeBringToForeground] &&
             category == .movingAndResizing
         let forceImmediateCloseForFullscreenTransitionPreAction = action.shouldForcePreviewCloseForFullscreenTransition(
             on: actionStateWindow,

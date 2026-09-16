@@ -276,11 +276,9 @@ struct PreviewPostActionBehaviorSection: View {
                         )
                         .settingsSearchTarget("gestures.postActionMovingResizing")
 
-                        if movingResizingBehavior {
-                            Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
-                                .settingsSearchTarget("gestures.moveResizeForeground")
-                                .padding(.leading, 32)
-                        }
+                        Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
+                            .settingsSearchTarget("gestures.moveResizeForeground")
+                            .padding(.leading, 32)
                     }
                 }
             }
