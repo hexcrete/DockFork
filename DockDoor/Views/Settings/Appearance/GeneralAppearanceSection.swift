@@ -4,6 +4,8 @@ import SwiftUI
 struct GeneralAppearanceSection: View {
     @Default(.uniformCardRadius) var uniformCardRadius
     @Default(.globalPaddingMultiplier) var globalPaddingMultiplier
+    @Default(.trafficLightButtonScale) var trafficLightButtonScale
+    @Default(.windowTitleFontSize) var windowTitleFontSize
     @Default(.unselectedContentOpacity) var unselectedContentOpacity
     @Default(.titleOverflowStyle) var titleOverflowStyle
     @Default(.dimMinimizedHiddenPreviews) var dimMinimizedHiddenPreviews
@@ -42,6 +44,24 @@ struct GeneralAppearanceSection: View {
                     }()
                 )
                 .settingsSearchTarget("appearance.spacingScale")
+
+                sliderSetting(
+                    title: "Traffic Light Button Scale",
+                    value: $trafficLightButtonScale,
+                    range: 0.75 ... 2.0,
+                    step: 0.05,
+                    unit: "×",
+                    formatter: NumberFormatter.twoDecimalFormatter
+                )
+                .settingsSearchTarget("appearance.trafficLightButtonScale")
+
+                Picker("Window Title Font Size", selection: $windowTitleFontSize) {
+                    ForEach(WindowTitleFontSize.allCases) { size in
+                        Text(size.localizedName)
+                            .tag(size)
+                    }
+                }
+                .settingsSearchTarget("appearance.windowTitleFontSize")
 
                 sliderSetting(
                     title: "Unselected Content Opacity",

@@ -834,6 +834,24 @@ enum SettingsSearchCatalog {
             icon: "arrow.left.and.right"
         ),
         SettingsSearchItem(
+            id: "appearance.trafficLightButtonScale",
+            title: String(localized: "Traffic Light Button Scale"),
+            description: String(localized: "Controls the size of traffic light buttons in all preview modes."),
+            keywords: ["traffic light", "button", "scale", "size", "dock", "switcher", "cmd tab"],
+            tab: "Appearance",
+            section: String(localized: "General Appearance"),
+            icon: "arrow.up.left.and.arrow.down.right"
+        ),
+        SettingsSearchItem(
+            id: "appearance.windowTitleFontSize",
+            title: String(localized: "Window Title Font Size"),
+            description: String(localized: "Controls the window title font size in all preview modes."),
+            keywords: ["font", "size", "title", "dock", "switcher", "cmd tab"],
+            tab: "Appearance",
+            section: String(localized: "General Appearance"),
+            icon: "textformat.size"
+        ),
+        SettingsSearchItem(
             id: "appearance.unselectedOpacity",
             title: String(localized: "Unselected Content Opacity"),
             keywords: ["opacity", "unselected", "dim", "fade"],
@@ -1031,14 +1049,6 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "Dock Preview Appearance"),
             icon: "textformat.abc.dottedunderline"
-        ),
-        SettingsSearchItem(
-            id: "appearance.dockWindowTitleFontSize",
-            title: String(localized: "Window Title Font Size"),
-            keywords: ["font", "size", "title", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
-            icon: "textformat.size"
         ),
         SettingsSearchItem(
             id: "appearance.dockDisableTrafficLightStyling",

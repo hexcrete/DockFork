@@ -14,7 +14,6 @@ struct DockPreviewAppearanceSection: View {
     @Default(.useEmbeddedDockPreviewElements) var useEmbeddedDockPreviewElements
     @Default(.previewMaxColumns) var previewMaxColumns
     @Default(.previewMaxRows) var previewMaxRows
-    @Default(.windowTitleFontSize) var windowTitleFontSize
     @Default(.showDockPreviewSpaceNumberIndicator) var showDockPreviewSpaceNumberIndicator
     @Default(.dockPreviewWindowStateIndicatorPlacement) var dockPreviewWindowStateIndicatorPlacement
     @Default(.disableDockStyleWindowStateIndicator) var disableDockStyleWindowStateIndicator
@@ -78,14 +77,6 @@ struct DockPreviewAppearanceSection: View {
                         .foregroundColor(.gray)
                         .padding(.leading, 20)
                 }
-
-                Picker("Window Title Font Size", selection: $windowTitleFontSize) {
-                    ForEach(WindowTitleFontSize.allCases) { size in
-                        Text(size.localizedName)
-                            .tag(size)
-                    }
-                }
-                .settingsSearchTarget("appearance.dockWindowTitleFontSize")
             }
 
             Divider().padding(.vertical, 2)

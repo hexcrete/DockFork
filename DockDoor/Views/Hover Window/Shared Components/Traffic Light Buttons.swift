@@ -239,15 +239,6 @@ extension AppearanceSettingsView {
 
                     Toggle("Use Monochrome Colors", isOn: $useMonochrome)
                         .padding(.top, 4)
-
-                    sliderSetting(
-                        title: "Button Scale",
-                        value: $buttonScale,
-                        range: 0.75 ... 2.0,
-                        step: 0.05,
-                        unit: "×",
-                        formatter: NumberFormatter.twoDecimalFormatter
-                    )
                 }
             }
         }
