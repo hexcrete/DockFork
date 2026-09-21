@@ -761,6 +761,24 @@ enum SettingsSearchCatalog {
             icon: "circle.lefthalf.filled"
         ),
         SettingsSearchItem(
+            id: "appearance.fullSizePreviewFadeIn",
+            title: String(localized: "Fade In Duration"),
+            description: String(localized: "Set the full size preview fade-in duration. Set to 0 seconds to disable the animation."),
+            keywords: ["full", "size", "preview", "fade", "in", "animation", "duration"],
+            tab: "Appearance",
+            section: String(localized: "Full Size Previews"),
+            icon: "circle.righthalf.filled"
+        ),
+        SettingsSearchItem(
+            id: "appearance.fullSizePreviewFadeOut",
+            title: String(localized: "Fade Out Duration"),
+            description: String(localized: "Set the full size preview fade-out duration. Set to 0 seconds to disable the animation."),
+            keywords: ["full", "size", "preview", "fade", "out", "animation", "duration"],
+            tab: "Appearance",
+            section: String(localized: "Full Size Previews"),
+            icon: "circle.lefthalf.filled"
+        ),
+        SettingsSearchItem(
             id: "appearance.fullSizePreviewBackgroundBlur",
             title: String(localized: "Blur background behind full size previews"),
             description: String(localized: "Blurs the content behind full size previews without blurring the preview itself."),

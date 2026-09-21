@@ -169,6 +169,8 @@ struct GeneralAppearanceSection: View {
 
 struct FullSizePreviewAppearanceSection: View {
     @Default(.fullSizePreviewOpacity) var fullSizePreviewOpacity
+    @Default(.fullSizePreviewFadeInDuration) var fullSizePreviewFadeInDuration
+    @Default(.fullSizePreviewFadeOutDuration) var fullSizePreviewFadeOutDuration
     @Default(.enableFullSizePreviewBackdropBlur) var enableFullSizePreviewBackdropBlur
     @Default(.showFullSizePreviewBorder) var showFullSizePreviewBorder
 
@@ -184,6 +186,32 @@ struct FullSizePreviewAppearanceSection: View {
                     formatter: NumberFormatter.percentFormatter
                 )
                 .settingsSearchTarget("appearance.fullSizePreviewOpacity")
+
+                sliderSetting(
+                    title: "Fade In Duration",
+                    value: $fullSizePreviewFadeInDuration,
+                    range: 0 ... 1,
+                    step: 0.05,
+                    unit: "seconds",
+                    formatter: NumberFormatter.twoDecimalFormatter
+                )
+                .settingsSearchTarget("appearance.fullSizePreviewFadeIn")
+                Text("Set the full size preview fade-in duration. Set to 0 seconds to disable the animation.")
+                    .font(.footnote)
+                    .foregroundColor(.gray)
+
+                sliderSetting(
+                    title: "Fade Out Duration",
+                    value: $fullSizePreviewFadeOutDuration,
+                    range: 0 ... 1,
+                    step: 0.05,
+                    unit: "seconds",
+                    formatter: NumberFormatter.twoDecimalFormatter
+                )
+                .settingsSearchTarget("appearance.fullSizePreviewFadeOut")
+                Text("Set the full size preview fade-out duration. Set to 0 seconds to disable the animation.")
+                    .font(.footnote)
+                    .foregroundColor(.gray)
 
                 VStack(alignment: .leading) {
                     Toggle(isOn: $enableFullSizePreviewBackdropBlur) {

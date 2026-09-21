@@ -24,6 +24,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     var mouseIsWithinPreviewWindow: Bool = false
     private var onWindowTap: (() -> Void)?
     private var fullPreviewWindow: NSPanel?
+    private var fullPreviewFadeOutToken: UUID?
     private var activeFullPreviewHoverID: UUID?
     private var pendingShowWorkItem: DispatchWorkItem?
     private struct DeferredActionWatcher {
@@ -634,6 +635,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private func showFullPreviewWindow(for windowInfo: WindowInfo, on screen: NSScreen) {
         windowSwitcherCoordinator.setShowing(.fullWindowPreview, toState: true)
 
+        let wasFadingOut = fullPreviewFadeOutToken != nil
+        fullPreviewFadeOutToken = nil
+        let isNewWindow = fullPreviewWindow == nil
         if fullPreviewWindow == nil {
             let styleMask: NSWindow.StyleMask = [.nonactivatingPanel, .fullSizeContentView, .borderless]
             fullPreviewWindow = NSPanel(contentRect: .zero, styleMask: styleMask, backing: .buffered, defer: false)
@@ -664,7 +668,24 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         fullPreviewWindow?.contentView = hostingView
 
         fullPreviewWindow?.setFrame(flippedIconRect, display: true)
-        fullPreviewWindow?.makeKeyAndOrderFront(nil)
+        guard let fullPreviewWindow else { return }
+
+        let fadeInDuration = Defaults[.fullSizePreviewFadeInDuration]
+        let shouldFadeIn = fadeInDuration > 0 && (isNewWindow || wasFadingOut || !fullPreviewWindow.isVisible)
+        if isNewWindow, shouldFadeIn {
+            fullPreviewWindow.alphaValue = 0
+        }
+        fullPreviewWindow.makeKeyAndOrderFront(nil)
+        if shouldFadeIn {
+            animateWithUserPreference(
+                duration: fadeInDuration,
+                timingFunction: CAMediaTimingFunction(name: .easeOut)
+            ) {
+                fullPreviewWindow.animator().alphaValue = 1
+            }
+        } else {
+            fullPreviewWindow.alphaValue = 1
+        }
         publishTapSnapshot()
     }
 
@@ -672,12 +693,50 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     func hideFullPreviewWindow() {
         windowSwitcherCoordinator.setShowing(.fullWindowPreview, toState: false)
         activeFullPreviewHoverID = nil
-        fullPreviewWindow?.orderOut(nil)
-        if let currentFullPreviewContent = fullPreviewWindow?.contentView {
-            currentFullPreviewContent.removeFromSuperview()
+        guard let fullPreviewWindow else {
+            publishTapSnapshot()
+            return
         }
-        fullPreviewWindow?.contentView = nil
-        fullPreviewWindow = nil
+
+        guard fullPreviewFadeOutToken == nil else {
+            publishTapSnapshot()
+            return
+        }
+
+        let fadeOutDuration = Defaults[.fullSizePreviewFadeOutDuration]
+        guard fadeOutDuration > 0, fullPreviewWindow.isVisible, Defaults[.showAnimations] else {
+            removeFullPreviewWindow(fullPreviewWindow)
+            return
+        }
+
+        let fadeOutToken = UUID()
+        fullPreviewFadeOutToken = fadeOutToken
+        publishTapSnapshot()
+
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = fadeOutDuration
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            fullPreviewWindow.animator().alphaValue = 0
+        } completionHandler: { [weak self, weak fullPreviewWindow] in
+            DispatchQueue.main.async {
+                guard let self, let fullPreviewWindow,
+                      self.fullPreviewFadeOutToken == fadeOutToken,
+                      self.fullPreviewWindow === fullPreviewWindow
+                else { return }
+                self.removeFullPreviewWindow(fullPreviewWindow)
+            }
+        }
+    }
+
+    @MainActor
+    private func removeFullPreviewWindow(_ window: NSPanel) {
+        window.orderOut(nil)
+        window.contentView?.removeFromSuperview()
+        window.contentView = nil
+        if fullPreviewWindow === window {
+            fullPreviewWindow = nil
+        }
+        fullPreviewFadeOutToken = nil
         publishTapSnapshot()
     }
 
