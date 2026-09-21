@@ -240,8 +240,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @discardableResult
     func suppressNextActionDrivenActivationDismissal(for app: NSRunningApplication, wasHidden: Bool) -> UUID? {
-        guard isVisible else { return nil }
-
         let expectedProcessIdentifier: pid_t?
         if wasHidden {
             expectedProcessIdentifier = app.processIdentifier
@@ -251,6 +249,13 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 ? nil
                 : frontmostProcessIdentifier
         }
+
+        return suppressNextActionDrivenActivationDismissal(for: expectedProcessIdentifier)
+    }
+
+    @discardableResult
+    private func suppressNextActionDrivenActivationDismissal(for expectedProcessIdentifier: pid_t?) -> UUID? {
+        guard isVisible else { return nil }
 
         let token = UUID()
         activationDismissalSuppression = ActivationDismissalSuppression(
@@ -1251,6 +1256,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
            actionConfirmedSuccess,
            WindowUtil.canBringWindowToFrontWithoutSpaceSwitch(window)
         {
+            if preservePreviews,
+               NSWorkspace.shared.frontmostApplication?.processIdentifier != window.app.processIdentifier
+            {
+                _ = suppressNextActionDrivenActivationDismissal(for: window.app.processIdentifier)
+            }
             window.bringToFront()
         }
 
