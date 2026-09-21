@@ -187,9 +187,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             print("Failed to load icon")
         }
 
-        button.action = #selector(statusBarButtonClicked(_:))
-        button.target = self
-
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: String(localized: "Open Settings"), action: #selector(openSettingsWindow(_:)), keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
@@ -204,19 +201,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: String(localized: "Restart DockDoor"), action: #selector(restartAppWrapper), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: String(localized: "Quit DockDoor"), action: #selector(quitAppWrapper), keyEquivalent: "q"))
-        button.menu = menu
+        statusBarItem?.menu = menu
     }
 
     func removeMenuBar() {
         guard let statusBarItem else { return }
         NSStatusBar.system.removeStatusItem(statusBarItem)
         self.statusBarItem = nil
-    }
-
-    @objc func statusBarButtonClicked(_ sender: Any?) {
-        if let button = statusBarItem?.button {
-            button.menu?.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.maxY), in: button)
-        }
     }
 
     @objc private func quitAppWrapper() {
