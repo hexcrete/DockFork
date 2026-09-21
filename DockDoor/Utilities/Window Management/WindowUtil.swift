@@ -1315,23 +1315,44 @@ extension WindowUtil {
     /// window appears as a single entry instead of one per tab. Grouping is keyed by process and
     /// frame, so windows from different apps are never merged and passing a multi-app list is safe.
     static func collapseNativeTabsIfNeeded(_ windows: [WindowInfo]) -> [WindowInfo] {
-        guard Defaults[.collapseNativeTabsIntoSingleWindow] else { return windows }
+        guard Defaults[.collapseNativeTabsIntoSingleWindow], !windows.isEmpty else { return windows }
 
-        let onScreenIDs = Set(
-            ((CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]]) ?? [])
-                .compactMap { $0[kCGWindowNumber as String] as? CGWindowID }
-        )
+        // AX-only tab rows can retain zero or stale cached frames during rapid tab changes.
+        let windowIDs = Set(windows.map(\.id))
+        let currentWindowEntries =
+            (CGWindowListCopyWindowInfo(.excludeDesktopElements, kCGNullWindowID) as? [[String: Any]]) ?? []
+        var currentFramesByID: [CGWindowID: CGRect] = [:]
+        var onScreenIDs = Set<CGWindowID>()
+
+        for entry in currentWindowEntries {
+            guard let number = entry[kCGWindowNumber as String] as? NSNumber else { continue }
+            let windowID = CGWindowID(number.uint32Value)
+            guard windowIDs.contains(windowID) else { continue }
+
+            if let bounds = entry[kCGWindowBounds as String] as? NSDictionary,
+               let frame = CGRect(dictionaryRepresentation: bounds),
+               frame.width > 0,
+               frame.height > 0
+            {
+                currentFramesByID[windowID] = frame
+            }
+            if (entry[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true {
+                onScreenIDs.insert(windowID)
+            }
+        }
+
         let candidates = windows.map { window in
-            NativeTabGrouping.Candidate(
+            let currentFrame = currentFramesByID[window.id] ?? window.frame
+            return NativeTabGrouping.Candidate(
                 id: window.id,
                 pid: window.app.processIdentifier,
-                frame: window.frame,
+                frame: currentFrame,
                 recency: window.lastAccessedTime,
                 groupable: !window.isMinimized
                     && !window.isHidden
                     && !window.isWindowlessApp
-                    && window.frame.width > 0
-                    && window.frame.height > 0,
+                    && currentFrame.width > 0
+                    && currentFrame.height > 0,
                 isOnScreen: onScreenIDs.contains(window.id)
             )
         }
