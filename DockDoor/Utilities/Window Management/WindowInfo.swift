@@ -14,6 +14,7 @@ struct WindowInfo: Identifiable, Hashable {
     var axElement: AXUIElement
     var appAxElement: AXUIElement
     var closeButton: AXUIElement?
+    let hasLimitedWindowControls: Bool
     var spaceID: Int?
     var spaceNumberOverride: Int?
     var screenIdentifier: String?
@@ -27,7 +28,7 @@ struct WindowInfo: Identifiable, Hashable {
 
     private var _scWindow: SCWindow?
 
-    init(windowProvider: WindowPropertiesProviding, app: NSRunningApplication, ownerApp: NSRunningApplication? = nil, image: CGImage?, axElement: AXUIElement, appAxElement: AXUIElement, closeButton: AXUIElement?, lastAccessedTime: Date, creationTime: Date? = nil, imageCapturedTime: Date? = nil, spaceID: Int? = nil, spaceNumberOverride: Int? = nil, screenIdentifier: String? = nil, isMinimized: Bool, isHidden: Bool, isFullscreen: Bool? = nil) {
+    init(windowProvider: WindowPropertiesProviding, app: NSRunningApplication, ownerApp: NSRunningApplication? = nil, image: CGImage?, axElement: AXUIElement, appAxElement: AXUIElement, closeButton: AXUIElement?, hasLimitedWindowControls: Bool = false, lastAccessedTime: Date, creationTime: Date? = nil, imageCapturedTime: Date? = nil, spaceID: Int? = nil, spaceNumberOverride: Int? = nil, screenIdentifier: String? = nil, isMinimized: Bool, isHidden: Bool, isFullscreen: Bool? = nil) {
         id = windowProvider.windowID
         self.windowProvider = windowProvider
         self.app = app
@@ -38,6 +39,7 @@ struct WindowInfo: Identifiable, Hashable {
         self.axElement = axElement
         self.appAxElement = appAxElement
         self.closeButton = closeButton
+        self.hasLimitedWindowControls = hasLimitedWindowControls
         self.spaceID = spaceID
         self.spaceNumberOverride = spaceNumberOverride
         self.screenIdentifier = screenIdentifier
@@ -75,6 +77,7 @@ struct WindowInfo: Identifiable, Hashable {
         let isMinimized: Bool
         let isHidden: Bool
         let isFullscreen: Bool?
+        let hasLimitedWindowControls: Bool
         let spaceID: Int?
         let spaceNumberOverride: Int?
         let imagePointer: UnsafeRawPointer?
@@ -88,6 +91,7 @@ struct WindowInfo: Identifiable, Hashable {
             isMinimized: isMinimized,
             isHidden: isHidden,
             isFullscreen: isFullscreen,
+            hasLimitedWindowControls: hasLimitedWindowControls,
             spaceID: spaceID,
             spaceNumberOverride: spaceNumberOverride,
             imagePointer: image.map { Unmanaged.passUnretained($0).toOpaque() }

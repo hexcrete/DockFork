@@ -21,13 +21,15 @@ struct WindowCandidateAttributes {
     let subrole: String?
     let size: CGSize?
     let position: CGPoint?
+    let hasCloseButton: Bool
 
-    init(axWindow: AXUIElement) {
+    init(axWindow: AXUIElement, hasCloseButton: Bool? = nil) {
         title = try? axWindow.title()
         role = try? axWindow.role()
         subrole = try? axWindow.subrole()
         size = try? axWindow.size()
         position = try? axWindow.position()
+        self.hasCloseButton = hasCloseButton ?? (axWindow.resolvedCloseButton() != nil)
     }
 }
 
@@ -202,6 +204,7 @@ enum WindowCandidateDiscriminator {
             keynote(app) ||
             preview(app, attributes.subrole) ||
             openFLStudio(app, attributes.title) ||
+            (level.map { actionableFloatingWindow(attributes.role, attributes.subrole, attributes.hasCloseButton, $0) } ?? false) ||
             (level.map { crossoverWindow(app, attributes.role, attributes.subrole, $0) } ?? false) ||
             (level.map { alwaysOnTopScrcpy(app, $0, attributes.role, attributes.subrole) } ?? false)
 
@@ -223,6 +226,7 @@ enum WindowCandidateDiscriminator {
             dvdFab(app) ||
             drBetotte(app) ||
             androidEmulator(app, attributes.title, attributes.role, level) ||
+            crossoverHelperWindow(app, attributes.title, attributes.role, attributes.subrole, level) ||
             autocad(app, attributes.subrole)
 
         guard specialApp || standardSubrole || appSpecificSubrole else {
@@ -347,6 +351,21 @@ enum WindowCandidateDiscriminator {
             subrole == unknownSubrole &&
             level == normalLevel &&
             (app.executableURL?.lastPathComponent == "wine64-preloader" || (app.executableURL?.absoluteString.contains("/winetemp-") ?? false))
+    }
+
+    private static func crossoverHelperWindow(_ app: NSRunningApplication, _ title: String?, _ role: String?, _ subrole: String?, _ level: Int32?) -> Bool {
+        (app.bundleIdentifier?.hasPrefix("com.codeweavers.CrossOverHelper.") ?? false) &&
+            role == kAXWindowRole &&
+            subrole == unknownSubrole &&
+            level == normalLevel &&
+            hasNonEmptyTitle(title)
+    }
+
+    private static func actionableFloatingWindow(_ role: String?, _ subrole: String?, _ hasCloseButton: Bool, _ level: Int32) -> Bool {
+        role == kAXWindowRole &&
+            subrole == unknownSubrole &&
+            level == floatingLevel &&
+            hasCloseButton
     }
 
     private static func alwaysOnTopScrcpy(_ app: NSRunningApplication, _ level: Int32, _ role: String?, _ subrole: String?) -> Bool {

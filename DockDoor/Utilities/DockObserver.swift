@@ -1479,7 +1479,7 @@ final class DockObserver {
     }
 
     private func resolvedTitleBarHeight(for window: WindowInfo, windowFrame: CGRect) -> CGFloat {
-        let closeButton = window.closeButton ?? ((try? window.axElement.closeButton()) ?? nil)
+        let closeButton = window.closeButton ?? window.axElement.resolvedCloseButton()
         guard let closeButton,
               let closeButtonFrame = WindowInfo.currentWindowFrame(for: closeButton)
         else {

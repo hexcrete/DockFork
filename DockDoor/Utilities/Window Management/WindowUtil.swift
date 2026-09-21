@@ -1712,12 +1712,13 @@ extension WindowUtil {
             windowRef = matched
         }
 
-        let closeButton = try? windowRef.closeButton()
+        let closeButtonResolution = windowRef.closeButtonResolution()
+        let closeButton = closeButtonResolution.button
         let minimizeButton = try? windowRef.minimizeButton()
         let minimizedState = (try? windowRef.isMinimized()) ?? false
         let hiddenState = displayApp.isHidden
         let fullscreenState = try? windowRef.isFullscreen()
-        let attributes = WindowCandidateAttributes(axWindow: windowRef)
+        let attributes = WindowCandidateAttributes(axWindow: windowRef, hasCloseButton: closeButton != nil)
         let shouldWindowBeCaptured = (closeButton != nil) ||
             (minimizeButton != nil) ||
             WindowCandidateDiscriminator.isActualWindow(
@@ -1745,6 +1746,7 @@ extension WindowUtil {
                 axElement: windowRef,
                 appAxElement: ownerAppElement,
                 closeButton: closeButton,
+                hasLimitedWindowControls: closeButtonResolution.usesSemanticFallback,
                 lastAccessedTime: lastAccessedTime,
                 creationTime: creationTime,
                 spaceID: window.windowID.cgsSpaces().first.map { Int($0) },
@@ -1857,7 +1859,9 @@ extension WindowUtil {
             }
         }
 
-        let attributes = WindowCandidateAttributes(axWindow: axWindow)
+        let closeButtonResolution = axWindow.closeButtonResolution()
+        let closeButton = closeButtonResolution.button
+        let attributes = WindowCandidateAttributes(axWindow: axWindow, hasCloseButton: closeButton != nil)
 
         let cgCandidates = cgCandidates ?? getCGWindowCandidates(for: pid)
         // Use pre-computed cached IDs if provided, otherwise read from cache
@@ -1930,7 +1934,8 @@ extension WindowUtil {
             image: nil,
             axElement: axWindow,
             appAxElement: appAxElement,
-            closeButton: try? axWindow.closeButton(),
+            closeButton: closeButton,
+            hasLimitedWindowControls: closeButtonResolution.usesSemanticFallback,
             lastAccessedTime: persistedData?.lastAccessedTime ?? Date(),
             creationTime: persistedData?.creationTime,
             spaceID: cgID.cgsSpaces().first.map { Int($0) },

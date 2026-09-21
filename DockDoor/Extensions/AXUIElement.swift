@@ -228,6 +228,32 @@ extension AXUIElement {
         try attribute(kAXCloseButtonAttribute, AXUIElement.self)
     }
 
+    func resolvedCloseButton() -> AXUIElement? {
+        closeButtonResolution().button
+    }
+
+    func closeButtonResolution() -> (button: AXUIElement?, usesSemanticFallback: Bool) {
+        if let standardButton = try? closeButton() {
+            return (standardButton, false)
+        }
+
+        guard (try? subrole()) == "AXUnknown",
+              let directChildren = try? children()
+        else { return (nil, false) }
+
+        let semanticButton = directChildren.first { element in
+            guard (try? element.role()) == kAXButtonRole,
+                  let description = try? element.attribute(kAXDescriptionAttribute, String.self),
+                  description.localizedCaseInsensitiveCompare("Close Window") == .orderedSame
+            else { return false }
+
+            var actions: CFArray?
+            return AXUIElementCopyActionNames(element, &actions) == .success &&
+                (actions as? [String])?.contains(kAXPressAction) == true
+        }
+        return (semanticButton, semanticButton != nil)
+    }
+
     func minimizeButton() throws -> AXUIElement? {
         try attribute(kAXMinimizeButtonAttribute, AXUIElement.self)
     }
