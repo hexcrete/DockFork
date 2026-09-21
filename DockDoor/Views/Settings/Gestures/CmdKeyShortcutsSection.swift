@@ -56,7 +56,7 @@ struct CmdKeyShortcutsSection: View {
     }
 
     private var maxShortcutCount: Int {
-        max(0, WindowAction.gestureActions.count - 1)
+        max(0, WindowAction.assignablePreviewActions.count - 1)
     }
 
     private var hasPendingShortcut: Bool {
@@ -89,7 +89,7 @@ struct CmdKeyShortcutsSection: View {
             .frame(minWidth: 80, alignment: .leading)
 
             Picker("", selection: actionBinding(for: shortcut.id)) {
-                ForEach(WindowAction.gestureActions, id: \.self) { windowAction in
+                ForEach(WindowAction.assignablePreviewActions, id: \.self) { windowAction in
                     HStack(spacing: 6) {
                         Image(systemName: windowAction.iconName)
                         Text(windowAction.localizedName)

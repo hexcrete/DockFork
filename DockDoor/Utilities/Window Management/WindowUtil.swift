@@ -184,13 +184,13 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         }
     }
 
-    /// Actions that can be assigned to trackpad gestures
-    static var gestureActions: [WindowAction] {
-        [.none, .close, .minimize, .maximize, .toggleFullScreen, .hide, .openNewWindow,
-         .closeAllWindows, .minimizeAllWindows, .quit,
-         .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
-         .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center]
-    }
+    /// Actions that can be assigned to preview shortcuts, gestures, and mouse interactions.
+    static let assignablePreviewActions: [WindowAction] = [
+        .none, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
+        .minimize, .minimizeAllWindows, .maximize, .toggleFullScreen, .hide, .quit,
+        .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+        .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center,
+    ]
 
     func postActionCategory(for window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> PostActionCategory? {
         switch self {
@@ -370,14 +370,6 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
              .center, .none:
             false
         }
-    }
-
-    /// Actions that can be assigned to middle-clicking a window preview
-    static var middleClickActions: [WindowAction] {
-        [.none, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
-         .minimize, .minimizeAllWindows, .maximize, .toggleFullScreen, .hide, .quit,
-         .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
-         .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center]
     }
 
     /// Result of performing a window action

@@ -112,7 +112,7 @@ struct GestureDirectionRow: View {
             .frame(minWidth: 140, alignment: .leading)
 
             Picker("", selection: $action) {
-                ForEach(WindowAction.gestureActions, id: \.self) { windowAction in
+                ForEach(WindowAction.assignablePreviewActions, id: \.self) { windowAction in
                     HStack(spacing: 6) {
                         Image(systemName: windowAction.iconName)
                         Text(windowAction.localizedName)
