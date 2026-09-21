@@ -996,32 +996,32 @@ enum SettingsSearchCatalog {
             id: "appearance.dockShowAppHeader",
             title: String(localized: "Show App Header"),
             keywords: ["app", "header", "name", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "textformat"
         ),
         SettingsSearchItem(
             id: "appearance.dockAppHeaderStyle",
             title: String(localized: "App Header Style"),
             keywords: ["header", "style", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "textformat"
         ),
         SettingsSearchItem(
             id: "appearance.dockShowAppIconOnly",
             title: String(localized: "Show App Icon Only"),
             keywords: ["icon", "only", "header", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "app.badge"
         ),
         SettingsSearchItem(
             id: "appearance.dockControlPosition",
             title: String(localized: "Position Dock Preview Controls"),
             keywords: ["position", "controls", "toolbar", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "rectangle.topthird.inset.filled"
         ),
         SettingsSearchItem(
@@ -1029,16 +1029,16 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show Window Title"),
             description: String(localized: "Show window title in dock previews."),
             keywords: ["title", "window", "dock", "show"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "textformat.abc"
         ),
         SettingsSearchItem(
             id: "appearance.dockWindowTitleVisibility",
             title: String(localized: "Window Title Visibility"),
             keywords: ["title", "visibility", "hover", "always", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "eye"
         ),
         SettingsSearchItem(
@@ -1046,8 +1046,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Disable dock styling on window titles"),
             description: String(localized: "Removes the pill-shaped background styling from window titles in dock previews for a cleaner look."),
             keywords: ["styling", "pill", "title", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "textformat.abc.dottedunderline"
         ),
         SettingsSearchItem(
@@ -1055,8 +1055,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Disable dock styling on traffic light buttons"),
             description: String(localized: "Removes the pill-shaped background styling from traffic light buttons in dock previews for a cleaner look."),
             keywords: ["traffic light", "styling", "pill", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "minus.circle"
         ),
         SettingsSearchItem(
@@ -1064,8 +1064,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show Space Number Indicator"),
             description: String(localized: "Shows the Space number for each window in dock previews."),
             keywords: ["space", "desktop", "number", "indicator", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "number.circle"
         ),
         SettingsSearchItem(
@@ -1073,8 +1073,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show Window State Indicator"),
             description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
             keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "eye.slash"
         ),
         SettingsSearchItem(
@@ -1082,17 +1082,17 @@ enum SettingsSearchCatalog {
             title: String(localized: "Disable dock styling on Window State Indicator"),
             description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in dock previews."),
             keywords: ["window", "state", "space", "indicator", "styling", "pill", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "minus.circle"
         ),
         SettingsSearchItem(
             id: "appearance.dockMassActionButtons",
             title: String(localized: "Show Close All and Minimize All buttons"),
-            description: String(localized: "Displays Close All and Minimize All buttons when hovering the app icon in dock previews."),
+            description: String(localized: "Displays Close All and Minimize All buttons when hovering the app header in dock previews."),
             keywords: ["close all", "minimize all", "mass", "buttons"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "xmark.circle"
         ),
         SettingsSearchItem(
@@ -1100,8 +1100,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Embed controls in preview frames"),
             description: String(localized: "Places traffic light buttons and window titles directly inside the dock preview frames for a more compact and minimal appearance."),
             keywords: ["embed", "controls", "frame", "dock"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "rectangle.inset.filled"
         ),
         SettingsSearchItem(
@@ -1109,8 +1109,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Max Rows (Bottom Dock)"),
             description: String(localized: "Controls how many rows of windows are shown in dock previews."),
             keywords: ["rows", "layout", "dock", "grid"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "rectangle.grid.1x2"
         ),
         SettingsSearchItem(
@@ -1118,8 +1118,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Max Columns (Left/Right Dock)"),
             description: String(localized: "Controls how many columns of windows are shown in dock previews."),
             keywords: ["columns", "layout", "dock", "grid"],
-            tab: "Appearance",
-            section: String(localized: "Dock Preview Appearance"),
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
             icon: "rectangle.grid.2x1"
         ),
         // Window Switcher Appearance
@@ -1128,16 +1128,16 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show App Header"),
             description: String(localized: "Show app header in the window switcher."),
             keywords: ["app", "header", "name", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "textformat"
         ),
         SettingsSearchItem(
             id: "appearance.switcherAppIconSize",
             title: String(localized: "App Icon Size"),
             keywords: ["app", "icon", "size", "header", "switcher", "title"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "app"
         ),
         SettingsSearchItem(
@@ -1145,8 +1145,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Position Window Controls"),
             description: String(localized: "Position of window controls in the switcher."),
             keywords: ["position", "controls", "toolbar", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "rectangle.topthird.inset.filled"
         ),
         SettingsSearchItem(
@@ -1154,16 +1154,16 @@ enum SettingsSearchCatalog {
             title: String(localized: "Visibility"),
             description: String(localized: "Controls when traffic light buttons appear in the window switcher."),
             keywords: ["traffic light", "visibility", "switcher", "buttons"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "eye"
         ),
         SettingsSearchItem(
             id: "appearance.switcherMonochrome",
             title: String(localized: "Use Monochrome Colors"),
             keywords: ["monochrome", "gray", "traffic light", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "circle.fill"
         ),
         SettingsSearchItem(
@@ -1171,8 +1171,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Disable dock styling on traffic light buttons"),
             description: String(localized: "Removes the pill-shaped background styling from traffic light buttons."),
             keywords: ["traffic light", "styling", "pill", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "minus.circle"
         ),
         SettingsSearchItem(
@@ -1180,8 +1180,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show Space Number Indicator"),
             description: String(localized: "Shows the Space number for each window in the window switcher."),
             keywords: ["space", "desktop", "number", "indicator", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "number.circle"
         ),
         SettingsSearchItem(
@@ -1189,8 +1189,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show Window State Indicator"),
             description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
             keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "eye.slash"
         ),
         SettingsSearchItem(
@@ -1198,8 +1198,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Disable dock styling on Window State Indicator"),
             description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in the window switcher."),
             keywords: ["window", "state", "space", "indicator", "styling", "pill", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "minus.circle"
         ),
         SettingsSearchItem(
@@ -1207,8 +1207,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show Window Title"),
             description: String(localized: "Show window title in the window switcher."),
             keywords: ["title", "window", "switcher", "show"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "textformat.abc"
         ),
         SettingsSearchItem(
@@ -1216,16 +1216,16 @@ enum SettingsSearchCatalog {
             title: String(localized: "Visibility"),
             description: String(localized: "Controls when window titles appear in the switcher."),
             keywords: ["title", "visibility", "hover", "always", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "eye"
         ),
         SettingsSearchItem(
             id: "appearance.switcherScrollDirection",
             title: String(localized: "Scroll Direction"),
             keywords: ["scroll", "direction", "horizontal", "vertical", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "arrow.left.and.right"
         ),
         SettingsSearchItem(
@@ -1233,8 +1233,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Embed controls in preview frames"),
             description: String(localized: "Places traffic light buttons and window titles directly inside the window switcher preview frames."),
             keywords: ["embed", "controls", "frame", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "rectangle.inset.filled"
         ),
         SettingsSearchItem(
@@ -1242,8 +1242,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Max Rows"),
             description: String(localized: "Controls how many rows of windows are shown in the window switcher."),
             keywords: ["rows", "columns", "layout", "grid", "switcher"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "rectangle.grid.1x2"
         ),
         SettingsSearchItem(
@@ -1251,8 +1251,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Ignore screen size limit"),
             description: String(localized: "Allow columns/rows to exceed what fits on screen."),
             keywords: ["screen", "limit", "overflow", "exceed"],
-            tab: "Appearance",
-            section: String(localized: "Window Switcher Appearance"),
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
             icon: "arrow.up.left.and.arrow.down.right"
         ),
         // Cmd+Tab Appearance
@@ -1261,24 +1261,24 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show App Header"),
             description: String(localized: "Show app header in Cmd+Tab overlay."),
             keywords: ["app", "header", "name", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "textformat"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabAppHeaderStyle",
             title: String(localized: "App Header Style"),
             keywords: ["header", "style", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "textformat"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabShowAppIconOnly",
             title: String(localized: "Show App Icon Only"),
             keywords: ["icon", "only", "header", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "app.badge"
         ),
         SettingsSearchItem(
@@ -1286,8 +1286,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Position Window Controls"),
             description: String(localized: "Position of window controls in Cmd+Tab overlay."),
             keywords: ["position", "controls", "toolbar", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "rectangle.topthird.inset.filled"
         ),
         SettingsSearchItem(
@@ -1295,16 +1295,16 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show Window Title"),
             description: String(localized: "Show window title in Cmd+Tab overlay."),
             keywords: ["title", "window", "cmd tab", "show"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "textformat.abc"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabWindowTitleVisibility",
             title: String(localized: "Window Title Visibility"),
             keywords: ["title", "visibility", "hover", "always", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "eye"
         ),
         SettingsSearchItem(
@@ -1312,8 +1312,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Disable dock styling on window titles"),
             description: String(localized: "Removes the pill-shaped background styling from window titles."),
             keywords: ["styling", "pill", "title", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "textformat.abc.dottedunderline"
         ),
         SettingsSearchItem(
@@ -1321,16 +1321,16 @@ enum SettingsSearchCatalog {
             title: String(localized: "Visibility"),
             description: String(localized: "Controls when traffic light buttons appear in Cmd+Tab overlay."),
             keywords: ["traffic light", "visibility", "cmd tab", "buttons"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "eye"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabMonochrome",
             title: String(localized: "Use Monochrome Colors"),
             keywords: ["monochrome", "gray", "traffic light", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "circle.fill"
         ),
         SettingsSearchItem(
@@ -1338,8 +1338,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Disable dock styling on traffic light buttons"),
             description: String(localized: "Removes the pill-shaped background styling from traffic light buttons."),
             keywords: ["traffic light", "styling", "pill", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "minus.circle"
         ),
         SettingsSearchItem(
@@ -1347,8 +1347,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show Space Number Indicator"),
             description: String(localized: "Shows the Space number for each window in Cmd+Tab previews."),
             keywords: ["space", "desktop", "number", "indicator", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "number.circle"
         ),
         SettingsSearchItem(
@@ -1356,8 +1356,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show Window State Indicator"),
             description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
             keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "eye.slash"
         ),
         SettingsSearchItem(
@@ -1365,8 +1365,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Disable dock styling on Window State Indicator"),
             description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in Cmd+Tab previews."),
             keywords: ["window", "state", "space", "indicator", "styling", "pill", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "minus.circle"
         ),
         SettingsSearchItem(
@@ -1374,8 +1374,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Embed controls in preview frames"),
             description: String(localized: "Places traffic light buttons and window titles directly inside the preview frames."),
             keywords: ["embed", "controls", "frame", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "Cmd+Tab Appearance"),
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
             icon: "rectangle.inset.filled"
         ),
     ]

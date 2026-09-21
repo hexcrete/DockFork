@@ -129,7 +129,7 @@ struct DockPreviewAppearanceSection: View {
                     Text("Show Close All and Minimize All buttons")
                 }
                 .settingsSearchTarget("appearance.dockMassActionButtons")
-                Text("Displays Close All and Minimize All buttons when hovering the app icon in dock previews.")
+                Text("Displays Close All and Minimize All buttons when hovering the app header in dock previews.")
                     .font(.footnote)
                     .foregroundColor(.gray)
                     .padding(.leading, 20)
