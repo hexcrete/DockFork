@@ -187,7 +187,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     /// Actions that can be assigned to preview shortcuts, gestures, and mouse interactions.
     static let assignablePreviewActions: [WindowAction] = [
         .none, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
-        .minimize, .minimizeAllWindows, .maximize, .toggleFullScreen, .hide, .quit,
+        .minimize, .minimizeAllWindows, .maximize, .toggleFullScreen, .bringToCurrentSpace, .hide, .quit,
         .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
         .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center,
     ]
