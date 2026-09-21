@@ -2,6 +2,23 @@ import Defaults
 import SwiftUI
 import UniformTypeIdentifiers
 
+func resolvedTrafficLightButtons(
+    for windowInfo: WindowInfo,
+    configuredButtons: Set<WindowAction>,
+    showWindowlessQuitButton: Bool
+) -> Set<WindowAction> {
+    if windowInfo.isWindowlessApp {
+        return showWindowlessQuitButton ? configuredButtons.intersection([.quit]) : []
+    }
+    if windowInfo.hasLimitedWindowControls {
+        return configuredButtons.intersection([.quit, .close])
+    }
+    guard windowInfo.closeButton != nil || windowInfo.isMinimized || windowInfo.isEffectivelyHiddenForUI else {
+        return configuredButtons.intersection([.quit])
+    }
+    return configuredButtons
+}
+
 enum WindowStateSymbolResolver {
     static func symbols(
         for windowInfo: WindowInfo,
@@ -254,11 +271,11 @@ struct WindowPreview: View, Equatable {
     @State private var highlightOpacity = 0.0
 
     private var effectiveTrafficLightButtons: Set<WindowAction> {
-        if windowInfo.isWindowlessApp {
-            guard appearance.showWindowlessAppQuitButton else { return [] }
-            return appearance.enabledTrafficLightButtons.intersection([.quit])
-        }
-        return appearance.enabledTrafficLightButtons
+        resolvedTrafficLightButtons(
+            for: windowInfo,
+            configuredButtons: appearance.enabledTrafficLightButtons,
+            showWindowlessQuitButton: appearance.showWindowlessAppQuitButton
+        )
     }
 
     private var isEffectivelyHidden: Bool {
@@ -379,8 +396,7 @@ struct WindowPreview: View, Equatable {
 
     private var canRenderTrafficLightButtons: Bool {
         appearance.trafficLightVisibility != .never &&
-            !effectiveTrafficLightButtons.isEmpty &&
-            (windowInfo.closeButton != nil || windowInfo.isWindowlessApp || windowInfo.isMinimized || isEffectivelyHidden)
+            !effectiveTrafficLightButtons.isEmpty
     }
 
     private func shouldShowTrafficLightButtons(parentHovered: Bool) -> Bool {

@@ -41,17 +41,16 @@ struct WindowPreviewCompact: View, Equatable {
     }
 
     private var effectiveTrafficLightButtons: Set<WindowAction> {
-        if windowInfo.isWindowlessApp {
-            guard appearance.showWindowlessAppQuitButton else { return [] }
-            return appearance.enabledTrafficLightButtons.intersection([.quit])
-        }
-        return appearance.enabledTrafficLightButtons
+        resolvedTrafficLightButtons(
+            for: windowInfo,
+            configuredButtons: appearance.enabledTrafficLightButtons,
+            showWindowlessQuitButton: appearance.showWindowlessAppQuitButton
+        )
     }
 
     private var canRenderTrafficLightButtons: Bool {
         appearance.trafficLightVisibility != .never &&
-            !effectiveTrafficLightButtons.isEmpty &&
-            (windowInfo.closeButton != nil || windowInfo.isWindowlessApp || windowInfo.isMinimized || windowInfo.isEffectivelyHiddenForUI)
+            !effectiveTrafficLightButtons.isEmpty
     }
 
     /// Checks if this window is the currently active (focused) window on the system and adds a border if so.
