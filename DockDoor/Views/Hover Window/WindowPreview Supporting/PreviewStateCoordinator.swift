@@ -793,7 +793,8 @@ class PreviewStateCoordinator: ObservableObject {
             skeletonMode: true,
             appearance: PreviewAppearanceSettings.resolve(windowSwitcherActive: true, dockPosition: dockPosition),
             backgroundAppearance: BackgroundAppearance.resolve(),
-            focusedWindowID: nil
+            focusedWindowID: nil,
+            currentSpaceNumbers: []
         )
         let measured = NSHostingView(rootView: sample).fittingSize
         guard measured.height > 0 else { return nil }

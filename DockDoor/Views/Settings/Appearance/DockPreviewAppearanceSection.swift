@@ -15,6 +15,7 @@ struct DockPreviewAppearanceSection: View {
     @Default(.previewMaxColumns) var previewMaxColumns
     @Default(.previewMaxRows) var previewMaxRows
     @Default(.showDockPreviewSpaceNumberIndicator) var showDockPreviewSpaceNumberIndicator
+    @Default(.highlightDockPreviewCurrentSpaceIndicator) var highlightDockPreviewCurrentSpaceIndicator
     @Default(.dockPreviewWindowStateIndicatorPlacement) var dockPreviewWindowStateIndicatorPlacement
     @Default(.disableDockStyleWindowStateIndicator) var disableDockStyleWindowStateIndicator
 
@@ -98,6 +99,18 @@ struct DockPreviewAppearanceSection: View {
             Text("Window State Indicator").font(.headline).padding(.bottom, -2)
             Toggle("Show Space Number Indicator", isOn: $showDockPreviewSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.dockSpaceNumberIndicator")
+
+            VStack(alignment: .leading) {
+                Toggle("Highlight Current Space", isOn: $highlightDockPreviewCurrentSpaceIndicator)
+                    .settingsSearchTarget("appearance.dockHighlightCurrentSpace")
+                Text("Highlights the Space number indicator for windows on the current Space.")
+                    .font(.footnote)
+                    .foregroundColor(.gray)
+                    .padding(.leading, 20)
+            }
+            .padding(.leading, 20)
+            .disabled(!showDockPreviewSpaceNumberIndicator)
+            .opacity(showDockPreviewSpaceNumberIndicator ? 1 : 0.5)
 
             Picker("Show Window State Indicator", selection: $dockPreviewWindowStateIndicatorPlacement) {
                 ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in

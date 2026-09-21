@@ -16,6 +16,7 @@ struct WindowPreviewCompact: View, Equatable {
     var appearance: PreviewAppearanceSettings
     let backgroundAppearance: BackgroundAppearance
     let focusedWindowID: CGWindowID?
+    let currentSpaceNumbers: Set<Int>
 
     @State private var isHovering = false
 
@@ -32,6 +33,7 @@ struct WindowPreviewCompact: View, Equatable {
             && l.windowInfo.viewSnapshot == r.windowInfo.viewSnapshot
             && l.backgroundAppearance == r.backgroundAppearance
             && l.focusedWindowID == r.focusedWindowID
+            && l.currentSpaceNumbers == r.currentSpaceNumbers
     }
 
     private var rowWidth: CGFloat {
@@ -176,7 +178,12 @@ struct WindowPreviewCompact: View, Equatable {
                         number: spaceNumber,
                         stateSymbols: indicatorStateSymbols,
                         disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
-                        backgroundAppearance: backgroundAppearance
+                        backgroundAppearance: backgroundAppearance,
+                        highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator &&
+                            spaceNumber.map(currentSpaceNumbers.contains) == true,
+                        highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+                        highlightOpacity: appearance.selectionOpacity,
+                        activeBorderColor: appearance.activeAppIndicatorColor
                     )
                 }
 

@@ -266,6 +266,7 @@ extension Defaults.Keys {
     static let dimMinimizedHiddenPreviews = Key<Bool>("showMinimizedHiddenLabels", default: true)
     static let didMigrateWindowStateIndicatorPlacement = Key<Bool>("didMigrateWindowStateIndicatorPlacement", default: false)
     static let showDockPreviewSpaceNumberIndicator = Key<Bool>("showDockPreviewSpaceNumberIndicator", default: true)
+    static let highlightDockPreviewCurrentSpaceIndicator = Key<Bool>("highlightDockPreviewCurrentSpaceIndicator", default: false)
     static let dockPreviewWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("dockPreviewWindowStateIndicatorPlacement", default: .onWindowPreviews)
     static let disableDockStyleWindowStateIndicator = Key<Bool>("disableDockStyleSpaceNumberIndicator", default: true)
 
@@ -281,6 +282,7 @@ extension Defaults.Keys {
     static let switcherUseEmbeddedDockPreviewElements = Key<Bool>("switcherUseEmbeddedDockPreviewElements", default: false)
     static let switcherDisableDockStyleTrafficLights = Key<Bool>("switcherDisableDockStyleTrafficLights", default: false)
     static let showSwitcherSpaceNumberIndicator = Key<Bool>("showSwitcherSpaceNumberIndicator", default: true)
+    static let highlightSwitcherCurrentSpaceIndicator = Key<Bool>("highlightSwitcherCurrentSpaceIndicator", default: false)
     static let switcherWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("switcherWindowStateIndicatorPlacement", default: .onWindowPreviews)
     static let switcherDisableDockStyleWindowStateIndicator = Key<Bool>("switcherDisableDockStyleSpaceNumberIndicator", default: true)
 
@@ -301,6 +303,7 @@ extension Defaults.Keys {
     static let cmdTabDisableDockStyleTrafficLights = Key<Bool>("cmdTabDisableDockStyleTrafficLights", default: false)
     static let cmdTabDisableDockStyleTitles = Key<Bool>("cmdTabDisableDockStyleTitles", default: false)
     static let showCmdTabSpaceNumberIndicator = Key<Bool>("showCmdTabSpaceNumberIndicator", default: true)
+    static let highlightCmdTabCurrentSpaceIndicator = Key<Bool>("highlightCmdTabCurrentSpaceIndicator", default: false)
     static let cmdTabWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("cmdTabWindowStateIndicatorPlacement", default: .onWindowPreviews)
     static let cmdTabDisableDockStyleWindowStateIndicator = Key<Bool>("cmdTabDisableDockStyleSpaceNumberIndicator", default: true)
 

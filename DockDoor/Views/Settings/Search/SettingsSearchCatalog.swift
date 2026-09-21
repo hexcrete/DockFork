@@ -1069,6 +1069,15 @@ enum SettingsSearchCatalog {
             icon: "number.circle"
         ),
         SettingsSearchItem(
+            id: "appearance.dockHighlightCurrentSpace",
+            title: String(localized: "Highlight Current Space"),
+            description: String(localized: "Highlights the Space number indicator for windows on the current Space."),
+            keywords: ["space", "current", "highlight", "indicator", "dock"],
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
+            icon: "circle.fill"
+        ),
+        SettingsSearchItem(
             id: "appearance.dockWindowStateIndicator",
             title: String(localized: "Show Window State Indicator"),
             description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
@@ -1183,6 +1192,15 @@ enum SettingsSearchCatalog {
             tab: "WindowSwitcher",
             section: String(localized: "Appearance"),
             icon: "number.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherHighlightCurrentSpace",
+            title: String(localized: "Highlight Current Space"),
+            description: String(localized: "Highlights the Space number indicator for windows on the current Space."),
+            keywords: ["space", "current", "highlight", "indicator", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
+            icon: "circle.fill"
         ),
         SettingsSearchItem(
             id: "appearance.switcherWindowStateIndicator",
@@ -1350,6 +1368,15 @@ enum SettingsSearchCatalog {
             tab: "CmdTab",
             section: String(localized: "Appearance"),
             icon: "number.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabHighlightCurrentSpace",
+            title: String(localized: "Highlight Current Space"),
+            description: String(localized: "Highlights the Space number indicator for windows on the current Space."),
+            keywords: ["space", "current", "highlight", "indicator", "cmd tab"],
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
+            icon: "circle.fill"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabWindowStateIndicator",

@@ -41,6 +41,7 @@ struct SettingsMockPreview: View {
     @Default(.dockLivePreviewQuality) private var dockLivePreviewQuality
     @Default(.dockLivePreviewFrameRate) private var dockLivePreviewFrameRate
     @Default(.showDockPreviewSpaceNumberIndicator) private var showDockPreviewSpaceNumberIndicator
+    @Default(.highlightDockPreviewCurrentSpaceIndicator) private var highlightDockPreviewCurrentSpaceIndicator
     @Default(.dockPreviewWindowStateIndicatorPlacement) private var dockPreviewWindowStateIndicatorPlacement
     @Default(.disableDockStyleWindowStateIndicator) private var disableDockStyleWindowStateIndicator
 
@@ -59,6 +60,7 @@ struct SettingsMockPreview: View {
     @Default(.windowSwitcherLivePreviewQuality) private var switcherLivePreviewQuality
     @Default(.windowSwitcherLivePreviewFrameRate) private var switcherLivePreviewFrameRate
     @Default(.showSwitcherSpaceNumberIndicator) private var showSwitcherSpaceNumberIndicator
+    @Default(.highlightSwitcherCurrentSpaceIndicator) private var highlightSwitcherCurrentSpaceIndicator
     @Default(.switcherWindowStateIndicatorPlacement) private var switcherWindowStateIndicatorPlacement
     @Default(.switcherDisableDockStyleWindowStateIndicator) private var switcherDisableDockStyleWindowStateIndicator
 
@@ -74,6 +76,7 @@ struct SettingsMockPreview: View {
     @Default(.cmdTabDisableDockStyleTitles) private var cmdTabDisableStyleTitles
     @Default(.cmdTabUseEmbeddedDockPreviewElements) private var cmdTabUseEmbedded
     @Default(.showCmdTabSpaceNumberIndicator) private var showCmdTabSpaceNumberIndicator
+    @Default(.highlightCmdTabCurrentSpaceIndicator) private var highlightCmdTabCurrentSpaceIndicator
     @Default(.cmdTabWindowStateIndicatorPlacement) private var cmdTabWindowStateIndicatorPlacement
     @Default(.cmdTabDisableDockStyleWindowStateIndicator) private var cmdTabDisableDockStyleWindowStateIndicator
 
@@ -227,6 +230,13 @@ struct SettingsMockPreview: View {
         } else {
             showDockPreviewSpaceNumberIndicator
         }
+        let highlightCurrentSpaceNumberIndicator: Bool = if isWindowSwitcher {
+            highlightSwitcherCurrentSpaceIndicator
+        } else if isCmdTab {
+            highlightCmdTabCurrentSpaceIndicator
+        } else {
+            highlightDockPreviewCurrentSpaceIndicator
+        }
         let windowStateIndicatorPlacement: WindowStateIndicatorPlacement = if isWindowSwitcher {
             switcherWindowStateIndicatorPlacement
         } else if isCmdTab {
@@ -277,6 +287,7 @@ struct SettingsMockPreview: View {
             compactModeItemSize: compactModeItemSize,
             compactModeHideTrafficLights: compactModeHideTrafficLights,
             showSpaceNumberIndicator: showSpaceNumberIndicator,
+            highlightCurrentSpaceNumberIndicator: highlightCurrentSpaceNumberIndicator,
             windowStateIndicatorPlacement: windowStateIndicatorPlacement,
             disableDockStyleWindowStateIndicator: disableDockStyleWindowStateIndicator,
             showWindowlessAppQuitButton: showWindowlessAppQuitButton,

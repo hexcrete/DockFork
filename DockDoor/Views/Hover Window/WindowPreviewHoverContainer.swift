@@ -976,6 +976,15 @@ struct WindowPreviewHoverContainer: View {
             windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
             dockPosition: dockPosition
         )
+        let currentSpaceNumbers: Set<Int> = if !appearance.showSpaceNumberIndicator ||
+            !appearance.highlightCurrentSpaceNumberIndicator
+        {
+            []
+        } else if mockPreviewActive {
+            [1]
+        } else {
+            Set(currentActiveSpaceIDs().compactMap { SpaceNumberResolver.number(for: $0) })
+        }
         if shouldShowNoResultsView() {
             noResultsView()
                 .globalPadding(20)
@@ -1008,7 +1017,8 @@ struct WindowPreviewHoverContainer: View {
                         currentMaxDimensionForPreviews: currentMaxDimensionForPreviews,
                         currentDimensionsMapForPreviews: currentDimensionsMapForPreviews,
                         filteredIndices: cachedFilteredIndices,
-                        appearance: appearance
+                        appearance: appearance,
+                        currentSpaceNumbers: currentSpaceNumbers
                     ))
                 }
             )
@@ -1965,7 +1975,8 @@ struct WindowPreviewHoverContainer: View {
         currentMaxDimensionForPreviews: CGPoint,
         currentDimensionsMapForPreviews: [Int: WindowDimensions],
         filteredIndices: [Int],
-        appearance: PreviewAppearanceSettings
+        appearance: PreviewAppearanceSettings,
+        currentSpaceNumbers: Set<Int>
     ) -> some View {
         switch item {
         case .embedded:
@@ -1984,7 +1995,8 @@ struct WindowPreviewHoverContainer: View {
                     index: index,
                     currIndex: currIndex,
                     currentDimensionsMapForPreviews: currentDimensionsMapForPreviews,
-                    appearance: appearance
+                    appearance: appearance,
+                    currentSpaceNumbers: currentSpaceNumbers
                 )
             }
             .id("\(appName)-\(index)")
@@ -1996,7 +2008,8 @@ struct WindowPreviewHoverContainer: View {
         index: Int,
         currIndex: Int,
         currentDimensionsMapForPreviews: [Int: WindowDimensions],
-        appearance: PreviewAppearanceSettings
+        appearance: PreviewAppearanceSettings,
+        currentSpaceNumbers: Set<Int>
     ) -> some View {
         let windows = previewStateCoordinator.windows
         if index < windows.count {
@@ -2084,7 +2097,8 @@ struct WindowPreviewHoverContainer: View {
                     widthOverride: compactRowWidth,
                     appearance: appearance,
                     backgroundAppearance: backgroundAppearance,
-                    focusedWindowID: previewStateCoordinator.focusedWindowID
+                    focusedWindowID: previewStateCoordinator.focusedWindowID,
+                    currentSpaceNumbers: currentSpaceNumbers
                 )
                 .equatable()
             } else {
@@ -2108,7 +2122,8 @@ struct WindowPreviewHoverContainer: View {
                     useLivePreview: useLivePreview,
                     appearance: appearance,
                     backgroundAppearance: backgroundAppearance,
-                    focusedWindowID: previewStateCoordinator.focusedWindowID
+                    focusedWindowID: previewStateCoordinator.focusedWindowID,
+                    currentSpaceNumbers: currentSpaceNumbers
                 )
                 .equatable()
                 .gesture(

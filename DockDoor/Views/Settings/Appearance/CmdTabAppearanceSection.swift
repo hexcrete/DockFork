@@ -15,6 +15,7 @@ struct CmdTabAppearanceSection: View {
     @Default(.cmdTabDisableDockStyleTrafficLights) var cmdTabDisableDockStyleTrafficLights
     @Default(.cmdTabUseEmbeddedDockPreviewElements) var cmdTabUseEmbeddedDockPreviewElements
     @Default(.showCmdTabSpaceNumberIndicator) var showCmdTabSpaceNumberIndicator
+    @Default(.highlightCmdTabCurrentSpaceIndicator) var highlightCmdTabCurrentSpaceIndicator
     @Default(.cmdTabWindowStateIndicatorPlacement) var cmdTabWindowStateIndicatorPlacement
     @Default(.cmdTabDisableDockStyleWindowStateIndicator) var cmdTabDisableDockStyleWindowStateIndicator
 
@@ -125,6 +126,18 @@ struct CmdTabAppearanceSection: View {
             Text("Window State Indicator").font(.headline).padding(.bottom, -2)
             Toggle("Show Space Number Indicator", isOn: $showCmdTabSpaceNumberIndicator)
                 .settingsSearchTarget("appearance.cmdTabSpaceNumberIndicator")
+
+            VStack(alignment: .leading) {
+                Toggle("Highlight Current Space", isOn: $highlightCmdTabCurrentSpaceIndicator)
+                    .settingsSearchTarget("appearance.cmdTabHighlightCurrentSpace")
+                Text("Highlights the Space number indicator for windows on the current Space.")
+                    .font(.footnote)
+                    .foregroundColor(.gray)
+                    .padding(.leading, 20)
+            }
+            .padding(.leading, 20)
+            .disabled(!showCmdTabSpaceNumberIndicator)
+            .opacity(showCmdTabSpaceNumberIndicator ? 1 : 0.5)
 
             Picker("Show Window State Indicator", selection: $cmdTabWindowStateIndicatorPlacement) {
                 ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in

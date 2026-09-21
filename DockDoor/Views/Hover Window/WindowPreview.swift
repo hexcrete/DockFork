@@ -26,6 +26,10 @@ struct WindowStateIndicator: View {
     let stateSymbols: [String]
     let disableDockStyling: Bool
     let backgroundAppearance: BackgroundAppearance
+    let highlightsCurrentSpace: Bool
+    let highlightColor: Color
+    let highlightOpacity: Double
+    let activeBorderColor: Color
 
     @ViewBuilder
     private func badgeContent(minimumWidth: CGFloat?, minimumHeight: CGFloat) -> some View {
@@ -55,7 +59,10 @@ struct WindowStateIndicator: View {
                     if number != nil {
                         badgeContent(minimumWidth: 18, minimumHeight: 18)
                             .overlay {
-                                Capsule().stroke(.secondary, lineWidth: 1)
+                                Capsule().stroke(
+                                    highlightsCurrentSpace ? activeBorderColor : .secondary,
+                                    lineWidth: highlightsCurrentSpace ? 2.5 : 1
+                                )
                             }
                     }
                     stateIcons()
@@ -72,7 +79,11 @@ struct WindowStateIndicator: View {
                     minHeight: Self.styledBadgeMinimumSize.height
                 )
                 .padding(4)
-                .materialPill(backgroundAppearance: backgroundAppearance)
+                .materialPill(
+                    backgroundAppearance: backgroundAppearance,
+                    highlightColor: highlightsCurrentSpace ? highlightColor : nil,
+                    highlightOpacity: highlightOpacity
+                )
             }
         }
         .accessibilityLabel(Text(number.map { "Space \($0), window state" } ?? "Window state"))
@@ -114,6 +125,7 @@ struct PreviewAppearanceSettings: Equatable {
     let compactModeItemSize: CompactModeItemSize
     let compactModeHideTrafficLights: Bool
     let showSpaceNumberIndicator: Bool
+    let highlightCurrentSpaceNumberIndicator: Bool
     let windowStateIndicatorPlacement: WindowStateIndicatorPlacement
     let disableDockStyleWindowStateIndicator: Bool
     let showWindowlessAppQuitButton: Bool
@@ -143,6 +155,7 @@ struct PreviewAppearanceSettings: Equatable {
         .dockLivePreviewQuality, .windowSwitcherLivePreviewQuality,
         .dockLivePreviewFrameRate, .windowSwitcherLivePreviewFrameRate,
         .showDockPreviewSpaceNumberIndicator, .showSwitcherSpaceNumberIndicator, .showCmdTabSpaceNumberIndicator,
+        .highlightDockPreviewCurrentSpaceIndicator, .highlightSwitcherCurrentSpaceIndicator, .highlightCmdTabCurrentSpaceIndicator,
         .dockPreviewWindowStateIndicatorPlacement, .switcherWindowStateIndicatorPlacement, .cmdTabWindowStateIndicatorPlacement,
         .disableDockStyleWindowStateIndicator, .switcherDisableDockStyleWindowStateIndicator, .cmdTabDisableDockStyleWindowStateIndicator,
         .dimMinimizedHiddenPreviews, .selectionOpacity, .unselectedContentOpacity, .hoverHighlightColor,
@@ -203,6 +216,7 @@ struct PreviewAppearanceSettings: Equatable {
             compactModeItemSize: Defaults[.compactModeItemSize],
             compactModeHideTrafficLights: Defaults[.compactModeHideTrafficLights],
             showSpaceNumberIndicator: pick(.showDockPreviewSpaceNumberIndicator, switcher: .showSwitcherSpaceNumberIndicator, cmdTab: .showCmdTabSpaceNumberIndicator),
+            highlightCurrentSpaceNumberIndicator: pick(.highlightDockPreviewCurrentSpaceIndicator, switcher: .highlightSwitcherCurrentSpaceIndicator, cmdTab: .highlightCmdTabCurrentSpaceIndicator),
             windowStateIndicatorPlacement: pick(.dockPreviewWindowStateIndicatorPlacement, switcher: .switcherWindowStateIndicatorPlacement, cmdTab: .cmdTabWindowStateIndicatorPlacement),
             disableDockStyleWindowStateIndicator: pick(.disableDockStyleWindowStateIndicator, switcher: .switcherDisableDockStyleWindowStateIndicator, cmdTab: .cmdTabDisableDockStyleWindowStateIndicator),
             showWindowlessAppQuitButton: Defaults[.showWindowlessAppQuitButton],
@@ -231,6 +245,7 @@ struct WindowPreview: View, Equatable {
     var appearance: PreviewAppearanceSettings
     let backgroundAppearance: BackgroundAppearance
     let focusedWindowID: CGWindowID?
+    let currentSpaceNumbers: Set<Int>
 
     @State private var isHoveringOverDockPeekPreview = false
     @State private var isHoveringOverWindowSwitcherPreview = false
@@ -317,7 +332,12 @@ struct WindowPreview: View, Equatable {
                 number: spaceNumber,
                 stateSymbols: stateSymbols,
                 disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
-                backgroundAppearance: backgroundAppearance
+                backgroundAppearance: backgroundAppearance,
+                highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator &&
+                    spaceNumber.map(currentSpaceNumbers.contains) == true,
+                highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+                highlightOpacity: appearance.selectionOpacity,
+                activeBorderColor: appearance.activeAppIndicatorColor
             )
             .fixedSize(horizontal: true, vertical: false)
             .layoutPriority(1)
@@ -378,6 +398,7 @@ struct WindowPreview: View, Equatable {
             && l.appearance == r.appearance && l.windowInfo.viewSnapshot == r.windowInfo.viewSnapshot
             && l.backgroundAppearance == r.backgroundAppearance
             && l.focusedWindowID == r.focusedWindowID
+            && l.currentSpaceNumbers == r.currentSpaceNumbers
     }
 
     private var isActiveWindow: Bool {
