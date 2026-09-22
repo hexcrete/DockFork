@@ -1544,6 +1544,24 @@ enum SettingsSearchCatalog {
             icon: "keyboard"
         ),
         SettingsSearchItem(
+            id: "gestures.menuBarIconWindowSwitcher",
+            title: String(localized: "Menu bar icon"),
+            description: String(localized: "Open Window Switcher when clicking on menu bar icon"),
+            keywords: ["menu bar", "status item", "click", "window switcher"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "menubar.rectangle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.menuBarIconClickBehavior",
+            title: String(localized: "Left/right clicks trigger:"),
+            description: String(localized: "Choose which mouse button opens Window Switcher from the menu bar icon."),
+            keywords: ["menu bar", "left click", "right click", "mouse", "window switcher"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "computermouse"
+        ),
+        SettingsSearchItem(
             id: "gestures.vimMotions",
             title: String(localized: "Enable Vim Motions"),
             description: String(localized: "Use H/J/K/L keys to navigate left/down/up/right in the window switcher. Disabled while search is focused."),

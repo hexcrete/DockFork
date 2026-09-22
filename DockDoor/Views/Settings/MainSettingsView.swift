@@ -112,6 +112,8 @@ struct MainSettingsView: View {
                 Defaults[.keepPreviewOnHoverActivation] = Defaults.Keys.keepPreviewOnHoverActivation.defaultValue
 
                 showMenuBarIcon = Defaults.Keys.showMenuBarIcon.defaultValue
+                Defaults[.openWindowSwitcherFromMenuBarIcon] = Defaults.Keys.openWindowSwitcherFromMenuBarIcon.defaultValue
+                Defaults[.menuBarIconWindowSwitcherClick] = Defaults.Keys.menuBarIconWindowSwitcherClick.defaultValue
                 Defaults[.enableWindowSwitcher] = Defaults.Keys.enableWindowSwitcher.defaultValue
                 Defaults[.instantWindowSwitcher] = Defaults.Keys.instantWindowSwitcher.defaultValue
                 Defaults[.includeHiddenWindowsInSwitcher] = Defaults.Keys.includeHiddenWindowsInSwitcher.defaultValue

@@ -210,6 +210,8 @@ extension Defaults.Keys {
     static let groupAppInstancesInDock = Key<Bool>("groupAppInstancesInDock", default: true)
     static let collapseNativeTabsIntoSingleWindow = Key<Bool>("collapseNativeTabsIntoSingleWindow", default: false)
     static let showMenuBarIcon = Key<Bool>("showMenuBarIcon", default: true)
+    static let openWindowSwitcherFromMenuBarIcon = Key<Bool>("openWindowSwitcherFromMenuBarIcon", default: false)
+    static let menuBarIconWindowSwitcherClick = Key<MenuBarIconWindowSwitcherClick>("menuBarIconWindowSwitcherClick", default: .leftClick)
     static let hideDockDoorProBanner = Key<Bool>("hideDockDoorProBanner", default: false)
     static let raisedWindowLevel = Key<Bool>("raisedWindowLevel", default: true)
     static let launched = Key<Bool>("launched", default: false)
@@ -664,6 +666,20 @@ enum MouseFollowsFocusMode: String, CaseIterable, Defaults.Serializable {
             String(localized: "Always", comment: "Mouse follows focus mode option")
         case .differentDisplayOnly:
             String(localized: "Only when switching displays", comment: "Mouse follows focus mode option")
+        }
+    }
+}
+
+enum MenuBarIconWindowSwitcherClick: String, CaseIterable, Defaults.Serializable {
+    case leftClick
+    case rightClick
+
+    var localizedName: String {
+        switch self {
+        case .leftClick:
+            String(localized: "Left click activates Window Switcher; right click activates DockDoor menu")
+        case .rightClick:
+            String(localized: "Right click activates Window Switcher; left click activates DockDoor menu")
         }
     }
 }

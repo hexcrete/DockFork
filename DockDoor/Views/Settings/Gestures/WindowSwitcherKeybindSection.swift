@@ -16,6 +16,8 @@ struct WindowSwitcherKeybindSection: View {
     @Default(.windowSwitcherSelectionKeyCode) var selectionKeyCode
     @Default(.enableVimMotions) var enableVimMotions
     @Default(.passArrowsThroughToSystem) var passArrowsThroughToSystem
+    @Default(.openWindowSwitcherFromMenuBarIcon) var openWindowSwitcherFromMenuBarIcon
+    @Default(.menuBarIconWindowSwitcherClick) var menuBarIconWindowSwitcherClick
 
     @StateObject private var keybindModel = KeybindModel()
     @State private var showingAddBlacklistAppSheet = false
@@ -42,6 +44,12 @@ struct WindowSwitcherKeybindSection: View {
                 }
 
                 keyboardShortcutSection
+                    .disabled(!enableWindowSwitcher)
+                    .opacity(enableWindowSwitcher ? 1.0 : 0.5)
+
+                Divider()
+
+                menuBarIconSection
                     .disabled(!enableWindowSwitcher)
                     .opacity(enableWindowSwitcher ? 1.0 : 0.5)
 
@@ -216,6 +224,29 @@ struct WindowSwitcherKeybindSection: View {
             .allowsHitTesting(false)
             .frame(width: 0, height: 0)
         )
+    }
+
+    // MARK: - Menu Bar Icon
+
+    private var menuBarIconSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Menu bar icon", isOn: $openWindowSwitcherFromMenuBarIcon)
+                .settingsSearchTarget("gestures.menuBarIconWindowSwitcher")
+            Text("Open Window Switcher when clicking on menu bar icon")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
+
+            if openWindowSwitcherFromMenuBarIcon {
+                Picker("Left/right clicks trigger:", selection: $menuBarIconWindowSwitcherClick) {
+                    ForEach(MenuBarIconWindowSwitcherClick.allCases, id: \.self) { click in
+                        Text(click.localizedName).tag(click)
+                    }
+                }
+                .pickerStyle(.menu)
+                .settingsSearchTarget("gestures.menuBarIconClickBehavior")
+            }
+        }
     }
 
     // MARK: - Selection Key Section

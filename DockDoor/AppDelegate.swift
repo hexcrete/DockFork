@@ -13,6 +13,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var activeAppIndicator: ActiveAppIndicatorCoordinator?
     private var dockLocker: DockLocker?
     private var statusBarItem: NSStatusItem?
+    private var statusBarMenu: NSMenu?
+    private var menuBarInteractionObserver: Defaults.Observation?
+    private var isPresentingStatusBarMenu = false
     private let windowActionsMenu = WindowActionsMenuController()
     private var updaterController: SPUStandardUpdaterController
     @ObservedObject var updaterState: UpdaterState
@@ -75,6 +78,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             removeMenuBar()
         }
+        observeMenuBarInteractionSettings()
 
         MediaRemoteService.shared.activate()
 
@@ -201,13 +205,63 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: String(localized: "Restart DockDoor"), action: #selector(restartAppWrapper), keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: String(localized: "Quit DockDoor"), action: #selector(quitAppWrapper), keyEquivalent: "q"))
-        statusBarItem?.menu = menu
+        menu.delegate = self
+        statusBarMenu = menu
+        updateMenuBarInteraction()
     }
 
     func removeMenuBar() {
         guard let statusBarItem else { return }
         NSStatusBar.system.removeStatusItem(statusBarItem)
         self.statusBarItem = nil
+        statusBarMenu = nil
+        isPresentingStatusBarMenu = false
+    }
+
+    private func observeMenuBarInteractionSettings() {
+        menuBarInteractionObserver = Defaults.observe(
+            keys: .openWindowSwitcherFromMenuBarIcon,
+            .menuBarIconWindowSwitcherClick
+        ) { [weak self] in
+            DispatchQueue.main.async {
+                self?.updateMenuBarInteraction()
+            }
+        }
+    }
+
+    private func updateMenuBarInteraction() {
+        guard let statusBarItem, let button = statusBarItem.button else { return }
+
+        if Defaults[.openWindowSwitcherFromMenuBarIcon] {
+            statusBarItem.menu = nil
+            button.target = self
+            button.action = #selector(menuBarIconClicked(_:))
+            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
+        } else {
+            button.target = nil
+            button.action = nil
+            button.sendAction(on: .leftMouseUp)
+            statusBarItem.menu = statusBarMenu
+        }
+    }
+
+    @objc private func menuBarIconClicked(_ sender: NSStatusBarButton) {
+        let isRightClick = NSApp.currentEvent?.type == .rightMouseUp
+        let opensWindowSwitcher = Defaults[.menuBarIconWindowSwitcherClick] == .rightClick
+            ? isRightClick
+            : !isRightClick
+
+        if opensWindowSwitcher {
+            keybindHelper?.openWindowSwitcherFromMenuBar()
+        } else {
+            showStatusBarMenu(from: sender)
+        }
+    }
+
+    private func showStatusBarMenu(from button: NSStatusBarButton) {
+        guard let statusBarMenu, !isPresentingStatusBarMenu else { return }
+        isPresentingStatusBarMenu = true
+        statusBarMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.maxY), in: button)
     }
 
     @objc private func quitAppWrapper() {
@@ -370,10 +424,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-extension AppDelegate: NSWindowDelegate {
+extension AppDelegate: NSWindowDelegate, NSMenuDelegate {
     func windowWillClose(_ notification: Notification) {
         if let window = notification.object as? NSWindow, window == onboardingWindow {
             onboardingWindow = nil
+        }
+    }
+
+    func menuDidClose(_ menu: NSMenu) {
+        DispatchQueue.main.async { [weak self] in
+            self?.isPresentingStatusBarMenu = false
         }
     }
 }

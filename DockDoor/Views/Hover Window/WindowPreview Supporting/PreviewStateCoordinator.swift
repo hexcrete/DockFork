@@ -1024,16 +1024,21 @@ class PreviewStateCoordinator: ObservableObject {
 
     // MARK: - Window Switcher Initialization
 
-    /// Initialize for window switcher keybind activation
+    /// Initialize a Window Switcher session with its launch-specific initial selection.
     @MainActor
-    func initializeForWindowSwitcher(with newWindows: [WindowInfo], dockPosition: DockPosition, bestGuessMonitor: NSScreen) {
+    func initializeForWindowSwitcher(
+        with newWindows: [WindowInfo],
+        dockPosition: DockPosition,
+        bestGuessMonitor: NSScreen,
+        startOnSecondWindow: Bool = Defaults[.useClassicWindowOrdering]
+    ) {
         setWindows(newWindows, dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
         searchQuery = ""
         hasMovedSinceOpen = false
         initialHoverLocation = NSEvent.mouseLocation
 
         if !windows.isEmpty {
-            if Defaults[.useClassicWindowOrdering], windows.count >= 2 {
+            if startOnSecondWindow, windows.count >= 2 {
                 setIndex(to: 1, shouldScroll: false, source: .keyboard)
             } else {
                 setIndex(to: 0, shouldScroll: false, source: .keyboard)

@@ -15,6 +15,32 @@ struct UserKeyBind: Codable, Defaults.Serializable {
     var modifierFlags: Int
 }
 
+private enum WindowSwitcherLaunchSource: Equatable {
+    case keyboard
+    case menuBar
+
+    var startsOnSecondWindow: Bool {
+        switch self {
+        case .keyboard: Defaults[.useClassicWindowOrdering]
+        case .menuBar: false
+        }
+    }
+
+    var showsInstantly: Bool {
+        switch self {
+        case .keyboard: Defaults[.instantWindowSwitcher]
+        case .menuBar: true
+        }
+    }
+
+    var focusesSearchOnOpen: Bool {
+        switch self {
+        case .keyboard: Defaults[.focusSearchOnWindowSwitcherOpen]
+        case .menuBar: true
+        }
+    }
+}
+
 private class WindowSwitchingCoordinator {
     private var isProcessingSwitcher = false
     private var uiRenderingTask: Task<Void, Never>?
@@ -51,15 +77,32 @@ private class WindowSwitchingCoordinator {
         } else if isModifierPressed {
             await initializeWindowSwitching(
                 previewCoordinator: previewCoordinator,
-                mode: mode
+                mode: mode,
+                launchSource: .keyboard
             )
         }
     }
 
     @MainActor
+    func openFromMenuBar(previewCoordinator: SharedPreviewWindowCoordinator) async {
+        guard !isProcessingSwitcher,
+              !previewCoordinator.windowSwitcherCoordinator.isKeybindSessionActive
+        else { return }
+
+        isProcessingSwitcher = true
+        defer { isProcessingSwitcher = false }
+        await initializeWindowSwitching(
+            previewCoordinator: previewCoordinator,
+            mode: .allWindows,
+            launchSource: .menuBar
+        )
+    }
+
+    @MainActor
     private func initializeWindowSwitching(
         previewCoordinator: SharedPreviewWindowCoordinator,
-        mode: SwitcherInvocationMode = .allWindows
+        mode: SwitcherInvocationMode = .allWindows,
+        launchSource: WindowSwitcherLaunchSource
     ) async {
         // Reset the immediate-select flag at start of initialization
         shouldSelectImmediately = false
@@ -92,11 +135,16 @@ private class WindowSwitchingCoordinator {
         guard !windows.isEmpty else { return }
 
         let coordinator = previewCoordinator.windowSwitcherCoordinator
-        coordinator.initializeForWindowSwitcher(with: windows, dockPosition: dockPosition, bestGuessMonitor: targetScreen)
+        coordinator.initializeForWindowSwitcher(
+            with: windows,
+            dockPosition: dockPosition,
+            bestGuessMonitor: targetScreen,
+            startOnSecondWindow: launchSource.startsOnSecondWindow
+        )
         coordinator.activateKeybindSession()
 
         // If modifier was released during initialization, immediately select and exit
-        if shouldSelectImmediately {
+        if launchSource == .keyboard, shouldSelectImmediately {
             if let selectedWindow = coordinator.getCurrentWindow() {
                 selectedWindow.bringToFront()
                 selectedWindow.warpMouseToCenterIfNeeded()
@@ -109,7 +157,7 @@ private class WindowSwitchingCoordinator {
 
         uiRenderingTask?.cancel()
         uiRenderingTask = Task { @MainActor in
-            if !Defaults[.instantWindowSwitcher] {
+            if !launchSource.showsInstantly {
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
             await renderWindowSwitcherUI(
@@ -118,7 +166,8 @@ private class WindowSwitchingCoordinator {
                 dockPosition: dockPosition,
                 currentMouseLocation: currentMouseLocation,
                 targetScreen: targetScreen,
-                sessionId: sessionId
+                sessionId: sessionId,
+                launchSource: launchSource
             )
         }
     }
@@ -264,7 +313,8 @@ private class WindowSwitchingCoordinator {
         dockPosition: DockPosition,
         currentMouseLocation: CGPoint,
         targetScreen: NSScreen,
-        sessionId: UUID
+        sessionId: UUID,
+        launchSource: WindowSwitcherLaunchSource
     ) async {
         guard sessionId == currentSessionId else { return }
         let coordinator = previewCoordinator.windowSwitcherCoordinator
@@ -306,7 +356,7 @@ private class WindowSwitchingCoordinator {
             showWindowLambda(convertedMouseLocation, mouseScreen)
         }
 
-        if Defaults[.focusSearchOnWindowSwitcherOpen], Defaults[.enableWindowSwitcherSearch] {
+        if launchSource.focusesSearchOnOpen, Defaults[.enableWindowSwitcherSearch] {
             previewCoordinator.focusSearchWindow()
         }
 
@@ -377,6 +427,7 @@ class KeybindHelper {
     private var isShiftKeyPressedGeneral: Bool = false
     private var hasProcessedModifierRelease: Bool = false
     private var preventSwitcherHideOnRelease: Bool = false
+    private var shouldWarpMouseOnSelection: Bool = true
     private var heldKeyRepeatTask: Task<Void, Never>?
 
     /// Track the invocation mode for alternate keybinds
@@ -424,6 +475,22 @@ class KeybindHelper {
         }
     }
 
+    func openWindowSwitcherFromMenuBar() {
+        Task { @MainActor [weak self] in
+            guard let self, Defaults[.enableWindowSwitcher] else { return }
+
+            currentInvocationMode = .allWindows
+            isSwitcherModifierKeyPressed = false
+            isShiftKeyPressedGeneral = false
+            hasProcessedModifierRelease = true
+            preventSwitcherHideOnRelease = Defaults[.enableWindowSwitcherSearch]
+            shouldWarpMouseOnSelection = false
+            switcherSessionActive = false
+
+            await windowSwitchingCoordinator.openFromMenuBar(previewCoordinator: previewCoordinator)
+        }
+    }
+
     private func cleanup() {
         monitorTimer?.invalidate()
         monitorTimer = nil
@@ -442,6 +509,7 @@ class KeybindHelper {
         isSwitcherModifierKeyPressed = false
         isShiftKeyPressedGeneral = false
         preventSwitcherHideOnRelease = false
+        shouldWarpMouseOnSelection = true
         currentInvocationMode = .allWindows
         cancelHeldKeyRepeatTask()
     }
@@ -537,7 +605,7 @@ class KeybindHelper {
                         if actionAlreadyHandled {
                             self.previewCoordinator.hideWindow()
                         } else if wasVisible, self.previewCoordinator.windowSwitcherCoordinator.currIndex >= 0 {
-                            self.previewCoordinator.selectAndBringToFrontCurrentWindow()
+                            self.previewCoordinator.selectAndBringToFrontCurrentWindow(warpMouse: self.shouldWarpMouseOnSelection)
                         } else {
                             self.previewCoordinator.hideWindow()
                         }
@@ -967,11 +1035,13 @@ class KeybindHelper {
 
                 Task { @MainActor in
                     if self.previewCoordinator.isVisible, self.previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
-                        self.previewCoordinator.selectAndBringToFrontCurrentWindow()
+                        self.previewCoordinator.selectAndBringToFrontCurrentWindow(warpMouse: self.shouldWarpMouseOnSelection)
                         self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
                     } else if let selectedWindow = self.windowSwitchingCoordinator.selectCurrentWindow(previewCoordinator: self.previewCoordinator) {
                         selectedWindow.bringToFront()
-                        selectedWindow.warpMouseToCenterIfNeeded()
+                        if self.shouldWarpMouseOnSelection {
+                            selectedWindow.warpMouseToCenterIfNeeded()
+                        }
                         self.previewCoordinator.hideWindow()
                     }
                 }
@@ -1229,17 +1299,19 @@ class KeybindHelper {
             self.preventSwitcherHideOnRelease = false
 
             if self.previewCoordinator.isVisible, self.previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
-                self.previewCoordinator.selectAndBringToFrontCurrentWindow()
+                self.previewCoordinator.selectAndBringToFrontCurrentWindow(warpMouse: self.shouldWarpMouseOnSelection)
                 self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
                 return
             }
 
             if let selectedWindow = self.windowSwitchingCoordinator.selectCurrentWindow(previewCoordinator: self.previewCoordinator) {
                 selectedWindow.bringToFront()
-                selectedWindow.warpMouseToCenterIfNeeded()
+                if self.shouldWarpMouseOnSelection {
+                    selectedWindow.warpMouseToCenterIfNeeded()
+                }
                 self.previewCoordinator.hideWindow()
             } else {
-                self.previewCoordinator.selectAndBringToFrontCurrentWindow()
+                self.previewCoordinator.selectAndBringToFrontCurrentWindow(warpMouse: self.shouldWarpMouseOnSelection)
             }
         }
     }
@@ -1251,6 +1323,7 @@ class KeybindHelper {
         isShiftPressed: Bool? = nil
     ) {
         guard Defaults[.enableWindowSwitcher] else { return }
+        shouldWarpMouseOnSelection = true
         hasProcessedModifierRelease = false
         currentInvocationMode = mode
         let modifierPressedForActivation = isModifierPressed ?? isSwitcherModifierKeyPressed
