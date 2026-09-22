@@ -8,6 +8,16 @@ import Cocoa
 
 // NOTE: Borrows code from https://github.com/lwouis/alt-tab-macos/blob/master/src/api-wrappers/AXUIElement.swift
 
+private let axWindowScanStateLock = NSLock()
+private struct AXWindowScanState {
+    let targetWindowIDs: Set<CGWindowID>
+    let cursor: AXUIElementID
+}
+
+private var axWindowScanStateByPID: [pid_t: AXWindowScanState] = [:]
+private var axWindowScansInFlight = Set<pid_t>()
+private let axWindowScanBudget: TimeInterval = 0.25
+
 enum AXResponsiveness {
     private static let lock = NSLock()
     private static var unresponsiveUntil: [pid_t: Date] = [:]
@@ -114,51 +124,119 @@ extension AXUIElement {
         try attribute(kAXWindowsAttribute, [AXUIElement].self)
     }
 
-    static func windowsByBruteForce(_ pid: pid_t, app: NSRunningApplication? = nil) -> [AXUIElement] {
-        DebugLogger.measureSlow("windowsByBruteForce", thresholdMs: 100, details: "PID: \(pid)") {
-            var token = Data(count: 20)
-            token.replaceSubrange(0 ..< 4, with: withUnsafeBytes(of: pid) { Data($0) })
-            token.replaceSubrange(4 ..< 8, with: withUnsafeBytes(of: Int32(0)) { Data($0) })
-            token.replaceSubrange(8 ..< 12, with: withUnsafeBytes(of: Int32(0x636F_636F)) { Data($0) })
+    static func windowsByBruteForce(
+        _ pid: pid_t,
+        app: NSRunningApplication? = nil,
+        targetWindowIDs: Set<CGWindowID>
+    ) -> [AXUIElement] {
+        guard !targetWindowIDs.isEmpty else { return [] }
+
+        return DebugLogger.measureSlow("windowsByBruteForce", thresholdMs: 100, details: "PID: \(pid)") {
+            guard let startID = beginWindowScan(pid: pid, targetWindowIDs: targetWindowIDs) else { return [] }
+            defer { endWindowScan(pid: pid) }
+            guard let token = CFDataCreateMutable(kCFAllocatorDefault, 20) else { return [] }
+
+            CFDataSetLength(token, 20)
+            guard let bytes = CFDataGetMutableBytePtr(token) else { return [] }
+            memset(bytes, 0, 20)
+            var pidField = pid
+            memcpy(bytes, &pidField, 4)
+            var magic = Int32(0x636F_636F)
+            memcpy(bytes + 8, &magic, 4)
 
             var results: [AXUIElement] = []
-            var consecutiveTimeouts = 0
-            for axId: AXUIElementID in 0 ..< 1000 {
-                if AXResponsiveness.isUnresponsive(pid) { break }
-                token.replaceSubrange(12 ..< 20, with: withUnsafeBytes(of: axId) { Data($0) })
+            var remainingWindowIDs = targetWindowIDs
+            var nextID = startID
+            let startedAt = CFAbsoluteTimeGetCurrent()
+
+            for axId in startID ..< AXUIElementID.max {
+                if CFAbsoluteTimeGetCurrent() - startedAt >= axWindowScanBudget ||
+                    (axId.isMultiple(of: 256) && AXResponsiveness.isUnresponsive(pid))
+                {
+                    nextID = axId
+                    break
+                }
+                nextID = axId + 1
+
+                var idField = axId
+                memcpy(bytes + 12, &idField, 8)
                 guard let el = _AXUIElementCreateWithRemoteToken(token as CFData)?.takeRetainedValue() else {
                     continue
                 }
 
-                let role: String?
-                do {
-                    role = try el.role()
-                    consecutiveTimeouts = 0
-                } catch {
-                    consecutiveTimeouts += 1
-                    if consecutiveTimeouts >= 2 { break }
-                    continue
-                }
-                guard role == kAXWindowRole as String else { continue }
+                var windowID = CGWindowID(0)
+                guard _AXUIElementGetWindow(el, &windowID) == .success,
+                      remainingWindowIDs.contains(windowID),
+                      (try? el.role()) == kAXWindowRole as String
+                else { continue }
 
                 if let app {
-                    let windowID = (try? el.cgWindowId()) ?? 0
                     let attributes = WindowCandidateAttributes(axWindow: el)
                     if WindowCandidateDiscriminator.isPotentialAXWindow(
                         app: app,
-                        level: windowID == 0 ? nil : windowID.cgsLevel(),
+                        level: windowID.cgsLevel(),
                         attributes: attributes
                     ) {
                         results.append(el)
+                        remainingWindowIDs.remove(windowID)
                     }
-                } else if let subrole = try? el.subrole(),
-                          [kAXStandardWindowSubrole, kAXDialogSubrole].contains(subrole)
-                {
+                } else {
                     results.append(el)
+                    remainingWindowIDs.remove(windowID)
+                }
+
+                if remainingWindowIDs.isEmpty {
+                    nextID = 0
+                    break
                 }
             }
+
+            updateWindowScanCursor(
+                pid: pid,
+                targetWindowIDs: remainingWindowIDs,
+                nextID: remainingWindowIDs.isEmpty ? 0 : nextID
+            )
             return results
         }
+    }
+
+    private static func beginWindowScan(pid: pid_t, targetWindowIDs: Set<CGWindowID>) -> AXUIElementID? {
+        axWindowScanStateLock.lock()
+        defer { axWindowScanStateLock.unlock() }
+        guard axWindowScansInFlight.insert(pid).inserted else { return nil }
+        guard let state = axWindowScanStateByPID[pid], targetWindowIDs.isSubset(of: state.targetWindowIDs) else {
+            return 0
+        }
+        return state.cursor
+    }
+
+    private static func endWindowScan(pid: pid_t) {
+        axWindowScanStateLock.lock()
+        axWindowScansInFlight.remove(pid)
+        axWindowScanStateLock.unlock()
+    }
+
+    private static func updateWindowScanCursor(
+        pid: pid_t,
+        targetWindowIDs: Set<CGWindowID>,
+        nextID: AXUIElementID
+    ) {
+        axWindowScanStateLock.lock()
+        if nextID == 0 {
+            axWindowScanStateByPID.removeValue(forKey: pid)
+        } else {
+            axWindowScanStateByPID[pid] = AXWindowScanState(
+                targetWindowIDs: targetWindowIDs,
+                cursor: nextID
+            )
+        }
+        axWindowScanStateLock.unlock()
+    }
+
+    static func resetWindowScan(for pid: pid_t) {
+        axWindowScanStateLock.lock()
+        axWindowScanStateByPID.removeValue(forKey: pid)
+        axWindowScanStateLock.unlock()
     }
 
     static func allWindows(_ pid: pid_t, appElement: AXUIElement, app: NSRunningApplication? = nil, cgCandidates: [[String: AnyObject]]? = nil) -> [AXUIElement] {
@@ -167,32 +245,34 @@ extension AXUIElement {
         return DebugLogger.measureSlow("allWindows", thresholdMs: 200, details: "PID: \(pid)") {
             var set = Set<AXUIElement>()
 
-            let windows: [AXUIElement]?
             do {
-                windows = try DebugLogger.measureSlow("appElement.windows()", thresholdMs: 50, details: "PID: \(pid)") {
+                let windows = try DebugLogger.measureSlow("appElement.windows()", thresholdMs: 50, details: "PID: \(pid)") {
                     try appElement.windows()
                 }
+                if let windows { set.formUnion(windows) }
             } catch {
-                return []
+                if AXResponsiveness.isUnresponsive(pid) { return [] }
             }
-            if let windows { set.formUnion(windows) }
 
-            // Brute force exists to reach windows the AX list omits (typically other Spaces); invisible helper windows on the current Space never justify it.
             let candidates = cgCandidates ?? getCGWindowCandidates(for: pid)
-            let knownIDs = Set(set.compactMap { try? $0.cgWindowId() })
-            let activeSpaces = currentActiveSpaceIDs()
-            let hasUnreachedWindow = candidates.contains { desc in
-                let windowID = CGWindowID((desc[kCGWindowNumber as String] as? NSNumber)?.uint32Value ?? 0)
-                guard (desc[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
-                      !knownIDs.contains(windowID),
-                      isValidCGWindowCandidate(windowID, in: candidates)
-                else { return false }
-                let isOnscreen = (desc[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
-                let spaces = Set(windowID.cgsSpaces().map { Int($0) })
-                return isOnscreen || spaces.isEmpty || spaces.isDisjoint(with: activeSpaces)
+            var knownIDs = Set(set.compactMap { try? $0.cgWindowId() })
+            var unreachedWindowIDs = unreachedCGWindowIDs(in: candidates, excluding: knownIDs)
+
+            if !unreachedWindowIDs.isEmpty {
+                if let focusedWindow = try? appElement.focusedWindow() {
+                    set.insert(focusedWindow)
+                }
+                if let mainWindow = try? appElement.mainWindow() {
+                    set.insert(mainWindow)
+                }
+                knownIDs = Set(set.compactMap { try? $0.cgWindowId() })
+                unreachedWindowIDs = unreachedCGWindowIDs(in: candidates, excluding: knownIDs)
             }
-            if hasUnreachedWindow {
-                set.formUnion(windowsByBruteForce(pid, app: app))
+
+            if unreachedWindowIDs.isEmpty {
+                resetWindowScan(for: pid)
+            } else {
+                set.formUnion(windowsByBruteForce(pid, app: app, targetWindowIDs: unreachedWindowIDs))
             }
 
             return Array(set)
@@ -210,6 +290,10 @@ extension AXUIElement {
 
     func focusedWindow() throws -> AXUIElement? {
         try attribute(kAXFocusedWindowAttribute, AXUIElement.self)
+    }
+
+    func mainWindow() throws -> AXUIElement? {
+        try attribute(kAXMainWindowAttribute, AXUIElement.self)
     }
 
     func role() throws -> String? {

@@ -464,6 +464,31 @@ func findCGEntry(for windowID: CGWindowID, ownerPID: pid_t) -> [String: AnyObjec
     }
 }
 
+func unreachedCGWindowIDs(
+    in candidates: [[String: AnyObject]],
+    excluding knownIDs: Set<CGWindowID>
+) -> Set<CGWindowID> {
+    let activeSpaceIDs = currentActiveSpaceIDs()
+    lazy var managedSpaceIDs = WindowSpaces.allManagedSpaceIDs()
+
+    return Set(candidates.compactMap { entry in
+        let windowID = CGWindowID((entry[kCGWindowNumber as String] as? NSNumber)?.uint32Value ?? 0)
+        guard windowID != 0,
+              !knownIDs.contains(windowID),
+              (entry[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+              isValidCGWindowEntry(entry)
+        else { return nil }
+
+        let isOnScreen = (entry[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
+        let spaceIDs = Set(windowID.cgsSpaces().map { Int($0) })
+        let isOnManagedSpace = !spaceIDs.isEmpty && !spaceIDs.isDisjoint(with: managedSpaceIDs)
+        guard isOnScreen || spaceIDs.isEmpty || (isOnManagedSpace && spaceIDs.isDisjoint(with: activeSpaceIDs)) else {
+            return nil
+        }
+        return windowID
+    })
+}
+
 // MARK: - Shared Validation
 
 let AXMinWindowSize: CGSize = .init(width: 100, height: 100)

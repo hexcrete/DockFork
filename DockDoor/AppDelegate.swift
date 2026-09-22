@@ -116,13 +116,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        Task(priority: .high) { [weak self] in
-            guard self != nil else { return }
-
-            await WindowUtil.updateAllWindowsInCurrentSpace()
-        }
-
-        // Cold-start: seed all windows (including minimized and other Spaces) and start live AX tracker
+        // Cold-start: discover current and other-Space windows in one coordinated pass.
         let seeder = WindowSeeder()
         seeder.run()
         windowSeeder = seeder

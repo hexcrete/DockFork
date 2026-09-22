@@ -1565,6 +1565,15 @@ extension WindowUtil {
         return axWindows.count
     }
 
+    static func shouldRetryStartupDiscovery(for app: NSRunningApplication) -> Bool {
+        let pid = app.processIdentifier
+        guard isProcessAlive(pid), !isAppFiltered(app) else { return false }
+        if AXResponsiveness.isUnresponsive(pid) { return true }
+
+        let cachedIDs = Set(desktopSpaceWindowCacheManager.readCache(pid: pid).map(\.id))
+        return !unreachedCGWindowIDs(in: getCGWindowCandidates(for: pid), excluding: cachedIDs).isEmpty
+    }
+
     static func updateNewWindowsForApp(_ app: NSRunningApplication, restorePersistedOrder: Bool = true) async {
         WindowManipulationObservers.ensureObserver(for: app)
         if shouldCaptureWindowImages() {
@@ -2217,6 +2226,7 @@ extension WindowUtil {
     }
 
     static func purgeAppCache(with pid: pid_t) {
+        AXUIElement.resetWindowScan(for: pid)
         desktopSpaceWindowCacheManager.writeCache(pid: pid, windowSet: [])
     }
 

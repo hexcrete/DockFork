@@ -7,6 +7,7 @@ import Defaults
 private weak var activeWindowManipulationObserversInstance: WindowManipulationObservers?
 private var pendingNotifications: [String: DispatchWorkItem] = [:]
 private let windowProcessingDebounceInterval: TimeInterval = Defaults[.windowProcessingDebounceInterval]
+private let spaceChangeMinimumSettleInterval: TimeInterval = 0.35
 private let axObserverWorkQueue = DispatchQueue(label: "ddObsWorkQueue", qos: .userInitiated)
 
 private let observedAXNotifications: [String] = [
@@ -186,7 +187,7 @@ class WindowManipulationObservers {
         if Defaults[.showActiveAppIndicator] {
             ActiveAppIndicatorCoordinator.shared?.handleSpaceChanged()
         }
-        debounce(key: "spaceChange") {
+        debounce(key: "spaceChange", delay: max(windowProcessingDebounceInterval, spaceChangeMinimumSettleInterval)) {
             SpaceNumberResolver.refresh()
             WindowUtil.scheduleAllCachedWindowMetadataReconciliations()
             await DebugLogger.measureAsync("updateAllWindowsInCurrentSpace") {
