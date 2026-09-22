@@ -769,6 +769,7 @@ extension WindowUtil {
         let fullscreen = try? cachedWindow.axElement.isFullscreen()
         let position = try? cachedWindow.axElement.position()
         let spaceID = windowID.cgsSpaces().first.map { Int($0) }
+        SpaceNumberResolver.refreshIfNeeded(for: spaceID)
         let screenIdentifier = position.flatMap { screenIdentifier(forWindowAt: $0) }
         let hidden = cachedWindow.app.isHidden
         guard title != nil || minimized != nil || fullscreen != nil || position != nil || spaceID != nil else { return }

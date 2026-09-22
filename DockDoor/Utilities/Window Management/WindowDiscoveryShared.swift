@@ -563,10 +563,16 @@ func currentActiveSpaceIDs() -> Set<Int> {
 
 enum SpaceNumberResolver {
     private static let lock = NSLock()
+    private static let refreshLock = NSLock()
     private static var numbersByID: [Int: Int] = [:]
     private static var hasLoaded = false
+    private static var missingSpaceRefreshTimes: [Int: TimeInterval] = [:]
+    private static let missingSpaceRefreshInterval: TimeInterval = 0.35
 
     static func refresh() {
+        refreshLock.lock()
+        defer { refreshLock.unlock() }
+
         guard let displays = CGSCopyManagedDisplaySpaces(CGSMainConnectionID()) as? [[String: AnyObject]] else {
             return
         }
@@ -588,18 +594,34 @@ enum SpaceNumberResolver {
         lock.lock()
         numbersByID = refreshed
         hasLoaded = true
+        let staleRetryCutoff = Date.timeIntervalSinceReferenceDate - missingSpaceRefreshInterval
+        missingSpaceRefreshTimes = missingSpaceRefreshTimes.filter {
+            refreshed[$0.key] == nil && $0.value >= staleRetryCutoff
+        }
         lock.unlock()
+    }
+
+    static func refreshIfNeeded(for spaceID: Int?) {
+        guard let spaceID else { return }
+
+        let now = Date.timeIntervalSinceReferenceDate
+        lock.lock()
+        let missingFromLoadedTopology = hasLoaded && numbersByID[spaceID] == nil
+        let canRetryMissingSpace = now - (missingSpaceRefreshTimes[spaceID] ?? 0) >= missingSpaceRefreshInterval
+        let shouldRefresh = !hasLoaded || (missingFromLoadedTopology && canRetryMissingSpace)
+        if missingFromLoadedTopology, canRetryMissingSpace {
+            missingSpaceRefreshTimes[spaceID] = now
+        }
+        lock.unlock()
+
+        if shouldRefresh {
+            refresh()
+        }
     }
 
     static func number(for spaceID: Int?) -> Int? {
         guard let spaceID else { return nil }
-
-        lock.lock()
-        let needsInitialLoad = !hasLoaded
-        lock.unlock()
-        if needsInitialLoad {
-            refresh()
-        }
+        refreshIfNeeded(for: spaceID)
 
         lock.lock()
         defer { lock.unlock() }
