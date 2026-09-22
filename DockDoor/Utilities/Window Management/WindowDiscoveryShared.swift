@@ -512,6 +512,50 @@ func isValidCGWindowEntry(_ match: [String: AnyObject]) -> Bool {
     return true
 }
 
+private struct CGWindowGeometryKey: Hashable {
+    let ownerPID: pid_t
+    let x: Double
+    let y: Double
+    let width: Double
+    let height: Double
+}
+
+private func geometryKey(for entry: [String: AnyObject]) -> CGWindowGeometryKey? {
+    guard (entry[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+          isValidCGWindowEntry(entry),
+          let ownerPID = (entry[kCGWindowOwnerPID as String] as? NSNumber)?.int32Value,
+          ownerPID != 0,
+          let bounds = entry[kCGWindowBounds as String] as? [String: AnyObject],
+          let x = (bounds["X"] as? NSNumber)?.doubleValue,
+          let y = (bounds["Y"] as? NSNumber)?.doubleValue,
+          let width = (bounds["Width"] as? NSNumber)?.doubleValue,
+          let height = (bounds["Height"] as? NSNumber)?.doubleValue
+    else { return nil }
+
+    return CGWindowGeometryKey(
+        ownerPID: ownerPID,
+        x: x,
+        y: y,
+        width: width,
+        height: height
+    )
+}
+
+func unspacedGeometryAliasWindowIDs(in candidates: [[String: AnyObject]]) -> Set<CGWindowID> {
+    let windows = candidates.compactMap { entry -> (id: CGWindowID, geometry: CGWindowGeometryKey, spaces: Set<Int>)? in
+        let windowID = CGWindowID((entry[kCGWindowNumber as String] as? NSNumber)?.uint32Value ?? 0)
+        guard windowID != 0, let geometry = geometryKey(for: entry) else { return nil }
+        return (windowID, geometry, Set(windowID.cgsSpaces().map { Int($0) }))
+    }
+    let spaceBackedGeometries = Set(windows.compactMap { window in
+        window.spaces.isEmpty ? nil : window.geometry
+    })
+
+    return Set(windows.compactMap { window in
+        window.spaces.isEmpty && spaceBackedGeometries.contains(window.geometry) ? window.id : nil
+    })
+}
+
 func isNoninteractiveUntitledDialog(_ axWindow: AXUIElement) -> Bool {
     guard (try? axWindow.subrole()) == kAXDialogSubrole,
           let title = try? axWindow.title(),

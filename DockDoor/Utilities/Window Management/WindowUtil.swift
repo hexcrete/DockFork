@@ -1541,7 +1541,14 @@ extension WindowUtil {
 
         let appAX = AXUIElementCreateApplication(pid)
         let cgCandidates = getCGWindowCandidates(for: pid)
-        let axWindows = AXUIElement.allWindows(pid, appElement: appAX, app: app, cgCandidates: cgCandidates)
+        let geometryAliasWindowIDs = unspacedGeometryAliasWindowIDs(in: cgCandidates)
+        let axWindows = AXUIElement.allWindows(
+            pid,
+            appElement: appAX,
+            app: app,
+            cgCandidates: cgCandidates,
+            excludingWindowIDs: geometryAliasWindowIDs
+        )
         guard !axWindows.isEmpty else { return 0 }
 
         // Read cache once and compute sets to skip redundant processing
@@ -1555,7 +1562,7 @@ extension WindowUtil {
                 axWindow: axWin,
                 appAxElement: appAX,
                 app: app,
-                excludeWindowIDs: excludeWindowIDs,
+                excludeWindowIDs: excludeWindowIDs.union(geometryAliasWindowIDs),
                 skipWindowIDs: freshCachedIDs,
                 existingCachedIDs: allCachedIDs,
                 cgCandidates: cgCandidates,
@@ -1572,7 +1579,9 @@ extension WindowUtil {
         if AXResponsiveness.isUnresponsive(pid) { return true }
 
         let cachedIDs = Set(desktopSpaceWindowCacheManager.readCache(pid: pid).map(\.id))
-        return !unreachedCGWindowIDs(in: getCGWindowCandidates(for: pid), excluding: cachedIDs).isEmpty
+        let cgCandidates = getCGWindowCandidates(for: pid)
+        let ignoredIDs = unspacedGeometryAliasWindowIDs(in: cgCandidates)
+        return !unreachedCGWindowIDs(in: cgCandidates, excluding: cachedIDs.union(ignoredIDs)).isEmpty
     }
 
     static func updateNewWindowsForApp(_ app: NSRunningApplication, restorePersistedOrder: Bool = true) async {
@@ -1922,12 +1931,14 @@ extension WindowUtil {
             }
             if desktopSpaceWindowCacheManager.readCache(pid: pid).contains(where: { $0.id == cgID }) { return }
             let cgCandidates = getCGWindowCandidates(for: pid)
+            let geometryAliasWindowIDs = unspacedGeometryAliasWindowIDs(in: cgCandidates)
+            guard !geometryAliasWindowIDs.contains(cgID) else { return }
             guard isValidCGWindowCandidate(cgID, in: cgCandidates) else { continue }
             try? await captureAndCacheAXWindowInfo(
                 axWindow: axWindow,
                 appAxElement: appAxElement,
                 app: app,
-                excludeWindowIDs: [],
+                excludeWindowIDs: geometryAliasWindowIDs,
                 cgCandidates: cgCandidates,
                 restorePersistedOrder: false
             )
@@ -2180,10 +2191,12 @@ extension WindowUtil {
 
             var purifiedSet = existingWindowsSet
             let cgCandidates = getCGWindowCandidates(for: pid)
+            let geometryAliasWindowIDs = unspacedGeometryAliasWindowIDs(in: cgCandidates)
             let activeSpaceIDs = currentActiveSpaceIDs()
             lazy var managedSpaceIDs = WindowSpaces.allManagedSpaceIDs()
             for window in existingWindowsSet {
-                var shouldRemove = !isValidElement(window.axElement) ||
+                var shouldRemove = geometryAliasWindowIDs.contains(window.id) ||
+                    !isValidElement(window.axElement) ||
                     !WindowOwnerResolver.ownerBelongsToDisplayApp(window.ownerApp, displayApp: window.app)
 
                 if !shouldRemove {

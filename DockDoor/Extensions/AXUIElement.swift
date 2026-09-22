@@ -239,7 +239,13 @@ extension AXUIElement {
         axWindowScanStateLock.unlock()
     }
 
-    static func allWindows(_ pid: pid_t, appElement: AXUIElement, app: NSRunningApplication? = nil, cgCandidates: [[String: AnyObject]]? = nil) -> [AXUIElement] {
+    static func allWindows(
+        _ pid: pid_t,
+        appElement: AXUIElement,
+        app: NSRunningApplication? = nil,
+        cgCandidates: [[String: AnyObject]]? = nil,
+        excludingWindowIDs: Set<CGWindowID> = []
+    ) -> [AXUIElement] {
         guard !AXResponsiveness.isUnresponsive(pid) else { return [] }
 
         return DebugLogger.measureSlow("allWindows", thresholdMs: 200, details: "PID: \(pid)") {
@@ -254,18 +260,24 @@ extension AXUIElement {
                 if AXResponsiveness.isUnresponsive(pid) { return [] }
             }
 
+            let shouldInclude: (AXUIElement) -> Bool = { window in
+                guard let windowID = try? window.cgWindowId() else { return true }
+                return !excludingWindowIDs.contains(windowID)
+            }
+            set = Set(set.filter(shouldInclude))
+
             let candidates = cgCandidates ?? getCGWindowCandidates(for: pid)
-            var knownIDs = Set(set.compactMap { try? $0.cgWindowId() })
+            var knownIDs = Set(set.compactMap { try? $0.cgWindowId() }).union(excludingWindowIDs)
             var unreachedWindowIDs = unreachedCGWindowIDs(in: candidates, excluding: knownIDs)
 
             if !unreachedWindowIDs.isEmpty {
-                if let focusedWindow = try? appElement.focusedWindow() {
+                if let focusedWindow = try? appElement.focusedWindow(), shouldInclude(focusedWindow) {
                     set.insert(focusedWindow)
                 }
-                if let mainWindow = try? appElement.mainWindow() {
+                if let mainWindow = try? appElement.mainWindow(), shouldInclude(mainWindow) {
                     set.insert(mainWindow)
                 }
-                knownIDs = Set(set.compactMap { try? $0.cgWindowId() })
+                knownIDs = Set(set.compactMap { try? $0.cgWindowId() }).union(excludingWindowIDs)
                 unreachedWindowIDs = unreachedCGWindowIDs(in: candidates, excluding: knownIDs)
             }
 
