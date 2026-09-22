@@ -428,6 +428,7 @@ class KeybindHelper {
     private var hasProcessedModifierRelease: Bool = false
     private var preventSwitcherHideOnRelease: Bool = false
     private var shouldWarpMouseOnSelection: Bool = true
+    private var menuBarWindowSwitcherMouseDownTimestamp: CGEventTimestamp?
     private var heldKeyRepeatTask: Task<Void, Never>?
 
     /// Track the invocation mode for alternate keybinds
@@ -475,9 +476,18 @@ class KeybindHelper {
         }
     }
 
-    func openWindowSwitcherFromMenuBar() {
+    func toggleWindowSwitcherFromMenuBar(mouseDownTimestamp: CGEventTimestamp? = nil) {
+        if let mouseDownTimestamp {
+            menuBarWindowSwitcherMouseDownTimestamp = mouseDownTimestamp
+        }
         Task { @MainActor [weak self] in
             guard let self, Defaults[.enableWindowSwitcher] else { return }
+
+            if previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
+                windowSwitchingCoordinator.cancelSwitching(previewCoordinator: previewCoordinator)
+                previewCoordinator.hideWindow()
+                return
+            }
 
             currentInvocationMode = .allWindows
             isSwitcherModifierKeyPressed = false
@@ -849,8 +859,18 @@ class KeybindHelper {
                         event.flags = newFlags
                     }
                 } else {
-                    switcherSessionActive = false
-                    Task { @MainActor in
+                    let clickTimestamp = event.timestamp
+                    let waitsForMenuBarToggle = Defaults[.openWindowSwitcherFromMenuBarIcon] &&
+                        Defaults[.menuBarIconWindowSwitcherClick] == .leftClick
+                    let dismissalDelay = waitsForMenuBarToggle ? 0.05 : 0
+                    DispatchQueue.main.asyncAfter(deadline: .now() + dismissalDelay) {
+                        if waitsForMenuBarToggle,
+                           self.menuBarWindowSwitcherMouseDownTimestamp == clickTimestamp
+                        {
+                            self.menuBarWindowSwitcherMouseDownTimestamp = nil
+                            return
+                        }
+                        self.switcherSessionActive = false
                         if isWindowSwitcherActive {
                             self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
                             self.preventSwitcherHideOnRelease = false

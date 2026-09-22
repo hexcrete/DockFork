@@ -15,7 +15,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusBarItem: NSStatusItem?
     private var statusBarMenu: NSMenu?
     private var menuBarInteractionObserver: Defaults.Observation?
-    private var isPresentingStatusBarMenu = false
+    private var menuBarClickMonitor: Any?
+    private var isStatusBarMenuPresented = false
+    private var statusBarMenuDismissalEventNumber: Int?
+    private var statusBarMenuDismissalTimestamp: TimeInterval?
     private let windowActionsMenu = WindowActionsMenuController()
     private var updaterController: SPUStandardUpdaterController
     @ObservedObject var updaterState: UpdaterState
@@ -212,10 +215,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func removeMenuBar() {
         guard let statusBarItem else { return }
+        removeMenuBarClickMonitor()
+        statusBarMenu?.cancelTracking()
         NSStatusBar.system.removeStatusItem(statusBarItem)
         self.statusBarItem = nil
         statusBarMenu = nil
-        isPresentingStatusBarMenu = false
+        isStatusBarMenuPresented = false
+        statusBarMenuDismissalEventNumber = nil
+        statusBarMenuDismissalTimestamp = nil
     }
 
     private func observeMenuBarInteractionSettings() {
@@ -230,38 +237,88 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func updateMenuBarInteraction() {
-        guard let statusBarItem, let button = statusBarItem.button else { return }
+        guard let statusBarItem,
+              let statusBarMenu,
+              let button = statusBarItem.button
+        else { return }
 
-        if Defaults[.openWindowSwitcherFromMenuBarIcon] {
-            statusBarItem.menu = nil
-            button.target = self
-            button.action = #selector(menuBarIconClicked(_:))
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        } else {
-            button.target = nil
-            button.action = nil
-            button.sendAction(on: .leftMouseUp)
+        removeMenuBarClickMonitor()
+        button.target = nil
+        button.action = nil
+        button.sendAction(on: .leftMouseUp)
+
+        guard Defaults[.openWindowSwitcherFromMenuBarIcon] else {
             statusBarItem.menu = statusBarMenu
+            installMenuBarClickMonitor(leftClickOpensWindowSwitcher: false, rightClickOpensWindowSwitcher: false)
+            return
+        }
+
+        switch Defaults[.menuBarIconWindowSwitcherClick] {
+        case .rightClick:
+            statusBarItem.menu = statusBarMenu
+            installMenuBarClickMonitor(leftClickOpensWindowSwitcher: false, rightClickOpensWindowSwitcher: true)
+        case .leftClick:
+            statusBarItem.menu = nil
+            installMenuBarClickMonitor(leftClickOpensWindowSwitcher: true, rightClickOpensWindowSwitcher: false)
         }
     }
 
-    @objc private func menuBarIconClicked(_ sender: NSStatusBarButton) {
-        let isRightClick = NSApp.currentEvent?.type == .rightMouseUp
-        let opensWindowSwitcher = Defaults[.menuBarIconWindowSwitcherClick] == .rightClick
-            ? isRightClick
-            : !isRightClick
+    private func installMenuBarClickMonitor(
+        leftClickOpensWindowSwitcher: Bool,
+        rightClickOpensWindowSwitcher: Bool
+    ) {
+        let eventMask: NSEvent.EventTypeMask = leftClickOpensWindowSwitcher
+            ? [.leftMouseDown, .rightMouseDown]
+            : .rightMouseDown
 
-        if opensWindowSwitcher {
-            keybindHelper?.openWindowSwitcherFromMenuBar()
-        } else {
-            showStatusBarMenu(from: sender)
+        menuBarClickMonitor = NSEvent.addLocalMonitorForEvents(matching: eventMask) { [weak self] event in
+            guard let self,
+                  let button = statusBarItem?.button,
+                  event.window === button.window
+            else { return event }
+
+            let location = button.convert(event.locationInWindow, from: nil)
+            guard button.bounds.contains(location) else { return event }
+
+            let opensWindowSwitcher = event.type == .leftMouseDown
+                ? leftClickOpensWindowSwitcher
+                : rightClickOpensWindowSwitcher
+            if opensWindowSwitcher {
+                keybindHelper?.toggleWindowSwitcherFromMenuBar(
+                    mouseDownTimestamp: event.type == .leftMouseDown ? event.cgEvent?.timestamp : nil
+                )
+            } else if let statusBarMenu {
+                let isDismissalEvent = event.eventNumber == statusBarMenuDismissalEventNumber ||
+                    statusBarMenuDismissalTimestamp.map { abs(event.timestamp - $0) < 0.01 } == true
+                statusBarMenuDismissalEventNumber = nil
+                statusBarMenuDismissalTimestamp = nil
+                if isDismissalEvent {
+                    return nil
+                }
+
+                if isStatusBarMenuPresented {
+                    statusBarMenu.cancelTracking()
+                    return nil
+                }
+
+                isStatusBarMenuPresented = true
+                button.highlight(true)
+                statusBarMenu.popUp(
+                    positioning: nil,
+                    at: NSPoint(x: button.bounds.minX, y: button.bounds.minY),
+                    in: button
+                )
+                button.highlight(false)
+            }
+            return nil
         }
     }
 
-    private func showStatusBarMenu(from button: NSStatusBarButton) {
-        guard let statusBarMenu, !isPresentingStatusBarMenu else { return }
-        isPresentingStatusBarMenu = true
-        statusBarMenu.popUp(positioning: nil, at: NSPoint(x: 0, y: button.bounds.maxY), in: button)
+    private func removeMenuBarClickMonitor() {
+        if let menuBarClickMonitor {
+            NSEvent.removeMonitor(menuBarClickMonitor)
+            self.menuBarClickMonitor = nil
+        }
     }
 
     @objc private func quitAppWrapper() {
@@ -431,9 +488,17 @@ extension AppDelegate: NSWindowDelegate, NSMenuDelegate {
         }
     }
 
+    func menuWillOpen(_ menu: NSMenu) {
+        guard menu === statusBarMenu else { return }
+        isStatusBarMenuPresented = true
+    }
+
     func menuDidClose(_ menu: NSMenu) {
+        guard menu === statusBarMenu else { return }
+        statusBarMenuDismissalEventNumber = NSApp.currentEvent?.eventNumber
+        statusBarMenuDismissalTimestamp = NSApp.currentEvent?.timestamp
         DispatchQueue.main.async { [weak self] in
-            self?.isPresentingStatusBarMenu = false
+            self?.isStatusBarMenuPresented = false
         }
     }
 }
