@@ -11,14 +11,15 @@ import Foundation
 /// There is no Accessibility attribute that exposes tab-group membership for arbitrary apps,
 /// so membership is inferred from a reliable side effect: the windows in one visible tab group
 /// are stacked at the exact same screen frame, and only the selected tab is on screen. Windows
-/// that share a process and an (integer-rounded) frame are therefore treated as a single group,
-/// except that on-screen members are always distinct windows and are all kept.
+/// that share a process, Space, and an (integer-rounded) frame are therefore treated as a single
+/// group, except that on-screen members are always distinct windows and are all kept.
 enum NativeTabGrouping {
     /// The minimal window facts needed to detect tab groups, kept free of Accessibility and
     /// AppKit types so the grouping logic stays pure and unit-testable.
     struct Candidate {
         let id: CGWindowID
         let pid: pid_t
+        let spaceID: Int?
         let frame: CGRect
         /// Used to pick which member represents its group; the most recently accessed window
         /// (typically the active tab) wins.
@@ -31,6 +32,7 @@ enum NativeTabGrouping {
 
     private struct GroupKey: Hashable {
         let pid: pid_t
+        let spaceID: Int?
         let x: Int
         let y: Int
         let width: Int
@@ -55,6 +57,7 @@ enum NativeTabGrouping {
 
             let key = GroupKey(
                 pid: candidate.pid,
+                spaceID: candidate.spaceID,
                 x: Int(candidate.frame.origin.x.rounded()),
                 y: Int(candidate.frame.origin.y.rounded()),
                 width: Int(candidate.frame.size.width.rounded()),

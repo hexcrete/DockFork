@@ -624,13 +624,15 @@ enum WindowUtil {
     private static var programmaticResizeRefreshDelayNanos: UInt64 { programmaticResizeRefreshDelayMilliseconds * 1_000_000 }
     private static var axResizeRefreshDelayNanos: UInt64 { axResizeRefreshDelayMilliseconds * 1_000_000 }
     private static let programmaticResizeRefreshLock = NSLock()
+    private static let metadataReconciliationLock = NSLock()
     private static let globalMinimizeReconciliationLock = NSLock()
-    private struct PendingProgrammaticResizeRefresh {
+    private struct PendingWindowRefresh {
         let token: UUID
         let task: Task<Void, Never>
     }
 
-    private static var pendingProgrammaticResizeRefreshes: [String: PendingProgrammaticResizeRefresh] = [:]
+    private static var pendingProgrammaticResizeRefreshes: [String: PendingWindowRefresh] = [:]
+    private static var pendingMetadataReconciliations: [String: PendingWindowRefresh] = [:]
     private static var pendingGlobalMinimizeReconciliation: Task<Void, Never>?
 
     private static let captureError = NSError(
@@ -757,6 +759,92 @@ extension WindowUtil {
         }
     }
 
+    private static func reconcileCachedWindowMetadata(pid: pid_t, windowID: CGWindowID) {
+        guard let cachedWindow = desktopSpaceWindowCacheManager.readCache(pid: pid).first(where: { $0.id == windowID }),
+              isProcessAlive(pid)
+        else { return }
+
+        let title = try? cachedWindow.axElement.title()
+        let minimized = try? cachedWindow.axElement.isMinimized()
+        let fullscreen = try? cachedWindow.axElement.isFullscreen()
+        let position = try? cachedWindow.axElement.position()
+        let spaceID = windowID.cgsSpaces().first.map { Int($0) }
+        let screenIdentifier = position.flatMap { screenIdentifier(forWindowAt: $0) }
+        let hidden = cachedWindow.app.isHidden
+        guard title != nil || minimized != nil || fullscreen != nil || position != nil || spaceID != nil else { return }
+
+        desktopSpaceWindowCacheManager.updateCache(pid: pid) { windowSet in
+            guard let existing = windowSet.first(where: { $0.id == windowID }) else { return }
+            var updated = existing
+
+            if let title, !title.isEmpty {
+                updated.windowName = title
+            }
+            if let minimized {
+                updated.isMinimized = minimized
+            }
+            if let fullscreen {
+                updated.isFullscreen = fullscreen
+            }
+            if let spaceID {
+                updated.spaceID = spaceID
+            }
+            if let screenIdentifier {
+                updated.screenIdentifier = screenIdentifier
+            }
+            updated.isHidden = hidden
+
+            guard updated.viewSnapshot != existing.viewSnapshot else { return }
+            windowSet.remove(existing)
+            windowSet.insert(updated)
+        }
+    }
+
+    static func scheduleCachedWindowMetadataReconciliation(
+        pid: pid_t,
+        windowID: CGWindowID,
+        delayNanos: UInt64 = WindowAction.fullscreenConfirmationDelay
+    ) {
+        let key = "\(pid)-\(windowID)"
+
+        metadataReconciliationLock.lock()
+        pendingMetadataReconciliations[key]?.task.cancel()
+        let token = UUID()
+        let task = Task(priority: .utility) {
+            defer {
+                removePendingMetadataReconciliation(key: key, token: token)
+            }
+
+            do {
+                try await Task.sleep(nanoseconds: delayNanos)
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled else { return }
+            reconcileCachedWindowMetadata(pid: pid, windowID: windowID)
+        }
+        pendingMetadataReconciliations[key] = PendingWindowRefresh(token: token, task: task)
+        metadataReconciliationLock.unlock()
+    }
+
+    private static func removePendingMetadataReconciliation(key: String, token: UUID) {
+        metadataReconciliationLock.lock()
+        defer { metadataReconciliationLock.unlock() }
+        if pendingMetadataReconciliations[key]?.token == token {
+            pendingMetadataReconciliations.removeValue(forKey: key)
+        }
+    }
+
+    static func scheduleAllCachedWindowMetadataReconciliations() {
+        for window in desktopSpaceWindowCacheManager.getAllWindows() where !window.isWindowlessApp {
+            scheduleCachedWindowMetadataReconciliation(
+                pid: window.app.processIdentifier,
+                windowID: window.id
+            )
+        }
+    }
+
     private static func scheduleForcedPreviewRecapture(
         pid: pid_t,
         windowID: CGWindowID,
@@ -814,7 +902,7 @@ extension WindowUtil {
             guard !Task.isCancelled else { return }
             await forceCaptureAndCacheUpdate()
         }
-        pendingProgrammaticResizeRefreshes[refreshKey] = PendingProgrammaticResizeRefresh(token: token, task: refreshTask)
+        pendingProgrammaticResizeRefreshes[refreshKey] = PendingWindowRefresh(token: token, task: refreshTask)
         programmaticResizeRefreshLock.unlock()
     }
 
@@ -1312,8 +1400,8 @@ extension WindowUtil {
     }
 
     /// Collapses native macOS window-tab groups (e.g. Ghostty, Finder, Terminal) so a tabbed
-    /// window appears as a single entry instead of one per tab. Grouping is keyed by process and
-    /// frame, so windows from different apps are never merged and passing a multi-app list is safe.
+    /// window appears as a single entry instead of one per tab. Grouping is keyed by process,
+    /// Space, and frame, so distinct windows on different Spaces are never merged.
     static func collapseNativeTabsIfNeeded(_ windows: [WindowInfo]) -> [WindowInfo] {
         guard Defaults[.collapseNativeTabsIntoSingleWindow], !windows.isEmpty else { return windows }
 
@@ -1346,6 +1434,7 @@ extension WindowUtil {
             return NativeTabGrouping.Candidate(
                 id: window.id,
                 pid: window.app.processIdentifier,
+                spaceID: window.spaceID ?? window.id.cgsSpaces().first.map { Int($0) },
                 frame: currentFrame,
                 recency: window.lastAccessedTime,
                 groupable: !window.isMinimized
@@ -2019,6 +2108,9 @@ extension WindowUtil {
                 }
                 matchingWindowCopy.isMinimized = windowInfo.isMinimized
                 matchingWindowCopy.isHidden = windowInfo.isHidden
+                if let isFullscreen = windowInfo.isFullscreen {
+                    matchingWindowCopy.isFullscreen = isFullscreen
+                }
 
                 let shouldRejectImage = shouldRejectCapturedImage(windowInfo.image, for: windowInfo)
                 if shouldRejectImage, matchingWindow.image != nil {
@@ -2079,6 +2171,7 @@ extension WindowUtil {
             var purifiedSet = existingWindowsSet
             let cgCandidates = getCGWindowCandidates(for: pid)
             let activeSpaceIDs = currentActiveSpaceIDs()
+            lazy var managedSpaceIDs = WindowSpaces.allManagedSpaceIDs()
             for window in existingWindowsSet {
                 var shouldRemove = !isValidElement(window.axElement) ||
                     !WindowOwnerResolver.ownerBelongsToDisplayApp(window.ownerApp, displayApp: window.app)
@@ -2086,8 +2179,12 @@ extension WindowUtil {
                 if !shouldRemove {
                     if let cgEntry = findCGEntry(for: window.id, in: cgCandidates) {
                         let hasValidCGWindow = isValidCGWindowCandidate(window.id, in: cgCandidates)
-                        if !hasValidCGWindow, !window.isMinimized, !window.isHidden {
-                            shouldRemove = true
+                        if !hasValidCGWindow,
+                           !window.isMinimized,
+                           !window.isHidden
+                        {
+                            let isFullscreen = window.isFullscreen == true || (try? window.axElement.isFullscreen()) == true
+                            shouldRemove = !isFullscreen
                         } else if hasValidCGWindow {
                             shouldRemove = !shouldAcceptWindow(
                                 axWindow: window.axElement,
@@ -2099,7 +2196,9 @@ extension WindowUtil {
                             )
                         }
                     } else if !window.isMinimized, !window.isHidden {
-                        shouldRemove = true
+                        let isFullscreen = window.isFullscreen == true || (try? window.axElement.isFullscreen()) == true
+                        let liveSpaceIDs = Set(window.id.cgsSpaces().map { Int($0) })
+                        shouldRemove = !isFullscreen && (liveSpaceIDs.isEmpty || liveSpaceIDs.isDisjoint(with: managedSpaceIDs))
                     }
                 }
 

@@ -188,6 +188,7 @@ class WindowManipulationObservers {
         }
         debounce(key: "spaceChange") {
             SpaceNumberResolver.refresh()
+            WindowUtil.scheduleAllCachedWindowMetadataReconciliations()
             await DebugLogger.measureAsync("updateAllWindowsInCurrentSpace") {
                 await WindowUtil.updateAllWindowsInCurrentSpace()
             }
@@ -314,6 +315,9 @@ class WindowManipulationObservers {
                 self?.previewCoordinator.windowSwitcherCoordinator.setFocusedWindowID(focusedWindowID)
             }
             updateTimestampIfAppActive(element: element, app: app)
+            if let focusedWindowID {
+                WindowUtil.scheduleCachedWindowMetadataReconciliation(pid: pid, windowID: focusedWindowID)
+            }
             handleWindowEvent(element: element, app: app, notification: notificationName, validate: false) { [weak self] windowSet in
                 guard let self else { return }
                 let windowID = try? element.cgWindowId()
@@ -341,6 +345,7 @@ class WindowManipulationObservers {
                 }
             }
             if let resizedWindowID {
+                WindowUtil.scheduleCachedWindowMetadataReconciliation(pid: pid, windowID: resizedWindowID)
                 WindowUtil.refreshCachedPreviewAfterResizeNotification(pid: pid, windowID: resizedWindowID)
             }
         case kAXWindowMovedNotification:
@@ -356,6 +361,9 @@ class WindowManipulationObservers {
                         }
                     }
                 }
+            }
+            if let movedWindowID {
+                WindowUtil.scheduleCachedWindowMetadataReconciliation(pid: pid, windowID: movedWindowID)
             }
         case kAXWindowMiniaturizedNotification, kAXWindowDeminiaturizedNotification:
             let windowID = try? element.cgWindowId()

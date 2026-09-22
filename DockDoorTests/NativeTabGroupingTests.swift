@@ -9,6 +9,7 @@ struct NativeTabGroupingTests {
     private func candidate(
         id: CGWindowID,
         pid: pid_t = 100,
+        spaceID: Int? = 1,
         frame: CGRect = CGRect(x: 0, y: 0, width: 800, height: 600),
         recency: TimeInterval = 0,
         groupable: Bool = true,
@@ -17,6 +18,7 @@ struct NativeTabGroupingTests {
         NativeTabGrouping.Candidate(
             id: id,
             pid: pid,
+            spaceID: spaceID,
             frame: frame,
             recency: Date(timeIntervalSinceReferenceDate: recency),
             groupable: groupable,
@@ -66,6 +68,15 @@ struct NativeTabGroupingTests {
         let kept = NativeTabGrouping.representativeIDs(from: [
             candidate(id: 1, pid: 100, frame: frame),
             candidate(id: 2, pid: 200, frame: frame),
+        ])
+        #expect(kept == [1, 2])
+    }
+
+    @Test func doesNotMergeMatchingFramesAcrossSpaces() {
+        let frame = CGRect(x: 0, y: 0, width: 800, height: 600)
+        let kept = NativeTabGrouping.representativeIDs(from: [
+            candidate(id: 1, spaceID: 10, frame: frame),
+            candidate(id: 2, spaceID: 20, frame: frame),
         ])
         #expect(kept == [1, 2])
     }

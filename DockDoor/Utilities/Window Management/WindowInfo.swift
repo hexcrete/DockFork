@@ -80,6 +80,7 @@ struct WindowInfo: Identifiable, Hashable {
         let hasLimitedWindowControls: Bool
         let spaceID: Int?
         let spaceNumberOverride: Int?
+        let screenIdentifier: String?
         let imagePointer: UnsafeRawPointer?
     }
 
@@ -94,6 +95,7 @@ struct WindowInfo: Identifiable, Hashable {
             hasLimitedWindowControls: hasLimitedWindowControls,
             spaceID: spaceID,
             spaceNumberOverride: spaceNumberOverride,
+            screenIdentifier: screenIdentifier,
             imagePointer: image.map { Unmanaged.passUnretained($0).toOpaque() }
         )
     }
