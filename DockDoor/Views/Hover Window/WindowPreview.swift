@@ -3,8 +3,10 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 @MainActor
-private final class SpaceMoveMenuController: NSObject {
+final class SpaceMoveMenuController: NSObject {
     static let shared = SpaceMoveMenuController()
+
+    private weak var activeMenu: NSMenu?
 
     private struct MoveRequest {
         let window: WindowInfo
@@ -16,6 +18,14 @@ private final class SpaceMoveMenuController: NSObject {
         let menu = makeMenu(for: window, dismissPreviews: dismissPreviews)
         guard !menu.items.isEmpty else { return }
 
+        activeMenu?.cancelTracking()
+        activeMenu = menu
+        defer {
+            if activeMenu === menu {
+                activeMenu = nil
+            }
+        }
+
         if let event = NSApp.currentEvent,
            let contentView = event.window?.contentView
         {
@@ -23,6 +33,11 @@ private final class SpaceMoveMenuController: NSObject {
         } else {
             menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
         }
+    }
+
+    func dismiss() {
+        activeMenu?.cancelTracking()
+        activeMenu = nil
     }
 
     private func makeMenu(for window: WindowInfo, dismissPreviews: (() -> Void)?) -> NSMenu {

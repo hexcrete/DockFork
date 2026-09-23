@@ -208,6 +208,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         if shouldCancelPendingShow {
             cancelPendingShow()
         }
+        SpaceMoveMenuController.shared.dismiss()
         cancelAllDeferredActionWatchers()
         activationDismissalSuppression = nil
 
