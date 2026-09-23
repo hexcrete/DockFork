@@ -93,7 +93,8 @@ final class SpaceMoveMenuController: NSObject {
                 item.attributedTitle = attributedTitle(
                     title,
                     apps: apps,
-                    includesFullscreenSymbol: space.kind == .fullscreen
+                    includesFullscreenSymbol: space.kind == .fullscreen,
+                    appearance: menu.effectiveAppearance
                 )
 
                 if space.kind == .desktop {
@@ -164,16 +165,23 @@ final class SpaceMoveMenuController: NSObject {
     private func attributedTitle(
         _ title: String,
         apps: [NSRunningApplication],
-        includesFullscreenSymbol: Bool
+        includesFullscreenSymbol: Bool,
+        appearance: NSAppearance
     ) -> NSAttributedString {
         let result = NSMutableAttributedString(string: title)
         var attachmentCount = 0
 
-        func appendImage(_ image: NSImage, tint: NSColor? = nil) {
+        func appendImage(_ image: NSImage, usesPrimaryColor: Bool = false) {
             result.append(NSAttributedString(string: attachmentCount == 0 ? "\u{00A0}\u{00A0}" : "\u{00A0}"))
             let attachment = NSTextAttachment()
             let resizedImage = image.resizedToFit(in: NSSize(width: 14, height: 14))
-            attachment.image = tint.map { resizedImage.tint(color: $0) } ?? resizedImage
+            var attachmentImage = resizedImage
+            if usesPrimaryColor {
+                appearance.performAsCurrentDrawingAppearance {
+                    attachmentImage = resizedImage.tint(color: .labelColor)
+                }
+            }
+            attachment.image = attachmentImage
             attachment.bounds = NSRect(x: 0, y: -3, width: 14, height: 14)
             result.append(NSAttributedString(attachment: attachment))
             attachmentCount += 1
@@ -182,7 +190,7 @@ final class SpaceMoveMenuController: NSObject {
         if includesFullscreenSymbol,
            let symbol = NSImage(systemSymbolName: "arrow.up.left.and.arrow.down.right", accessibilityDescription: nil)
         {
-            appendImage(symbol, tint: .labelColor)
+            appendImage(symbol, usesPrimaryColor: true)
         }
 
         let appIcons = apps.compactMap(\.icon)
