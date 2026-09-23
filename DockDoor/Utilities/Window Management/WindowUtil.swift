@@ -626,6 +626,7 @@ enum WindowUtil {
     private static let programmaticResizeRefreshLock = NSLock()
     private static let metadataReconciliationLock = NSLock()
     private static let globalMinimizeReconciliationLock = NSLock()
+    private static let managedSpaceMoveLock = NSLock()
     private struct PendingWindowRefresh {
         let token: UUID
         let task: Task<Void, Never>
@@ -634,6 +635,7 @@ enum WindowUtil {
     private static var pendingProgrammaticResizeRefreshes: [String: PendingWindowRefresh] = [:]
     private static var pendingMetadataReconciliations: [String: PendingWindowRefresh] = [:]
     private static var pendingGlobalMinimizeReconciliation: Task<Void, Never>?
+    private static var pendingManagedSpaceMoves: [String: PendingWindowRefresh] = [:]
 
     private static let captureError = NSError(
         domain: "WindowCaptureError",
@@ -938,10 +940,8 @@ extension WindowUtil {
     }
 
     @discardableResult
-    static func moveWindowToCurrentManagedSpace(_ windowInfo: WindowInfo, mouseLocation: CGPoint = NSEvent.mouseLocation) -> Bool {
-        guard !windowInfo.isWindowlessApp,
-              let targetSpaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: mouseLocation)
-        else {
+    static func moveWindow(_ windowInfo: WindowInfo, toManagedSpace targetSpaceID: CGSSpaceID) -> Bool {
+        guard !windowInfo.isWindowlessApp else {
             return false
         }
 
@@ -950,6 +950,79 @@ extension WindowUtil {
             updateCachedWindowState(windowInfo, spaceID: .some(Int(targetSpaceID)))
         }
         return moved
+    }
+
+    @discardableResult
+    static func moveWindowToCurrentManagedSpace(_ windowInfo: WindowInfo, mouseLocation: CGPoint = NSEvent.mouseLocation) -> Bool {
+        guard let targetSpaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: mouseLocation) else {
+            return false
+        }
+        return moveWindow(windowInfo, toManagedSpace: targetSpaceID)
+    }
+
+    static func moveWindowConfirmed(
+        _ windowInfo: WindowInfo,
+        toManagedSpace targetSpaceID: CGSSpaceID,
+        completion: @escaping @MainActor (Bool) -> Void
+    ) {
+        guard !windowInfo.isWindowlessApp else {
+            Task { @MainActor in completion(false) }
+            return
+        }
+
+        let key = "\(windowInfo.app.processIdentifier)-\(windowInfo.id)"
+        managedSpaceMoveLock.lock()
+        pendingManagedSpaceMoves[key]?.task.cancel()
+        pendingManagedSpaceMoves.removeValue(forKey: key)
+        managedSpaceMoveLock.unlock()
+
+        guard WindowSpaces.move(windowID: windowInfo.id, toManagedSpace: targetSpaceID) else {
+            Task { @MainActor in completion(false) }
+            return
+        }
+
+        let token = UUID()
+        let task = Task(priority: .utility) {
+            defer {
+                removePendingManagedSpaceMove(key: key, token: token)
+            }
+
+            for delay in [60_000_000, 140_000_000, 300_000_000, 600_000_000] as [UInt64] {
+                do {
+                    try await Task.sleep(nanoseconds: delay)
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+
+                if windowInfo.id.cgsSpaces().contains(targetSpaceID) {
+                    updateCachedWindowState(windowInfo, spaceID: .some(Int(targetSpaceID)))
+                    scheduleCachedWindowMetadataReconciliation(
+                        pid: windowInfo.app.processIdentifier,
+                        windowID: windowInfo.id
+                    )
+                    await completion(true)
+                    return
+                }
+            }
+
+            DebugLogger.log(
+                "WindowUtil.moveWindowConfirmed",
+                details: "Move confirmation timed out for window \(windowInfo.id), Space \(targetSpaceID)"
+            )
+            await completion(false)
+        }
+        managedSpaceMoveLock.lock()
+        pendingManagedSpaceMoves[key] = PendingWindowRefresh(token: token, task: task)
+        managedSpaceMoveLock.unlock()
+    }
+
+    private static func removePendingManagedSpaceMove(key: String, token: UUID) {
+        managedSpaceMoveLock.lock()
+        defer { managedSpaceMoveLock.unlock() }
+        if pendingManagedSpaceMoves[key]?.token == token {
+            pendingManagedSpaceMoves.removeValue(forKey: key)
+        }
     }
 
     @discardableResult

@@ -605,6 +605,95 @@ func currentActiveSpaceIDs() -> Set<Int> {
     return result
 }
 
+enum ManagedSpaceKind: Int {
+    case desktop = 0
+    case system = 2
+    case fullscreen = 4
+}
+
+struct ManagedSpaceDescriptor {
+    let id: CGSSpaceID
+    let kind: ManagedSpaceKind?
+    let number: Int
+    let desktopNumber: Int?
+    let ownerPIDs: Set<pid_t>
+}
+
+struct ManagedDisplayDescriptor {
+    let identifier: String
+    let currentSpaceID: CGSSpaceID?
+    let spaces: [ManagedSpaceDescriptor]
+}
+
+enum ManagedSpacesTopology {
+    private static func spaceID(from dictionary: [String: AnyObject]?) -> CGSSpaceID? {
+        if let managedSpaceID = dictionary?["ManagedSpaceID"] as? NSNumber {
+            return managedSpaceID.uint64Value
+        }
+        if let id64 = dictionary?["id64"] as? NSNumber {
+            return id64.uint64Value
+        }
+        return nil
+    }
+
+    private static func ownerPIDs(in value: Any) -> Set<pid_t> {
+        if let dictionary = value as? [String: Any] {
+            return dictionary.reduce(into: Set<pid_t>()) { result, entry in
+                if entry.key.caseInsensitiveCompare("pid") == .orderedSame,
+                   let pid = entry.value as? NSNumber,
+                   pid.int32Value > 0
+                {
+                    result.insert(pid.int32Value)
+                }
+                result.formUnion(ownerPIDs(in: entry.value))
+            }
+        }
+        if let array = value as? [Any] {
+            return array.reduce(into: Set<pid_t>()) { result, child in
+                result.formUnion(ownerPIDs(in: child))
+            }
+        }
+        return []
+    }
+
+    static func snapshot(includeOwners: Bool = false) -> [ManagedDisplayDescriptor] {
+        guard let displays = CGSCopyManagedDisplaySpaces(CGSMainConnectionID()) as? [[String: AnyObject]] else {
+            return []
+        }
+
+        var spaceNumber = 1
+        var desktopNumber = 1
+
+        return displays.compactMap { display in
+            guard let identifier = display["Display Identifier"] as? String else { return nil }
+            let currentSpace = display["Current Space"] as? [String: AnyObject]
+            let rawSpaces = display["Spaces"] as? [[String: AnyObject]] ?? []
+            let spaces = rawSpaces.compactMap { space -> ManagedSpaceDescriptor? in
+                guard let id = spaceID(from: space) else { return nil }
+                let kind = (space["type"] as? NSNumber).flatMap { ManagedSpaceKind(rawValue: $0.intValue) }
+                let descriptor = ManagedSpaceDescriptor(
+                    id: id,
+                    kind: kind,
+                    number: spaceNumber,
+                    desktopNumber: kind == .desktop ? desktopNumber : nil,
+                    ownerPIDs: includeOwners ? ownerPIDs(in: space) : []
+                )
+                spaceNumber += 1
+                if kind == .desktop {
+                    desktopNumber += 1
+                }
+                return descriptor
+            }
+
+            return ManagedDisplayDescriptor(
+                identifier: identifier,
+                currentSpaceID: spaceID(from: currentSpace),
+                spaces: spaces
+            )
+        }
+    }
+}
+
 enum SpaceNumberResolver {
     private static let lock = NSLock()
     private static let refreshLock = NSLock()
@@ -617,23 +706,14 @@ enum SpaceNumberResolver {
         refreshLock.lock()
         defer { refreshLock.unlock() }
 
-        guard let displays = CGSCopyManagedDisplaySpaces(CGSMainConnectionID()) as? [[String: AnyObject]] else {
-            return
-        }
-
         var refreshed: [Int: Int] = [:]
-        var number = 1
-        for display in displays {
-            guard let spaces = display["Spaces"] as? [[String: AnyObject]] else { continue }
-            for space in spaces {
-                let spaceID = (space["id64"] as? NSNumber)?.intValue ??
-                    (space["ManagedSpaceID"] as? NSNumber)?.intValue
-                if let spaceID {
-                    refreshed[spaceID] = number
-                    number += 1
-                }
+        for display in ManagedSpacesTopology.snapshot() {
+            for space in display.spaces {
+                refreshed[Int(space.id)] = space.number
             }
         }
+
+        guard !refreshed.isEmpty else { return }
 
         lock.lock()
         numbersByID = refreshed
@@ -675,43 +755,13 @@ enum SpaceNumberResolver {
 }
 
 enum WindowSpaces {
-    private struct ManagedDisplay {
-        let identifier: String
-        let currentSpaceID: CGSSpaceID?
-        let spaceIDs: Set<CGSSpaceID>
-    }
-
-    private static func spaceID(from dictionary: [String: AnyObject]?) -> CGSSpaceID? {
-        if let managedSpaceID = dictionary?["ManagedSpaceID"] as? NSNumber {
-            return managedSpaceID.uint64Value
-        }
-        if let id64 = dictionary?["id64"] as? NSNumber {
-            return id64.uint64Value
-        }
-        return nil
-    }
-
-    private static func managedDisplays() -> [ManagedDisplay] {
-        guard let displays = CGSCopyManagedDisplaySpaces(CGSMainConnectionID()) as? [[String: AnyObject]] else {
-            return []
-        }
-
-        return displays.compactMap { display in
-            guard let identifier = display["Display Identifier"] as? String else { return nil }
-            let currentSpace = display["Current Space"] as? [String: AnyObject]
-            let spaces = display["Spaces"] as? [[String: AnyObject]] ?? []
-
-            return ManagedDisplay(
-                identifier: identifier,
-                currentSpaceID: spaceID(from: currentSpace),
-                spaceIDs: Set(spaces.compactMap { spaceID(from: $0) })
-            )
-        }
+    static func managedDisplays(includeOwners: Bool = false) -> [ManagedDisplayDescriptor] {
+        ManagedSpacesTopology.snapshot(includeOwners: includeOwners)
     }
 
     static func allManagedSpaceIDs() -> Set<Int> {
         Set(managedDisplays().flatMap { display in
-            display.spaceIDs.union(display.currentSpaceID.map { [$0] } ?? []).map { Int($0) }
+            Set(display.spaces.map(\.id)).union(display.currentSpaceID.map { [$0] } ?? []).map { Int($0) }
         })
     }
 
@@ -730,6 +780,14 @@ enum WindowSpaces {
         }
 
         return identifiers
+    }
+
+    static func displayName(for identifier: String) -> String? {
+        NSScreen.screens.first { screen in
+            displayIdentifiers(for: screen).contains { candidate in
+                candidate.caseInsensitiveCompare(identifier) == .orderedSame
+            }
+        }?.localizedName
     }
 
     private static func screenContainingMouse(_ mouseLocation: CGPoint) -> NSScreen? {
@@ -760,7 +818,7 @@ enum WindowSpaces {
     static func move(windowID: CGWindowID, toManagedSpace targetSpaceID: CGSSpaceID) -> Bool {
         let displays = managedDisplays()
         guard displays.contains(where: { display in
-            display.currentSpaceID == targetSpaceID || display.spaceIDs.contains(targetSpaceID)
+            display.currentSpaceID == targetSpaceID || display.spaces.contains(where: { $0.id == targetSpaceID })
         }) else {
             DebugLogger.log("WindowSpaces.move", details: "Target Space \(targetSpaceID) not found")
             return false

@@ -173,17 +173,24 @@ struct WindowPreviewCompact: View, Equatable {
             HStack(spacing: controlsSpacing) {
                 let spaceNumber = appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : nil
                 if spaceNumber != nil || !indicatorStateSymbols.isEmpty {
-                    WindowStateIndicator(
-                        number: spaceNumber,
-                        stateSymbols: indicatorStateSymbols,
-                        disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
-                        backgroundAppearance: backgroundAppearance,
-                        highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator &&
-                            spaceNumber.map(currentSpaceNumbers.contains) == true,
-                        highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
-                        highlightOpacity: appearance.selectionOpacity,
-                        activeBorderColor: appearance.activeAppIndicatorColor
-                    )
+                    SpaceMoveIndicatorControl(
+                        window: windowInfo,
+                        spaceNumber: spaceNumber,
+                        isEnabled: appearance.enableSpaceIndicatorWindowMoving && !mockPreviewActive,
+                        dismissPreviews: onTap
+                    ) {
+                        WindowStateIndicator(
+                            number: spaceNumber,
+                            stateSymbols: indicatorStateSymbols,
+                            disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
+                            backgroundAppearance: backgroundAppearance,
+                            highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator &&
+                                spaceNumber.map(currentSpaceNumbers.contains) == true,
+                            highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+                            highlightOpacity: appearance.selectionOpacity,
+                            activeBorderColor: appearance.activeAppIndicatorColor
+                        )
+                    }
                 }
 
                 // Traffic light buttons

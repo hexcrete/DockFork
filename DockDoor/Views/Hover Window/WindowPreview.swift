@@ -2,6 +2,251 @@ import Defaults
 import SwiftUI
 import UniformTypeIdentifiers
 
+@MainActor
+private final class SpaceMoveMenuController: NSObject {
+    static let shared = SpaceMoveMenuController()
+
+    private struct MoveRequest {
+        let window: WindowInfo
+        let destinationSpaceID: CGSSpaceID
+        let dismissPreviews: (() -> Void)?
+    }
+
+    func present(for window: WindowInfo, dismissPreviews: (() -> Void)?) {
+        let menu = makeMenu(for: window, dismissPreviews: dismissPreviews)
+        guard !menu.items.isEmpty else { return }
+
+        if let event = NSApp.currentEvent,
+           let contentView = event.window?.contentView
+        {
+            NSMenu.popUpContextMenu(menu, with: event, for: contentView)
+        } else {
+            menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        }
+    }
+
+    private func makeMenu(for window: WindowInfo, dismissPreviews: (() -> Void)?) -> NSMenu {
+        let menu = NSMenu(title: String(localized: "Move to Space", comment: "Space destination menu title"))
+        let displays = WindowSpaces.managedDisplays(includeOwners: true)
+        let availableSpaces = displays.flatMap(\.spaces).filter { $0.kind == .desktop }
+        let availableSpaceIDs = Set(availableSpaces.map(\.id))
+        let reportedSpaceIDs = Set(window.id.cgsSpaces())
+        let sourceSpaceIDs = reportedSpaceIDs.isEmpty
+            ? Set(window.spaceID.map { [CGSSpaceID($0)] } ?? [])
+            : reportedSpaceIDs
+        let sourceDesktopSpaceIDs = sourceSpaceIDs.intersection(availableSpaceIDs)
+
+        if window.isFullscreen == true || (try? window.axElement.isFullscreen()) == true {
+            addInformationalItem(
+                String(localized: "Exit Full Screen to move this window", comment: "Unavailable Space movement explanation"),
+                to: menu
+            )
+            return menu
+        }
+
+        if sourceDesktopSpaceIDs.count > 1 {
+            addInformationalItem(
+                String(localized: "Windows available on all Spaces cannot be moved", comment: "Unavailable Space movement explanation"),
+                to: menu
+            )
+            return menu
+        }
+
+        let cachedWindows = WindowUtil.getAllWindowsIgnoringSwitcherFilters().filter { !$0.isWindowlessApp }
+        let showUnavailable = Defaults[.showUnavailableSpacesInMenu]
+        let visibleDisplays = displays.compactMap { display -> (ManagedDisplayDescriptor, [ManagedSpaceDescriptor])? in
+            let spaces = display.spaces.filter { space in
+                space.kind == .desktop || (showUnavailable && space.kind == .fullscreen)
+            }
+            return spaces.isEmpty ? nil : (display, spaces)
+        }
+        let showsDisplayHeadings = visibleDisplays.count > 1
+
+        for (displayIndex, entry) in visibleDisplays.enumerated() {
+            if displayIndex > 0 {
+                menu.addItem(.separator())
+            }
+            if showsDisplayHeadings {
+                let fallback = String(localized: "Display \(displayIndex + 1)", comment: "Fallback display name in Space destination menu")
+                addInformationalItem(WindowSpaces.displayName(for: entry.0.identifier) ?? fallback, to: menu)
+            }
+
+            for space in entry.1 {
+                let apps = apps(on: space, cachedWindows: cachedWindows)
+                let title = menuTitle(for: space, apps: apps)
+                let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+                item.attributedTitle = attributedTitle(
+                    title,
+                    apps: apps,
+                    includesFullscreenSymbol: space.kind == .fullscreen
+                )
+
+                if space.kind == .desktop {
+                    let isCurrent = sourceSpaceIDs.contains(space.id)
+                    item.state = isCurrent ? .on : .off
+                    item.isEnabled = !isCurrent
+                    if !isCurrent {
+                        item.action = #selector(moveWindow(_:))
+                        item.target = self
+                        item.representedObject = MoveRequest(
+                            window: window,
+                            destinationSpaceID: space.id,
+                            dismissPreviews: dismissPreviews
+                        )
+                    }
+                } else {
+                    item.isEnabled = false
+                }
+
+                menu.addItem(item)
+            }
+        }
+
+        if menu.items.isEmpty {
+            addInformationalItem(
+                String(localized: "No available Spaces", comment: "Empty Space destination menu"),
+                to: menu
+            )
+        }
+        return menu
+    }
+
+    private func apps(on space: ManagedSpaceDescriptor, cachedWindows: [WindowInfo]) -> [NSRunningApplication] {
+        var pids = space.ownerPIDs
+        pids.formUnion(cachedWindows.compactMap { window in
+            window.spaceID == Int(space.id) ? window.app.processIdentifier : nil
+        })
+
+        var seenApps = Set<String>()
+        return pids.compactMap { pid in
+            cachedWindows.first(where: { $0.app.processIdentifier == pid })?.app ??
+                NSRunningApplication(processIdentifier: pid)
+        }
+        .filter { app in
+            let identity = app.bundleIdentifier ?? "pid:\(app.processIdentifier)"
+            return seenApps.insert(identity).inserted
+        }
+        .sorted {
+            ($0.localizedName ?? "").localizedStandardCompare($1.localizedName ?? "") == .orderedAscending
+        }
+    }
+
+    private func menuTitle(for space: ManagedSpaceDescriptor, apps: [NSRunningApplication]) -> String {
+        switch Defaults[.spaceMenuDisplayMode] {
+        case .numberOnly:
+            return "\(space.number)"
+        case .fullName:
+            if space.kind == .desktop {
+                return String(localized: "Desktop \(space.desktopNumber ?? space.number)", comment: "Desktop name in Space destination menu")
+            }
+            let appNames = apps.compactMap(\.localizedName)
+            return appNames.isEmpty
+                ? String(localized: "Full Screen", comment: "Fallback fullscreen Space name")
+                : appNames.joined(separator: " + ")
+        }
+    }
+
+    private func attributedTitle(
+        _ title: String,
+        apps: [NSRunningApplication],
+        includesFullscreenSymbol: Bool
+    ) -> NSAttributedString {
+        let result = NSMutableAttributedString(string: title)
+        var attachmentCount = 0
+
+        func appendImage(_ image: NSImage, tint: NSColor? = nil) {
+            result.append(NSAttributedString(string: attachmentCount == 0 ? "\u{00A0}\u{00A0}" : "\u{00A0}"))
+            let attachment = NSTextAttachment()
+            let resizedImage = image.resizedToFit(in: NSSize(width: 14, height: 14))
+            attachment.image = tint.map { resizedImage.tint(color: $0) } ?? resizedImage
+            attachment.bounds = NSRect(x: 0, y: -3, width: 14, height: 14)
+            result.append(NSAttributedString(attachment: attachment))
+            attachmentCount += 1
+        }
+
+        if includesFullscreenSymbol,
+           let symbol = NSImage(systemSymbolName: "arrow.up.left.and.arrow.down.right", accessibilityDescription: nil)
+        {
+            appendImage(symbol, tint: .labelColor)
+        }
+
+        let appIcons = apps.compactMap(\.icon)
+        let visibleAppIcons = appIcons.prefix(max(0, 5 - attachmentCount))
+        for image in visibleAppIcons {
+            appendImage(image)
+        }
+        let hiddenAppIconCount = appIcons.count - visibleAppIcons.count
+        if hiddenAppIconCount > 0 {
+            result.append(NSAttributedString(string: " +\(hiddenAppIconCount)"))
+        }
+        return result
+    }
+
+    private func addInformationalItem(_ title: String, to menu: NSMenu) {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        menu.addItem(item)
+    }
+
+    @objc private func moveWindow(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? MoveRequest else { return }
+
+        WindowUtil.moveWindowConfirmed(request.window, toManagedSpace: request.destinationSpaceID) { success in
+            guard success, Defaults[.switchToDestinationSpaceAfterMoving] else { return }
+
+            request.dismissPreviews?()
+            var movedWindow = request.window
+            if movedWindow.app.isHidden {
+                movedWindow.app.unhide()
+                WindowUtil.updateCachedWindowState(movedWindow, isHidden: false)
+            }
+            if movedWindow.isMinimized {
+                try? movedWindow.axElement.setAttribute(kAXMinimizedAttribute, false)
+                movedWindow.isMinimized = false
+                WindowUtil.updateCachedWindowState(movedWindow, isMinimized: false)
+            }
+            movedWindow.bringToFront()
+        }
+    }
+}
+
+struct SpaceMoveIndicatorControl<Label: View>: View {
+    let window: WindowInfo
+    let spaceNumber: Int?
+    let isEnabled: Bool
+    let dismissPreviews: (() -> Void)?
+    let label: Label
+
+    init(
+        window: WindowInfo,
+        spaceNumber: Int?,
+        isEnabled: Bool,
+        dismissPreviews: (() -> Void)?,
+        @ViewBuilder label: () -> Label
+    ) {
+        self.window = window
+        self.spaceNumber = spaceNumber
+        self.isEnabled = isEnabled
+        self.dismissPreviews = dismissPreviews
+        self.label = label()
+    }
+
+    var body: some View {
+        if isEnabled, spaceNumber != nil {
+            Button {
+                SpaceMoveMenuController.shared.present(for: window, dismissPreviews: dismissPreviews)
+            } label: {
+                label
+            }
+            .buttonStyle(.plain)
+            .simultaneousGesture(TapGesture())
+            .accessibilityLabel(Text("Move window to another Space"))
+        } else {
+            label
+        }
+    }
+}
+
 func resolvedTrafficLightButtons(
     for windowInfo: WindowInfo,
     configuredButtons: Set<WindowAction>,
@@ -142,6 +387,7 @@ struct PreviewAppearanceSettings: Equatable {
     let compactModeItemSize: CompactModeItemSize
     let compactModeHideTrafficLights: Bool
     let showSpaceNumberIndicator: Bool
+    let enableSpaceIndicatorWindowMoving: Bool
     let highlightCurrentSpaceNumberIndicator: Bool
     let windowStateIndicatorPlacement: WindowStateIndicatorPlacement
     let disableDockStyleWindowStateIndicator: Bool
@@ -172,6 +418,7 @@ struct PreviewAppearanceSettings: Equatable {
         .dockLivePreviewQuality, .windowSwitcherLivePreviewQuality,
         .dockLivePreviewFrameRate, .windowSwitcherLivePreviewFrameRate,
         .showDockPreviewSpaceNumberIndicator, .showSwitcherSpaceNumberIndicator, .showCmdTabSpaceNumberIndicator,
+        .enableSpaceIndicatorWindowMoving,
         .highlightDockPreviewCurrentSpaceIndicator, .highlightSwitcherCurrentSpaceIndicator, .highlightCmdTabCurrentSpaceIndicator,
         .dockPreviewWindowStateIndicatorPlacement, .switcherWindowStateIndicatorPlacement, .cmdTabWindowStateIndicatorPlacement,
         .disableDockStyleWindowStateIndicator, .switcherDisableDockStyleWindowStateIndicator, .cmdTabDisableDockStyleWindowStateIndicator,
@@ -233,6 +480,7 @@ struct PreviewAppearanceSettings: Equatable {
             compactModeItemSize: Defaults[.compactModeItemSize],
             compactModeHideTrafficLights: Defaults[.compactModeHideTrafficLights],
             showSpaceNumberIndicator: pick(.showDockPreviewSpaceNumberIndicator, switcher: .showSwitcherSpaceNumberIndicator, cmdTab: .showCmdTabSpaceNumberIndicator),
+            enableSpaceIndicatorWindowMoving: Defaults[.enableSpaceIndicatorWindowMoving],
             highlightCurrentSpaceNumberIndicator: pick(.highlightDockPreviewCurrentSpaceIndicator, switcher: .highlightSwitcherCurrentSpaceIndicator, cmdTab: .highlightCmdTabCurrentSpaceIndicator),
             windowStateIndicatorPlacement: pick(.dockPreviewWindowStateIndicatorPlacement, switcher: .switcherWindowStateIndicatorPlacement, cmdTab: .cmdTabWindowStateIndicatorPlacement),
             disableDockStyleWindowStateIndicator: pick(.disableDockStyleWindowStateIndicator, switcher: .switcherDisableDockStyleWindowStateIndicator, cmdTab: .cmdTabDisableDockStyleWindowStateIndicator),
@@ -345,17 +593,24 @@ struct WindowPreview: View, Equatable {
         let spaceNumber = appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : nil
         if spaceNumber != nil || !stateSymbols.isEmpty {
             let adjustedPadding = stateSymbols.isEmpty ? max(0, nonAlignmentPadding) : 0
-            WindowStateIndicator(
-                number: spaceNumber,
-                stateSymbols: stateSymbols,
-                disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
-                backgroundAppearance: backgroundAppearance,
-                highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator &&
-                    spaceNumber.map(currentSpaceNumbers.contains) == true,
-                highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
-                highlightOpacity: appearance.selectionOpacity,
-                activeBorderColor: appearance.activeAppIndicatorColor
-            )
+            SpaceMoveIndicatorControl(
+                window: windowInfo,
+                spaceNumber: spaceNumber,
+                isEnabled: appearance.enableSpaceIndicatorWindowMoving && !mockPreviewActive,
+                dismissPreviews: onTap
+            ) {
+                WindowStateIndicator(
+                    number: spaceNumber,
+                    stateSymbols: stateSymbols,
+                    disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
+                    backgroundAppearance: backgroundAppearance,
+                    highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator &&
+                        spaceNumber.map(currentSpaceNumbers.contains) == true,
+                    highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+                    highlightOpacity: appearance.selectionOpacity,
+                    activeBorderColor: appearance.activeAppIndicatorColor
+                )
+            }
             .fixedSize(horizontal: true, vertical: false)
             .layoutPriority(1)
             .padding(.leading, controlsAreLeading ? 0 : -adjustedPadding)

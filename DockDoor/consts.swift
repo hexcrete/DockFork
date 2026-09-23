@@ -378,6 +378,13 @@ extension Defaults.Keys {
 
     static let middleClickAction = Key<WindowAction>("middleClickAction", default: .close)
 
+    // MARK: - Spaces
+
+    static let enableSpaceIndicatorWindowMoving = Key<Bool>("enableSpaceIndicatorWindowMoving", default: true)
+    static let spaceMenuDisplayMode = Key<SpaceMenuDisplayMode>("spaceMenuDisplayMode", default: .numberOnly)
+    static let switchToDestinationSpaceAfterMoving = Key<Bool>("switchToDestinationSpaceAfterMoving", default: false)
+    static let showUnavailableSpacesInMenu = Key<Bool>("showUnavailableSpacesInMenu", default: false)
+
     // MARK: - Window Preview Keyboard Shortcuts
 
     static let cmdShortcuts = Key<[CmdShortcut]>("cmdShortcuts", default: CmdShortcut.defaultShortcuts)
@@ -524,6 +531,20 @@ enum WindowStateIndicatorPlacement: String, CaseIterable, Defaults.Serializable 
             String(localized: "On Window Previews", comment: "Window state indicator placement option")
         case .nextToTrafficLightButtons:
             String(localized: "Next to Traffic Light Buttons", comment: "Window state indicator placement option")
+        }
+    }
+}
+
+enum SpaceMenuDisplayMode: String, CaseIterable, Defaults.Serializable {
+    case numberOnly
+    case fullName
+
+    var localizedName: String {
+        switch self {
+        case .numberOnly:
+            String(localized: "Space number only", comment: "Space destination menu display mode")
+        case .fullName:
+            String(localized: "Full name", comment: "Space destination menu display mode")
         }
     }
 }

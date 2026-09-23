@@ -287,6 +287,7 @@ struct SettingsMockPreview: View {
             compactModeItemSize: compactModeItemSize,
             compactModeHideTrafficLights: compactModeHideTrafficLights,
             showSpaceNumberIndicator: showSpaceNumberIndicator,
+            enableSpaceIndicatorWindowMoving: false,
             highlightCurrentSpaceNumberIndicator: highlightCurrentSpaceNumberIndicator,
             windowStateIndicatorPlacement: windowStateIndicatorPlacement,
             disableDockStyleWindowStateIndicator: disableDockStyleWindowStateIndicator,

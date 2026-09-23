@@ -1544,6 +1544,40 @@ enum SettingsSearchCatalog {
             icon: "keyboard"
         ),
         SettingsSearchItem(
+            id: "gestures.enableSpaceIndicatorWindowMoving",
+            title: String(localized: "Use Space Number Indicator to move windows to Spaces"),
+            description: String(localized: "Click the Space Number Indicator to list available Spaces. Choosing a Space will move the selected window there."),
+            keywords: ["space", "desktop", "move window", "indicator"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Spaces"),
+            icon: "rectangle.on.rectangle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.spaceMenuDisplayMode",
+            title: String(localized: "Display available Spaces as:"),
+            keywords: ["space", "desktop", "number", "name", "menu"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Spaces"),
+            icon: "textformat"
+        ),
+        SettingsSearchItem(
+            id: "gestures.switchToDestinationSpaceAfterMoving",
+            title: String(localized: "Switch to the destination Space after moving the window"),
+            keywords: ["space", "desktop", "switch", "focus", "move window"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Spaces"),
+            icon: "arrow.right.to.line"
+        ),
+        SettingsSearchItem(
+            id: "gestures.showUnavailableSpacesInMenu",
+            title: String(localized: "Show unavailable Spaces in the list"),
+            description: String(localized: "Show Spaces the window cannot be moved to in the Spaces dropdown menu."),
+            keywords: ["space", "desktop", "fullscreen", "unavailable", "menu"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Spaces"),
+            icon: "rectangle.slash"
+        ),
+        SettingsSearchItem(
             id: "gestures.menuBarIconWindowSwitcher",
             title: String(localized: "Menu bar icon"),
             description: String(localized: "Open Window Switcher when clicking on menu bar icon"),
