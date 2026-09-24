@@ -24,10 +24,7 @@ private enum WindowSwitcherLaunchSource: Equatable {
     }
 
     var startsOnSecondWindow: Bool {
-        switch self {
-        case .keyboard: Defaults[.useClassicWindowOrdering]
-        case .menuBar: false
-        }
+        Defaults[.useClassicWindowOrdering]
     }
 
     var showsInstantly: Bool {
@@ -508,7 +505,7 @@ class KeybindHelper {
             isShiftKeyPressedGeneral = false
             hasProcessedModifierRelease = true
             preventSwitcherHideOnRelease = Defaults[.enableWindowSwitcherSearch]
-            shouldWarpMouseOnSelection = false
+            shouldWarpMouseOnSelection = true
             switcherSessionActive = false
 
             await windowSwitchingCoordinator.openFromMenuBar(previewCoordinator: previewCoordinator)
