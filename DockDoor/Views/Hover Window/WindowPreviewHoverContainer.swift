@@ -1067,13 +1067,6 @@ struct WindowPreviewHoverContainer: View {
 
     private func handleEdgeScrollHover(at location: CGPoint, isHorizontal: Bool) {
         let edgeSize: CGFloat = 50
-        let toolbarExclusion: CGFloat = 46
-        let appearance = appearanceOverride ?? cachedAppearance ?? PreviewAppearanceSettings.resolve(
-            windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
-            dockPosition: dockPosition
-        )
-        let topExclusion = appearance.controlPosition.showsOnTop ? toolbarExclusion : 0
-        let bottomExclusion = appearance.controlPosition.showsOnBottom ? toolbarExclusion : 0
         let width = edgeScrollHoverSize.width
         let height = edgeScrollHoverSize.height
 
@@ -1082,12 +1075,20 @@ struct WindowPreviewHoverContainer: View {
             return
         }
 
-        guard location.y >= topExclusion, location.y <= height - bottomExclusion else {
-            stopEdgeScroll()
-            return
-        }
-
         if isHorizontal {
+            let toolbarExclusion: CGFloat = 46
+            let appearance = appearanceOverride ?? cachedAppearance ?? PreviewAppearanceSettings.resolve(
+                windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
+                dockPosition: dockPosition
+            )
+            let topExclusion = appearance.controlPosition.showsOnTop ? toolbarExclusion : 0
+            let bottomExclusion = appearance.controlPosition.showsOnBottom ? toolbarExclusion : 0
+
+            guard location.y >= topExclusion, location.y <= height - bottomExclusion else {
+                stopEdgeScroll()
+                return
+            }
+
             if location.x <= edgeSize {
                 startEdgeScroll(direction: -1, isHorizontal: true)
             } else if location.x >= width - edgeSize {
@@ -1096,9 +1097,9 @@ struct WindowPreviewHoverContainer: View {
                 stopEdgeScroll()
             }
         } else {
-            if location.y <= topExclusion + edgeSize {
+            if location.y <= edgeSize {
                 startEdgeScroll(direction: -1, isHorizontal: false)
-            } else if location.y >= height - bottomExclusion - edgeSize {
+            } else if location.y >= height - edgeSize {
                 startEdgeScroll(direction: 1, isHorizontal: false)
             } else {
                 stopEdgeScroll()
