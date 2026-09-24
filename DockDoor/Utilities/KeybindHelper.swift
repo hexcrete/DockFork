@@ -19,6 +19,10 @@ private enum WindowSwitcherLaunchSource: Equatable {
     case keyboard
     case menuBar
 
+    var dismissesOnModifierRelease: Bool {
+        self == .keyboard
+    }
+
     var startsOnSecondWindow: Bool {
         switch self {
         case .keyboard: Defaults[.useClassicWindowOrdering]
@@ -46,6 +50,7 @@ private class WindowSwitchingCoordinator {
     private var uiRenderingTask: Task<Void, Never>?
     private var windowRefreshTask: Task<Void, Never>?
     private var currentSessionId = UUID()
+    private var activeLaunchSource: WindowSwitcherLaunchSource?
     /// When true, initialization should complete but immediately select the window instead of showing UI
     private var shouldSelectImmediately = false
 
@@ -104,6 +109,7 @@ private class WindowSwitchingCoordinator {
         mode: SwitcherInvocationMode = .allWindows,
         launchSource: WindowSwitcherLaunchSource
     ) async {
+        activeLaunchSource = nil
         // Reset the immediate-select flag at start of initialization
         shouldSelectImmediately = false
         windowRefreshTask?.cancel()
@@ -141,6 +147,7 @@ private class WindowSwitchingCoordinator {
             bestGuessMonitor: targetScreen,
             startOnSecondWindow: launchSource.startsOnSecondWindow
         )
+        activeLaunchSource = launchSource
         coordinator.activateKeybindSession()
 
         // If modifier was released during initialization, immediately select and exit
@@ -150,6 +157,7 @@ private class WindowSwitchingCoordinator {
                 selectedWindow.warpMouseToCenterIfNeeded()
             }
             coordinator.deactivateKeybindSession()
+            activeLaunchSource = nil
             previewCoordinator.hideWindow()
             shouldSelectImmediately = false
             return
@@ -390,6 +398,7 @@ private class WindowSwitchingCoordinator {
         currentSessionId = UUID()
         windowRefreshTask?.cancel()
         coordinator.deactivateKeybindSession()
+        activeLaunchSource = nil
         uiRenderingTask?.cancel()
         return selectedWindow
     }
@@ -398,12 +407,17 @@ private class WindowSwitchingCoordinator {
         previewCoordinator.windowSwitcherCoordinator.isKeybindSessionActive
     }
 
+    var dismissesOnModifierRelease: Bool {
+        activeLaunchSource?.dismissesOnModifierRelease == true
+    }
+
     @MainActor
     func cancelSwitching(previewCoordinator: SharedPreviewWindowCoordinator) {
         currentSessionId = UUID()
         shouldSelectImmediately = false
         windowRefreshTask?.cancel()
         previewCoordinator.windowSwitcherCoordinator.deactivateKeybindSession()
+        activeLaunchSource = nil
         uiRenderingTask?.cancel()
     }
 
@@ -1046,7 +1060,11 @@ class KeybindHelper {
             cancelHeldKeyRepeatTask()
         }
 
-        if !Defaults[.preventSwitcherHide], !preventSwitcherHideOnRelease, !(previewCoordinator.isSearchWindowFocused) {
+        if windowSwitchingCoordinator.dismissesOnModifierRelease,
+           !Defaults[.preventSwitcherHide],
+           !preventSwitcherHideOnRelease,
+           !previewCoordinator.isSearchWindowFocused
+        {
             if oldSwitcherModifierState, !isSwitcherModifierKeyPressed, !hasProcessedModifierRelease {
                 hasProcessedModifierRelease = true
                 preventSwitcherHideOnRelease = false
@@ -1112,7 +1130,10 @@ class KeybindHelper {
                         } else {
                             self.preventSwitcherHideOnRelease = false
 
-                            if !Defaults[.preventSwitcherHide], !self.isSwitcherModifierKeyPressed {
+                            if self.windowSwitchingCoordinator.dismissesOnModifierRelease,
+                               !Defaults[.preventSwitcherHide],
+                               !self.isSwitcherModifierKeyPressed
+                            {
                                 self.switcherSessionActive = false
                                 self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
                                 self.hasProcessedModifierRelease = true
