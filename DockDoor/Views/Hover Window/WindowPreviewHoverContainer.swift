@@ -441,22 +441,8 @@ struct WindowPreviewHoverContainer: View {
         }
         guard hoveredIndex != previewStateCoordinator.currIndex else { return }
 
-        if isWindowSwitcher, !previewStateCoordinator.hasMovedSinceOpen {
-            let screenLocation = NSEvent.mouseLocation
-
-            if previewStateCoordinator.initialHoverLocation == nil {
-                previewStateCoordinator.initialHoverLocation = screenLocation
-                return
-            }
-
-            if let initial = previewStateCoordinator.initialHoverLocation {
-                let distance = hypot(screenLocation.x - initial.x, screenLocation.y - initial.y)
-                if distance > 1 {
-                    previewStateCoordinator.hasMovedSinceOpen = true
-                } else {
-                    return
-                }
-            }
+        if isWindowSwitcher, !previewStateCoordinator.registerMouseMovementSinceOpen() {
+            return
         }
 
         previewStateCoordinator.setIndex(to: hoveredIndex, shouldScroll: false, source: .mouse)
@@ -467,14 +453,7 @@ struct WindowPreviewHoverContainer: View {
         guard let hoveredIndex else { return }
         guard hoveredIndex != previewStateCoordinator.currIndex else { return }
 
-        if !previewStateCoordinator.hasMovedSinceOpen,
-           let initial = previewStateCoordinator.initialHoverLocation
-        {
-            let screenLocation = NSEvent.mouseLocation
-            let distance = hypot(screenLocation.x - initial.x, screenLocation.y - initial.y)
-            guard distance > 1 else { return }
-            previewStateCoordinator.hasMovedSinceOpen = true
-        }
+        guard previewStateCoordinator.registerMouseMovementSinceOpen() else { return }
 
         previewStateCoordinator.setIndex(to: hoveredIndex, shouldScroll: false)
     }
@@ -1066,6 +1045,11 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func handleEdgeScrollHover(at location: CGPoint, isHorizontal: Bool) {
+        guard previewStateCoordinator.registerMouseMovementSinceOpen() else {
+            stopEdgeScroll()
+            return
+        }
+
         let edgeSize: CGFloat = 50
         let width = edgeScrollHoverSize.width
         let height = edgeScrollHoverSize.height

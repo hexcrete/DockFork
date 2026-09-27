@@ -179,6 +179,23 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
+    func registerMouseMovementSinceOpen(at location: CGPoint = NSEvent.mouseLocation) -> Bool {
+        if hasMovedSinceOpen { return true }
+
+        guard let initialHoverLocation else {
+            self.initialHoverLocation = location
+            return false
+        }
+
+        guard hypot(location.x - initialHoverLocation.x, location.y - initialHoverLocation.y) > 1 else {
+            return false
+        }
+
+        hasMovedSinceOpen = true
+        return true
+    }
+
+    @MainActor
     func clearSelectionIfMouseSource(shouldScroll: Bool = false) {
         guard selectionInputSource == .mouse else { return }
         updateSelectionIndex(-1, source: .programmatic, shouldScroll: shouldScroll)
