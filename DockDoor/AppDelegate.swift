@@ -94,11 +94,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let dockObs = DockObserver(previewCoordinator: currentPreviewCoordinator)
             dockObserver = dockObs
 
-            appClosureObserver = WindowManipulationObservers(previewCoordinator: currentPreviewCoordinator)
-
             if Defaults[.enableWindowSwitcher] || Defaults[.enableCmdTabEnhancements] {
                 keybindHelper = KeybindHelper(previewCoordinator: currentPreviewCoordinator)
             }
+
+            appClosureObserver = WindowManipulationObservers(
+                previewCoordinator: currentPreviewCoordinator,
+                dismissPreviewsForSpaceChange: { [weak self, weak currentPreviewCoordinator] in
+                    if let keybindHelper = self?.keybindHelper {
+                        keybindHelper.dismissPreviewsForSpaceChange()
+                    } else {
+                        currentPreviewCoordinator?.windowSwitcherCoordinator.deactivateKeybindSession()
+                        currentPreviewCoordinator?.hideWindow()
+                    }
+                }
+            )
 
             if Defaults[.showActiveAppIndicator] {
                 activeAppIndicator = ActiveAppIndicatorCoordinator()

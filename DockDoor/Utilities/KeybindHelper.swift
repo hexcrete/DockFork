@@ -512,6 +512,16 @@ class KeybindHelper {
         }
     }
 
+    @MainActor
+    func dismissPreviewsForSpaceChange() {
+        switcherSessionActive = false
+        cancelHeldKeyRepeatTask()
+        windowSwitchingCoordinator.cancelSwitching(previewCoordinator: previewCoordinator)
+        preventSwitcherHideOnRelease = false
+        hasProcessedModifierRelease = true
+        previewCoordinator.hideWindow()
+    }
+
     private func cleanup() {
         monitorTimer?.invalidate()
         monitorTimer = nil

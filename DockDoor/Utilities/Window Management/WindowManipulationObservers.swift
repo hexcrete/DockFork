@@ -27,6 +27,7 @@ private let observedAXNotifications: [String] = [
 
 class WindowManipulationObservers {
     private let previewCoordinator: SharedPreviewWindowCoordinator
+    private let dismissPreviewsForSpaceChange: @MainActor () -> Void
 
     static func shouldDismissPreviewOnAppActivation(
         isKeybindSessionActive: Bool,
@@ -60,8 +61,12 @@ class WindowManipulationObservers {
         }
     }
 
-    init(previewCoordinator: SharedPreviewWindowCoordinator) {
+    init(
+        previewCoordinator: SharedPreviewWindowCoordinator,
+        dismissPreviewsForSpaceChange: @escaping @MainActor () -> Void
+    ) {
         self.previewCoordinator = previewCoordinator
+        self.dismissPreviewsForSpaceChange = dismissPreviewsForSpaceChange
         activeWindowManipulationObserversInstance = self
         setupObservers()
     }
@@ -182,7 +187,7 @@ class WindowManipulationObservers {
     @objc private func activeSpaceDidChange(_ notification: Notification) {
         DebugLogger.log("activeSpaceDidChange")
         Task { @MainActor in
-            previewCoordinator.hideWindow()
+            dismissPreviewsForSpaceChange()
         }
         if Defaults[.showActiveAppIndicator] {
             ActiveAppIndicatorCoordinator.shared?.handleSpaceChanged()
