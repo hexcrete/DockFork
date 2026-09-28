@@ -285,6 +285,7 @@ final class DockObserver {
     }
 
     @MainActor func processSelectedDockItemChanged() {
+        HangDiagnostics.record("dock activation received")
         let currentMouseLocation = DockObserver.getMousePosition()
 
         guard !previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive else {
@@ -383,6 +384,8 @@ final class DockObserver {
             cachedWindows.append(contentsOf: WindowUtil.readCachedWindows(for: appInstance.processIdentifier))
         }
         cachedWindows = WindowUtil.collapseNativeTabsIfNeeded(cachedWindows)
+
+        HangDiagnostics.record("dock cache ready pid=\(currentApp.processIdentifier) windows=\(cachedWindows.count)")
 
         lastHoveredPID = currentApp.processIdentifier
         lastHoveredAppWasFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == currentApp.processIdentifier

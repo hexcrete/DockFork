@@ -286,7 +286,10 @@ private struct PermissionRow: View {
 }
 
 private struct DebugLoggingRow: View {
-    @Default(.debugMode) var debugMode
+    @Default(.debugMode) private var debugMode
+    @Default(.limitDebugLogFileSize) private var limitDebugLogFileSize
+    @Default(.debugLogMaximumSizeMB) private var debugLogMaximumSizeMB
+    @State private var isExporting = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -296,7 +299,7 @@ private struct DebugLoggingRow: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Debug Logging")
                         .font(.body)
-                    Text("Capture performance metrics for troubleshooting")
+                    Text("Capture performance metrics and app hang diagnostics for troubleshooting")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -305,16 +308,24 @@ private struct DebugLoggingRow: View {
 
                 Toggle("", isOn: $debugMode)
                     .labelsHidden()
+                    .onChange(of: debugMode) { enabled in
+                        DebugLogger.configure(enabled: enabled)
+                    }
             }
 
             if debugMode {
                 HStack(spacing: 12) {
                     Button("Export Logs") {
-                        if let url = DebugLogger.exportLogs() {
-                            NSWorkspace.shared.activateFileViewerSelecting([url])
+                        isExporting = true
+                        Task {
+                            if let url = await DebugLogger.exportLogs() {
+                                NSWorkspace.shared.activateFileViewerSelecting([url])
+                            }
+                            isExporting = false
                         }
                     }
                     .buttonStyle(AccentButtonStyle(small: true))
+                    .disabled(isExporting)
 
                     Button("Clear Logs") {
                         DebugLogger.clearLogs()
@@ -322,6 +333,29 @@ private struct DebugLoggingRow: View {
                     .buttonStyle(AccentButtonStyle(small: true))
                 }
                 .padding(.leading, 40)
+
+                Toggle("Limit debug log file size", isOn: $limitDebugLogFileSize)
+                    .padding(.leading, 40)
+                    .settingsSearchTarget("support.limitDebugLogFileSize")
+                    .onChange(of: limitDebugLogFileSize) { _ in
+                        DebugLogger.applySizeLimit()
+                    }
+
+                if limitDebugLogFileSize {
+                    sliderSetting(
+                        title: "Maximum debug log size",
+                        value: $debugLogMaximumSizeMB,
+                        range: 1 ... 100,
+                        step: 1,
+                        unit: "MB",
+                        formatter: NumberFormatter(style: .none, minimumFractionDigits: 0, maximumFractionDigits: 0)
+                    )
+                    .padding(.leading, 40)
+                    .settingsSearchTarget("support.debugLogMaximumSizeMB")
+                    .onChange(of: debugLogMaximumSizeMB) { _ in
+                        DebugLogger.applySizeLimit()
+                    }
+                }
             }
         }
     }

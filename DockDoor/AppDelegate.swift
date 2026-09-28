@@ -136,6 +136,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             openSettingsWindow(nil)
         }
 
+        DebugLogger.configure(enabled: Defaults[.debugMode])
+
         #if DEBUG
             debugHarness = DebugTestHarness(hooks: .init(
                 simulateWake: { [weak self] in self?.handleSystemWake() },

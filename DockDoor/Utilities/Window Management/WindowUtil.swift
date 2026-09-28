@@ -2091,6 +2091,8 @@ extension WindowUtil {
     }
 
     static func updateAllWindowsInCurrentSpace() async {
+        HangDiagnostics.record("global window refresh started")
+        defer { HangDiagnostics.record("global window refresh finished") }
         var processedPIDs = Set<pid_t>()
 
         if shouldCaptureWindowImages() {

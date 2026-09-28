@@ -2205,11 +2205,27 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "support.debugLogging",
             title: String(localized: "Debug Logging"),
-            description: String(localized: "Capture performance metrics for troubleshooting"),
+            description: String(localized: "Capture performance metrics and app hang diagnostics for troubleshooting"),
             keywords: ["debug", "log", "logging", "performance", "troubleshoot"],
             tab: "Support",
             section: String(localized: "Updates"),
             icon: "ant.fill"
+        ),
+        SettingsSearchItem(
+            id: "support.limitDebugLogFileSize",
+            title: String(localized: "Limit debug log file size"),
+            keywords: ["debug", "log", "size", "limit", "cap"],
+            tab: "Support",
+            section: String(localized: "Updates"),
+            icon: "externaldrive"
+        ),
+        SettingsSearchItem(
+            id: "support.debugLogMaximumSizeMB",
+            title: String(localized: "Maximum debug log size"),
+            keywords: ["debug", "log", "size", "megabyte", "storage"],
+            tab: "Support",
+            section: String(localized: "Updates"),
+            icon: "externaldrive"
         ),
     ]
 }

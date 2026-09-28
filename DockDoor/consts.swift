@@ -804,6 +804,8 @@ extension Defaults.Keys {
     static let disableImagePreview = Key<Bool>("disableImagePreview", default: false)
     static let lastKnownScreenRecordingPermission = Key<Bool>("lastKnownScreenRecordingPermission", default: false)
     static let debugMode = Key<Bool>("debugMode", default: false)
+    static let limitDebugLogFileSize = Key<Bool>("limitDebugLogFileSize", default: true)
+    static let debugLogMaximumSizeMB = Key<Double>("debugLogMaximumSizeMB", default: 10)
 
     // MARK: - Active App Indicator
 

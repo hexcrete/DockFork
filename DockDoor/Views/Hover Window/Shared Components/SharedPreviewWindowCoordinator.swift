@@ -938,6 +938,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         dockItemFrameOverride: CGRect? = nil,
         renderStartTime: CFAbsoluteTime? = nil
     ) {
+        HangDiagnostics.record("preview display started app=\(appName) windows=\(windows.count)")
         let elapsed = renderStartTime.map { (CFAbsoluteTimeGetCurrent() - $0) * 1000 } ?? 0
         DebugLogger.log("PreviewRender", details: "performDisplay start (+\(String(format: "%.1f", elapsed))ms)")
 

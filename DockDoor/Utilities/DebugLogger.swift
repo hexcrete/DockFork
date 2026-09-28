@@ -6,10 +6,15 @@ import os.log
 enum DebugLogger {
     private static let log = OSLog(subsystem: Bundle.main.bundleIdentifier ?? "DockDoor", category: "Debug")
     private static let queue = DispatchQueue(label: "DebugLogger", qos: .utility)
-    private static let logFileURL: URL = {
-        let tempDir = FileManager.default.temporaryDirectory
-        return tempDir.appendingPathComponent("DockDoor-Debug.log")
+    private static let diagnosticsDirectoryURL: URL = {
+        let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return applicationSupport.appendingPathComponent("DockDoor/Diagnostics", isDirectory: true)
     }()
+
+    private static let logFileURL = diagnosticsDirectoryURL.appendingPathComponent("DockDoor-Debug.log")
+    fileprivate static let hangSampleURL = diagnosticsDirectoryURL.appendingPathComponent("DockDoor-Hang.sample.txt")
+    private static let exportURL = diagnosticsDirectoryURL.appendingPathComponent("DockDoor-Diagnostics.zip")
+    private static let timestampLock = NSLock()
 
     private static let timestampFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -19,24 +24,79 @@ enum DebugLogger {
         return formatter
     }()
 
-    private static func formattedTimestamp() -> String { timestampFormatter.string(from: Date()) }
+    private static func formattedTimestamp() -> String {
+        timestampLock.lock()
+        defer { timestampLock.unlock() }
+        return timestampFormatter.string(from: Date())
+    }
+
+    static func configure(enabled: Bool) {
+        if enabled {
+            HangDiagnostics.start()
+        } else {
+            HangDiagnostics.stop()
+        }
+    }
+
+    static func applySizeLimit() {
+        queue.async {
+            guard Defaults[.limitDebugLogFileSize],
+                  let attributes = try? FileManager.default.attributesOfItem(atPath: logFileURL.path),
+                  let size = attributes[.size] as? NSNumber
+            else { return }
+            trimLogIfNeeded(fileSize: size.uint64Value)
+        }
+    }
+
+    private static func prepareDiagnosticsDirectory() -> Bool {
+        do {
+            try FileManager.default.createDirectory(at: diagnosticsDirectoryURL, withIntermediateDirectories: true)
+            return true
+        } catch {
+            os_log("Failed to create diagnostics directory: %{public}@", log: log, type: .error, error.localizedDescription)
+            return false
+        }
+    }
 
     private static func writeToFile(_ line: String) {
         os_log("%{public}@", log: log, type: .debug, line)
 
         queue.async {
+            guard prepareDiagnosticsDirectory() else { return }
             guard let data = (line + "\n").data(using: .utf8) else { return }
 
+            var fileSize = UInt64(data.count)
             if FileManager.default.fileExists(atPath: logFileURL.path) {
                 if let fileHandle = try? FileHandle(forWritingTo: logFileURL) {
-                    fileHandle.seekToEndOfFile()
+                    fileSize += fileHandle.seekToEndOfFile()
                     fileHandle.write(data)
                     try? fileHandle.close()
                 }
             } else {
                 try? data.write(to: logFileURL, options: .atomic)
             }
+
+            trimLogIfNeeded(fileSize: fileSize)
         }
+    }
+
+    private static func trimLogIfNeeded(fileSize: UInt64) {
+        guard Defaults[.limitDebugLogFileSize] else { return }
+
+        let maximumBytes = UInt64(max(1, Defaults[.debugLogMaximumSizeMB])) * 1024 * 1024
+        guard fileSize > maximumBytes else { return }
+        guard let handle = try? FileHandle(forReadingFrom: logFileURL) else { return }
+        let retainedBytes = maximumBytes * 3 / 4
+        handle.seek(toFileOffset: fileSize - retainedBytes)
+        let tail = handle.readDataToEndOfFile()
+        try? handle.close()
+
+        let trimmed: Data = if let newline = tail.firstIndex(of: 0x0A), newline < tail.endIndex {
+            Data(tail[tail.index(after: newline)...])
+        } else {
+            tail
+        }
+        try? trimmed.write(to: logFileURL, options: .atomic)
     }
 
     /// Log an operation with optional details
@@ -126,16 +186,60 @@ enum DebugLogger {
         return result
     }
 
-    /// Export logs to a file and return the URL
-    static func exportLogs() -> URL? {
-        guard FileManager.default.fileExists(atPath: logFileURL.path) else { return nil }
-        return logFileURL
+    /// Export the operation log and latest hang sample as a ZIP archive.
+    static func exportLogs() async -> URL? {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                guard prepareDiagnosticsDirectory() else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let files = [logFileURL, hangSampleURL].filter {
+                    FileManager.default.fileExists(atPath: $0.path)
+                }
+                guard !files.isEmpty else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let temporaryRootURL = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("DockDoor-Diagnostics-\(UUID().uuidString)", isDirectory: true)
+                let stagingURL = temporaryRootURL.appendingPathComponent("DockDoor-Diagnostics", isDirectory: true)
+                do {
+                    try FileManager.default.createDirectory(at: stagingURL, withIntermediateDirectories: true)
+                    defer { try? FileManager.default.removeItem(at: temporaryRootURL) }
+
+                    for file in files {
+                        try FileManager.default.copyItem(
+                            at: file,
+                            to: stagingURL.appendingPathComponent(file.lastPathComponent)
+                        )
+                    }
+
+                    try? FileManager.default.removeItem(at: exportURL)
+                    let process = Process()
+                    process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                    process.arguments = ["-c", "-k", "--sequesterRsrc", "--keepParent", stagingURL.path, exportURL.path]
+                    process.standardOutput = FileHandle.nullDevice
+                    process.standardError = FileHandle.nullDevice
+                    try process.run()
+                    process.waitUntilExit()
+                    continuation.resume(returning: process.terminationStatus == 0 ? exportURL : nil)
+                } catch {
+                    os_log("Failed to export diagnostics: %{public}@", log: log, type: .error, error.localizedDescription)
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
     }
 
     /// Clear all logs
     static func clearLogs() {
         queue.async {
             try? FileManager.default.removeItem(at: logFileURL)
+            try? FileManager.default.removeItem(at: hangSampleURL)
+            try? FileManager.default.removeItem(at: exportURL)
         }
     }
 
@@ -147,6 +251,90 @@ enum DebugLogger {
             else { return 0 }
 
             return content.components(separatedBy: .newlines).filter { !$0.isEmpty }.count
+        }
+    }
+}
+
+enum HangDiagnostics {
+    private static let queue = DispatchQueue(label: "HangDiagnostics", qos: .utility)
+    private static let sampleQueue = DispatchQueue(label: "HangDiagnostics.sample", qos: .utility)
+    private static var timer: DispatchSourceTimer?
+    private static var lastHeartbeat = ProcessInfo.processInfo.systemUptime
+    private static var heartbeatPending = false
+    private static var sampledCurrentStall = false
+    private static var generation: UInt = 0
+
+    static func start() {
+        queue.async {
+            guard timer == nil else { return }
+            generation &+= 1
+            let activeGeneration = generation
+            DebugLogger.log("HangDiagnostics", details: "started, PID: \(ProcessInfo.processInfo.processIdentifier)")
+            lastHeartbeat = ProcessInfo.processInfo.systemUptime
+            heartbeatPending = false
+            sampledCurrentStall = false
+
+            let source = DispatchSource.makeTimerSource(queue: queue)
+            source.schedule(deadline: .now() + 1, repeating: 1)
+            source.setEventHandler {
+                guard generation == activeGeneration else { return }
+                let now = ProcessInfo.processInfo.systemUptime
+                let stalledFor = now - lastHeartbeat
+
+                if stalledFor >= 4, !sampledCurrentStall {
+                    sampledCurrentStall = true
+                    DebugLogger.log("HangDiagnostics", details: String(format: "main thread stalled for %.1fs; capturing sample", stalledFor))
+                    captureSample()
+                }
+
+                guard !heartbeatPending else { return }
+                heartbeatPending = true
+                DispatchQueue.main.async {
+                    queue.async {
+                        guard generation == activeGeneration else { return }
+                        lastHeartbeat = ProcessInfo.processInfo.systemUptime
+                        heartbeatPending = false
+                        if sampledCurrentStall {
+                            DebugLogger.log("HangDiagnostics", details: "main thread heartbeat resumed")
+                            sampledCurrentStall = false
+                        }
+                    }
+                }
+            }
+            timer = source
+            source.resume()
+        }
+    }
+
+    static func stop() {
+        queue.async {
+            generation &+= 1
+            timer?.cancel()
+            timer = nil
+            heartbeatPending = false
+            sampledCurrentStall = false
+        }
+    }
+
+    static func record(_ event: String) {
+        DebugLogger.log("HangDiagnostics", details: event)
+    }
+
+    private static func captureSample() {
+        let pid = ProcessInfo.processInfo.processIdentifier
+        sampleQueue.async {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/sample")
+            process.arguments = [String(pid), "5", "-file", DebugLogger.hangSampleURL.path]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            do {
+                try process.run()
+                process.waitUntilExit()
+                DebugLogger.log("HangDiagnostics", details: "sample finished, status: \(process.terminationStatus)")
+            } catch {
+                DebugLogger.log("HangDiagnostics", details: "sample failed: \(error.localizedDescription)")
+            }
         }
     }
 }

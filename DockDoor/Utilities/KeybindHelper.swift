@@ -191,6 +191,7 @@ private class WindowSwitchingCoordinator {
         mode: SwitcherInvocationMode = .allWindows,
         launchSource: WindowSwitcherLaunchSource
     ) async -> Bool {
+        HangDiagnostics.record("switcher initialization started mode=\(mode.rawValue)")
         activeLaunchSource = nil
         // Reset the immediate-select flag at start of initialization
         shouldSelectImmediately = false
@@ -203,6 +204,8 @@ private class WindowSwitchingCoordinator {
         let dockPosition = DockUtils.getDockPosition()
 
         let windows = buildSwitcherWindows(mode: mode)
+
+        HangDiagnostics.record("switcher cache ready mode=\(mode.rawValue) windows=\(windows.count)")
 
         let coordinator = previewCoordinator.windowSwitcherCoordinator
         coordinator.initializeForWindowSwitcher(
