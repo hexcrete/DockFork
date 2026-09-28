@@ -12,6 +12,7 @@ struct WindowSwitcherKeybindSection: View {
     @Default(.lastFocusedWindowShortcuts) var lastFocusedWindowShortcuts
     @Default(.cmdShortcuts) private var cmdShortcuts
     @Default(.UserKeybind) private var mainKeybind
+    @Default(.enableSpacesShortcuts) private var enableSpacesShortcuts
     @Default(.requireShiftTabToGoBack) var requireShiftTabToGoBack
     @Default(.switcherBackwardKeyCode) var switcherBackwardKeyCode
     @Default(.windowSwitcherSelectionKeyCode) var selectionKeyCode

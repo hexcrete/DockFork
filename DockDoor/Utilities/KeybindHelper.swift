@@ -825,6 +825,15 @@ class KeybindHelper {
             let flags = event.flags
             let shouldRouteCmdTabToWindowSwitcher = isCmdTabWindowSwitcherKeybind(keyCode: keyCode, flags: flags)
 
+            if let spaceNumber = numberedSpaceShortcut(event: event),
+               previewCoordinator.tapSnapshot.isVisible
+            {
+                Task { @MainActor [weak self] in
+                    self?.handleNumberedSpaceShortcut(spaceNumber)
+                }
+                return nil
+            }
+
             // Consume bare spacebar for a visible media preview so it doesn't also reach the focused app and double-toggle playback.
             if keyCode == Int64(kVK_Space),
                event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
@@ -972,7 +981,10 @@ class KeybindHelper {
                         }
 
                         if flags.contains(.maskCommand),
-                           let action = getActionForPreviewShortcut(keyCode: keyCode)
+                           let action = getActionForPreviewShortcut(
+                               keyCode: keyCode,
+                               modifierFlags: Int(flags.rawValue)
+                           )
                         {
                             let supportsHighlightedAppAction = action == .close || action == .quit
                             let highlightedApps = hasSelection ? [] : DockObserver.activeInstance?.selectedCmdTabApplications() ?? []
@@ -1473,7 +1485,10 @@ class KeybindHelper {
             if modifierFlagsMatch(sessionKeybind().modifierFlags, flags: flags),
                previewCoordinator.windowSwitcherCoordinator.currIndex >= 0
             {
-                if let action = getActionForPreviewShortcut(keyCode: keyCode) {
+                if let action = getActionForPreviewShortcut(
+                    keyCode: keyCode,
+                    modifierFlags: Int(flags.rawValue)
+                ) {
                     preventSwitcherHideOnRelease = true
                     return (true, { @MainActor in
                         let didClosePreviews = self.previewCoordinator.performActionOnCurrentWindow(action: action)
@@ -1744,9 +1759,111 @@ class KeybindHelper {
         }
     }
 
+    private func numberedSpaceShortcut(event: CGEvent) -> Int? {
+        guard Defaults[.enableSpacesShortcuts],
+              event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
+              let spaceNumber = WindowSwitcherShortcutResolver.spaceNumber(
+                  forPhysicalKeyCode: event.getIntegerValueField(.keyboardEventKeycode)
+              )
+        else { return nil }
+
+        let mainKeybind = Defaults[.UserKeybind]
+        let eventModifiers = WindowSwitcherShortcutResolver.normalizedModifiers(Int(event.flags.rawValue))
+        let mainModifiers = WindowSwitcherShortcutResolver.normalizedModifiers(mainKeybind.modifierFlags)
+        guard mainModifiers != 0, eventModifiers == mainModifiers else {
+            return nil
+        }
+        return spaceNumber
+    }
+
+    @MainActor
+    private func handleNumberedSpaceShortcut(_ spaceNumber: Int) {
+        WindowUtil.cancelPendingManagedSpaceSwitch()
+
+        let displays = WindowSpaces.managedDisplays()
+        guard let destination = WindowSpaces.destination(forSpaceNumber: spaceNumber, in: displays) else {
+            NSSound.beep()
+            return
+        }
+
+        let coordinator = previewCoordinator.windowSwitcherCoordinator
+        if let selectedWindow = coordinator.getCurrentWindow() {
+            guard destination.space.kind == .desktop else {
+                NSSound.beep()
+                return
+            }
+            preventSwitcherHideOnRelease = true
+            if DockObserver.isCmdTabSwitcherActive {
+                cmdTabActionPerformed = true
+            }
+            WindowUtil.performConfirmedSpaceMove(
+                selectedWindow,
+                to: destination,
+                dismissPreviews: { [weak self] in
+                    self?.dismissPreviewsForSpaceChange()
+                },
+                completion: { [weak self] success in
+                    if !success {
+                        NSSound.beep()
+                    }
+                    self?.finishNumberedWindowMove()
+                }
+            )
+            return
+        }
+
+        guard coordinator.windowSwitcherActive, !DockObserver.isCmdTabSwitcherActive else {
+            NSSound.beep()
+            return
+        }
+
+        guard destination.space.kind == .desktop || destination.space.kind == .fullscreen else {
+            NSSound.beep()
+            return
+        }
+
+        let isCurrentDestination = displays.contains { display in
+            display.identifier == destination.display.identifier && display.currentSpaceID == destination.space.id
+        }
+        guard !isCurrentDestination else {
+            NSSound.beep()
+            return
+        }
+
+        dismissPreviewsForSpaceChange()
+        WindowUtil.switchToManagedSpace(destination) { success in
+            if !success {
+                NSSound.beep()
+            }
+        }
+    }
+
+    @MainActor
+    private func finishNumberedWindowMove() {
+        preventSwitcherHideOnRelease = false
+        guard windowSwitchingCoordinator.dismissesOnModifierRelease,
+              !Defaults[.preventSwitcherHide],
+              !isSwitcherModifierKeyPressed,
+              previewCoordinator.isVisible
+        else { return }
+
+        switcherSessionActive = false
+        windowSwitchingCoordinator.cancelSwitching(previewCoordinator: previewCoordinator)
+        hasProcessedModifierRelease = true
+        previewCoordinator.hideWindow()
+    }
+
     /// Returns the first active preview action matching the configured key.
-    private func getActionForPreviewShortcut(keyCode: Int64) -> WindowAction? {
+    private func getActionForPreviewShortcut(keyCode: Int64, modifierFlags: Int) -> WindowAction? {
+        let mainKeybind = Defaults[.UserKeybind]
         for shortcut in Defaults[.cmdShortcuts] where !shortcut.isPending && Int64(shortcut.keyCode) == keyCode {
+            if WindowSwitcherShortcutResolver.conflictsWithSpacesShortcut(
+                keyCode: shortcut.keyCode,
+                modifierFlags: modifierFlags,
+                mainKeybind: mainKeybind
+            ) {
+                continue
+            }
             if shortcut.action != .none {
                 return shortcut.action
             }

@@ -1594,6 +1594,15 @@ enum SettingsSearchCatalog {
             icon: "rectangle.slash"
         ),
         SettingsSearchItem(
+            id: "gestures.enableSpacesShortcuts",
+            title: String(localized: "Enable Spaces Shortcuts"),
+            description: String(localized: "When a window preview is focused, press the Window Switcher modifier plus a number to move the window to that numbered Desktop. When Window Switcher is open without a focused preview, the same shortcut switches to that numbered Space."),
+            keywords: ["space", "desktop", "number", "shortcut", "move window", "switch space"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Spaces"),
+            icon: "keyboard.badge.ellipsis"
+        ),
+        SettingsSearchItem(
             id: "gestures.menuBarIconWindowSwitcher",
             title: String(localized: "Menu bar icon"),
             description: String(localized: "Open Window Switcher when clicking on menu bar icon"),

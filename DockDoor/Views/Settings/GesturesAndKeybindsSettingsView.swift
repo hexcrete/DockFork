@@ -24,6 +24,8 @@ private struct SpacesSettingsSection: View {
     @Default(.spaceMenuDisplayMode) private var spaceMenuDisplayMode
     @Default(.switchToDestinationSpaceAfterMoving) private var switchToDestinationSpaceAfterMoving
     @Default(.showUnavailableSpacesInMenu) private var showUnavailableSpacesInMenu
+    @Default(.enableSpacesShortcuts) private var enableSpacesShortcuts
+    @Default(.UserKeybind) private var windowSwitcherKeybind
 
     var body: some View {
         SettingsGroup(header: "Spaces") {
@@ -54,6 +56,26 @@ private struct SpacesSettingsSection: View {
                         .settingsSearchTarget("gestures.showUnavailableSpacesInMenu")
 
                     Text("Show Spaces the window cannot be moved to in the Spaces dropdown menu.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 20)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Spaces Shortcuts")
+                        .font(.headline)
+
+                    Toggle("Enable Spaces Shortcuts", isOn: $enableSpacesShortcuts)
+                        .settingsSearchTarget("gestures.enableSpacesShortcuts")
+
+                    Text("When a window preview is focused, press the Window Switcher modifier plus a number to move the window to that numbered Desktop. When Window Switcher is open without a focused preview, the same shortcut switches to that numbered Space.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 20)
+
+                    Text("Current modifier: \(modifierConverter.toSymbol(windowSwitcherKeybind.modifierFlags))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)

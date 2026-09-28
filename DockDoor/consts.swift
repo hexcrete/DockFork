@@ -104,11 +104,14 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
 }
 
 enum AlternateSwitcherShortcutConflict: Equatable {
+    case spacesShortcut
     case duplicate
     case previewAction
 
     var localizedMessage: String {
         switch self {
+        case .spacesShortcut:
+            String(localized: "Conflicts with a Spaces shortcut. Shortcut disabled.", comment: "Window Switcher shortcut conflict")
         case .duplicate:
             String(localized: "Duplicate shortcut. Shortcut disabled.", comment: "Alternate Window Switcher shortcut conflict")
         case .previewAction:
@@ -212,6 +215,34 @@ struct ResolvedPersistentSwitcherShortcut {
 }
 
 enum WindowSwitcherShortcutResolver {
+    static func spaceNumber(forPhysicalKeyCode keyCode: Int64) -> Int? {
+        switch keyCode {
+        case Int64(kVK_ANSI_1): 1
+        case Int64(kVK_ANSI_2): 2
+        case Int64(kVK_ANSI_3): 3
+        case Int64(kVK_ANSI_4): 4
+        case Int64(kVK_ANSI_5): 5
+        case Int64(kVK_ANSI_6): 6
+        case Int64(kVK_ANSI_7): 7
+        case Int64(kVK_ANSI_8): 8
+        case Int64(kVK_ANSI_9): 9
+        case Int64(kVK_ANSI_0): 10
+        default: nil
+        }
+    }
+
+    static func conflictsWithSpacesShortcut(
+        keyCode: UInt16,
+        modifierFlags: Int,
+        mainKeybind: UserKeyBind
+    ) -> Bool {
+        let mainModifiers = normalizedModifiers(mainKeybind.modifierFlags)
+        return Defaults[.enableSpacesShortcuts] &&
+            mainModifiers != 0 &&
+            spaceNumber(forPhysicalKeyCode: Int64(keyCode)) != nil &&
+            normalizedModifiers(modifierFlags) == mainModifiers
+    }
+
     static func alternateConflict(
         at index: Int,
         shortcuts: [AlternateSwitcherShortcut],
@@ -221,6 +252,14 @@ enum WindowSwitcherShortcutResolver {
         guard shortcuts.indices.contains(index),
               let candidate = shortcuts[index].resolvedKeybind(mainKeybind: mainKeybind)
         else { return nil }
+
+        if conflictsWithSpacesShortcut(
+            keyCode: UInt16(candidate.keyCode),
+            modifierFlags: candidate.modifierFlags,
+            mainKeybind: mainKeybind
+        ) {
+            return .spacesShortcut
+        }
 
         if combinationsMatch(candidate, mainKeybind) {
             return .duplicate
@@ -284,6 +323,14 @@ enum WindowSwitcherShortcutResolver {
                 }
             }
             return nil
+        }
+
+        if conflictsWithSpacesShortcut(
+            keyCode: candidate.keyCode,
+            modifierFlags: candidate.modifierFlags,
+            mainKeybind: mainKeybind
+        ) {
+            return .spacesShortcut
         }
 
         let combination = UserKeyBind(keyCode: candidate.keyCode, modifierFlags: candidate.modifierFlags)
@@ -378,6 +425,14 @@ enum WindowSwitcherShortcutResolver {
                 }
             }
             return nil
+        }
+
+        if conflictsWithSpacesShortcut(
+            keyCode: candidate.keyCode,
+            modifierFlags: candidate.modifierFlags,
+            mainKeybind: mainKeybind
+        ) {
+            return .spacesShortcut
         }
 
         let combination = UserKeyBind(keyCode: candidate.keyCode, modifierFlags: candidate.modifierFlags)
@@ -785,6 +840,7 @@ extension Defaults.Keys {
     static let spaceMenuDisplayMode = Key<SpaceMenuDisplayMode>("spaceMenuDisplayMode", default: .numberOnly)
     static let switchToDestinationSpaceAfterMoving = Key<Bool>("switchToDestinationSpaceAfterMoving", default: false)
     static let showUnavailableSpacesInMenu = Key<Bool>("showUnavailableSpacesInMenu", default: false)
+    static let enableSpacesShortcuts = Key<Bool>("enableSpacesShortcuts", default: false)
 
     // MARK: - Window Preview Keyboard Shortcuts
 

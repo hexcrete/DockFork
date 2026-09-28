@@ -474,6 +474,7 @@ func unreachedCGWindowIDs(
     return Set(candidates.compactMap { entry in
         let windowID = CGWindowID((entry[kCGWindowNumber as String] as? NSNumber)?.uint32Value ?? 0)
         guard windowID != 0,
+              !WindowUtil.isInternalWindow(windowID),
               !knownIDs.contains(windowID),
               (entry[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
               isValidCGWindowEntry(entry)
@@ -932,6 +933,8 @@ func shouldAcceptWindow(axWindow: AXUIElement,
                         activeSpaceIDs: Set<Int>,
                         scBacked: Bool) -> Bool
 {
+    if WindowUtil.isInternalWindow(windowID) { return false }
+
     // Base: role/subrole, level, size/alpha checks already enforced by caller
     let isOnscreen = (cgEntry[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
     let axIsFullscreen = (try? axWindow.isFullscreen()) ?? false

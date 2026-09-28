@@ -4,6 +4,7 @@ import SwiftUI
 struct CmdKeyShortcutsSection: View {
     @Default(.cmdShortcuts) var cmdShortcuts
     @Default(.UserKeybind) private var windowSwitcherKeybind
+    @Default(.enableSpacesShortcuts) private var enableSpacesShortcuts
     @State private var autoCaptureShortcutID: UUID?
 
     var body: some View {
@@ -68,7 +69,7 @@ struct CmdKeyShortcutsSection: View {
     }
 
     private func cmdShortcutRow(index: Int, shortcut: CmdShortcut) -> some View {
-        let isShadowedByHigherPriorityShortcut = isShadowed(index: index)
+        let conflict = conflict(at: index)
 
         return HStack(spacing: 12) {
             HStack(spacing: 4) {
@@ -101,8 +102,8 @@ struct CmdKeyShortcutsSection: View {
             .labelsHidden()
             .disabled(shortcut.isPending)
 
-            if isShadowedByHigherPriorityShortcut {
-                Text("Duplicate shortcut. Action disabled.")
+            if let conflict {
+                Text(conflict.localizedMessage)
                     .font(.caption2)
                     .foregroundColor(.red)
             }
@@ -123,14 +124,14 @@ struct CmdKeyShortcutsSection: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .background {
-            if isShadowedByHigherPriorityShortcut {
+            if conflict != nil {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.red.opacity(0.08))
                     .allowsHitTesting(false)
             }
         }
         .overlay {
-            if isShadowedByHigherPriorityShortcut {
+            if conflict != nil {
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(Color.red.opacity(0.28), lineWidth: 1)
                     .allowsHitTesting(false)
@@ -163,19 +164,29 @@ struct CmdKeyShortcutsSection: View {
         )
     }
 
-    private func isShadowed(index: Int) -> Bool {
-        guard cmdShortcuts.indices.contains(index) else { return false }
+    private func conflict(at index: Int) -> AlternateSwitcherShortcutConflict? {
+        guard cmdShortcuts.indices.contains(index) else { return nil }
         let candidate = cmdShortcuts[index]
-        guard !candidate.isPending, candidate.action != .none else { return false }
+        guard !candidate.isPending, candidate.action != .none else { return nil }
+
+        if enableSpacesShortcuts,
+           WindowSwitcherShortcutResolver.conflictsWithSpacesShortcut(
+               keyCode: candidate.keyCode,
+               modifierFlags: windowSwitcherKeybind.modifierFlags,
+               mainKeybind: windowSwitcherKeybind
+           )
+        {
+            return .spacesShortcut
+        }
 
         for higherPriorityIndex in 0 ..< index {
             let existing = cmdShortcuts[higherPriorityIndex]
             if !existing.isPending, existing.keyCode == candidate.keyCode, existing.action != .none {
-                return true
+                return .duplicate
             }
         }
 
-        return false
+        return nil
     }
 
     private func removeShortcut(_ id: UUID) {

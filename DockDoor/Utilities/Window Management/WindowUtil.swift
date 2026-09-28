@@ -553,6 +553,26 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 enum WindowUtil {
     private static let desktopSpaceWindowCacheManager = SpaceWindowCacheManager()
     private static let operationTimeout: UInt64 = 10_000_000_000
+    private static let internalWindowLock = NSLock()
+    private static var internalWindowIDs: Set<CGWindowID> = []
+
+    static func isInternalWindow(_ windowID: CGWindowID) -> Bool {
+        internalWindowLock.lock()
+        defer { internalWindowLock.unlock() }
+        return internalWindowIDs.contains(windowID)
+    }
+
+    fileprivate static func registerInternalWindow(_ windowID: CGWindowID) {
+        internalWindowLock.lock()
+        internalWindowIDs.insert(windowID)
+        internalWindowLock.unlock()
+    }
+
+    fileprivate static func unregisterInternalWindow(_ windowID: CGWindowID) {
+        internalWindowLock.lock()
+        internalWindowIDs.remove(windowID)
+        internalWindowLock.unlock()
+    }
 
     private struct FinderTabSnapshotKey: Hashable {
         let pid: pid_t
@@ -1088,6 +1108,99 @@ extension WindowUtil {
         }
     }
 
+    @MainActor
+    static func switchToManagedSpace(
+        _ destination: ManagedSpaceDestination,
+        completion: @escaping (Bool) -> Void
+    ) {
+        guard destination.space.kind == .desktop || destination.space.kind == .fullscreen,
+              let targetScreen = WindowSpaces.screen(forDisplayIdentifier: destination.display.identifier)
+        else {
+            completion(false)
+            return
+        }
+
+        let topology = WindowSpaces.managedDisplays()
+        guard let currentDestination = WindowSpaces.destination(forSpaceID: destination.space.id, in: topology),
+              currentDestination.space.kind == destination.space.kind,
+              currentDestination.display.currentSpaceID != destination.space.id
+        else {
+            completion(false)
+            return
+        }
+
+        moveCursorToDisplayIfNeeded(targetScreen)
+
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let candidates = getAllWindowsIgnoringSwitcherFilters().filter { window in
+            let sourceSpaceIDs = WindowSpaces.sourceSpaceIDs(for: window)
+            let isFullscreen = window.isFullscreen == true || (try? window.axElement.isFullscreen()) == true
+            let matchesDestinationKind = destination.space.kind == .fullscreen ? isFullscreen : !isFullscreen
+            return !window.isWindowlessApp &&
+                window.id != 0 &&
+                window.app.processIdentifier != ownPID &&
+                !window.app.isTerminated &&
+                !window.app.isHidden &&
+                !window.isEffectivelyHiddenForUI &&
+                !window.isMinimized &&
+                matchesDestinationKind &&
+                sourceSpaceIDs == Set([destination.space.id])
+        }
+
+        for candidate in windowsInFrontToBackOrder(candidates) where candidate.bringToFront() {
+            completion(true)
+            return
+        }
+
+        if destination.space.kind == .desktop {
+            TransientSpaceAnchorController.shared.switchTo(destination, on: targetScreen, completion: completion)
+        } else {
+            completion(false)
+        }
+    }
+
+    @MainActor
+    static func cancelPendingManagedSpaceSwitch() {
+        TransientSpaceAnchorController.shared.cancelPending()
+    }
+
+    @MainActor
+    private static func moveCursorToDisplayIfNeeded(_ targetScreen: NSScreen) {
+        guard let mouseLocation = CGEvent(source: nil)?.location else { return }
+        let currentScreen = NSScreen.screenFromQuartzPoint(mouseLocation)
+        guard currentScreen != targetScreen else { return }
+        let target = CGPoint(x: targetScreen.cgFrame.midX, y: targetScreen.cgFrame.midY)
+        CGWarpMouseCursorPosition(target)
+        CGAssociateMouseAndMouseCursorPosition(1)
+    }
+
+    private static func windowsInFrontToBackOrder(_ windows: [WindowInfo]) -> [WindowInfo] {
+        let descriptions = (CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: AnyObject]]) ?? []
+        let rankByID: [CGWindowID: Int] = Dictionary(uniqueKeysWithValues: descriptions.enumerated().compactMap { index, entry in
+            guard let number = entry[kCGWindowNumber as String] as? NSNumber else { return nil }
+            return (CGWindowID(number.uint32Value), index)
+        })
+
+        return windows.sorted { first, second in
+            switch (rankByID[first.id], rankByID[second.id]) {
+            case let (firstRank?, secondRank?) where firstRank != secondRank:
+                return firstRank < secondRank
+            case (_?, nil):
+                return true
+            case (nil, _?):
+                return false
+            default:
+                if first.lastAccessedTime != second.lastAccessedTime {
+                    return first.lastAccessedTime > second.lastAccessedTime
+                }
+                if first.app.processIdentifier != second.app.processIdentifier {
+                    return first.app.processIdentifier < second.app.processIdentifier
+                }
+                return first.id < second.id
+            }
+        }
+    }
+
     private static func removePendingManagedSpaceMove(key: String, token: UUID) {
         managedSpaceMoveLock.lock()
         defer { managedSpaceMoveLock.unlock() }
@@ -1130,6 +1243,166 @@ extension WindowUtil {
         }
 
         return movedAnyWindow
+    }
+}
+
+@MainActor
+private final class TransientSpaceAnchorController {
+    static let shared = TransientSpaceAnchorController()
+
+    private final class AnchorWindow: NSWindow {
+        override var canBecomeKey: Bool { true }
+        override var canBecomeMain: Bool { true }
+    }
+
+    private var transitionID = UUID()
+    private var anchorWindow: AnchorWindow?
+    private var registeredWindowID: CGWindowID?
+    private var transitionTask: Task<Void, Never>?
+    private var spaceObserver: NSObjectProtocol?
+    private var destination: ManagedSpaceDestination?
+    private var completion: ((Bool) -> Void)?
+    private var didActivateAnchor = false
+
+    func switchTo(
+        _ destination: ManagedSpaceDestination,
+        on screen: NSScreen,
+        completion: @escaping (Bool) -> Void
+    ) {
+        cancelPending()
+
+        let transitionID = UUID()
+        self.transitionID = transitionID
+        self.destination = destination
+        self.completion = completion
+
+        let frame = CGRect(x: screen.frame.midX, y: screen.frame.midY, width: 1, height: 1)
+        let window = AnchorWindow(contentRect: frame, styleMask: .borderless, backing: .buffered, defer: false)
+        window.backgroundColor = .clear
+        window.isOpaque = false
+        window.alphaValue = 0
+        window.hasShadow = false
+        window.ignoresMouseEvents = true
+        window.isExcludedFromWindowsMenu = true
+        window.sharingType = .none
+        window.collectionBehavior = []
+        window.animationBehavior = .none
+        window.level = .normal
+        window.isReleasedWhenClosed = false
+        window.orderFront(nil)
+
+        let windowID = CGWindowID(window.windowNumber)
+        guard windowID != 0 else {
+            window.close()
+            finish(false, transitionID: transitionID)
+            return
+        }
+
+        anchorWindow = window
+        registeredWindowID = windowID
+        WindowUtil.registerInternalWindow(windowID)
+        window.alphaValue = 0.01
+
+        guard WindowSpaces.move(windowID: windowID, toManagedSpace: destination.space.id) else {
+            finish(false, transitionID: transitionID)
+            return
+        }
+
+        transitionTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            for delay in [60_000_000, 140_000_000, 300_000_000, 600_000_000] as [UInt64] {
+                do {
+                    try await Task.sleep(nanoseconds: delay)
+                } catch {
+                    return
+                }
+                guard self.transitionID == transitionID else { return }
+                if windowID.cgsSpaces().contains(destination.space.id) {
+                    activateAnchor(transitionID: transitionID)
+                    return
+                }
+            }
+            finish(false, transitionID: transitionID)
+        }
+    }
+
+    func cancelPending() {
+        cleanup()
+    }
+
+    private func activateAnchor(transitionID: UUID) {
+        guard self.transitionID == transitionID, let anchorWindow else { return }
+        transitionTask?.cancel()
+        spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.confirmActiveSpace(transitionID: transitionID)
+            }
+        }
+
+        didActivateAnchor = true
+        NSApp.activate(ignoringOtherApps: true)
+        anchorWindow.makeKeyAndOrderFront(nil)
+
+        transitionTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            for delay in [100_000_000, 200_000_000, 400_000_000, 800_000_000] as [UInt64] {
+                do {
+                    try await Task.sleep(nanoseconds: delay)
+                } catch {
+                    return
+                }
+                guard self.transitionID == transitionID else { return }
+                if confirmActiveSpace(transitionID: transitionID) { return }
+            }
+            finish(false, transitionID: transitionID)
+        }
+    }
+
+    @discardableResult
+    private func confirmActiveSpace(transitionID: UUID) -> Bool {
+        guard self.transitionID == transitionID, let destination else { return false }
+        let isActive = WindowSpaces.managedDisplays().contains { display in
+            display.identifier == destination.display.identifier && display.currentSpaceID == destination.space.id
+        }
+        if isActive {
+            finish(true, transitionID: transitionID)
+        }
+        return isActive
+    }
+
+    private func finish(_ success: Bool, transitionID: UUID) {
+        guard self.transitionID == transitionID else { return }
+        let completion = completion
+        cleanup()
+        completion?(success)
+    }
+
+    private func cleanup() {
+        let shouldDeactivate = didActivateAnchor
+        didActivateAnchor = false
+        transitionID = UUID()
+        transitionTask?.cancel()
+        transitionTask = nil
+        if let spaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)
+        }
+        spaceObserver = nil
+        anchorWindow?.orderOut(nil)
+        anchorWindow?.close()
+        anchorWindow = nil
+        if let registeredWindowID {
+            WindowUtil.unregisterInternalWindow(registeredWindowID)
+        }
+        registeredWindowID = nil
+        destination = nil
+        completion = nil
+        if shouldDeactivate {
+            NSApp.deactivate()
+        }
     }
 }
 
