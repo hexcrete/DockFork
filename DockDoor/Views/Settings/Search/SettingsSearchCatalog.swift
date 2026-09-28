@@ -1747,10 +1747,10 @@ enum SettingsSearchCatalog {
             icon: "return"
         ),
         SettingsSearchItem(
-            id: "gestures.alternateShortcut",
-            title: String(localized: "Alternate Shortcut"),
-            description: String(localized: "An additional trigger key, with its own modifier if desired, invoking the switcher with a different filter mode."),
-            keywords: ["alternate", "shortcut", "trigger", "mode", "modifier", "escape"],
+            id: "gestures.alternateShortcuts",
+            title: String(localized: "Alternate Shortcuts"),
+            description: String(localized: "Additional trigger keys, each with its own modifier and window filter."),
+            keywords: ["alternate", "shortcuts", "trigger", "filter", "mode", "modifier", "multiple"],
             tab: "GesturesKeybinds",
             section: String(localized: "Window Switcher Shortcuts"),
             icon: "keyboard"

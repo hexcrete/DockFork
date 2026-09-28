@@ -68,6 +68,117 @@ struct CmdShortcut: Codable, Defaults.Serializable, Identifiable, Hashable {
     ]
 }
 
+struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, Hashable {
+    var id: UUID
+    var keyCode: UInt16
+    var modifierFlags: Int
+    var mode: SwitcherInvocationMode
+    var isConfigured: Bool
+    var isPending: Bool
+
+    init(
+        id: UUID = UUID(),
+        keyCode: UInt16 = 0,
+        modifierFlags: Int = 0,
+        mode: SwitcherInvocationMode = .activeAppOnly,
+        isConfigured: Bool = false,
+        isPending: Bool = false
+    ) {
+        self.id = id
+        self.keyCode = keyCode
+        self.modifierFlags = modifierFlags
+        self.mode = mode
+        self.isConfigured = isConfigured
+        self.isPending = isPending
+    }
+
+    func resolvedKeybind(mainKeybind: UserKeyBind) -> UserKeyBind? {
+        guard isConfigured, !isPending else { return nil }
+        return UserKeyBind(
+            keyCode: keyCode,
+            modifierFlags: modifierFlags == 0 ? mainKeybind.modifierFlags : modifierFlags
+        )
+    }
+
+    static let defaultShortcuts = [AlternateSwitcherShortcut()]
+}
+
+enum AlternateSwitcherShortcutConflict: Equatable {
+    case duplicate
+    case previewAction
+
+    var localizedMessage: String {
+        switch self {
+        case .duplicate:
+            String(localized: "Duplicate shortcut. Shortcut disabled.", comment: "Alternate Window Switcher shortcut conflict")
+        case .previewAction:
+            String(localized: "Conflicts with a window preview shortcut. Shortcut disabled.", comment: "Alternate Window Switcher shortcut conflict")
+        }
+    }
+}
+
+struct ResolvedAlternateSwitcherShortcut {
+    let id: UUID
+    let keybind: UserKeyBind
+    let mode: SwitcherInvocationMode
+}
+
+enum WindowSwitcherShortcutResolver {
+    static func alternateConflict(
+        at index: Int,
+        shortcuts: [AlternateSwitcherShortcut],
+        mainKeybind: UserKeyBind,
+        previewShortcuts: [CmdShortcut]
+    ) -> AlternateSwitcherShortcutConflict? {
+        guard shortcuts.indices.contains(index),
+              let candidate = shortcuts[index].resolvedKeybind(mainKeybind: mainKeybind)
+        else { return nil }
+
+        if combinationsMatch(candidate, mainKeybind) {
+            return .duplicate
+        }
+
+        for earlierIndex in 0 ..< index {
+            guard let earlier = shortcuts[earlierIndex].resolvedKeybind(mainKeybind: mainKeybind) else { continue }
+            if combinationsMatch(candidate, earlier) {
+                return .duplicate
+            }
+        }
+
+        let conflictsWithPreviewAction = candidate.modifierFlags == mainKeybind.modifierFlags && previewShortcuts.contains {
+            !$0.isPending && $0.action != .none && $0.keyCode == candidate.keyCode
+        }
+        return conflictsWithPreviewAction ? .previewAction : nil
+    }
+
+    static func resolvedAlternateShortcuts(
+        _ shortcuts: [AlternateSwitcherShortcut],
+        mainKeybind: UserKeyBind,
+        previewShortcuts: [CmdShortcut]
+    ) -> [ResolvedAlternateSwitcherShortcut] {
+        shortcuts.indices.compactMap { index in
+            guard alternateConflict(
+                at: index,
+                shortcuts: shortcuts,
+                mainKeybind: mainKeybind,
+                previewShortcuts: previewShortcuts
+            ) == nil,
+                let keybind = shortcuts[index].resolvedKeybind(mainKeybind: mainKeybind)
+            else { return nil }
+
+            return ResolvedAlternateSwitcherShortcut(
+                id: shortcuts[index].id,
+                keybind: keybind,
+                mode: shortcuts[index].mode
+            )
+        }
+    }
+
+    private static func combinationsMatch(_ first: UserKeyBind, _ second: UserKeyBind) -> Bool {
+        first.keyCode == second.keyCode && first.modifierFlags == second.modifierFlags
+    }
+}
+
 extension Defaults.Keys {
     static let previewWidth = Key<CGFloat>("previewWidth", default: 300)
     static let previewHeight = Key<CGFloat>("previewHeight", default: 187.5)
@@ -399,12 +510,12 @@ extension Defaults.Keys {
 
     static let windowSwitcherSelectionKeyCode = Key<UInt16>("windowSwitcherSelectionKeyCode", default: UInt16(kVK_Return))
 
-    // MARK: - Alternate Window Switcher Keybind (modifier 0 = same as primary keybind)
+    // MARK: - Alternate Window Switcher Shortcuts
 
-    static let alternateKeybindKey = Key<UInt16>("alternateKeybindKey", default: 0)
-    static let alternateKeybindConfigured = Key<Bool>("alternateKeybindConfigured", default: false)
-    static let alternateKeybindModifierFlags = Key<Int>("alternateKeybindModifierFlags", default: 0)
-    static let alternateKeybindMode = Key<SwitcherInvocationMode>("alternateKeybindMode", default: .activeAppOnly)
+    static let alternateSwitcherShortcuts = Key<[AlternateSwitcherShortcut]>(
+        "alternateSwitcherShortcuts",
+        default: AlternateSwitcherShortcut.defaultShortcuts
+    )
 }
 
 // MARK: Dock Locking
@@ -1162,8 +1273,9 @@ enum WindowPreviewSortOrder: String, CaseIterable, Defaults.Serializable, Identi
     }
 }
 
-enum SwitcherInvocationMode: String, CaseIterable, Defaults.Serializable, Identifiable {
+enum SwitcherInvocationMode: String, CaseIterable, Codable, Defaults.Serializable, Identifiable {
     case allWindows
+    case globalAllWindows
     case activeAppOnly
     case currentSpaceOnly
     case activeAppCurrentSpace
@@ -1173,6 +1285,8 @@ enum SwitcherInvocationMode: String, CaseIterable, Defaults.Serializable, Identi
     var localizedName: String {
         switch self {
         case .allWindows:
+            String(localized: "Window Switcher Defaults", comment: "Switcher invocation mode")
+        case .globalAllWindows:
             String(localized: "All Windows", comment: "Switcher invocation mode")
         case .activeAppOnly:
             String(localized: "Active App Only", comment: "Switcher invocation mode")
@@ -1187,6 +1301,8 @@ enum SwitcherInvocationMode: String, CaseIterable, Defaults.Serializable, Identi
         switch self {
         case .allWindows:
             String(localized: "Uses your default window switcher settings", comment: "Switcher invocation mode description")
+        case .globalAllWindows:
+            String(localized: "Shows all eligible windows regardless of Space, display, or frontmost app", comment: "Switcher invocation mode description")
         case .activeAppOnly:
             String(localized: "Shows only windows from the frontmost application", comment: "Switcher invocation mode description")
         case .currentSpaceOnly:

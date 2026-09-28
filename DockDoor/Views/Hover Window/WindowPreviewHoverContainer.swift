@@ -968,6 +968,13 @@ struct WindowPreviewHoverContainer: View {
             noResultsView()
                 .globalPadding(20)
                 .padding(2)
+        } else if previewStateCoordinator.windowSwitcherActive,
+                  previewStateCoordinator.windows.isEmpty,
+                  embeddedContentType == .none
+        {
+            noEligibleWindowsView()
+                .globalPadding(20)
+                .padding(2)
         } else {
             let lines: [[FlowItem]] = shouldUseCompactMode
                 ? createFlowItems(filteredIndices: cachedFilteredIndices).map { [$0] }
@@ -2186,5 +2193,22 @@ struct WindowPreviewHoverContainer: View {
             }
         }
         .frame(minWidth: shouldUseCompactMode ? compactModeWidth : previewWidth, maxWidth: shouldUseCompactMode ? compactModeWidth : previewWidth, minHeight: 120)
+    }
+
+    private func noEligibleWindowsView() -> some View {
+        VStack(spacing: 16) {
+            Image(systemName: "rectangle.stack.badge.minus")
+                .font(.system(size: 48, weight: .light))
+                .foregroundColor(.secondary)
+
+            Text(String(localized: "No Eligible Windows", comment: "Empty Window Switcher scope state"))
+                .font(.headline)
+                .foregroundColor(.primary)
+        }
+        .frame(
+            minWidth: shouldUseCompactMode ? compactModeWidth : previewWidth,
+            maxWidth: shouldUseCompactMode ? compactModeWidth : previewWidth,
+            minHeight: 120
+        )
     }
 }

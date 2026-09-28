@@ -153,10 +153,7 @@ struct MainSettingsView: View {
                 Defaults[.newWindowPostActionBehavior] = Defaults.Keys.newWindowPostActionBehavior.defaultValue
                 Defaults[.moveResizeBringToForeground] = Defaults.Keys.moveResizeBringToForeground.defaultValue
 
-                Defaults[.alternateKeybindKey] = Defaults.Keys.alternateKeybindKey.defaultValue
-                Defaults[.alternateKeybindConfigured] = Defaults.Keys.alternateKeybindConfigured.defaultValue
-                Defaults[.alternateKeybindModifierFlags] = Defaults.Keys.alternateKeybindModifierFlags.defaultValue
-                Defaults[.alternateKeybindMode] = Defaults.Keys.alternateKeybindMode.defaultValue
+                Defaults[.alternateSwitcherShortcuts] = Defaults.Keys.alternateSwitcherShortcuts.defaultValue
 
                 Defaults[.cmdTabAutoSelectFirstWindow] = Defaults.Keys.cmdTabAutoSelectFirstWindow.defaultValue
                 Defaults[.cmdTabCycleKey] = Defaults.Keys.cmdTabCycleKey.defaultValue

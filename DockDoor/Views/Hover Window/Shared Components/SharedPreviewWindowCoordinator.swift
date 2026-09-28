@@ -1058,7 +1058,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                                    dockItemFrameOverride: CGRect? = nil,
                                    renderStartTime: CFAbsoluteTime? = nil)
     {
-        guard !windows.isEmpty else { return }
+        guard !windows.isEmpty || centeredHoverWindowState == .windowSwitcher else { return }
 
         let shouldCenterOnScreen = centeredHoverWindowState != .none
 

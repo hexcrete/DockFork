@@ -7,10 +7,9 @@ struct WindowSwitcherKeybindSection: View {
     @Default(.enableWindowSwitcherSearch) var enableWindowSwitcherSearch
     @Default(.searchTriggerKey) var searchTriggerKey
     @Default(.fullscreenAppBlacklist) var fullscreenAppBlacklist
-    @Default(.alternateKeybindKey) var alternateKeybindKey
-    @Default(.alternateKeybindConfigured) var alternateKeybindConfigured
-    @Default(.alternateKeybindMode) var alternateKeybindMode
-    @Default(.alternateKeybindModifierFlags) var alternateKeybindModifierFlags
+    @Default(.alternateSwitcherShortcuts) var alternateSwitcherShortcuts
+    @Default(.cmdShortcuts) private var cmdShortcuts
+    @Default(.UserKeybind) private var mainKeybind
     @Default(.requireShiftTabToGoBack) var requireShiftTabToGoBack
     @Default(.switcherBackwardKeyCode) var switcherBackwardKeyCode
     @Default(.windowSwitcherSelectionKeyCode) var selectionKeyCode
@@ -22,10 +21,7 @@ struct WindowSwitcherKeybindSection: View {
     @StateObject private var keybindModel = KeybindModel()
     @State private var showingAddBlacklistAppSheet = false
     @State private var newBlacklistApp = ""
-
-    private var hasAlternateKeybind: Bool {
-        alternateKeybindConfigured || alternateKeybindKey != 0
-    }
+    @State private var autoCaptureAlternateShortcutID: UUID?
 
     var body: some View {
         SettingsGroup(header: "Window Switcher Shortcuts") {
@@ -271,60 +267,203 @@ struct WindowSwitcherKeybindSection: View {
 
     private var alternateShortcutsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Alternate Shortcut").font(.headline)
-            Text("An additional trigger key, with its own modifier if desired, invoking the switcher with a different filter mode.")
+            Text("Alternate Shortcuts").font(.headline)
+            Text("Additional trigger keys, each with its own modifier and window filter.")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            HStack(spacing: 12) {
-                Picker("Modifier", selection: $alternateKeybindModifierFlags) {
-                    Text("Same as main (\(modifierConverter.toString(keybindModel.modifierKey)))").tag(0)
-                    Text("Control ⌃").tag(Defaults[.Int64maskControl])
-                    Text("Option ⌥").tag(Defaults[.Int64maskAlternate])
-                    Text("Command ⌘").tag(Defaults[.Int64maskCommand])
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .fixedSize()
-                Text("+")
-                    .font(.system(size: 12))
-                    .foregroundColor(.secondary)
-
-                KeyCaptureButton(
-                    keyCode: $alternateKeybindKey,
-                    emptyLabel: "Not set",
-                    forceEmptyLabel: !hasAlternateKeybind,
-                    treatKeyCodeZeroAsEmpty: false,
-                    allowsEscape: true,
-                    onCaptureFinished: { assigned in
-                        if assigned {
-                            alternateKeybindConfigured = true
-                        }
-                    }
-                )
-
-                if hasAlternateKeybind {
-                    Button("Clear") {
-                        alternateKeybindKey = 0
-                        alternateKeybindConfigured = false
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-
-                Spacer()
-
-                Picker("Mode", selection: $alternateKeybindMode) {
-                    ForEach(SwitcherInvocationMode.allCases) { mode in
-                        Text(mode.localizedName).tag(mode)
-                    }
-                }
-                .pickerStyle(.menu)
-                .labelsHidden()
-                .frame(maxWidth: 200)
+            ForEach(indexedAlternateShortcuts, id: \.shortcut.id) { item in
+                alternateShortcutRow(index: item.index, shortcut: item.shortcut)
             }
         }
-        .settingsSearchTarget("gestures.alternateShortcut")
+        .settingsSearchTarget("gestures.alternateShortcuts")
+        .onAppear {
+            removePendingAlternateShortcutsIfNeeded()
+        }
+    }
+
+    private var indexedAlternateShortcuts: [(index: Int, shortcut: AlternateSwitcherShortcut)] {
+        Array(alternateSwitcherShortcuts.enumerated()).map { (index: $0.offset, shortcut: $0.element) }
+    }
+
+    private var hasPendingAlternateShortcut: Bool {
+        alternateSwitcherShortcuts.contains { $0.isPending }
+    }
+
+    private var canAddAlternateShortcut: Bool {
+        alternateSwitcherShortcuts.count < SwitcherInvocationMode.allCases.count && !hasPendingAlternateShortcut
+    }
+
+    private func alternateShortcutRow(index: Int, shortcut: AlternateSwitcherShortcut) -> some View {
+        let conflict = WindowSwitcherShortcutResolver.alternateConflict(
+            at: index,
+            shortcuts: alternateSwitcherShortcuts,
+            mainKeybind: mainKeybind,
+            previewShortcuts: cmdShortcuts
+        )
+
+        return HStack(spacing: 12) {
+            Picker("Modifier", selection: alternateModifierBinding(for: shortcut.id)) {
+                Text("Same as main (\(modifierConverter.toString(mainKeybind.modifierFlags)))").tag(0)
+                Text("Control ⌃").tag(Defaults[.Int64maskControl])
+                Text("Option ⌥").tag(Defaults[.Int64maskAlternate])
+                Text("Command ⌘").tag(Defaults[.Int64maskCommand])
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .fixedSize()
+            .disabled(shortcut.isPending)
+
+            Text("+")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+
+            KeyCaptureButton(
+                keyCode: alternateKeyBinding(for: shortcut.id),
+                emptyLabel: "Not set",
+                forceEmptyLabel: !shortcut.isConfigured,
+                treatKeyCodeZeroAsEmpty: false,
+                allowsEscape: true,
+                autoStartCapture: autoCaptureAlternateShortcutID == shortcut.id,
+                onCaptureFinished: { assigned in
+                    handleAlternateCaptureFinished(for: shortcut.id, assigned: assigned)
+                }
+            )
+
+            Picker("Mode", selection: alternateModeBinding(for: shortcut.id)) {
+                ForEach(SwitcherInvocationMode.allCases) { mode in
+                    Text(mode.localizedName).tag(mode)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+            .frame(maxWidth: 220)
+            .disabled(shortcut.isPending)
+
+            if let conflict {
+                Text(conflict.localizedMessage)
+                    .font(.caption2)
+                    .foregroundColor(.red)
+            }
+
+            Spacer(minLength: 0)
+
+            ControlGroup {
+                Button("-") {
+                    removeAlternateShortcut(shortcut.id)
+                }
+                Button("+") {
+                    addAlternateShortcut(after: shortcut.id)
+                }
+                .disabled(!canAddAlternateShortcut)
+            }
+            .labelsHidden()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background {
+            if conflict != nil {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.red.opacity(0.08))
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay {
+            if conflict != nil {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.red.opacity(0.28), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func alternateKeyBinding(for id: UUID) -> Binding<UInt16> {
+        Binding(
+            get: { alternateSwitcherShortcuts.first(where: { $0.id == id })?.keyCode ?? 0 },
+            set: { newValue in
+                guard let index = alternateSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
+                alternateSwitcherShortcuts[index].keyCode = newValue
+                alternateSwitcherShortcuts[index].isConfigured = true
+                alternateSwitcherShortcuts[index].isPending = false
+            }
+        )
+    }
+
+    private func alternateModifierBinding(for id: UUID) -> Binding<Int> {
+        Binding(
+            get: { alternateSwitcherShortcuts.first(where: { $0.id == id })?.modifierFlags ?? 0 },
+            set: { newValue in
+                guard let index = alternateSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
+                alternateSwitcherShortcuts[index].modifierFlags = newValue
+            }
+        )
+    }
+
+    private func alternateModeBinding(for id: UUID) -> Binding<SwitcherInvocationMode> {
+        Binding(
+            get: { alternateSwitcherShortcuts.first(where: { $0.id == id })?.mode ?? .activeAppOnly },
+            set: { newValue in
+                guard let index = alternateSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
+                alternateSwitcherShortcuts[index].mode = newValue
+            }
+        )
+    }
+
+    private func addAlternateShortcut(after id: UUID) {
+        guard canAddAlternateShortcut else { return }
+        let insertionIndex = min(
+            (alternateSwitcherShortcuts.firstIndex(where: { $0.id == id }) ?? (alternateSwitcherShortcuts.count - 1)) + 1,
+            alternateSwitcherShortcuts.count
+        )
+        let usedModes = Set(alternateSwitcherShortcuts.map(\.mode))
+        let nextMode = SwitcherInvocationMode.allCases.first { !usedModes.contains($0) } ?? .activeAppOnly
+        let pending = AlternateSwitcherShortcut(mode: nextMode, isPending: true)
+        alternateSwitcherShortcuts.insert(pending, at: insertionIndex)
+        autoCaptureAlternateShortcutID = pending.id
+    }
+
+    private func removeAlternateShortcut(_ id: UUID) {
+        guard let index = alternateSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
+        if alternateSwitcherShortcuts.count == 1 {
+            alternateSwitcherShortcuts[index].keyCode = 0
+            alternateSwitcherShortcuts[index].isConfigured = false
+            alternateSwitcherShortcuts[index].isPending = false
+        } else {
+            alternateSwitcherShortcuts.remove(at: index)
+        }
+        if autoCaptureAlternateShortcutID == id {
+            autoCaptureAlternateShortcutID = nil
+        }
+    }
+
+    private func handleAlternateCaptureFinished(for id: UUID, assigned: Bool) {
+        defer {
+            if autoCaptureAlternateShortcutID == id {
+                autoCaptureAlternateShortcutID = nil
+            }
+        }
+
+        guard !assigned,
+              let index = alternateSwitcherShortcuts.firstIndex(where: { $0.id == id }),
+              alternateSwitcherShortcuts[index].isPending
+        else { return }
+
+        if alternateSwitcherShortcuts.count == 1 {
+            alternateSwitcherShortcuts[index].isPending = false
+            alternateSwitcherShortcuts[index].isConfigured = false
+        } else {
+            alternateSwitcherShortcuts.remove(at: index)
+        }
+    }
+
+    private func removePendingAlternateShortcutsIfNeeded() {
+        let configuredRows = alternateSwitcherShortcuts.filter { !$0.isPending }
+        alternateSwitcherShortcuts = configuredRows.isEmpty ? AlternateSwitcherShortcut.defaultShortcuts : configuredRows
+        if let autoCaptureAlternateShortcutID,
+           !alternateSwitcherShortcuts.contains(where: { $0.id == autoCaptureAlternateShortcutID })
+        {
+            self.autoCaptureAlternateShortcutID = nil
+        }
     }
 
     // MARK: - Fullscreen App Blacklist
