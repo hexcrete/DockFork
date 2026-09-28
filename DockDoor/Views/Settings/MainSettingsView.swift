@@ -154,6 +154,7 @@ struct MainSettingsView: View {
                 Defaults[.moveResizeBringToForeground] = Defaults.Keys.moveResizeBringToForeground.defaultValue
 
                 Defaults[.alternateSwitcherShortcuts] = Defaults.Keys.alternateSwitcherShortcuts.defaultValue
+                Defaults[.persistentSwitcherShortcuts] = Defaults.Keys.persistentSwitcherShortcuts.defaultValue
 
                 Defaults[.cmdTabAutoSelectFirstWindow] = Defaults.Keys.cmdTabAutoSelectFirstWindow.defaultValue
                 Defaults[.cmdTabCycleKey] = Defaults.Keys.cmdTabCycleKey.defaultValue

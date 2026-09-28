@@ -1756,6 +1756,15 @@ enum SettingsSearchCatalog {
             icon: "keyboard"
         ),
         SettingsSearchItem(
+            id: "gestures.persistentSwitcherShortcuts",
+            title: String(localized: "Alternate Shortcuts (Keep Open)"),
+            description: String(localized: "Releasing initializer keys will always keep the Window Switcher open. Window preview keyboard shortcuts use the default modifier key."),
+            keywords: ["alternate", "shortcut", "persistent", "keep", "open", "double", "tap", "modifier"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "keyboard.badge.ellipsis"
+        ),
+        SettingsSearchItem(
             id: "gestures.searchTriggerKey",
             title: String(localized: "Search Trigger Key"),
             description: String(localized: "The key that activates search while the window switcher is open."),
