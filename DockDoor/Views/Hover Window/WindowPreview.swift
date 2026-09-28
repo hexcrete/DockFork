@@ -10,7 +10,7 @@ final class SpaceMoveMenuController: NSObject {
 
     private struct MoveRequest {
         let window: WindowInfo
-        let destinationSpaceID: CGSSpaceID
+        let destination: ManagedSpaceDestination
         let dismissPreviews: (() -> Void)?
     }
 
@@ -43,15 +43,10 @@ final class SpaceMoveMenuController: NSObject {
     private func makeMenu(for window: WindowInfo, dismissPreviews: (() -> Void)?) -> NSMenu {
         let menu = NSMenu(title: String(localized: "Move to Space", comment: "Space destination menu title"))
         let displays = WindowSpaces.managedDisplays(includeOwners: true)
-        let availableSpaces = displays.flatMap(\.spaces).filter { $0.kind == .desktop }
-        let availableSpaceIDs = Set(availableSpaces.map(\.id))
-        let reportedSpaceIDs = Set(window.id.cgsSpaces())
-        let sourceSpaceIDs = reportedSpaceIDs.isEmpty
-            ? Set(window.spaceID.map { [CGSSpaceID($0)] } ?? [])
-            : reportedSpaceIDs
-        let sourceDesktopSpaceIDs = sourceSpaceIDs.intersection(availableSpaceIDs)
+        let sourceValidation = WindowSpaces.validateMoveSource(window, in: displays)
+        let sourceSpaceIDs = WindowSpaces.sourceSpaceIDs(for: window)
 
-        if window.isFullscreen == true || (try? window.axElement.isFullscreen()) == true {
+        if sourceValidation == .fullscreen {
             addInformationalItem(
                 String(localized: "Exit Full Screen to move this window", comment: "Unavailable Space movement explanation"),
                 to: menu
@@ -59,7 +54,7 @@ final class SpaceMoveMenuController: NSObject {
             return menu
         }
 
-        if sourceDesktopSpaceIDs.count > 1 {
+        if sourceValidation == .multipleDesktopSpaces {
             addInformationalItem(
                 String(localized: "Windows available on all Spaces cannot be moved", comment: "Unavailable Space movement explanation"),
                 to: menu
@@ -87,6 +82,7 @@ final class SpaceMoveMenuController: NSObject {
             }
 
             for space in entry.1 {
+                let destination = ManagedSpaceDestination(display: entry.0, space: space)
                 let apps = apps(on: space, cachedWindows: cachedWindows)
                 let title = menuTitle(for: space, apps: apps)
                 let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
@@ -106,7 +102,7 @@ final class SpaceMoveMenuController: NSObject {
                         item.target = self
                         item.representedObject = MoveRequest(
                             window: window,
-                            destinationSpaceID: space.id,
+                            destination: destination,
                             dismissPreviews: dismissPreviews
                         )
                     }
@@ -213,23 +209,11 @@ final class SpaceMoveMenuController: NSObject {
 
     @objc private func moveWindow(_ sender: NSMenuItem) {
         guard let request = sender.representedObject as? MoveRequest else { return }
-
-        WindowUtil.moveWindowConfirmed(request.window, toManagedSpace: request.destinationSpaceID) { success in
-            guard success, Defaults[.switchToDestinationSpaceAfterMoving] else { return }
-
-            request.dismissPreviews?()
-            var movedWindow = request.window
-            if movedWindow.app.isHidden {
-                movedWindow.app.unhide()
-                WindowUtil.updateCachedWindowState(movedWindow, isHidden: false)
-            }
-            if movedWindow.isMinimized {
-                try? movedWindow.axElement.setAttribute(kAXMinimizedAttribute, false)
-                movedWindow.isMinimized = false
-                WindowUtil.updateCachedWindowState(movedWindow, isMinimized: false)
-            }
-            movedWindow.bringToFront()
-        }
+        WindowUtil.performConfirmedSpaceMove(
+            request.window,
+            to: request.destination,
+            dismissPreviews: request.dismissPreviews
+        )
     }
 }
 

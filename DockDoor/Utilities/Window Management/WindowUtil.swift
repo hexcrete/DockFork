@@ -1052,6 +1052,42 @@ extension WindowUtil {
         managedSpaceMoveLock.unlock()
     }
 
+    @MainActor
+    static func performConfirmedSpaceMove(
+        _ windowInfo: WindowInfo,
+        to destination: ManagedSpaceDestination,
+        dismissPreviews: (() -> Void)?,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        guard WindowSpaces.validateMove(windowInfo, to: destination) == nil else {
+            completion?(false)
+            return
+        }
+
+        moveWindowConfirmed(windowInfo, toManagedSpace: destination.space.id) { success in
+            guard success else {
+                completion?(false)
+                return
+            }
+
+            if Defaults[.switchToDestinationSpaceAfterMoving] {
+                dismissPreviews?()
+                var movedWindow = windowInfo
+                if movedWindow.app.isHidden {
+                    movedWindow.app.unhide()
+                    updateCachedWindowState(movedWindow, isHidden: false)
+                }
+                if movedWindow.isMinimized {
+                    try? movedWindow.axElement.setAttribute(kAXMinimizedAttribute, false)
+                    movedWindow.isMinimized = false
+                    updateCachedWindowState(movedWindow, isMinimized: false)
+                }
+                movedWindow.bringToFront()
+            }
+            completion?(true)
+        }
+    }
+
     private static func removePendingManagedSpaceMove(key: String, token: UUID) {
         managedSpaceMoveLock.lock()
         defer { managedSpaceMoveLock.unlock() }

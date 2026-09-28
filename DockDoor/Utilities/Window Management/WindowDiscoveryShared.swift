@@ -625,6 +625,19 @@ struct ManagedDisplayDescriptor {
     let spaces: [ManagedSpaceDescriptor]
 }
 
+struct ManagedSpaceDestination {
+    let display: ManagedDisplayDescriptor
+    let space: ManagedSpaceDescriptor
+}
+
+enum ManagedSpaceMoveValidationError: Equatable {
+    case windowless
+    case fullscreen
+    case multipleDesktopSpaces
+    case unavailableDestination
+    case alreadyOnDestination
+}
+
 enum ManagedSpacesTopology {
     private static func spaceID(from dictionary: [String: AnyObject]?) -> CGSSpaceID? {
         if let managedSpaceID = dictionary?["ManagedSpaceID"] as? NSNumber {
@@ -782,12 +795,90 @@ enum WindowSpaces {
         return identifiers
     }
 
-    static func displayName(for identifier: String) -> String? {
+    static func screen(forDisplayIdentifier identifier: String) -> NSScreen? {
         NSScreen.screens.first { screen in
             displayIdentifiers(for: screen).contains { candidate in
                 candidate.caseInsensitiveCompare(identifier) == .orderedSame
             }
-        }?.localizedName
+        }
+    }
+
+    static func displayName(for identifier: String) -> String? {
+        screen(forDisplayIdentifier: identifier)?.localizedName
+    }
+
+    static func destination(
+        forSpaceID spaceID: CGSSpaceID,
+        in displays: [ManagedDisplayDescriptor]? = nil
+    ) -> ManagedSpaceDestination? {
+        for display in displays ?? managedDisplays() {
+            if let space = display.spaces.first(where: { $0.id == spaceID }) {
+                return ManagedSpaceDestination(display: display, space: space)
+            }
+        }
+        return nil
+    }
+
+    static func destination(
+        forSpaceNumber spaceNumber: Int,
+        in displays: [ManagedDisplayDescriptor]? = nil
+    ) -> ManagedSpaceDestination? {
+        for display in displays ?? managedDisplays() {
+            if let space = display.spaces.first(where: { $0.number == spaceNumber }) {
+                return ManagedSpaceDestination(display: display, space: space)
+            }
+        }
+        return nil
+    }
+
+    static func validateMoveSource(
+        _ window: WindowInfo,
+        in displays: [ManagedDisplayDescriptor]? = nil
+    ) -> ManagedSpaceMoveValidationError? {
+        if window.isWindowlessApp {
+            return .windowless
+        }
+        if window.isFullscreen == true || (try? window.axElement.isFullscreen()) == true {
+            return .fullscreen
+        }
+
+        let topology = displays ?? managedDisplays()
+        let desktopSpaceIDs = Set(topology.flatMap(\.spaces).filter { $0.kind == .desktop }.map(\.id))
+        if sourceSpaceIDs(for: window).intersection(desktopSpaceIDs).count > 1 {
+            return .multipleDesktopSpaces
+        }
+        return nil
+    }
+
+    static func validateMove(
+        _ window: WindowInfo,
+        to destination: ManagedSpaceDestination,
+        in displays: [ManagedDisplayDescriptor]? = nil
+    ) -> ManagedSpaceMoveValidationError? {
+        let topology = displays ?? managedDisplays()
+        guard destination.space.kind == .desktop,
+              topology.contains(where: { display in
+                  display.identifier == destination.display.identifier &&
+                      display.spaces.contains(where: { $0.id == destination.space.id && $0.kind == .desktop })
+              })
+        else {
+            return .unavailableDestination
+        }
+        if let sourceError = validateMoveSource(window, in: topology) {
+            return sourceError
+        }
+        if sourceSpaceIDs(for: window).contains(destination.space.id) {
+            return .alreadyOnDestination
+        }
+        return nil
+    }
+
+    static func sourceSpaceIDs(for window: WindowInfo) -> Set<CGSSpaceID> {
+        let reportedSpaceIDs = Set(window.id.cgsSpaces())
+        if !reportedSpaceIDs.isEmpty {
+            return reportedSpaceIDs
+        }
+        return Set(window.spaceID.map { [CGSSpaceID($0)] } ?? [])
     }
 
     private static func screenContainingMouse(_ mouseLocation: CGPoint) -> NSScreen? {
