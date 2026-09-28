@@ -120,6 +120,8 @@ struct MainSettingsView: View {
                 Defaults[.includeHiddenWindowsInDockPreview] = Defaults.Keys.includeHiddenWindowsInDockPreview.defaultValue
                 Defaults[.includeHiddenWindowsInCmdTab] = Defaults.Keys.includeHiddenWindowsInCmdTab.defaultValue
                 Defaults[.showWindowlessAppsInSwitcher] = Defaults.Keys.showWindowlessAppsInSwitcher.defaultValue
+                Defaults[.excludeWindowlessAppsFromCurrentMonitorSwitcherScopes] = Defaults.Keys.excludeWindowlessAppsFromCurrentMonitorSwitcherScopes.defaultValue
+                Defaults[.excludeWindowlessAppsFromCurrentSpaceSwitcherScopes] = Defaults.Keys.excludeWindowlessAppsFromCurrentSpaceSwitcherScopes.defaultValue
                 Defaults[.showWindowlessAppsInDockPreview] = Defaults.Keys.showWindowlessAppsInDockPreview.defaultValue
                 Defaults[.showWindowlessAppsInCmdTab] = Defaults.Keys.showWindowlessAppsInCmdTab.defaultValue
                 Defaults[.windowlessAppActivationMode] = Defaults.Keys.windowlessAppActivationMode.defaultValue

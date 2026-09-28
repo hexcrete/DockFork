@@ -296,7 +296,11 @@ private class WindowSwitchingCoordinator {
             windows = WindowUtil.groupWindowsByApp(windows)
         }
 
-        if !filterByApp, Defaults[.showWindowlessAppsInSwitcher] {
+        let excludesWindowlessApps = (Defaults[.excludeWindowlessAppsFromCurrentMonitorSwitcherScopes]
+            && (mode == .currentMonitorOnly || mode == .currentMonitorCurrentSpace))
+            || (Defaults[.excludeWindowlessAppsFromCurrentSpaceSwitcherScopes]
+                && (mode == .currentSpaceOnly || mode == .currentMonitorCurrentSpace))
+        if !filterByApp, Defaults[.showWindowlessAppsInSwitcher], !excludesWindowlessApps {
             windows.append(contentsOf: WindowUtil.getWindowlessRunningApps(existingWindows: windowsForWindowlessDetection))
         }
 

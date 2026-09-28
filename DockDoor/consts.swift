@@ -601,6 +601,8 @@ extension Defaults.Keys {
     static let includeHiddenWindowsInDockPreview = Key<Bool>("includeHiddenWindowsInDockPreview", default: true)
     static let includeHiddenWindowsInCmdTab = Key<Bool>("includeHiddenWindowsInCmdTab", default: true)
     static let showWindowlessAppsInSwitcher = Key<Bool>("showWindowlessAppsInSwitcher", default: true)
+    static let excludeWindowlessAppsFromCurrentMonitorSwitcherScopes = Key<Bool>("excludeWindowlessAppsFromCurrentMonitorSwitcherScopes", default: false)
+    static let excludeWindowlessAppsFromCurrentSpaceSwitcherScopes = Key<Bool>("excludeWindowlessAppsFromCurrentSpaceSwitcherScopes", default: false)
     static let showWindowlessAppsInDockPreview = Key<Bool>("showWindowlessAppsInDockPreview", default: false)
     static let showWindowlessAppsInCmdTab = Key<Bool>("showWindowlessAppsInCmdTab", default: false)
     static let windowlessAppActivationMode = Key<WindowlessAppActivationMode>("windowlessAppActivationMode", default: .simulateDockClick)

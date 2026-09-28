@@ -394,6 +394,22 @@ enum SettingsSearchCatalog {
             icon: "macwindow.badge.plus"
         ),
         SettingsSearchItem(
+            id: "windowSwitcher.excludeWindowlessFromCurrentMonitor",
+            title: String(localized: "Exclude from \"Current Monitor Only\" filter"),
+            keywords: ["windowless", "monitor", "display", "filter", "exclude"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Window Display"),
+            icon: "display"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.excludeWindowlessFromCurrentSpace",
+            title: String(localized: "Exclude from \"Current Space Only\" filter"),
+            keywords: ["windowless", "space", "desktop", "filter", "exclude"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Window Display"),
+            icon: "rectangle.on.rectangle"
+        ),
+        SettingsSearchItem(
             id: "windowSwitcher.enableSearch",
             title: String(localized: "Enable search"),
             keywords: ["search", "find", "filter", "type"],

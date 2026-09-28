@@ -28,6 +28,8 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.windowSwitcherHorizontalOffsetPercent) var windowSwitcherHorizontalOffsetPercent
     @Default(.windowSwitcherVerticalOffsetPercent) var windowSwitcherVerticalOffsetPercent
     @Default(.showWindowlessAppsInSwitcher) var showWindowlessAppsInSwitcher
+    @Default(.excludeWindowlessAppsFromCurrentMonitorSwitcherScopes) var excludeWindowlessAppsFromCurrentMonitorSwitcherScopes
+    @Default(.excludeWindowlessAppsFromCurrentSpaceSwitcherScopes) var excludeWindowlessAppsFromCurrentSpaceSwitcherScopes
     @Default(.mouseFollowsFocusMode) var mouseFollowsFocusMode
 
     @State private var showGroupedAppsSheet: Bool = false
@@ -152,6 +154,20 @@ struct WindowSwitcherBehaviorSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)
+
+                if showWindowlessAppsInSwitcher {
+                    Toggle(isOn: $excludeWindowlessAppsFromCurrentMonitorSwitcherScopes) {
+                        Text("Exclude from \"Current Monitor Only\" filter")
+                    }
+                    .settingsSearchTarget("windowSwitcher.excludeWindowlessFromCurrentMonitor")
+                    .padding(.leading, 20)
+
+                    Toggle(isOn: $excludeWindowlessAppsFromCurrentSpaceSwitcherScopes) {
+                        Text("Exclude from \"Current Space Only\" filter")
+                    }
+                    .settingsSearchTarget("windowSwitcher.excludeWindowlessFromCurrentSpace")
+                    .padding(.leading, 20)
+                }
             }
         }
     }
