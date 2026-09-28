@@ -382,6 +382,7 @@ final class DockObserver {
         for appInstance in appsToFetchWindowsFrom {
             cachedWindows.append(contentsOf: WindowUtil.readCachedWindows(for: appInstance.processIdentifier))
         }
+        cachedWindows = WindowUtil.collapseNativeTabsIfNeeded(cachedWindows)
 
         lastHoveredPID = currentApp.processIdentifier
         lastHoveredAppWasFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == currentApp.processIdentifier

@@ -1594,6 +1594,8 @@ struct WindowPreviewHoverContainer: View {
         let windowlessApp = runningApp ?? app
         if !canAddWindowlessEntry {
             replacement = []
+        } else {
+            replacement = WindowUtil.collapseNativeTabsIfNeeded(replacement)
         }
 
         if dockPosition == .cmdTab {

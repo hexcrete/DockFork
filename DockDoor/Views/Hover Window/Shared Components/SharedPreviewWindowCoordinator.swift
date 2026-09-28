@@ -965,9 +965,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             switch actualAppContentType {
             case let .media(mediaBundleId):
                 if Defaults[.showSpecialAppControls], Defaults[.enableMediaWidget] {
-                    let hasValidWindows = windows.contains { !$0.isMinimized && !$0.isEffectivelyHiddenForUI }
+                    let hasRealWindows = windows.contains { !$0.isWindowlessApp }
                     let shouldUseBigControlsForNoValidWindows = Defaults[.showBigControlsWhenNoValidWindows] &&
-                        (windows.isEmpty || !hasValidWindows)
+                        (windows.isEmpty || !hasRealWindows)
 
                     if Defaults[.useEmbeddedMediaControls], !shouldUseBigControlsForNoValidWindows {
                         finalEmbeddedContentType = .media(bundleIdentifier: mediaBundleId)
@@ -985,9 +985,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 }
             case let .calendar(calendarBundleId):
                 if Defaults[.showSpecialAppControls], Defaults[.enableCalendarWidget] {
-                    let hasValidWindows = windows.contains { !$0.isMinimized && !$0.isEffectivelyHiddenForUI }
+                    let hasRealWindows = windows.contains { !$0.isWindowlessApp }
                     let shouldUseBigControlsForNoValidWindows = Defaults[.showBigControlsWhenNoValidWindows] &&
-                        (windows.isEmpty || !hasValidWindows)
+                        (windows.isEmpty || !hasRealWindows)
 
                     if Defaults[.useEmbeddedMediaControls], !shouldUseBigControlsForNoValidWindows {
                         finalEmbeddedContentType = .calendar(bundleIdentifier: calendarBundleId)
@@ -1489,6 +1489,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var fresh = WindowUtil.readCachedWindows(for: pid)
         if !canAddWindowlessEntry {
             fresh = []
+        } else {
+            fresh = WindowUtil.collapseNativeTabsIfNeeded(fresh)
         }
 
         if currentDockPosition == .cmdTab {

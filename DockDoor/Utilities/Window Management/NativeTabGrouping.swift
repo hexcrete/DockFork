@@ -24,8 +24,8 @@ enum NativeTabGrouping {
         /// Used to pick which member represents its group; the most recently accessed window
         /// (typically the active tab) wins.
         let recency: Date
-        /// Whether this window may be collapsed into a group. Minimized, hidden, windowless,
-        /// and zero-sized windows are never collapsed and are always kept as-is.
+        /// Whether this window may be collapsed into a group. Callers use this to keep windows
+        /// distinct when their current state cannot safely imply native-tab membership.
         let groupable: Bool
         let isOnScreen: Bool
     }
