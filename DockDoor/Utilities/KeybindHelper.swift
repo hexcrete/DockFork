@@ -269,13 +269,15 @@ private class WindowSwitchingCoordinator {
         }
         let windowsForWindowlessDetection = windows
 
-        let filterBySpace = (mode == .currentSpaceOnly || mode == .activeAppCurrentSpace)
+        let filterBySpace = (mode == .currentSpaceOnly || mode == .currentMonitorCurrentSpace || mode == .activeAppCurrentSpace)
             || (mode == .allWindows && Defaults[.showWindowsFromCurrentSpaceOnlyInSwitcher])
         if filterBySpace {
             windows = WindowUtil.filterWindowsByCurrentSpace(windows)
         }
 
-        if mode == .allWindows, Defaults[.showWindowsFromCurrentMonitorOnlyInSwitcher] {
+        let filterByMonitor = mode == .currentMonitorOnly || mode == .currentMonitorCurrentSpace
+            || (mode == .allWindows && Defaults[.showWindowsFromCurrentMonitorOnlyInSwitcher])
+        if filterByMonitor {
             windows = WindowUtil.filterWindowsByCurrentMonitor(windows)
         }
 

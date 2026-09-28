@@ -345,7 +345,7 @@ struct WindowSwitcherKeybindSection: View {
             )
 
             Picker("Mode", selection: alternateModeBinding(for: shortcut.id)) {
-                ForEach(SwitcherInvocationMode.allCases) { mode in
+                ForEach(SwitcherInvocationMode.sortedCases) { mode in
                     Text(mode.localizedName).tag(mode)
                 }
             }
@@ -430,7 +430,7 @@ struct WindowSwitcherKeybindSection: View {
             alternateSwitcherShortcuts.count
         )
         let usedModes = Set(alternateSwitcherShortcuts.map(\.mode))
-        let nextMode = SwitcherInvocationMode.allCases.first { !usedModes.contains($0) } ?? .activeAppOnly
+        let nextMode = SwitcherInvocationMode.sortedCases.first { !usedModes.contains($0) } ?? .activeAppOnly
         let pending = AlternateSwitcherShortcut(mode: nextMode, isPending: true)
         alternateSwitcherShortcuts.insert(pending, at: insertionIndex)
         autoCaptureAlternateShortcutID = pending.id
@@ -681,7 +681,7 @@ private struct ScopedShortcutRows: View {
             }
 
             Picker("Mode", selection: modeBinding(for: shortcut.id)) {
-                ForEach(SwitcherInvocationMode.allCases) { mode in
+                ForEach(SwitcherInvocationMode.sortedCases) { mode in
                     Text(mode.localizedName).tag(mode)
                 }
             }
@@ -782,7 +782,7 @@ private struct ScopedShortcutRows: View {
         guard canAddShortcut else { return }
         let insertionIndex = min((rowIndex(for: id) ?? (shortcuts.count - 1)) + 1, shortcuts.count)
         let usedModes = Set(shortcuts.map(\.mode))
-        let nextMode = SwitcherInvocationMode.allCases.first { !usedModes.contains($0) } ?? defaultMode
+        let nextMode = SwitcherInvocationMode.sortedCases.first { !usedModes.contains($0) } ?? defaultMode
         shortcuts.insert(PersistentSwitcherShortcut(mode: nextMode, isPending: true), at: insertionIndex)
     }
 

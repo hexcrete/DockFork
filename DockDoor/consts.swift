@@ -1574,9 +1574,17 @@ enum SwitcherInvocationMode: String, CaseIterable, Codable, Defaults.Serializabl
     case globalAllWindows
     case activeAppOnly
     case currentSpaceOnly
+    case currentMonitorOnly
+    case currentMonitorCurrentSpace
     case activeAppCurrentSpace
 
     var id: String { rawValue }
+
+    static var sortedCases: [SwitcherInvocationMode] {
+        allCases.sorted {
+            $0.localizedName.localizedStandardCompare($1.localizedName) == .orderedAscending
+        }
+    }
 
     var localizedName: String {
         switch self {
@@ -1588,6 +1596,10 @@ enum SwitcherInvocationMode: String, CaseIterable, Codable, Defaults.Serializabl
             String(localized: "Active App Only", comment: "Switcher invocation mode")
         case .currentSpaceOnly:
             String(localized: "Current Space Only", comment: "Switcher invocation mode")
+        case .currentMonitorOnly:
+            String(localized: "Current Monitor Only", comment: "Switcher invocation mode")
+        case .currentMonitorCurrentSpace:
+            String(localized: "Current Monitor + Current Space", comment: "Switcher invocation mode")
         case .activeAppCurrentSpace:
             String(localized: "Active App + Current Space", comment: "Switcher invocation mode")
         }
@@ -1603,6 +1615,10 @@ enum SwitcherInvocationMode: String, CaseIterable, Codable, Defaults.Serializabl
             String(localized: "Shows only windows from the frontmost application", comment: "Switcher invocation mode description")
         case .currentSpaceOnly:
             String(localized: "Shows only windows from the current Space", comment: "Switcher invocation mode description")
+        case .currentMonitorOnly:
+            String(localized: "Shows only windows from the current monitor", comment: "Switcher invocation mode description")
+        case .currentMonitorCurrentSpace:
+            String(localized: "Shows only windows from the current monitor in the current Space", comment: "Switcher invocation mode description")
         case .activeAppCurrentSpace:
             String(localized: "Shows only windows from the frontmost app in the current Space", comment: "Switcher invocation mode description")
         }

@@ -1750,7 +1750,7 @@ enum SettingsSearchCatalog {
             id: "gestures.alternateShortcuts",
             title: String(localized: "Alternate Shortcuts"),
             description: String(localized: "Additional trigger keys, each with its own modifier and window filter."),
-            keywords: ["alternate", "shortcuts", "trigger", "filter", "mode", "modifier", "multiple"],
+            keywords: ["alternate", "shortcuts", "trigger", "filter", "mode", "modifier", "multiple", "monitor", "display", "space"],
             tab: "GesturesKeybinds",
             section: String(localized: "Window Switcher Shortcuts"),
             icon: "keyboard"
@@ -1759,7 +1759,7 @@ enum SettingsSearchCatalog {
             id: "gestures.persistentSwitcherShortcuts",
             title: String(localized: "Alternate Shortcuts (Keep Open)"),
             description: String(localized: "Releasing initializer keys will always keep the Window Switcher open. Window preview keyboard shortcuts use the default modifier key."),
-            keywords: ["alternate", "shortcut", "persistent", "keep", "open", "double", "tap", "modifier"],
+            keywords: ["alternate", "shortcut", "persistent", "keep", "open", "double", "tap", "modifier", "monitor", "display", "space"],
             tab: "GesturesKeybinds",
             section: String(localized: "Window Switcher Shortcuts"),
             icon: "keyboard.badge.ellipsis"
@@ -1768,7 +1768,7 @@ enum SettingsSearchCatalog {
             id: "gestures.lastFocusedWindowShortcuts",
             title: String(localized: "Switch to Last Focused Window"),
             description: String(localized: "Instantly switch to the last focused window."),
-            keywords: ["last", "focused", "previous", "recent", "window", "shortcut", "mru", "double", "tap"],
+            keywords: ["last", "focused", "previous", "recent", "window", "shortcut", "mru", "double", "tap", "monitor", "display", "space"],
             tab: "GesturesKeybinds",
             section: String(localized: "Window Switcher Shortcuts"),
             icon: "arrow.uturn.backward"
