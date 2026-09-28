@@ -181,6 +181,11 @@ private class WindowSwitchingCoordinator {
     }
 
     @MainActor
+    func eligibleRealWindows(mode: SwitcherInvocationMode) -> [WindowInfo] {
+        buildSwitcherWindows(mode: mode).filter { !$0.isWindowlessApp }
+    }
+
+    @MainActor
     private func initializeWindowSwitching(
         previewCoordinator: SharedPreviewWindowCoordinator,
         mode: SwitcherInvocationMode = .allWindows,
@@ -517,6 +522,11 @@ private class WindowSwitchingCoordinator {
 }
 
 class KeybindHelper {
+    private enum ModifierDoubleTapAction {
+        case openPersistentSwitcher(SwitcherInvocationMode)
+        case switchToLastFocusedWindow(SwitcherInvocationMode)
+    }
+
     private struct ModifierDoubleTapState {
         var pressedKeyCodes: Set<UInt16> = []
         var completedFirstTapKeyCodes: Set<UInt16> = []
@@ -746,9 +756,15 @@ class KeybindHelper {
 
         switch type {
         case .flagsChanged:
-            if let mode = handleModifierDoubleTap(event: event) {
+            if let action = handleModifierDoubleTap(event: event) {
                 Task { @MainActor [weak self] in
-                    await self?.togglePersistentWindowSwitcher(mode: mode)
+                    guard let self else { return }
+                    switch action {
+                    case let .openPersistentSwitcher(mode):
+                        await togglePersistentWindowSwitcher(mode: mode)
+                    case let .switchToLastFocusedWindow(mode):
+                        switchToLastFocusedWindow(mode: mode)
+                    }
                 }
             }
             let keyBoardShortcutSaved = sessionKeybind()
@@ -1080,11 +1096,25 @@ class KeybindHelper {
         )
     }
 
-    private func handleModifierDoubleTap(event: CGEvent) -> SwitcherInvocationMode? {
+    private func lastFocusedShortcuts() -> [ResolvedPersistentSwitcherShortcut] {
+        WindowSwitcherShortcutResolver.resolvedLastFocusedShortcuts(
+            Defaults[.lastFocusedWindowShortcuts],
+            mainKeybind: Defaults[.UserKeybind],
+            alternateShortcuts: Defaults[.alternateSwitcherShortcuts],
+            persistentShortcuts: Defaults[.persistentSwitcherShortcuts],
+            previewShortcuts: Defaults[.cmdShortcuts]
+        )
+    }
+
+    private func handleModifierDoubleTap(event: CGEvent) -> ModifierDoubleTapAction? {
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
-        let shortcuts = persistentShortcuts().filter { $0.doubleTapKey != nil }
+        let shortcuts = persistentShortcuts().filter { $0.doubleTapKey != nil }.map {
+            ($0, ModifierDoubleTapAction.openPersistentSwitcher($0.mode))
+        } + lastFocusedShortcuts().filter { $0.doubleTapKey != nil }.map {
+            ($0, ModifierDoubleTapAction.switchToLastFocusedWindow($0.mode))
+        }
         guard !shortcuts.isEmpty,
-              let matchingShortcut = shortcuts.first(where: { shortcut in
+              let matchingShortcut = shortcuts.first(where: { shortcut, _ in
                   guard let modifier = shortcut.doubleTapKey,
                         let side = shortcut.doubleTapSide
                   else { return false }
@@ -1132,12 +1162,56 @@ class KeybindHelper {
             let elapsed = Double(event.timestamp - firstPress) / 1_000_000_000
             modifierDoubleTapState.resetSequence()
             if elapsed <= NSEvent.doubleClickInterval {
-                return matchingShortcut.mode
+                return matchingShortcut.1
             }
         }
 
         modifierDoubleTapState.firstPressTimestampByKeyCode[keyCode] = event.timestamp
         return nil
+    }
+
+    @MainActor
+    private func switchToLastFocusedWindow(mode: SwitcherInvocationMode) {
+        let windows = windowSwitchingCoordinator.eligibleRealWindows(mode: mode)
+            .filter { !$0.app.isTerminated }
+            .sorted {
+                if $0.lastAccessedTime != $1.lastAccessedTime {
+                    return $0.lastAccessedTime > $1.lastAccessedTime
+                }
+                if $0.app.processIdentifier != $1.app.processIdentifier {
+                    return $0.app.processIdentifier < $1.app.processIdentifier
+                }
+                return $0.id < $1.id
+            }
+
+        guard windows.count >= 2,
+              let frontmostApp = NSWorkspace.shared.frontmostApplication,
+              let focusedElement = try? AXUIElementCreateApplication(frontmostApp.processIdentifier).focusedWindow(),
+              let focusedWindowID = try? focusedElement.cgWindowId(),
+              let target = windows.first(where: {
+                  $0.app.processIdentifier != frontmostApp.processIdentifier || $0.id != focusedWindowID
+              })
+        else {
+            NSSound.beep()
+            return
+        }
+
+        switcherSessionActive = false
+        windowSwitchingCoordinator.cancelSwitching(previewCoordinator: previewCoordinator)
+        previewCoordinator.hideWindow()
+
+        var targetWindow = target
+        let activated: Bool = if targetWindow.isMinimized {
+            targetWindow.toggleMinimize() == false
+        } else if targetWindow.isEffectivelyHiddenForUI {
+            targetWindow.toggleHidden() == false
+        } else {
+            targetWindow.bringToFront()
+        }
+
+        if !activated {
+            NSSound.beep()
+        }
     }
 
     private func sessionKeybind() -> UserKeyBind {
@@ -1302,6 +1376,7 @@ class KeybindHelper {
         let keyBoardShortcutSaved: UserKeyBind = Defaults[.UserKeybind]
         let alternateShortcuts = alternateShortcuts()
         let persistentShortcuts = persistentShortcuts()
+        let lastFocusedShortcuts = lastFocusedShortcuts()
         let snapshot = previewCoordinator.tapSnapshot
         let previewIsCurrentlyVisible = snapshot.isVisible || switcherSessionActive
 
@@ -1318,12 +1393,18 @@ class KeybindHelper {
                 keyCode == Int64($0.keyCode) &&
                 normalizedEventModifiers == $0.modifierFlags
         } : nil
+        let matchingLastFocusedShortcut = event.getIntegerValueField(.keyboardEventAutorepeat) == 0 ? lastFocusedShortcuts.first {
+            $0.doubleTapKey == nil &&
+                keyCode == Int64($0.keyCode) &&
+                normalizedEventModifiers == $0.modifierFlags
+        } : nil
 
         if previewIsCurrentlyVisible || snapshot.fullPreviewFrame != nil,
            keyCode == kVK_Escape,
            !isExactSwitcherShortcutPressed,
            !isAlternateShortcutPressed,
-           matchingPersistentShortcut == nil
+           matchingPersistentShortcut == nil,
+           matchingLastFocusedShortcut == nil
         {
             switcherSessionActive = false
             return (true, { @MainActor in
@@ -1373,6 +1454,12 @@ class KeybindHelper {
             if WindowUtil.shouldIgnoreKeybindForFrontmostApp() { return (false, nil) }
             return (true, {
                 await self.togglePersistentWindowSwitcher(mode: matchingPersistentShortcut.mode)
+            })
+        }
+
+        if let matchingLastFocusedShortcut {
+            return (true, { @MainActor in
+                self.switchToLastFocusedWindow(mode: matchingLastFocusedShortcut.mode)
             })
         }
 

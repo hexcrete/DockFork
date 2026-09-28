@@ -468,10 +468,11 @@ extension WindowInfo {
         WindowUtil.moveWindowToCurrentManagedSpace(self, mouseLocation: mouseLocation)
     }
 
-    func bringToFront() {
+    @discardableResult
+    func bringToFront() -> Bool {
         guard !isWindowlessApp else {
             WindowUtil.activateWindowlessApp(app: app)
-            return
+            return true
         }
         let maxRetries = 3
         var retryCount = 0
@@ -500,7 +501,7 @@ extension WindowInfo {
         while retryCount < maxRetries {
             if attemptActivation() {
                 WindowUtil.updateTimestampOptimistically(for: self)
-                return
+                return true
             }
             retryCount += 1
             if retryCount < maxRetries {
@@ -509,6 +510,7 @@ extension WindowInfo {
         }
 
         print("Failed to bring window to front after \(maxRetries) attempts")
+        return false
     }
 
     func warpMouseToCenterIfNeeded() {

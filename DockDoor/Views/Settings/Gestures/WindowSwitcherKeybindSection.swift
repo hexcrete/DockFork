@@ -9,6 +9,7 @@ struct WindowSwitcherKeybindSection: View {
     @Default(.fullscreenAppBlacklist) var fullscreenAppBlacklist
     @Default(.alternateSwitcherShortcuts) var alternateSwitcherShortcuts
     @Default(.persistentSwitcherShortcuts) var persistentSwitcherShortcuts
+    @Default(.lastFocusedWindowShortcuts) var lastFocusedWindowShortcuts
     @Default(.cmdShortcuts) private var cmdShortcuts
     @Default(.UserKeybind) private var mainKeybind
     @Default(.requireShiftTabToGoBack) var requireShiftTabToGoBack
@@ -116,6 +117,12 @@ struct WindowSwitcherKeybindSection: View {
                 Divider()
 
                 persistentShortcutsSection
+                    .disabled(!enableWindowSwitcher)
+                    .opacity(enableWindowSwitcher ? 1.0 : 0.5)
+
+                Divider()
+
+                lastFocusedShortcutsSection
                     .disabled(!enableWindowSwitcher)
                     .opacity(enableWindowSwitcher ? 1.0 : 0.5)
 
@@ -486,217 +493,49 @@ struct WindowSwitcherKeybindSection: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            ForEach(indexedPersistentShortcuts, id: \.shortcut.id) { item in
-                persistentShortcutRow(index: item.index, shortcut: item.shortcut)
-            }
-        }
-        .settingsSearchTarget("gestures.persistentSwitcherShortcuts")
-        .onAppear {
-            ensurePersistentShortcutRow()
-        }
-    }
-
-    private var indexedPersistentShortcuts: [(index: Int, shortcut: PersistentSwitcherShortcut)] {
-        Array(persistentSwitcherShortcuts.enumerated()).map { (index: $0.offset, shortcut: $0.element) }
-    }
-
-    private var hasPendingPersistentShortcut: Bool {
-        persistentSwitcherShortcuts.contains { $0.isPending || !$0.isConfigured }
-    }
-
-    private var canAddPersistentShortcut: Bool {
-        persistentSwitcherShortcuts.count < SwitcherInvocationMode.allCases.count && !hasPendingPersistentShortcut
-    }
-
-    private func persistentShortcutRow(index: Int, shortcut: PersistentSwitcherShortcut) -> some View {
-        let conflict = WindowSwitcherShortcutResolver.persistentConflict(
-            at: index,
-            shortcuts: persistentSwitcherShortcuts,
-            mainKeybind: mainKeybind,
-            alternateShortcuts: alternateSwitcherShortcuts,
-            previewShortcuts: cmdShortcuts
-        )
-
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 12) {
-                Toggle("Double-tap key", isOn: persistentDoubleTapBinding(for: shortcut.id))
-                    .toggleStyle(.checkbox)
-                    .fixedSize()
-
-                if shortcut.usesDoubleTap {
-                    Picker("Modifier", selection: persistentDoubleTapKeyBinding(for: shortcut.id)) {
-                        ForEach(ModifierDoubleTapKey.allCases) { key in
-                            Text(key.localizedName).tag(key)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .fixedSize()
-
-                    Picker("Side", selection: persistentDoubleTapSideBinding(for: shortcut.id)) {
-                        ForEach(ModifierKeySide.allCases) { side in
-                            Text(side.localizedName).tag(side)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.menu)
-                    .fixedSize()
-                } else {
-                    KeyCombinationCaptureButton(
-                        keyCode: persistentKeyBinding(for: shortcut.id),
-                        modifierFlags: persistentModifierBinding(for: shortcut.id),
-                        isConfigured: shortcut.isConfigured,
-                        onCaptureFinished: { assigned in
-                            handlePersistentCaptureFinished(for: shortcut.id, assigned: assigned)
-                        }
+            ScopedShortcutRows(
+                shortcuts: $persistentSwitcherShortcuts,
+                defaultMode: .allWindows,
+                conflictAtIndex: { index, shortcuts in
+                    WindowSwitcherShortcutResolver.persistentConflict(
+                        at: index,
+                        shortcuts: shortcuts,
+                        mainKeybind: mainKeybind,
+                        alternateShortcuts: alternateSwitcherShortcuts,
+                        previewShortcuts: cmdShortcuts
                     )
                 }
+            )
+        }
+        .settingsSearchTarget("gestures.persistentSwitcherShortcuts")
+    }
 
-                Picker("Mode", selection: persistentModeBinding(for: shortcut.id)) {
-                    ForEach(SwitcherInvocationMode.allCases) { mode in
-                        Text(mode.localizedName).tag(mode)
-                    }
+    private var lastFocusedShortcutsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Switch to Last Focused Window").font(.headline)
+            Text("Instantly switch to the last focused window.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            Text("Each shortcut can use either a standard key combination pressed once or a single modifier key pressed twice.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            ScopedShortcutRows(
+                shortcuts: $lastFocusedWindowShortcuts,
+                defaultMode: .globalAllWindows,
+                conflictAtIndex: { index, shortcuts in
+                    WindowSwitcherShortcutResolver.lastFocusedConflict(
+                        at: index,
+                        shortcuts: shortcuts,
+                        mainKeybind: mainKeybind,
+                        alternateShortcuts: alternateSwitcherShortcuts,
+                        persistentShortcuts: persistentSwitcherShortcuts,
+                        previewShortcuts: cmdShortcuts
+                    )
                 }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(maxWidth: 220)
-
-                if let conflict {
-                    Text(conflict.localizedMessage)
-                        .font(.caption2)
-                        .foregroundColor(.red)
-                }
-
-                Spacer(minLength: 0)
-
-                ControlGroup {
-                    Button("-") {
-                        removePersistentShortcut(shortcut.id)
-                    }
-                    Button("+") {
-                        addPersistentShortcut(after: shortcut.id)
-                    }
-                    .disabled(!canAddPersistentShortcut)
-                }
-                .labelsHidden()
-            }
+            )
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background {
-            if conflict != nil {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.red.opacity(0.08))
-                    .allowsHitTesting(false)
-            }
-        }
-        .overlay {
-            if conflict != nil {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.red.opacity(0.28), lineWidth: 1)
-                    .allowsHitTesting(false)
-            }
-        }
-    }
-
-    private func persistentKeyBinding(for id: UUID) -> Binding<UInt16> {
-        Binding(
-            get: { persistentSwitcherShortcuts.first(where: { $0.id == id })?.keyCode ?? 0 },
-            set: { newValue in
-                guard let index = persistentSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
-                persistentSwitcherShortcuts[index].keyCode = newValue
-            }
-        )
-    }
-
-    private func persistentModifierBinding(for id: UUID) -> Binding<Int> {
-        Binding(
-            get: { persistentSwitcherShortcuts.first(where: { $0.id == id })?.modifierFlags ?? 0 },
-            set: { newValue in
-                guard let index = persistentSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
-                persistentSwitcherShortcuts[index].modifierFlags = newValue
-                persistentSwitcherShortcuts[index].isConfigured = newValue != 0
-                persistentSwitcherShortcuts[index].isPending = false
-            }
-        )
-    }
-
-    private func persistentModeBinding(for id: UUID) -> Binding<SwitcherInvocationMode> {
-        Binding(
-            get: { persistentSwitcherShortcuts.first(where: { $0.id == id })?.mode ?? .allWindows },
-            set: { newValue in
-                guard let index = persistentSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
-                persistentSwitcherShortcuts[index].mode = newValue
-            }
-        )
-    }
-
-    private func persistentDoubleTapBinding(for id: UUID) -> Binding<Bool> {
-        Binding(
-            get: { persistentSwitcherShortcuts.first(where: { $0.id == id })?.usesDoubleTap ?? false },
-            set: { newValue in
-                guard let index = persistentSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
-                persistentSwitcherShortcuts[index].usesDoubleTap = newValue
-                persistentSwitcherShortcuts[index].isConfigured = newValue || persistentSwitcherShortcuts[index].modifierFlags != 0
-                persistentSwitcherShortcuts[index].isPending = false
-            }
-        )
-    }
-
-    private func persistentDoubleTapKeyBinding(for id: UUID) -> Binding<ModifierDoubleTapKey> {
-        Binding(
-            get: { persistentSwitcherShortcuts.first(where: { $0.id == id })?.doubleTapKey ?? .option },
-            set: { newValue in
-                guard let index = persistentSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
-                persistentSwitcherShortcuts[index].doubleTapKey = newValue
-            }
-        )
-    }
-
-    private func persistentDoubleTapSideBinding(for id: UUID) -> Binding<ModifierKeySide> {
-        Binding(
-            get: { persistentSwitcherShortcuts.first(where: { $0.id == id })?.doubleTapSide ?? .both },
-            set: { newValue in
-                guard let index = persistentSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
-                persistentSwitcherShortcuts[index].doubleTapSide = newValue
-            }
-        )
-    }
-
-    private func addPersistentShortcut(after id: UUID) {
-        guard canAddPersistentShortcut else { return }
-        let insertionIndex = min(
-            (persistentSwitcherShortcuts.firstIndex(where: { $0.id == id }) ?? (persistentSwitcherShortcuts.count - 1)) + 1,
-            persistentSwitcherShortcuts.count
-        )
-        let usedModes = Set(persistentSwitcherShortcuts.map(\.mode))
-        let nextMode = SwitcherInvocationMode.allCases.first { !usedModes.contains($0) } ?? .allWindows
-        let pending = PersistentSwitcherShortcut(mode: nextMode, isPending: true)
-        persistentSwitcherShortcuts.insert(pending, at: insertionIndex)
-    }
-
-    private func removePersistentShortcut(_ id: UUID) {
-        guard let index = persistentSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
-        if persistentSwitcherShortcuts.count == 1 {
-            let mode = persistentSwitcherShortcuts[index].mode
-            persistentSwitcherShortcuts[index] = PersistentSwitcherShortcut(mode: mode)
-        } else {
-            persistentSwitcherShortcuts.remove(at: index)
-        }
-    }
-
-    private func handlePersistentCaptureFinished(for id: UUID, assigned: Bool) {
-        guard assigned,
-              let index = persistentSwitcherShortcuts.firstIndex(where: { $0.id == id })
-        else { return }
-        persistentSwitcherShortcuts[index].isConfigured = true
-        persistentSwitcherShortcuts[index].isPending = false
-    }
-
-    private func ensurePersistentShortcutRow() {
-        if persistentSwitcherShortcuts.isEmpty {
-            persistentSwitcherShortcuts = PersistentSwitcherShortcut.defaultShortcuts
-        }
+        .settingsSearchTarget("gestures.lastFocusedWindowShortcuts")
     }
 
     // MARK: - Fullscreen App Blacklist
@@ -771,6 +610,188 @@ struct WindowSwitcherKeybindSection: View {
                     }
                 }
             )
+        }
+    }
+}
+
+private struct ScopedShortcutRows: View {
+    @Binding var shortcuts: [PersistentSwitcherShortcut]
+    let defaultMode: SwitcherInvocationMode
+    let conflictAtIndex: (Int, [PersistentSwitcherShortcut]) -> AlternateSwitcherShortcutConflict?
+
+    private var indexedShortcuts: [(index: Int, shortcut: PersistentSwitcherShortcut)] {
+        Array(shortcuts.enumerated()).map { (index: $0.offset, shortcut: $0.element) }
+    }
+
+    private var canAddShortcut: Bool {
+        shortcuts.count < SwitcherInvocationMode.allCases.count &&
+            !shortcuts.contains { $0.isPending || !$0.isConfigured }
+    }
+
+    var body: some View {
+        ForEach(indexedShortcuts, id: \.shortcut.id) { item in
+            shortcutRow(index: item.index, shortcut: item.shortcut)
+        }
+        .onAppear {
+            if shortcuts.isEmpty {
+                shortcuts = [PersistentSwitcherShortcut(mode: defaultMode)]
+            }
+        }
+    }
+
+    private func shortcutRow(index: Int, shortcut: PersistentSwitcherShortcut) -> some View {
+        let conflict = conflictAtIndex(index, shortcuts)
+
+        return HStack(spacing: 12) {
+            Toggle("Double-tap key", isOn: doubleTapBinding(for: shortcut.id))
+                .toggleStyle(.checkbox)
+                .fixedSize()
+
+            if shortcut.usesDoubleTap {
+                Picker("Modifier", selection: doubleTapKeyBinding(for: shortcut.id)) {
+                    ForEach(ModifierDoubleTapKey.allCases) { key in
+                        Text(key.localizedName).tag(key)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+
+                Picker("Side", selection: doubleTapSideBinding(for: shortcut.id)) {
+                    ForEach(ModifierKeySide.allCases) { side in
+                        Text(side.localizedName).tag(side)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+            } else {
+                KeyCombinationCaptureButton(
+                    keyCode: keyBinding(for: shortcut.id),
+                    modifierFlags: modifierBinding(for: shortcut.id),
+                    isConfigured: shortcut.isConfigured,
+                    onCaptureFinished: { assigned in
+                        guard assigned,
+                              let rowIndex = shortcuts.firstIndex(where: { $0.id == shortcut.id })
+                        else { return }
+                        shortcuts[rowIndex].isConfigured = true
+                        shortcuts[rowIndex].isPending = false
+                    }
+                )
+            }
+
+            Picker("Mode", selection: modeBinding(for: shortcut.id)) {
+                ForEach(SwitcherInvocationMode.allCases) { mode in
+                    Text(mode.localizedName).tag(mode)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .frame(maxWidth: 220)
+
+            if let conflict {
+                Text(conflict.localizedMessage)
+                    .font(.caption2)
+                    .foregroundColor(.red)
+            }
+
+            Spacer(minLength: 0)
+
+            ControlGroup {
+                Button("-") { removeShortcut(shortcut.id) }
+                Button("+") { addShortcut(after: shortcut.id) }
+                    .disabled(!canAddShortcut)
+            }
+            .labelsHidden()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .background {
+            if conflict != nil {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.red.opacity(0.08))
+                    .allowsHitTesting(false)
+            }
+        }
+        .overlay {
+            if conflict != nil {
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.red.opacity(0.28), lineWidth: 1)
+                    .allowsHitTesting(false)
+            }
+        }
+    }
+
+    private func rowIndex(for id: UUID) -> Int? {
+        shortcuts.firstIndex { $0.id == id }
+    }
+
+    private func keyBinding(for id: UUID) -> Binding<UInt16> {
+        Binding(
+            get: { rowIndex(for: id).map { shortcuts[$0].keyCode } ?? 0 },
+            set: { if let index = rowIndex(for: id) { shortcuts[index].keyCode = $0 } }
+        )
+    }
+
+    private func modifierBinding(for id: UUID) -> Binding<Int> {
+        Binding(
+            get: { rowIndex(for: id).map { shortcuts[$0].modifierFlags } ?? 0 },
+            set: { newValue in
+                guard let index = rowIndex(for: id) else { return }
+                shortcuts[index].modifierFlags = newValue
+                shortcuts[index].isConfigured = newValue != 0
+                shortcuts[index].isPending = false
+            }
+        )
+    }
+
+    private func modeBinding(for id: UUID) -> Binding<SwitcherInvocationMode> {
+        Binding(
+            get: { rowIndex(for: id).map { shortcuts[$0].mode } ?? defaultMode },
+            set: { if let index = rowIndex(for: id) { shortcuts[index].mode = $0 } }
+        )
+    }
+
+    private func doubleTapBinding(for id: UUID) -> Binding<Bool> {
+        Binding(
+            get: { rowIndex(for: id).map { shortcuts[$0].usesDoubleTap } ?? false },
+            set: { newValue in
+                guard let index = rowIndex(for: id) else { return }
+                shortcuts[index].usesDoubleTap = newValue
+                shortcuts[index].isConfigured = newValue || shortcuts[index].modifierFlags != 0
+                shortcuts[index].isPending = false
+            }
+        )
+    }
+
+    private func doubleTapKeyBinding(for id: UUID) -> Binding<ModifierDoubleTapKey> {
+        Binding(
+            get: { rowIndex(for: id).map { shortcuts[$0].doubleTapKey } ?? .option },
+            set: { if let index = rowIndex(for: id) { shortcuts[index].doubleTapKey = $0 } }
+        )
+    }
+
+    private func doubleTapSideBinding(for id: UUID) -> Binding<ModifierKeySide> {
+        Binding(
+            get: { rowIndex(for: id).map { shortcuts[$0].doubleTapSide } ?? .both },
+            set: { if let index = rowIndex(for: id) { shortcuts[index].doubleTapSide = $0 } }
+        )
+    }
+
+    private func addShortcut(after id: UUID) {
+        guard canAddShortcut else { return }
+        let insertionIndex = min((rowIndex(for: id) ?? (shortcuts.count - 1)) + 1, shortcuts.count)
+        let usedModes = Set(shortcuts.map(\.mode))
+        let nextMode = SwitcherInvocationMode.allCases.first { !usedModes.contains($0) } ?? defaultMode
+        shortcuts.insert(PersistentSwitcherShortcut(mode: nextMode, isPending: true), at: insertionIndex)
+    }
+
+    private func removeShortcut(_ id: UUID) {
+        guard let index = rowIndex(for: id) else { return }
+        if shortcuts.count == 1 {
+            shortcuts[index] = PersistentSwitcherShortcut(mode: shortcuts[index].mode)
+        } else {
+            shortcuts.remove(at: index)
         }
     }
 }

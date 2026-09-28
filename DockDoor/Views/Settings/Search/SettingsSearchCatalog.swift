@@ -1765,6 +1765,15 @@ enum SettingsSearchCatalog {
             icon: "keyboard.badge.ellipsis"
         ),
         SettingsSearchItem(
+            id: "gestures.lastFocusedWindowShortcuts",
+            title: String(localized: "Switch to Last Focused Window"),
+            description: String(localized: "Instantly switch to the last focused window."),
+            keywords: ["last", "focused", "previous", "recent", "window", "shortcut", "mru", "double", "tap"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.uturn.backward"
+        ),
+        SettingsSearchItem(
             id: "gestures.searchTriggerKey",
             title: String(localized: "Search Trigger Key"),
             description: String(localized: "The key that activates search while the window switcher is open."),
