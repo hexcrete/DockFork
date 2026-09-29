@@ -80,14 +80,13 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func refreshFocusedWindowID(from newWindows: [WindowInfo]? = nil) {
-        focusedWindowID = Self.currentFocusedWindowID(in: newWindows ?? windows)
-    }
-
-    private static func currentFocusedWindowID(in windows: [WindowInfo]) -> CGWindowID? {
-        guard let activeAppWindow = windows.first(where: { $0.app.isActive }),
-              let focusedWindow = try? activeAppWindow.appAxElement.focusedWindow()
-        else { return nil }
-        return try? focusedWindow.cgWindowId()
+        let sourceWindows = newWindows ?? windows
+        if let focusedWindowID,
+           sourceWindows.contains(where: { $0.id == focusedWindowID })
+        {
+            return
+        }
+        focusedWindowID = nil
     }
 
     var hasActiveSearch: Bool {
@@ -590,14 +589,22 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    func refreshActiveFocusedWindowID() {
+    private func applyActiveFocusedWindowID(_ resolvedWindowID: CGWindowID?, frontmostPID: pid_t?) {
         guard Defaults[.showActiveWindowBorder] else {
             if focusedWindowID != nil {
                 focusedWindowID = nil
             }
             return
         }
-        let refreshedWindowID = WindowUtil.getFocusedWindowForFrontmostApp()?.id
+
+        let refreshedWindowID = resolvedWindowID.flatMap { windowID in
+            windows.contains(where: { $0.id == windowID }) ? windowID : nil
+        } ?? frontmostPID.flatMap { pid in
+            windows
+                .filter { $0.app.processIdentifier == pid }
+                .max(by: { $0.lastAccessedTime < $1.lastAccessedTime })?
+                .id
+        }
         if focusedWindowID != refreshedWindowID {
             focusedWindowID = refreshedWindowID
         }
@@ -605,6 +612,13 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func scheduleActiveFocusedWindowRefresh() {
+        guard Defaults[.showActiveWindowBorder] else {
+            activeFocusRefreshTask?.cancel()
+            activeFocusRefreshTask = nil
+            pendingActiveFocusRefreshRequest = false
+            focusedWindowID = nil
+            return
+        }
         guard activeFocusRefreshTask == nil else {
             pendingActiveFocusRefreshRequest = true
             return
@@ -617,17 +631,27 @@ class PreviewStateCoordinator: ObservableObject {
                     try? await Task.sleep(nanoseconds: delay)
                 }
                 guard !Task.isCancelled else { return }
-                await MainActor.run {
-                    self?.refreshActiveFocusedWindowID()
+                guard Defaults[.showActiveWindowBorder] else { break }
+                let frontmostPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+                let resolvedWindowID: CGWindowID? = if let frontmostPID {
+                    await Task.detached(priority: .userInitiated) {
+                        WindowUtil.focusedWindowID(processIdentifier: frontmostPID)
+                    }.value
+                } else {
+                    nil
                 }
+                guard !Task.isCancelled else { return }
+                guard NSWorkspace.shared.frontmostApplication?.processIdentifier == frontmostPID else {
+                    pendingActiveFocusRefreshRequest = true
+                    continue
+                }
+                self?.applyActiveFocusedWindowID(resolvedWindowID, frontmostPID: frontmostPID)
             }
-            await MainActor.run {
-                guard let self else { return }
-                self.activeFocusRefreshTask = nil
-                if self.pendingActiveFocusRefreshRequest {
-                    self.pendingActiveFocusRefreshRequest = false
-                    self.scheduleActiveFocusedWindowRefresh()
-                }
+            guard let self else { return }
+            activeFocusRefreshTask = nil
+            if pendingActiveFocusRefreshRequest {
+                pendingActiveFocusRefreshRequest = false
+                scheduleActiveFocusedWindowRefresh()
             }
         }
     }

@@ -5,6 +5,42 @@ import ScreenCaptureKit
 
 let filteredBundleIdentifiers: [String] = ["com.apple.notificationcenterui"] // filters desktop widgets
 
+private actor GlobalWindowRefreshGate {
+    private var isRunning = false
+    private var isRunningFollowUp = false
+    private var followUpRequested = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func perform(_ operation: @Sendable @escaping () async -> Void) async {
+        if isRunning {
+            if !isRunningFollowUp {
+                followUpRequested = true
+            }
+            await withCheckedContinuation { continuation in
+                waiters.append(continuation)
+            }
+            return
+        }
+
+        isRunning = true
+        await Task.detached(priority: .utility, operation: operation).value
+
+        if followUpRequested {
+            followUpRequested = false
+            isRunningFollowUp = true
+            await Task.detached(priority: .utility, operation: operation).value
+            isRunningFollowUp = false
+        }
+
+        isRunning = false
+        let completedWaiters = waiters
+        waiters.removeAll(keepingCapacity: true)
+        completedWaiters.forEach { $0.resume() }
+    }
+}
+
+private let globalWindowRefreshGate = GlobalWindowRefreshGate()
+
 /// Context for fetching windows - determines which settings to use
 enum WindowFetchContext {
     case dockPreview
@@ -1802,6 +1838,12 @@ extension WindowUtil {
             .first
     }
 
+    static func focusedWindowID(processIdentifier: pid_t) -> CGWindowID? {
+        let appElement = AXUIElementCreateApplication(processIdentifier)
+        guard let focusedWindow = (try? appElement.focusedWindow()) ?? nil else { return nil }
+        return try? focusedWindow.cgWindowId()
+    }
+
     /// Returns whether a single window belongs to one of the given active Spaces.
     static func windowBelongsToActiveSpace(_ windowInfo: WindowInfo, activeSpaceIDs: Set<Int>) -> Bool {
         let windowSpaces = Set(windowInfo.id.cgsSpaces().map { Int($0) })
@@ -2115,6 +2157,12 @@ extension WindowUtil {
     }
 
     static func updateAllWindowsInCurrentSpace() async {
+        await globalWindowRefreshGate.perform {
+            await performGlobalWindowRefresh()
+        }
+    }
+
+    private static func performGlobalWindowRefresh() async {
         HangDiagnostics.record("global window refresh started")
         defer { HangDiagnostics.record("global window refresh finished") }
         var processedPIDs = Set<pid_t>()
