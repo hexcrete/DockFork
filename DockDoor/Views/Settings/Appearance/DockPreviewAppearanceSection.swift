@@ -18,6 +18,7 @@ struct DockPreviewAppearanceSection: View {
     @Default(.highlightDockPreviewCurrentSpaceIndicator) var highlightDockPreviewCurrentSpaceIndicator
     @Default(.dockPreviewWindowStateIndicatorPlacement) var dockPreviewWindowStateIndicatorPlacement
     @Default(.disableDockStyleWindowStateIndicator) var disableDockStyleWindowStateIndicator
+    @Default(.swapDockPreviewTrafficLightsAndWindowStateIndicator) var swapTrafficLightsAndWindowStateIndicator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -131,6 +132,9 @@ struct DockPreviewAppearanceSection: View {
                         .font(.footnote)
                         .foregroundColor(.gray)
                         .padding(.leading, 20)
+
+                    Toggle("Swap Window State Indicator and Traffic Light Buttons", isOn: $swapTrafficLightsAndWindowStateIndicator)
+                        .settingsSearchTarget("appearance.dockSwapWindowStateIndicator")
                 }
             }
 

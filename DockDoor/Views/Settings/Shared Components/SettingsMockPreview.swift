@@ -44,6 +44,7 @@ struct SettingsMockPreview: View {
     @Default(.highlightDockPreviewCurrentSpaceIndicator) private var highlightDockPreviewCurrentSpaceIndicator
     @Default(.dockPreviewWindowStateIndicatorPlacement) private var dockPreviewWindowStateIndicatorPlacement
     @Default(.disableDockStyleWindowStateIndicator) private var disableDockStyleWindowStateIndicator
+    @Default(.swapDockPreviewTrafficLightsAndWindowStateIndicator) private var swapDockPreviewTrafficLightsAndWindowStateIndicator
 
     // MARK: - Window Switcher appearance settings
 
@@ -63,6 +64,7 @@ struct SettingsMockPreview: View {
     @Default(.highlightSwitcherCurrentSpaceIndicator) private var highlightSwitcherCurrentSpaceIndicator
     @Default(.switcherWindowStateIndicatorPlacement) private var switcherWindowStateIndicatorPlacement
     @Default(.switcherDisableDockStyleWindowStateIndicator) private var switcherDisableDockStyleWindowStateIndicator
+    @Default(.swapSwitcherTrafficLightsAndWindowStateIndicator) private var swapSwitcherTrafficLightsAndWindowStateIndicator
 
     // MARK: - Cmd+Tab appearance settings
 
@@ -79,6 +81,7 @@ struct SettingsMockPreview: View {
     @Default(.highlightCmdTabCurrentSpaceIndicator) private var highlightCmdTabCurrentSpaceIndicator
     @Default(.cmdTabWindowStateIndicatorPlacement) private var cmdTabWindowStateIndicatorPlacement
     @Default(.cmdTabDisableDockStyleWindowStateIndicator) private var cmdTabDisableDockStyleWindowStateIndicator
+    @Default(.swapCmdTabTrafficLightsAndWindowStateIndicator) private var swapCmdTabTrafficLightsAndWindowStateIndicator
 
     // MARK: - Shared appearance settings
 
@@ -251,6 +254,13 @@ struct SettingsMockPreview: View {
         } else {
             disableDockStyleWindowStateIndicator
         }
+        let swapTrafficLightsAndWindowStateIndicator: Bool = if isWindowSwitcher {
+            swapSwitcherTrafficLightsAndWindowStateIndicator
+        } else if isCmdTab {
+            swapCmdTabTrafficLightsAndWindowStateIndicator
+        } else {
+            swapDockPreviewTrafficLightsAndWindowStateIndicator
+        }
 
         return PreviewAppearanceSettings(
             trafficLightVisibility: trafficLightVisibility,
@@ -291,6 +301,7 @@ struct SettingsMockPreview: View {
             highlightCurrentSpaceNumberIndicator: highlightCurrentSpaceNumberIndicator,
             windowStateIndicatorPlacement: windowStateIndicatorPlacement,
             disableDockStyleWindowStateIndicator: disableDockStyleWindowStateIndicator,
+            swapTrafficLightsAndWindowStateIndicator: swapTrafficLightsAndWindowStateIndicator,
             showWindowlessAppQuitButton: showWindowlessAppQuitButton,
             titleOverflowStyle: titleOverflowStyle
         )

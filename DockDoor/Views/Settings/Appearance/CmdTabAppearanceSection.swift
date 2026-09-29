@@ -18,6 +18,7 @@ struct CmdTabAppearanceSection: View {
     @Default(.highlightCmdTabCurrentSpaceIndicator) var highlightCmdTabCurrentSpaceIndicator
     @Default(.cmdTabWindowStateIndicatorPlacement) var cmdTabWindowStateIndicatorPlacement
     @Default(.cmdTabDisableDockStyleWindowStateIndicator) var cmdTabDisableDockStyleWindowStateIndicator
+    @Default(.swapCmdTabTrafficLightsAndWindowStateIndicator) var swapTrafficLightsAndWindowStateIndicator
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -158,6 +159,9 @@ struct CmdTabAppearanceSection: View {
                         .font(.footnote)
                         .foregroundColor(.gray)
                         .padding(.leading, 20)
+
+                    Toggle("Swap Window State Indicator and Traffic Light Buttons", isOn: $swapTrafficLightsAndWindowStateIndicator)
+                        .settingsSearchTarget("appearance.cmdTabSwapWindowStateIndicator")
                 }
             }
 

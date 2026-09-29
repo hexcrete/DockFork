@@ -729,6 +729,7 @@ extension Defaults.Keys {
     static let highlightDockPreviewCurrentSpaceIndicator = Key<Bool>("highlightDockPreviewCurrentSpaceIndicator", default: false)
     static let dockPreviewWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("dockPreviewWindowStateIndicatorPlacement", default: .onWindowPreviews)
     static let disableDockStyleWindowStateIndicator = Key<Bool>("disableDockStyleSpaceNumberIndicator", default: true)
+    static let swapDockPreviewTrafficLightsAndWindowStateIndicator = Key<Bool>("swapDockPreviewTrafficLightsAndWindowStateIndicator", default: false)
 
     // MARK: - Window Switcher Appearance Settings
 
@@ -745,6 +746,7 @@ extension Defaults.Keys {
     static let highlightSwitcherCurrentSpaceIndicator = Key<Bool>("highlightSwitcherCurrentSpaceIndicator", default: false)
     static let switcherWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("switcherWindowStateIndicatorPlacement", default: .onWindowPreviews)
     static let switcherDisableDockStyleWindowStateIndicator = Key<Bool>("switcherDisableDockStyleSpaceNumberIndicator", default: true)
+    static let swapSwitcherTrafficLightsAndWindowStateIndicator = Key<Bool>("swapSwitcherTrafficLightsAndWindowStateIndicator", default: false)
 
     // MARK: - Cmd+Tab Appearance Settings
 
@@ -766,6 +768,7 @@ extension Defaults.Keys {
     static let highlightCmdTabCurrentSpaceIndicator = Key<Bool>("highlightCmdTabCurrentSpaceIndicator", default: false)
     static let cmdTabWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("cmdTabWindowStateIndicatorPlacement", default: .onWindowPreviews)
     static let cmdTabDisableDockStyleWindowStateIndicator = Key<Bool>("cmdTabDisableDockStyleSpaceNumberIndicator", default: true)
+    static let swapCmdTabTrafficLightsAndWindowStateIndicator = Key<Bool>("swapCmdTabTrafficLightsAndWindowStateIndicator", default: false)
 
     static let previewMaxColumns = Key<Int>("previewMaxColumns", default: 2) // For left/right dock
     static let previewMaxRows = Key<Int>("previewMaxRows", default: 1) // For bottom dock only

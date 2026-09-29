@@ -107,6 +107,52 @@ struct WindowPreviewCompact: View, Equatable {
         movesWindowStateToIndicator ? windowStateSymbols : []
     }
 
+    @ViewBuilder
+    private var windowStateIndicator: some View {
+        let spaceNumber = appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : nil
+        if spaceNumber != nil || !indicatorStateSymbols.isEmpty {
+            SpaceMoveIndicatorControl(
+                window: windowInfo,
+                spaceNumber: spaceNumber,
+                isEnabled: appearance.enableSpaceIndicatorWindowMoving && !mockPreviewActive,
+                dismissPreviews: onTap
+            ) {
+                WindowStateIndicator(
+                    number: spaceNumber,
+                    stateSymbols: indicatorStateSymbols,
+                    disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
+                    backgroundAppearance: backgroundAppearance,
+                    highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator &&
+                        spaceNumber.map(currentSpaceNumbers.contains) == true,
+                    highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+                    highlightOpacity: appearance.selectionOpacity,
+                    activeBorderColor: appearance.activeAppIndicatorColor
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func trafficLightButtons(isVisible: Bool) -> some View {
+        if !appearance.compactModeHideTrafficLights,
+           canRenderTrafficLightButtons
+        {
+            TrafficLightButtons(
+                displayMode: appearance.trafficLightVisibility,
+                hoveringOverParentWindow: isSelected || isHovering,
+                onWindowAction: handleWindowAction,
+                pillStyling: true,
+                mockPreviewActive: mockPreviewActive,
+                enabledButtons: effectiveTrafficLightButtons,
+                useMonochrome: appearance.useMonochromeTrafficLights,
+                buttonScale: appearance.trafficLightButtonScale,
+                backgroundAppearance: backgroundAppearance
+            )
+            .frame(width: isVisible ? nil : 0)
+            .clipped()
+        }
+    }
+
     var body: some View {
         let showTrafficLightButtons = appearance.trafficLightVisibility.isVisible(
             hoveringOverParentWindow: isSelected || isHovering,
@@ -171,45 +217,12 @@ struct WindowPreviewCompact: View, Equatable {
             Spacer(minLength: 0)
 
             HStack(spacing: controlsSpacing) {
-                let spaceNumber = appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : nil
-                if spaceNumber != nil || !indicatorStateSymbols.isEmpty {
-                    SpaceMoveIndicatorControl(
-                        window: windowInfo,
-                        spaceNumber: spaceNumber,
-                        isEnabled: appearance.enableSpaceIndicatorWindowMoving && !mockPreviewActive,
-                        dismissPreviews: onTap
-                    ) {
-                        WindowStateIndicator(
-                            number: spaceNumber,
-                            stateSymbols: indicatorStateSymbols,
-                            disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
-                            backgroundAppearance: backgroundAppearance,
-                            highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator &&
-                                spaceNumber.map(currentSpaceNumbers.contains) == true,
-                            highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
-                            highlightOpacity: appearance.selectionOpacity,
-                            activeBorderColor: appearance.activeAppIndicatorColor
-                        )
-                    }
-                }
-
-                // Traffic light buttons
-                if !appearance.compactModeHideTrafficLights,
-                   canRenderTrafficLightButtons
-                {
-                    TrafficLightButtons(
-                        displayMode: appearance.trafficLightVisibility,
-                        hoveringOverParentWindow: isSelected || isHovering,
-                        onWindowAction: handleWindowAction,
-                        pillStyling: true,
-                        mockPreviewActive: mockPreviewActive,
-                        enabledButtons: effectiveTrafficLightButtons,
-                        useMonochrome: appearance.useMonochromeTrafficLights,
-                        buttonScale: appearance.trafficLightButtonScale,
-                        backgroundAppearance: backgroundAppearance
-                    )
-                    .frame(width: showTrafficLightButtons ? nil : 0)
-                    .clipped()
+                if appearance.swapTrafficLightsAndWindowStateIndicator {
+                    trafficLightButtons(isVisible: showTrafficLightButtons)
+                    windowStateIndicator
+                } else {
+                    windowStateIndicator
+                    trafficLightButtons(isVisible: showTrafficLightButtons)
                 }
             }
         }

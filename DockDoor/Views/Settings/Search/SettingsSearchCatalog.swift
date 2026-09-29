@@ -1130,6 +1130,15 @@ enum SettingsSearchCatalog {
             icon: "minus.circle"
         ),
         SettingsSearchItem(
+            id: "appearance.dockSwapWindowStateIndicator",
+            title: String(localized: "Swap Window State Indicator and Traffic Light Buttons"),
+            description: String(localized: "Swaps the order of the Window State Indicator and traffic light buttons in dock previews."),
+            keywords: ["window", "state", "indicator", "traffic light", "position", "order", "swap", "dock"],
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
             id: "appearance.dockMassActionButtons",
             title: String(localized: "Show Close All and Minimize All buttons"),
             description: String(localized: "Displays Close All and Minimize All buttons when hovering the app header in dock previews."),
@@ -1253,6 +1262,15 @@ enum SettingsSearchCatalog {
             tab: "WindowSwitcher",
             section: String(localized: "Appearance"),
             icon: "minus.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherSwapWindowStateIndicator",
+            title: String(localized: "Swap Window State Indicator and Traffic Light Buttons"),
+            description: String(localized: "Swaps the order of the Window State Indicator and traffic light buttons in the window switcher."),
+            keywords: ["window", "state", "indicator", "traffic light", "position", "order", "swap", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
+            icon: "arrow.left.arrow.right"
         ),
         SettingsSearchItem(
             id: "appearance.switcherShowWindowTitle",
@@ -1429,6 +1447,15 @@ enum SettingsSearchCatalog {
             tab: "CmdTab",
             section: String(localized: "Appearance"),
             icon: "minus.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabSwapWindowStateIndicator",
+            title: String(localized: "Swap Window State Indicator and Traffic Light Buttons"),
+            description: String(localized: "Swaps the order of the Window State Indicator and traffic light buttons in Cmd+Tab previews."),
+            keywords: ["window", "state", "indicator", "traffic light", "position", "order", "swap", "cmd tab"],
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
+            icon: "arrow.left.arrow.right"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabEmbedControls",

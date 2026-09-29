@@ -19,6 +19,7 @@ struct WindowSwitcherAppearanceSection: View {
     @Default(.highlightSwitcherCurrentSpaceIndicator) var highlightSwitcherCurrentSpaceIndicator
     @Default(.switcherWindowStateIndicatorPlacement) var switcherWindowStateIndicatorPlacement
     @Default(.switcherDisableDockStyleWindowStateIndicator) var switcherDisableDockStyleWindowStateIndicator
+    @Default(.swapSwitcherTrafficLightsAndWindowStateIndicator) var swapTrafficLightsAndWindowStateIndicator
 
     private var automaticAppIconSizeBinding: Binding<Bool> {
         Binding(
@@ -161,6 +162,9 @@ struct WindowSwitcherAppearanceSection: View {
                     Text("Removes the pill-shaped background styling from the Window State Indicator in the window switcher.")
                         .font(.footnote)
                         .foregroundColor(.gray)
+
+                    Toggle("Swap Window State Indicator and Traffic Light Buttons", isOn: $swapTrafficLightsAndWindowStateIndicator)
+                        .settingsSearchTarget("appearance.switcherSwapWindowStateIndicator")
                 }
             }
 
