@@ -14,6 +14,10 @@ final class SpaceMoveMenuController: NSObject {
         let dismissPreviews: (() -> Void)?
     }
 
+    private struct FullscreenExitRequest {
+        let window: WindowInfo
+    }
+
     func present(for window: WindowInfo, dismissPreviews: (() -> Void)?) {
         let menu = makeMenu(for: window, dismissPreviews: dismissPreviews)
         guard !menu.items.isEmpty else { return }
@@ -47,10 +51,14 @@ final class SpaceMoveMenuController: NSObject {
         let sourceSpaceIDs = WindowSpaces.sourceSpaceIDs(for: window)
 
         if sourceValidation == .fullscreen {
-            addInformationalItem(
-                String(localized: "Exit Full Screen to move this window", comment: "Unavailable Space movement explanation"),
-                to: menu
+            let item = NSMenuItem(
+                title: String(localized: "Exit Full Screen to move this window", comment: "Action that exits fullscreen before moving a window between Spaces"),
+                action: #selector(exitFullScreen(_:)),
+                keyEquivalent: ""
             )
+            item.target = self
+            item.representedObject = FullscreenExitRequest(window: window)
+            menu.addItem(item)
             return menu
         }
 
@@ -225,6 +233,15 @@ final class SpaceMoveMenuController: NSObject {
             to: request.destination,
             dismissPreviews: request.dismissPreviews
         )
+    }
+
+    @objc private func exitFullScreen(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? FullscreenExitRequest,
+              WindowUtil.exitFullScreenWithoutActivation(request.window)
+        else {
+            NSSound.beep()
+            return
+        }
     }
 }
 

@@ -676,6 +676,7 @@ enum WindowUtil {
     private static let windowUpdateTimeWindow: TimeInterval = 1.5
     private static var programmaticResizeRefreshDelayMilliseconds: UInt64 = 180
     private static var axResizeRefreshDelayMilliseconds: UInt64 = 360
+    private static let fullscreenExitMetadataReconciliationDelayNanos: UInt64 = 450_000_000
     private static var programmaticResizeRefreshDelayNanos: UInt64 { programmaticResizeRefreshDelayMilliseconds * 1_000_000 }
     private static var axResizeRefreshDelayNanos: UInt64 { axResizeRefreshDelayMilliseconds * 1_000_000 }
     private static let programmaticResizeRefreshLock = NSLock()
@@ -813,6 +814,29 @@ extension WindowUtil {
                 windowSet.remove(at: existingIndex)
                 windowSet.insert(updatedWindow)
             }
+        }
+    }
+
+    @discardableResult
+    static func exitFullScreenWithoutActivation(_ windowInfo: WindowInfo) -> Bool {
+        guard !windowInfo.isWindowlessApp,
+              (try? windowInfo.axElement.isFullscreen()) == true
+        else { return false }
+
+        do {
+            try windowInfo.axElement.setAttribute(kAXFullscreenAttribute, false)
+            if (try? windowInfo.axElement.isFullscreen()) == false {
+                updateCachedWindowState(windowInfo, isFullscreen: false)
+            }
+            scheduleCachedWindowMetadataReconciliation(
+                pid: windowInfo.app.processIdentifier,
+                windowID: windowInfo.id,
+                delayNanos: fullscreenExitMetadataReconciliationDelayNanos
+            )
+            return true
+        } catch {
+            DebugLogger.log("Failed to exit fullscreen without activation for window \(windowInfo.id): \(error)")
+            return false
         }
     }
 
