@@ -27,6 +27,10 @@ private enum WindowSwitcherLaunchSource: Equatable {
         Defaults[.useClassicWindowOrdering]
     }
 
+    var startsUnfocused: Bool {
+        self == .persistent && Defaults[.persistentSwitcherStartsUnfocused]
+    }
+
     var showsInstantly: Bool {
         switch self {
         case .keyboard: Defaults[.instantWindowSwitcher]
@@ -118,8 +122,11 @@ private class WindowSwitchingCoordinator {
             coordinator: coordinator,
             dockPosition: dockPosition,
             bestGuessMonitor: targetScreen,
-            fallbackToFirst: true
+            fallbackToFirst: !launchSource.startsUnfocused
         )
+        if launchSource.startsUnfocused {
+            coordinator.setIndex(to: -1, shouldScroll: false, source: .programmatic)
+        }
         coordinator.onFrameRefreshNeeded?()
 
         if needsRender {
@@ -148,7 +155,7 @@ private class WindowSwitchingCoordinator {
                 targetScreen: targetScreen,
                 sessionId: sessionId,
                 priority: .userInitiated,
-                selectFirstWindow: true
+                selectFirstWindow: !launchSource.startsUnfocused
             )
         } else if !needsRender {
             scheduleWindowRefresh(
@@ -212,7 +219,8 @@ private class WindowSwitchingCoordinator {
             with: windows,
             dockPosition: dockPosition,
             bestGuessMonitor: targetScreen,
-            startOnSecondWindow: launchSource.startsOnSecondWindow
+            startOnSecondWindow: launchSource.startsOnSecondWindow,
+            startUnfocused: launchSource.startsUnfocused
         )
         activeLaunchSource = launchSource
         coordinator.activateKeybindSession()
@@ -253,7 +261,7 @@ private class WindowSwitchingCoordinator {
                 targetScreen: targetScreen,
                 sessionId: sessionId,
                 priority: .userInitiated,
-                selectFirstWindow: true
+                selectFirstWindow: !launchSource.startsUnfocused
             )
         }
         return true

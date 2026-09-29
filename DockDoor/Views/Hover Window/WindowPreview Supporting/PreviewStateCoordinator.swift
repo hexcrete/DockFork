@@ -1047,14 +1047,17 @@ class PreviewStateCoordinator: ObservableObject {
         with newWindows: [WindowInfo],
         dockPosition: DockPosition,
         bestGuessMonitor: NSScreen,
-        startOnSecondWindow: Bool = Defaults[.useClassicWindowOrdering]
+        startOnSecondWindow: Bool = Defaults[.useClassicWindowOrdering],
+        startUnfocused: Bool = false
     ) {
         setWindows(newWindows, dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
         searchQuery = ""
         hasMovedSinceOpen = false
         initialHoverLocation = NSEvent.mouseLocation
 
-        if !windows.isEmpty {
+        if startUnfocused {
+            setIndex(to: -1, shouldScroll: false, source: .programmatic)
+        } else if !windows.isEmpty {
             if startOnSecondWindow, windows.count >= 2 {
                 setIndex(to: 1, shouldScroll: false, source: .keyboard)
             } else {

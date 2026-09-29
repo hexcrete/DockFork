@@ -868,6 +868,7 @@ extension Defaults.Keys {
         "persistentSwitcherShortcuts",
         default: PersistentSwitcherShortcut.defaultShortcuts
     )
+    static let persistentSwitcherStartsUnfocused = Key<Bool>("persistentSwitcherStartsUnfocused", default: false)
     static let lastFocusedWindowShortcuts = Key<[PersistentSwitcherShortcut]>(
         "lastFocusedWindowShortcuts",
         default: [PersistentSwitcherShortcut(mode: .globalAllWindows)]

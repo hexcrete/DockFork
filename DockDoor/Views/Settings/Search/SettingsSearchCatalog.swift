@@ -1790,6 +1790,15 @@ enum SettingsSearchCatalog {
             icon: "keyboard.badge.ellipsis"
         ),
         SettingsSearchItem(
+            id: "gestures.persistentSwitcherStartsUnfocused",
+            title: String(localized: "Start Window Switcher (Keep Open) with no window highlighted"),
+            description: String(localized: "Also applies when opening the Window Switcher from the menu bar icon."),
+            keywords: ["persistent", "keep", "open", "selection", "highlight", "unfocused", "menu bar"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "rectangle.dashed"
+        ),
+        SettingsSearchItem(
             id: "gestures.lastFocusedWindowShortcuts",
             title: String(localized: "Switch to Last Focused Window"),
             description: String(localized: "Instantly switch to the last focused window."),

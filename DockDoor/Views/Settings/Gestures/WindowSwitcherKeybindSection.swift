@@ -9,6 +9,7 @@ struct WindowSwitcherKeybindSection: View {
     @Default(.fullscreenAppBlacklist) var fullscreenAppBlacklist
     @Default(.alternateSwitcherShortcuts) var alternateSwitcherShortcuts
     @Default(.persistentSwitcherShortcuts) var persistentSwitcherShortcuts
+    @Default(.persistentSwitcherStartsUnfocused) private var persistentSwitcherStartsUnfocused
     @Default(.lastFocusedWindowShortcuts) var lastFocusedWindowShortcuts
     @Default(.cmdShortcuts) private var cmdShortcuts
     @Default(.UserKeybind) private var mainKeybind
@@ -493,6 +494,13 @@ struct WindowSwitcherKeybindSection: View {
             Text("Each shortcut can use either a standard key combination pressed once or a single modifier key pressed twice.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            Toggle("Start Window Switcher (Keep Open) with no window highlighted", isOn: $persistentSwitcherStartsUnfocused)
+                .settingsSearchTarget("gestures.persistentSwitcherStartsUnfocused")
+            Text("Also applies when opening the Window Switcher from the menu bar icon.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
 
             ScopedShortcutRows(
                 shortcuts: $persistentSwitcherShortcuts,
