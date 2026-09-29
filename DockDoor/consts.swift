@@ -842,6 +842,7 @@ extension Defaults.Keys {
     static let spaceMenuDisplayMode = Key<SpaceMenuDisplayMode>("spaceMenuDisplayMode", default: .numberOnly)
     static let switchToDestinationSpaceAfterMoving = Key<Bool>("switchToDestinationSpaceAfterMoving", default: false)
     static let showUnavailableSpacesInMenu = Key<Bool>("showUnavailableSpacesInMenu", default: false)
+    static let showCurrentSpaceBadgeInMenu = Key<Bool>("showCurrentSpaceBadgeInMenu", default: false)
     static let enableSpacesShortcuts = Key<Bool>("enableSpacesShortcuts", default: false)
 
     // MARK: - Window Preview Keyboard Shortcuts

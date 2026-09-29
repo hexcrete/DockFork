@@ -92,6 +92,17 @@ final class SpaceMoveMenuController: NSObject {
                     includesFullscreenSymbol: space.kind == .fullscreen,
                     appearance: menu.effectiveAppearance
                 )
+                if entry.0.currentSpaceID == space.id,
+                   Defaults[.showCurrentSpaceBadgeInMenu]
+                {
+                    if #available(macOS 14.0, *) {
+                        item.badge = NSMenuItemBadge(
+                            string: String(localized: "Current", comment: "Badge identifying the currently active Space")
+                        )
+                    } else {
+                        item.image = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: nil)
+                    }
+                }
 
                 if space.kind == .desktop {
                     let isCurrent = sourceSpaceIDs.contains(space.id)

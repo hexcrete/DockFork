@@ -24,6 +24,7 @@ private struct SpacesSettingsSection: View {
     @Default(.spaceMenuDisplayMode) private var spaceMenuDisplayMode
     @Default(.switchToDestinationSpaceAfterMoving) private var switchToDestinationSpaceAfterMoving
     @Default(.showUnavailableSpacesInMenu) private var showUnavailableSpacesInMenu
+    @Default(.showCurrentSpaceBadgeInMenu) private var showCurrentSpaceBadgeInMenu
     @Default(.enableSpacesShortcuts) private var enableSpacesShortcuts
     @Default(.UserKeybind) private var windowSwitcherKeybind
 
@@ -48,6 +49,17 @@ private struct SpacesSettingsSection: View {
                     }
                     .pickerStyle(.menu)
                     .settingsSearchTarget("gestures.spaceMenuDisplayMode")
+
+                    Toggle(
+                        String(localized: "Show “Current” badge in the Spaces dropdown", comment: "Setting to label the active Space in the window-moving menu"),
+                        isOn: $showCurrentSpaceBadgeInMenu
+                    )
+                    .settingsSearchTarget("gestures.showCurrentSpaceBadgeInMenu")
+
+                    Text(String(localized: "Labels the currently active Space with a “Current” badge.", comment: "Explanation for the current Space badge setting"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 20)
 
                     Toggle("Switch to the destination Space after moving the window", isOn: $switchToDestinationSpaceAfterMoving)
                         .settingsSearchTarget("gestures.switchToDestinationSpaceAfterMoving")

@@ -1577,6 +1577,15 @@ enum SettingsSearchCatalog {
             icon: "textformat"
         ),
         SettingsSearchItem(
+            id: "gestures.showCurrentSpaceBadgeInMenu",
+            title: String(localized: "Show “Current” badge in the Spaces dropdown"),
+            description: String(localized: "Labels the currently active Space with a “Current” badge."),
+            keywords: ["space", "desktop", "current", "active", "badge", "menu"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Spaces"),
+            icon: "tag"
+        ),
+        SettingsSearchItem(
             id: "gestures.switchToDestinationSpaceAfterMoving",
             title: String(localized: "Switch to the destination Space after moving the window"),
             keywords: ["space", "desktop", "switch", "focus", "move window"],
