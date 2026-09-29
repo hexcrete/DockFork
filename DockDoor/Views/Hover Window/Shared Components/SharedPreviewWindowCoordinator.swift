@@ -1118,7 +1118,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @MainActor
-    func selectAndBringToFrontCurrentWindow(warpMouse: Bool = true) {
+    func selectAndBringToFrontCurrentWindow() {
         let coordinator = windowSwitcherCoordinator
         let currentIndex = coordinator.currIndex
 
@@ -1129,9 +1129,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         let selectedWindow = coordinator.windows[currentIndex]
         selectedWindow.bringToFront()
-        if warpMouse {
-            selectedWindow.warpMouseToCenterIfNeeded()
-        }
+        selectedWindow.warpMouseToCenterIfNeeded()
 
         hideWindow()
     }

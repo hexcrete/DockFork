@@ -117,7 +117,9 @@ struct WindowPreviewInteractionModifier: ViewModifier {
         } else if windowInfo.isEffectivelyHiddenForUI {
             handleWindowAction(.hide)
         } else {
-            windowInfo.bringToFront()
+            if windowInfo.bringToFront(), windowSwitcherActive {
+                windowInfo.warpMouseToCenterIfNeeded()
+            }
             onTap?()
         }
     }
