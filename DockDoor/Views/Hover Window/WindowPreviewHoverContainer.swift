@@ -167,12 +167,12 @@ struct WindowPreviewHoverContainer: View {
         self.appearanceOverride = appearanceOverride
     }
 
-    private var minimumEmbeddedWidth: CGFloat {
+    private var embeddedContentWidth: CGFloat {
         let calculatedDimensionsMap = previewStateCoordinator.dimensionState.windowDimensionsMap
 
         guard !calculatedDimensionsMap.isEmpty else {
             let fallback = MediaControlsLayout.embeddedArtworkSize + MediaControlsLayout.artworkTextSpacing + 165
-            return shouldUseCompactMode ? compactModeWidth : fallback
+            return shouldUseCompactMode ? compactModeWidth + compactEmbeddedContentOverflow : fallback
         }
 
         var minWidth = 0.0
@@ -185,10 +185,14 @@ struct WindowPreviewHoverContainer: View {
         }
 
         if shouldUseCompactMode {
-            return compactModeWidth
+            return compactModeWidth + compactEmbeddedContentOverflow
         }
 
         return minWidth
+    }
+
+    private var compactEmbeddedContentOverflow: CGFloat {
+        2 * CardRadius.innerPadding
     }
 
     private var shouldUseCompactMode: Bool {
@@ -924,7 +928,7 @@ struct WindowPreviewHoverContainer: View {
                 bestGuessMonitor: bestGuessMonitor,
                 dockItemElement: dockItemElement,
                 isEmbeddedMode: true,
-                idealWidth: minimumEmbeddedWidth
+                idealWidth: embeddedContentWidth
             )
             .pinnable(appName: appName, bundleIdentifier: bundleIdentifier, type: .media)
         case let .calendar(bundleIdentifier):
@@ -935,7 +939,7 @@ struct WindowPreviewHoverContainer: View {
                 bestGuessMonitor: bestGuessMonitor,
                 dockItemElement: dockItemElement,
                 isEmbeddedMode: true,
-                idealWidth: minimumEmbeddedWidth
+                idealWidth: embeddedContentWidth
             )
             .pinnable(appName: appName, bundleIdentifier: bundleIdentifier, type: .calendar)
         case .none:
@@ -1976,9 +1980,10 @@ struct WindowPreviewHoverContainer: View {
         case .embedded:
             let dims = currentDimensionsMapForPreviews[filteredIndices.first ?? 0]
             embeddedContentView()
+                .padding(.trailing, shouldUseCompactMode ? -compactEmbeddedContentOverflow : 0)
                 .frame(
                     minWidth: shouldUseCompactMode ? nil : (isHorizontal ? nil : dims?.size.width),
-                    maxWidth: shouldUseCompactMode ? appearance.compactModeWidth + 2 * CardRadius.innerPadding : nil,
+                    maxWidth: shouldUseCompactMode ? appearance.compactModeWidth + compactEmbeddedContentOverflow : nil,
                     minHeight: isHorizontal ? (shouldUseCompactMode ? nil : dims?.size.height) : nil
                 )
                 .fixedSize(horizontal: false, vertical: shouldUseCompactMode)
