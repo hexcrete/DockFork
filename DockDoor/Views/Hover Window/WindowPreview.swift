@@ -584,6 +584,24 @@ struct EmbeddedSwitcherControlsLayout<Content: View>: View {
     }
 }
 
+struct PreviewTitleCluster<Icon: View, Labels: View>: View {
+    let iconOnRight: Bool
+    @ViewBuilder let icon: () -> Icon
+    @ViewBuilder let labels: () -> Labels
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if iconOnRight {
+                labels()
+                icon()
+            } else {
+                icon()
+                labels()
+            }
+        }
+    }
+}
+
 struct WindowPreview: View, Equatable {
     let windowInfo: WindowInfo
     let onTap: (() -> Void)?
@@ -916,10 +934,12 @@ struct WindowPreview: View, Equatable {
         )
         let hasVisibleAdjacentControl = (hasTrafficLights && showTrafficLights) ||
             (!hasTrafficLights && visibleWindowStateLabel != nil && appearance.trafficLightVisibility != .never)
+        let titleTextAlignment: TextAlignment = appearance.controlPosition.titleIsTrailing ? .trailing : .leading
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
                 titleLabel(title, adaptsToAvailableWidth: true)
                     .font(appearance.windowTitleFontSize.font)
+                    .multilineTextAlignment(titleTextAlignment)
                     .padding(4)
                     .if(!appearance.disableDockStyleTitles) { view in
                         view.materialPill(backgroundAppearance: backgroundAppearance)
@@ -1176,10 +1196,14 @@ struct WindowPreview: View, Equatable {
             windowTitle != windowInfo.app.localizedName
         let appIconSize = switcherAppIconSize(hasSecondaryLabel: hasWindowTitleLabel)
 
-        let titleAndSubtitleContent = VStack(alignment: .leading, spacing: 0) {
+        let titleOnRight = appearance.controlPosition.titleIsTrailing
+        let titleAlignment: HorizontalAlignment = titleOnRight ? .trailing : .leading
+        let textAlignment: TextAlignment = titleOnRight ? .trailing : .leading
+        let titleAndSubtitleContent = VStack(alignment: titleAlignment, spacing: 0) {
             if !showAppIconOnly {
                 Text(windowInfo.app.localizedName ?? "Unknown")
                     .foregroundStyle(.primary)
+                    .multilineTextAlignment(textAlignment)
                     .lineLimit(1)
             }
 
@@ -1187,6 +1211,7 @@ struct WindowPreview: View, Equatable {
                 titleLabel(windowTitle, adaptsToAvailableWidth: true)
                     .font(appearance.windowTitleFontSize.font)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(textAlignment)
             }
         }
 
@@ -1234,8 +1259,9 @@ struct WindowPreview: View, Equatable {
 
         let controlsGap: CGFloat = (canRenderTrafficLightButtons && showTrafficLights) ? 0 : 8
 
-        let titleContent = HStack(spacing: 4) {
+        let titleContent = PreviewTitleCluster(iconOnRight: titleOnRight) {
             appIconContent
+        } labels: {
             titleAndSubtitleContent
         }
         .layoutPriority(1)
@@ -1292,10 +1318,12 @@ struct WindowPreview: View, Equatable {
         )
         let hasVisibleAdjacentControl = (hasTrafficLights && showTrafficLights) ||
             (!hasTrafficLights && visibleWindowStateLabel != nil && appearance.trafficLightVisibility != .never)
+        let titleTextAlignment: TextAlignment = appearance.controlPosition.titleIsTrailing ? .trailing : .leading
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
                 titleLabel(title, adaptsToAvailableWidth: true)
                     .font(appearance.windowTitleFontSize.font)
+                    .multilineTextAlignment(titleTextAlignment)
                     .padding(4)
                     .if(!appearance.disableDockStyleTitles) { view in
                         view.materialPill(backgroundAppearance: backgroundAppearance)

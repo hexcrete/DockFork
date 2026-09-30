@@ -1280,6 +1280,17 @@ enum WindowSwitcherControlPosition: String, CaseIterable, Defaults.Serializable 
         }
     }
 
+    var titleIsTrailing: Bool {
+        switch self {
+        case .topTrailing, .bottomTrailing,
+             .diagonalTopRightBottomLeft, .diagonalBottomRightTopLeft,
+             .parallelTopRightBottomRight, .parallelBottomRightTopRight:
+            true
+        default:
+            false
+        }
+    }
+
     var topConfiguration: (isLeadingControls: Bool, showTitle: Bool, showControls: Bool) {
         switch self {
         case .topLeading, .bottomLeading:

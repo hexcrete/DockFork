@@ -65,13 +65,14 @@ struct WindowlessAppPreview: View, Equatable {
             hoveringOverParentWindow: isSelected || isHovering,
             mockPreviewActive: mockPreviewActive
         )
+        let titleOnRight = appearance.controlPosition.titleIsTrailing
+        let iconOnRight = windowSwitcherActive && titleOnRight
 
         return HStack(spacing: 4) {
             if appearance.controlPosition.isCentered {
                 Spacer(minLength: 0)
                 if shouldShowTitle {
-                    appIcon(hasSecondaryLabel: shouldShowSubtitle)
-                    titleContent(showSubtitle: shouldShowSubtitle)
+                    titleCluster(showSubtitle: shouldShowSubtitle, iconOnRight: false, textOnRight: false)
                 }
                 if shouldShowControls {
                     quitButton(alignment: .center, isVisible: showTrafficLightButtons)
@@ -83,13 +84,19 @@ struct WindowlessAppPreview: View, Equatable {
                 }
                 Spacer(minLength: 8)
                 if shouldShowTitle {
-                    appIcon(hasSecondaryLabel: shouldShowSubtitle)
-                    titleContent(showSubtitle: shouldShowSubtitle)
+                    titleCluster(
+                        showSubtitle: shouldShowSubtitle,
+                        iconOnRight: iconOnRight,
+                        textOnRight: titleOnRight
+                    )
                 }
             } else {
                 if shouldShowTitle {
-                    appIcon(hasSecondaryLabel: shouldShowSubtitle)
-                    titleContent(showSubtitle: shouldShowSubtitle)
+                    titleCluster(
+                        showSubtitle: shouldShowSubtitle,
+                        iconOnRight: iconOnRight,
+                        textOnRight: titleOnRight
+                    )
                 }
                 Spacer(minLength: 0)
                 if shouldShowControls {
@@ -98,6 +105,17 @@ struct WindowlessAppPreview: View, Equatable {
             }
         }
         .animation(nil, value: showTrafficLightButtons)
+    }
+
+    private func titleCluster(showSubtitle: Bool, iconOnRight: Bool, textOnRight: Bool) -> some View {
+        PreviewTitleCluster(iconOnRight: iconOnRight) {
+            appIcon(hasSecondaryLabel: showSubtitle)
+        } labels: {
+            titleContent(
+                showSubtitle: showSubtitle,
+                alignment: textOnRight ? .trailing : .leading
+            )
+        }
     }
 
     private func quitButton(alignment: Alignment, isVisible: Bool) -> some View {
@@ -127,10 +145,12 @@ struct WindowlessAppPreview: View, Equatable {
         }
     }
 
-    private func titleContent(showSubtitle: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+    private func titleContent(showSubtitle: Bool, alignment: HorizontalAlignment) -> some View {
+        let textAlignment: TextAlignment = alignment == .trailing ? .trailing : .leading
+        return VStack(alignment: alignment, spacing: 0) {
             Text(appName)
                 .foregroundStyle(.primary)
+                .multilineTextAlignment(textAlignment)
                 .lineLimit(1)
 
             if showSubtitle {
@@ -138,6 +158,7 @@ struct WindowlessAppPreview: View, Equatable {
                     .font(appearance.windowTitleFontSize.font)
                     .foregroundStyle(.secondary)
                     .italic()
+                    .multilineTextAlignment(textAlignment)
                     .lineLimit(1)
             }
         }
