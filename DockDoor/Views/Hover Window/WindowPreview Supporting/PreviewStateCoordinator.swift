@@ -702,8 +702,12 @@ class PreviewStateCoordinator: ObservableObject {
         } else {
             Defaults[.dockPreviewCompactThreshold]
         }
-        let wouldUseCompactMode = Defaults[.disableImagePreview]
-            || (compactThreshold > 0 && windows.count >= compactThreshold)
+        let wouldUseCompactMode = WindowPreviewHoverContainer.usesCompactRows(
+            isMockPreviewActive: isMockPreviewActive,
+            forceCompact: Defaults[.disableImagePreview],
+            windowCount: windows.count,
+            threshold: compactThreshold
+        )
         let needsSwitcherChromeMeasurement = windowSwitcherActive && !wouldUseCompactMode && (
             Defaults[.allowDynamicImageSizing] ||
                 (Defaults[.windowSwitcherScrollDirection] == .horizontal &&
@@ -788,8 +792,11 @@ class PreviewStateCoordinator: ObservableObject {
         let itemHeight = tallestImage + chromeHeight
         guard itemHeight > 0 else { return initialRows }
 
-        let spacing = HoverContainerPadding.itemSpacing
-        let availableHeight = bestGuessMonitor.visibleFrame.height - HoverContainerPadding.totalPerSide() * 2
+        let metrics = WindowPreviewHoverContainer.PreviewLayoutMetrics.regular(
+            paddingMultiplier: Defaults[.globalPaddingMultiplier]
+        )
+        let spacing = metrics.itemSpacing
+        let availableHeight = bestGuessMonitor.visibleFrame.height - metrics.totalPanelInset * 2
         let rowsThatFit = max(1, Int((availableHeight + spacing) / (itemHeight + spacing)))
         return min(initialRows, rowsThatFit)
     }
@@ -835,8 +842,11 @@ class PreviewStateCoordinator: ObservableObject {
             )
         }
 
-        let itemSpacing = HoverContainerPadding.itemSpacing
-        let padding = HoverContainerPadding.totalPerSide()
+        let metrics = WindowPreviewHoverContainer.PreviewLayoutMetrics.regular(
+            paddingMultiplier: Defaults[.globalPaddingMultiplier]
+        )
+        let itemSpacing = metrics.itemSpacing
+        let padding = metrics.totalPanelInset
         let chunks = WindowPreviewHoverContainer.chunkArray(
             items: Array(windows.indices),
             isHorizontal: gridFlow.laysOutItemsInRows,
@@ -934,8 +944,11 @@ class PreviewStateCoordinator: ObservableObject {
     ) -> CGSize {
         guard windowCount > 0 else { return .zero }
 
-        let itemSpacing = HoverContainerPadding.itemSpacing
-        let padding = HoverContainerPadding.totalPerSide()
+        let metrics = WindowPreviewHoverContainer.PreviewLayoutMetrics.regular(
+            paddingMultiplier: Defaults[.globalPaddingMultiplier]
+        )
+        let itemSpacing = metrics.itemSpacing
+        let padding = metrics.totalPanelInset
 
         let chunks = WindowPreviewHoverContainer.chunkArray(
             items: Array(0 ..< windowCount),

@@ -176,7 +176,7 @@ struct WindowPreviewHoverContainer: View {
 
         guard !calculatedDimensionsMap.isEmpty else {
             let fallback = MediaControlsLayout.embeddedArtworkSize + MediaControlsLayout.artworkTextSpacing + 165
-            return shouldUseCompactMode ? compactModeWidth + compactEmbeddedContentOverflow : fallback
+            return usesCompactRows ? compactModeWidth + compactEmbeddedContentOverflow : fallback
         }
 
         var minWidth = 0.0
@@ -188,7 +188,7 @@ struct WindowPreviewHoverContainer: View {
             }
         }
 
-        if shouldUseCompactMode {
+        if usesCompactRows {
             return compactModeWidth + compactEmbeddedContentOverflow
         }
 
@@ -199,22 +199,22 @@ struct WindowPreviewHoverContainer: View {
         2 * CardRadius.innerPadding
     }
 
-    private var shouldUseCompactMode: Bool {
-        if mockPreviewActive { return false }
+    private var usesCompactRows: Bool {
+        Self.usesCompactRows(
+            isMockPreviewActive: mockPreviewActive,
+            forceCompact: disableImagePreview || !hasScreenRecordingPermission,
+            windowCount: previewStateCoordinator.windows.count,
+            threshold: compactModeThreshold
+        )
+    }
 
-        // Force list view if image preview is disabled or screen recording permission is not granted
-        if disableImagePreview || !hasScreenRecordingPermission {
-            return true
-        }
-
-        let windowCount = previewStateCoordinator.windows.count
-
+    private var compactModeThreshold: Int {
         if previewStateCoordinator.windowSwitcherActive {
-            return windowSwitcherCompactThreshold > 0 && windowCount >= windowSwitcherCompactThreshold
+            windowSwitcherCompactThreshold
         } else if dockPosition == .cmdTab {
-            return cmdTabCompactThreshold > 0 && windowCount >= cmdTabCompactThreshold
+            cmdTabCompactThreshold
         } else {
-            return dockPreviewCompactThreshold > 0 && windowCount >= dockPreviewCompactThreshold
+            dockPreviewCompactThreshold
         }
     }
 
@@ -264,7 +264,7 @@ struct WindowPreviewHoverContainer: View {
 
     private var hoverActionEnabled: Bool {
         let action = resolvedAppearance.previewHoverAction
-        let isCompact = shouldUseCompactMode
+        let isCompact = usesCompactRows
         let permissionAllowsIt = !isCompact || hasScreenRecordingPermission
         return action != .none &&
             (!isCompact || enableHoverActionsInCompactMode) &&
@@ -545,7 +545,7 @@ struct WindowPreviewHoverContainer: View {
                 edgeScrollRequest = nil
             }
         }
-        .onChange(of: shouldUseCompactMode) { _ in
+        .onChange(of: usesCompactRows) { _ in
             refreshHighlightActionIfNeeded()
         }
         .onChange(of: enableHoverActionsInCompactMode) { _ in
@@ -564,7 +564,7 @@ struct WindowPreviewHoverContainer: View {
         let calculatedMaxDimension = previewStateCoordinator.dimensionState.overallMaxPreviewDimension
         let calculatedDimensionsMap = previewStateCoordinator.dimensionState.windowDimensionsMap
         let gridFlow = GridFlow.resolve(
-            compact: shouldUseCompactMode,
+            compact: usesCompactRows,
             windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
             dockPosition: dockPosition
         )
@@ -986,24 +986,26 @@ struct WindowPreviewHoverContainer: View {
                 .globalPadding(20)
                 .padding(2)
         } else {
-            let lines: [[FlowItem]] = shouldUseCompactMode
+            let lines: [[FlowItem]] = usesCompactRows
                 ? createFlowItems(filteredIndices: cachedFilteredIndices).map { [$0] }
                 : createChunkedItems(filteredIndices: cachedFilteredIndices, gridFlow: gridFlow)
-            let scaledContentInset = HoverContainerPadding.contentInner * appearance.globalPaddingMultiplier
             let onlyWindowlessDockLikeRows = !previewStateCoordinator.windowSwitcherActive &&
                 !cachedFilteredIndices.isEmpty &&
                 cachedFilteredIndices.allSatisfy { index in
                     index < previewStateCoordinator.windows.count && previewStateCoordinator.windows[index].isWindowlessApp
                 }
+            let metrics = PreviewLayoutMetrics.resolve(
+                compact: usesCompactRows,
+                onlyWindowlessDockLikeRows: onlyWindowlessDockLikeRows,
+                paddingMultiplier: appearance.globalPaddingMultiplier
+            )
             let layout = CardGridScrollView.Layout(
                 lines: lines,
                 laysOutItemsInRows: gridFlow.laysOutItemsInRows,
                 scrollsVertically: gridFlow.scrollsVertically,
-                centerLines: previewStateCoordinator.windowSwitcherActive && appearance.allowDynamicImageSizing && !shouldUseCompactMode,
-                spacing: shouldUseCompactMode ? 4 : HoverContainerPadding.itemSpacing,
-                inset: shouldUseCompactMode || onlyWindowlessDockLikeRows
-                    ? max(0, scaledContentInset - CGFloat(CardRadius.innerPadding))
-                    : scaledContentInset,
+                centerLines: previewStateCoordinator.windowSwitcherActive && appearance.allowDynamicImageSizing && !usesCompactRows,
+                spacing: metrics.itemSpacing,
+                inset: metrics.contentInset,
                 dimensions: currentDimensionsMapForPreviews,
                 appearance: appearance
             )
@@ -1886,10 +1888,6 @@ struct WindowPreviewHoverContainer: View {
         return isShake
     }
 
-    private func lookupDimensions(for index: Int, dimensionsMap: [Int: WindowDimensions]) -> WindowDimensions? {
-        dimensionsMap[index]
-    }
-
     private func filteredWindowIndices() -> [Int] {
         previewStateCoordinator.filteredWindowIndices()
     }
@@ -1957,13 +1955,13 @@ struct WindowPreviewHoverContainer: View {
         case .embedded:
             let dims = currentDimensionsMapForPreviews[filteredIndices.first ?? 0]
             embeddedContentView()
-                .padding(.trailing, shouldUseCompactMode ? -compactEmbeddedContentOverflow : 0)
+                .padding(.trailing, usesCompactRows ? -compactEmbeddedContentOverflow : 0)
                 .frame(
-                    minWidth: shouldUseCompactMode ? nil : (laysOutItemsInRows ? nil : dims?.size.width),
-                    maxWidth: shouldUseCompactMode ? appearance.compactModeWidth + compactEmbeddedContentOverflow : nil,
-                    minHeight: laysOutItemsInRows ? (shouldUseCompactMode ? nil : dims?.size.height) : nil
+                    minWidth: usesCompactRows ? nil : (laysOutItemsInRows ? nil : dims?.size.width),
+                    maxWidth: usesCompactRows ? appearance.compactModeWidth + compactEmbeddedContentOverflow : nil,
+                    minHeight: laysOutItemsInRows ? (usesCompactRows ? nil : dims?.size.height) : nil
                 )
-                .fixedSize(horizontal: false, vertical: shouldUseCompactMode)
+                .fixedSize(horizontal: false, vertical: usesCompactRows)
                 .id("\(appName)-embedded")
         case let .window(index):
             SelectionReader(selection: previewStateCoordinator.selection) { currIndex in
@@ -2020,17 +2018,20 @@ struct WindowPreviewHoverContainer: View {
                 return true
             }()
 
-            let useWindowlessCompactRowInDockLikeMode = windowInfo.isWindowlessApp &&
-                (!previewStateCoordinator.windowSwitcherActive || dockPosition == .cmdTab) &&
-                !shouldUseCompactMode
-            // Use compact mode if the container requires it, for windowless Dock/Cmd+Tab rows, or as an image fallback.
-            let useCompactForThisWindow = shouldUseCompactMode ||
-                useWindowlessCompactRowInDockLikeMode ||
-                (windowInfo.image == nil && !useLivePreview)
-
             let isSelected = index == currIndex
+            let presentation = PreviewCardPresentation.resolve(
+                window: windowInfo,
+                containerUsesCompactRows: usesCompactRows,
+                windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
+                dockPosition: dockPosition,
+                livePreviewEnabled: useLivePreview,
+                compactWidth: appearance.compactModeWidth,
+                previewWidth: appearance.previewWidth,
+                fallbackWidth: resolvedDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews).size.width
+            )
 
-            if windowInfo.isWindowlessApp, !shouldUseCompactMode, !useWindowlessCompactRowInDockLikeMode {
+            switch presentation {
+            case .windowless:
                 WindowlessAppPreview(
                     windowInfo: windowInfo,
                     index: index,
@@ -2038,7 +2039,7 @@ struct WindowPreviewHoverContainer: View {
                     uniformCardRadius: uniformCardRadius,
                     isSelected: isSelected,
                     windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
-                    dimensions: lookupDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews),
+                    dimensions: currentDimensionsMapForPreviews[index],
                     mockPreviewActive: mockPreviewActive,
                     handleWindowAction: { action in
                         handleWindowAction(action, at: index)
@@ -2049,14 +2050,7 @@ struct WindowPreviewHoverContainer: View {
                     backgroundAppearance: backgroundAppearance
                 )
                 .equatable()
-            } else if useCompactForThisWindow {
-                let compactRowWidth = if shouldUseCompactMode {
-                    appearance.compactModeWidth
-                } else if useWindowlessCompactRowInDockLikeMode {
-                    appearance.previewWidth
-                } else {
-                    resolvedDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews).size.width
-                }
+            case let .compact(compactRowWidth):
                 WindowPreviewCompact(
                     windowInfo: windowInfo,
                     index: index,
@@ -2077,7 +2071,7 @@ struct WindowPreviewHoverContainer: View {
                     currentSpaceNumbers: currentSpaceNumbers
                 )
                 .equatable()
-            } else {
+            case .regular:
                 WindowPreview(
                     windowInfo: windowInfo,
                     onTap: onWindowTap,
@@ -2174,7 +2168,7 @@ struct WindowPreviewHoverContainer: View {
                     .foregroundColor(.secondary)
             }
         }
-        .frame(minWidth: shouldUseCompactMode ? compactModeWidth : previewWidth, maxWidth: shouldUseCompactMode ? compactModeWidth : previewWidth, minHeight: 120)
+        .frame(minWidth: usesCompactRows ? compactModeWidth : previewWidth, maxWidth: usesCompactRows ? compactModeWidth : previewWidth, minHeight: 120)
     }
 
     private func noEligibleWindowsView() -> some View {
@@ -2188,8 +2182,8 @@ struct WindowPreviewHoverContainer: View {
                 .foregroundColor(.primary)
         }
         .frame(
-            minWidth: shouldUseCompactMode ? compactModeWidth : previewWidth,
-            maxWidth: shouldUseCompactMode ? compactModeWidth : previewWidth,
+            minWidth: usesCompactRows ? compactModeWidth : previewWidth,
+            maxWidth: usesCompactRows ? compactModeWidth : previewWidth,
             minHeight: 120
         )
     }

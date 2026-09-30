@@ -3,6 +3,86 @@ import Defaults
 
 // Holds logic related to precomputing image thumbnail sizes
 extension WindowPreviewHoverContainer {
+    struct PreviewLayoutMetrics {
+        let itemSpacing: CGFloat
+        let contentInset: CGFloat
+
+        var totalPanelInset: CGFloat {
+            HoverContainerPadding.container +
+                HoverContainerPadding.dockStyleOuter +
+                HoverContainerPadding.scrollOuter +
+                contentInset
+        }
+
+        static func resolve(
+            compact: Bool,
+            onlyWindowlessDockLikeRows: Bool,
+            paddingMultiplier: CGFloat
+        ) -> Self {
+            let scaledContentInset = HoverContainerPadding.contentInner * paddingMultiplier
+            let usesTightInset = compact || onlyWindowlessDockLikeRows
+            return Self(
+                itemSpacing: compact ? 4 : HoverContainerPadding.itemSpacing,
+                contentInset: usesTightInset
+                    ? max(0, scaledContentInset - CGFloat(CardRadius.innerPadding))
+                    : scaledContentInset
+            )
+        }
+
+        static func regular(paddingMultiplier: CGFloat) -> Self {
+            resolve(
+                compact: false,
+                onlyWindowlessDockLikeRows: false,
+                paddingMultiplier: paddingMultiplier
+            )
+        }
+    }
+
+    enum PreviewCardPresentation {
+        case regular
+        case compact(width: CGFloat)
+        case windowless
+
+        static func resolve(
+            window: WindowInfo,
+            containerUsesCompactRows: Bool,
+            windowSwitcherActive: Bool,
+            dockPosition: DockPosition,
+            livePreviewEnabled: Bool,
+            compactWidth: CGFloat,
+            previewWidth: CGFloat,
+            fallbackWidth: CGFloat
+        ) -> Self {
+            let usesWindowlessCompactRow = window.isWindowlessApp &&
+                (!windowSwitcherActive || dockPosition == .cmdTab) &&
+                !containerUsesCompactRows
+
+            if window.isWindowlessApp, !containerUsesCompactRows, !usesWindowlessCompactRow {
+                return .windowless
+            }
+            if containerUsesCompactRows {
+                return .compact(width: compactWidth)
+            }
+            if usesWindowlessCompactRow {
+                return .compact(width: previewWidth)
+            }
+            if window.image == nil, !livePreviewEnabled {
+                return .compact(width: fallbackWidth)
+            }
+            return .regular
+        }
+    }
+
+    static func usesCompactRows(
+        isMockPreviewActive: Bool,
+        forceCompact: Bool,
+        windowCount: Int,
+        threshold: Int
+    ) -> Bool {
+        guard !isMockPreviewActive else { return false }
+        return forceCompact || (threshold > 0 && windowCount >= threshold)
+    }
+
     struct GridFlow: Equatable {
         let laysOutItemsInRows: Bool
         let scrollsVertically: Bool
@@ -303,8 +383,9 @@ extension WindowPreviewHoverContainer {
     ) -> (maxColumns: Int, maxRows: Int) {
         let screenWidth = bestGuessMonitor.visibleFrame.width
         let screenHeight = bestGuessMonitor.visibleFrame.height
-        let itemSpacing = HoverContainerPadding.itemSpacing
-        let globalPadding = HoverContainerPadding.totalPerSide() * 2
+        let metrics = PreviewLayoutMetrics.regular(paddingMultiplier: Defaults[.globalPaddingMultiplier])
+        let itemSpacing = metrics.itemSpacing
+        let globalPadding = metrics.totalPanelInset * 2
 
         let previewWidth = overallMaxDimensions.x
         let previewHeight = overallMaxDimensions.y
