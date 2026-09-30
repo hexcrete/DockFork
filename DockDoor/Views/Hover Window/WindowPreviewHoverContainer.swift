@@ -439,6 +439,7 @@ struct WindowPreviewHoverContainer: View {
         let isDockPreview = !isWindowSwitcher && !isCmdTabPreview
         guard isWindowSwitcher || isDockPreview || isCmdTabPreview else { return }
         if isWindowSwitcher, !enableMouseHoverInSwitcher { return }
+        guard edgeScrollRequest == nil else { return }
 
         guard let hoveredIndex else {
             if isDockPreview || isWindowSwitcher || isCmdTabPreview {
@@ -538,7 +539,20 @@ struct WindowPreviewHoverContainer: View {
             }
         }
         .onChange(of: previewStateCoordinator.selectionInputSource) { _ in
+            if previewStateCoordinator.selectionInputSource == .keyboard {
+                edgeScrollRequest = nil
+            }
             refreshHighlightActionIfNeeded()
+        }
+        .onChange(of: scrolledFromStart) { hasScrolled in
+            if !hasScrolled, edgeScrollRequest == .backward {
+                edgeScrollRequest = nil
+            }
+        }
+        .onChange(of: scrolledToEnd) { reachedEnd in
+            if reachedEnd, edgeScrollRequest == .forward {
+                edgeScrollRequest = nil
+            }
         }
         .onChange(of: edgeAutoScrollEnabled) { isEnabled in
             if !isEnabled {
@@ -1063,22 +1077,35 @@ struct WindowPreviewHoverContainer: View {
                 return
             }
 
-            if location.x <= edgeSize {
-                edgeScrollRequest = .backward
-            } else if location.x >= width - edgeSize {
-                edgeScrollRequest = .forward
+            let request: CardGridScrollView.EdgeScrollRequest? = if location.x <= edgeSize, scrolledFromStart {
+                .backward
+            } else if location.x >= width - edgeSize, !scrolledToEnd {
+                .forward
             } else {
-                edgeScrollRequest = nil
+                nil
             }
+            updateEdgeScrollRequest(request)
         } else {
-            if location.y <= edgeSize {
-                edgeScrollRequest = .backward
-            } else if location.y >= height - edgeSize {
-                edgeScrollRequest = .forward
+            let request: CardGridScrollView.EdgeScrollRequest? = if location.y <= edgeSize, scrolledFromStart {
+                .backward
+            } else if location.y >= height - edgeSize, !scrolledToEnd {
+                .forward
             } else {
-                edgeScrollRequest = nil
+                nil
             }
+            updateEdgeScrollRequest(request)
         }
+    }
+
+    private func updateEdgeScrollRequest(_ request: CardGridScrollView.EdgeScrollRequest?) {
+        guard request != edgeScrollRequest else { return }
+
+        if request != nil, edgeScrollRequest == nil {
+            previewStateCoordinator.setIndex(to: -1, shouldScroll: false, source: .mouse)
+            refreshHighlightActionIfNeeded()
+        }
+
+        edgeScrollRequest = request
     }
 
     private var edgeAutoScrollEnabled: Bool {
