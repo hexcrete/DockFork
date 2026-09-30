@@ -140,6 +140,10 @@ extension WindowPreviewHoverContainer {
 
                 var widestWindow = minImageWidth
                 for window in windows {
+                    if window.isWindowlessApp {
+                        widestWindow = maxWidth
+                        continue
+                    }
                     guard let cgImage = window.image else { continue }
                     let aspectRatio = CGFloat(cgImage.width) / CGFloat(cgImage.height)
                     let width = min(max(maxHeight * aspectRatio, minImageWidth), maxWidth)
@@ -268,6 +272,10 @@ extension WindowPreviewHoverContainer {
                     fillToLimit: gridFlow.fillsLinesToLimit
                 )
                 let minImageWidth = min(maxDims.width, dynamicSwitcherMinimumImageWidth)
+                let defaultPreviewSize = CGSize(
+                    width: max(1, Defaults[.previewWidth]),
+                    height: max(1, Defaults[.previewHeight])
+                )
 
                 for chunk in chunks {
                     let fittedHeights = chunk.compactMap { index -> CGFloat? in
@@ -289,6 +297,11 @@ extension WindowPreviewHoverContainer {
                             dimensionsMap[index] = WindowDimensions(
                                 size: CGSize(width: width, height: lineItemHeight),
                                 maxDimensions: maxDims
+                            )
+                        } else if windows[index].isWindowlessApp {
+                            dimensionsMap[index] = WindowDimensions(
+                                size: defaultPreviewSize,
+                                maxDimensions: defaultPreviewSize
                             )
                         } else {
                             let compactRowHeight: CGFloat = 36
