@@ -531,6 +531,59 @@ struct PreviewAppearanceSettings: Equatable {
     }
 }
 
+extension TrafficLightButtons {
+    init(
+        previewAppearance appearance: PreviewAppearanceSettings,
+        hoveringOverParentWindow: Bool,
+        onWindowAction: @escaping (WindowAction) -> Void,
+        pillStyling: Bool? = nil,
+        mockPreviewActive: Bool,
+        enabledButtons: Set<WindowAction>,
+        backgroundAppearance: BackgroundAppearance
+    ) {
+        self.init(
+            displayMode: appearance.trafficLightVisibility,
+            hoveringOverParentWindow: hoveringOverParentWindow,
+            onWindowAction: onWindowAction,
+            pillStyling: pillStyling ?? !appearance.disableDockStyleTrafficLights,
+            mockPreviewActive: mockPreviewActive,
+            enabledButtons: enabledButtons,
+            useMonochrome: appearance.useMonochromeTrafficLights,
+            buttonScale: appearance.trafficLightButtonScale,
+            backgroundAppearance: backgroundAppearance
+        )
+    }
+}
+
+struct EmbeddedSwitcherControlsLayout<Content: View>: View {
+    let controlPosition: WindowSwitcherControlPosition
+    let hasTitleContent: Bool
+    let hasControlsContent: Bool
+    @ViewBuilder let content: (_ isLeadingControls: Bool, _ showTitle: Bool, _ showControls: Bool) -> Content
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if controlPosition.showsOnTop {
+                let config = controlPosition.topConfiguration
+                if (config.showTitle && hasTitleContent) || (config.showControls && hasControlsContent) {
+                    content(config.isLeadingControls, config.showTitle, config.showControls)
+                        .padding(8)
+                }
+            }
+
+            Spacer()
+
+            if controlPosition.showsOnBottom {
+                let config = controlPosition.bottomConfiguration
+                if (config.showTitle && hasTitleContent) || (config.showControls && hasControlsContent) {
+                    content(config.isLeadingControls, config.showTitle, config.showControls)
+                        .padding(8)
+                }
+            }
+        }
+    }
+}
+
 struct WindowPreview: View, Equatable {
     let windowInfo: WindowInfo
     let onTap: (() -> Void)?
@@ -831,36 +884,17 @@ struct WindowPreview: View, Equatable {
 
     @ViewBuilder
     private func embeddedWindowSwitcherControls(_ selected: Bool) -> some View {
-        VStack(spacing: 0) {
-            if appearance.controlPosition.showsOnTop {
-                let config = appearance.controlPosition.topConfiguration
-                let shouldShowTopToolbar = (config.showControls && hasWindowSwitcherControlContent) || (config.showTitle && appearance.showAppHeader)
-                if shouldShowTopToolbar {
-                    windowSwitcherContent(
-                        selected,
-                        isLeadingControls: config.isLeadingControls,
-                        showTitleContent: config.showTitle,
-                        showControlsContent: config.showControls
-                    )
-                    .padding(8)
-                }
-            }
-
-            Spacer()
-
-            if appearance.controlPosition.showsOnBottom {
-                let config = appearance.controlPosition.bottomConfiguration
-                let shouldShowBottomToolbar = (config.showControls && hasWindowSwitcherControlContent) || (config.showTitle && appearance.showAppHeader)
-                if shouldShowBottomToolbar {
-                    windowSwitcherContent(
-                        selected,
-                        isLeadingControls: config.isLeadingControls,
-                        showTitleContent: config.showTitle,
-                        showControlsContent: config.showControls
-                    )
-                    .padding(8)
-                }
-            }
+        EmbeddedSwitcherControlsLayout(
+            controlPosition: appearance.controlPosition,
+            hasTitleContent: appearance.showAppHeader,
+            hasControlsContent: hasWindowSwitcherControlContent
+        ) { isLeadingControls, showTitle, showControls in
+            windowSwitcherContent(
+                selected,
+                isLeadingControls: isLeadingControls,
+                showTitleContent: showTitle,
+                showControlsContent: showControls
+            )
         }
     }
 
@@ -902,14 +936,11 @@ struct WindowPreview: View, Equatable {
         ) {
             if hasTrafficLights {
                 TrafficLightButtons(
-                    displayMode: appearance.trafficLightVisibility,
+                    previewAppearance: appearance,
                     hoveringOverParentWindow: selected || isHoveringOverDockPeekPreview,
                     onWindowAction: handleWindowAction,
-                    pillStyling: !appearance.disableDockStyleTrafficLights,
                     mockPreviewActive: mockPreviewActive,
                     enabledButtons: effectiveTrafficLightButtons,
-                    useMonochrome: appearance.useMonochromeTrafficLights,
-                    buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
                 )
                 .frame(width: showTrafficLights ? nil : 0)
@@ -1175,13 +1206,11 @@ struct WindowPreview: View, Equatable {
         ) {
             if canRenderTrafficLightButtons {
                 TrafficLightButtons(
-                    displayMode: appearance.trafficLightVisibility,
+                    previewAppearance: appearance,
                     hoveringOverParentWindow: selected || isHoveringOverWindowSwitcherPreview,
                     onWindowAction: handleWindowAction,
-                    pillStyling: !appearance.disableDockStyleTrafficLights,
                     mockPreviewActive: mockPreviewActive,
                     enabledButtons: effectiveTrafficLightButtons,
-                    useMonochrome: appearance.useMonochromeTrafficLights,
                     backgroundAppearance: backgroundAppearance
                 )
                 .frame(width: showTrafficLights ? nil : 0)
@@ -1283,14 +1312,11 @@ struct WindowPreview: View, Equatable {
         ) {
             if hasTrafficLights {
                 TrafficLightButtons(
-                    displayMode: appearance.trafficLightVisibility,
+                    previewAppearance: appearance,
                     hoveringOverParentWindow: selected || isHoveringOverDockPeekPreview,
                     onWindowAction: handleWindowAction,
-                    pillStyling: !appearance.disableDockStyleTrafficLights,
                     mockPreviewActive: mockPreviewActive,
                     enabledButtons: effectiveTrafficLightButtons,
-                    useMonochrome: appearance.useMonochromeTrafficLights,
-                    buttonScale: appearance.trafficLightButtonScale,
                     backgroundAppearance: backgroundAppearance
                 )
                 .frame(width: showTrafficLights ? nil : 0)

@@ -102,14 +102,11 @@ struct WindowlessAppPreview: View, Equatable {
 
     private func quitButton(alignment: Alignment, isVisible: Bool) -> some View {
         TrafficLightButtons(
-            displayMode: appearance.trafficLightVisibility,
+            previewAppearance: appearance,
             hoveringOverParentWindow: isSelected || isHovering,
             onWindowAction: handleWindowAction,
-            pillStyling: !appearance.disableDockStyleTrafficLights,
             mockPreviewActive: mockPreviewActive,
             enabledButtons: windowlessEnabledButtons,
-            useMonochrome: appearance.useMonochromeTrafficLights,
-            buttonScale: appearance.trafficLightButtonScale,
             backgroundAppearance: backgroundAppearance
         )
         .frame(minWidth: 34, minHeight: 34, alignment: alignment)
@@ -148,40 +145,60 @@ struct WindowlessAppPreview: View, Equatable {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if appearance.controlPosition.showsOnTop {
-                let config = appearance.controlPosition.topConfiguration
-                if (appearance.showAppHeader && config.showTitle) || (canRenderTrafficLightButtons && config.showControls) {
-                    toolbarContent(
-                        isLeadingControls: config.isLeadingControls,
-                        showTitleContent: config.showTitle,
-                        showControlsContent: config.showControls
+        ZStack(alignment: .topLeading) {
+            VStack(alignment: .leading, spacing: 0) {
+                if !appearance.useEmbeddedElements,
+                   appearance.controlPosition.showsOnTop
+                {
+                    let config = appearance.controlPosition.topConfiguration
+                    if (appearance.showAppHeader && config.showTitle) || (canRenderTrafficLightButtons && config.showControls) {
+                        toolbarContent(
+                            isLeadingControls: config.isLeadingControls,
+                            showTitleContent: config.showTitle,
+                            showControlsContent: config.showControls
+                        )
+                        .padding(.horizontal, switcherToolbarHorizontalPadding)
+                        .padding(.bottom, 4)
+                    }
+                }
+
+                iconContent
+                    .clipShape(RoundedRectangle(cornerRadius: CardRadius.image, style: .continuous))
+                    .dynamicWindowFrame(
+                        allowDynamicSizing: false,
+                        dimensions: dimensions ?? WindowPreviewHoverContainer.WindowDimensions(size: .zero, maxDimensions: .zero),
+                        dockPosition: dockPosition,
+                        windowSwitcherActive: windowSwitcherActive
                     )
-                    .padding(.horizontal, switcherToolbarHorizontalPadding)
-                    .padding(.bottom, 4)
+                    .opacity(isSelected ? 1.0 : appearance.unselectedContentOpacity)
+
+                if !appearance.useEmbeddedElements,
+                   appearance.controlPosition.showsOnBottom
+                {
+                    let config = appearance.controlPosition.bottomConfiguration
+                    if (appearance.showAppHeader && config.showTitle) || (canRenderTrafficLightButtons && config.showControls) {
+                        toolbarContent(
+                            isLeadingControls: config.isLeadingControls,
+                            showTitleContent: config.showTitle,
+                            showControlsContent: config.showControls
+                        )
+                        .padding(.horizontal, switcherToolbarHorizontalPadding)
+                        .padding(.top, 4)
+                    }
                 }
             }
 
-            iconContent
-                .clipShape(RoundedRectangle(cornerRadius: CardRadius.image, style: .continuous))
-                .dynamicWindowFrame(
-                    allowDynamicSizing: false,
-                    dimensions: dimensions ?? WindowPreviewHoverContainer.WindowDimensions(size: .zero, maxDimensions: .zero),
-                    dockPosition: dockPosition,
-                    windowSwitcherActive: windowSwitcherActive
-                )
-                .opacity(isSelected ? 1.0 : appearance.unselectedContentOpacity)
-
-            if appearance.controlPosition.showsOnBottom {
-                let config = appearance.controlPosition.bottomConfiguration
-                if (appearance.showAppHeader && config.showTitle) || (canRenderTrafficLightButtons && config.showControls) {
+            if appearance.useEmbeddedElements {
+                EmbeddedSwitcherControlsLayout(
+                    controlPosition: appearance.controlPosition,
+                    hasTitleContent: appearance.showAppHeader,
+                    hasControlsContent: canRenderTrafficLightButtons
+                ) { isLeadingControls, showTitle, showControls in
                     toolbarContent(
-                        isLeadingControls: config.isLeadingControls,
-                        showTitleContent: config.showTitle,
-                        showControlsContent: config.showControls
+                        isLeadingControls: isLeadingControls,
+                        showTitleContent: showTitle,
+                        showControlsContent: showControls
                     )
-                    .padding(.horizontal, switcherToolbarHorizontalPadding)
-                    .padding(.top, 4)
                 }
             }
         }

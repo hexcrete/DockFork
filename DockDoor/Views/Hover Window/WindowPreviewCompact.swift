@@ -138,14 +138,12 @@ struct WindowPreviewCompact: View, Equatable {
            canRenderTrafficLightButtons
         {
             TrafficLightButtons(
-                displayMode: appearance.trafficLightVisibility,
+                previewAppearance: appearance,
                 hoveringOverParentWindow: isSelected || isHovering,
                 onWindowAction: handleWindowAction,
                 pillStyling: true,
                 mockPreviewActive: mockPreviewActive,
                 enabledButtons: effectiveTrafficLightButtons,
-                useMonochrome: appearance.useMonochromeTrafficLights,
-                buttonScale: appearance.trafficLightButtonScale,
                 backgroundAppearance: backgroundAppearance
             )
             .frame(width: isVisible ? nil : 0)
