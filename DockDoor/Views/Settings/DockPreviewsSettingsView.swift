@@ -16,6 +16,8 @@ struct DockPreviewsSettingsView: View {
     @Default(.previewHoverAction) var previewHoverAction
     @Default(.keepPreviewOnHoverActivation) var keepPreviewOnHoverActivation
     @Default(.tapEquivalentInterval) var tapEquivalentInterval
+    @Default(.enableDockPreviewEdgeAutoScroll) var enableDockPreviewEdgeAutoScroll
+    @Default(.dockPreviewEdgeAutoScrollSpeed) var dockPreviewEdgeAutoScrollSpeed
     @Default(.shouldHideOnDockItemClick) var shouldHideOnDockItemClick
     @Default(.dockClickAction) var dockClickAction
     @Default(.restoreAllMinimizedWindowsOnDockClick) var restoreAllMinimizedWindowsOnDockClick
@@ -230,6 +232,23 @@ struct DockPreviewsSettingsView: View {
                 sliderSetting(title: "Preview Hover Action Delay", value: $tapEquivalentInterval, range: 0 ... 2, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
                     .disabled(previewHoverAction == .none)
                     .settingsSearchTarget("dockPreviews.hoverDelay")
+
+                Toggle(isOn: $enableDockPreviewEdgeAutoScroll) {
+                    Text("Enable edge auto-scroll")
+                }
+                .settingsSearchTarget("dockPreviews.edgeAutoScroll")
+
+                if enableDockPreviewEdgeAutoScroll {
+                    HStack {
+                        Text("Auto-scroll speed:")
+                        Slider(value: $dockPreviewEdgeAutoScrollSpeed, in: 1 ... 10, step: 0.5)
+                        Text(String(format: "%.1f", dockPreviewEdgeAutoScrollSpeed))
+                            .frame(width: 30)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.leading, 20)
+                    .settingsSearchTarget("dockPreviews.edgeAutoScrollSpeed")
+                }
 
                 Toggle(isOn: $shouldHideOnDockItemClick) { Text("Override Dock icon click") }
                     .settingsSearchTarget("dockPreviews.hideOnClick")

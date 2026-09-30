@@ -4,6 +4,15 @@ import SwiftUI
 
 /// AppKit-backed scroll container for preview cards. Each card keeps its SwiftUI view in its own hosting view, and scrolling moves the content view's origin instead of an NSClipView so the hosting views are never asked to re-render per frame.
 struct CardGridScrollView: NSViewRepresentable {
+    enum EdgeScrollRequest: Equatable {
+        case backward
+        case forward
+
+        var direction: CGFloat {
+            self == .backward ? -1 : 1
+        }
+    }
+
     struct Layout: Equatable {
         let lines: [[FlowItem]]
         let laysOutItemsInRows: Bool
@@ -21,18 +30,27 @@ struct CardGridScrollView: NSViewRepresentable {
     @Binding var scrolledFromStart: Bool
     @Binding var scrolledToEnd: Bool
     var isInteractive = true
+    let edgeScrollRequest: EdgeScrollRequest?
+    let edgeScrollSpeed: CGFloat
     let makeCard: (FlowItem) -> AnyView
 
     func makeNSView(context: Context) -> ContainerView {
         let container = ContainerView(scrollsVertically: layout.scrollsVertically)
         container.isInteractive = isInteractive
         context.coordinator.attach(container: container, representable: self)
+        container.updateEdgeScroll(request: edgeScrollRequest, speed: edgeScrollSpeed)
         return container
     }
 
     func updateNSView(_ container: ContainerView, context: Context) {
         container.isInteractive = isInteractive
         context.coordinator.update(representable: self)
+        container.updateEdgeScroll(request: edgeScrollRequest, speed: edgeScrollSpeed)
+    }
+
+    static func dismantleNSView(_ nsView: ContainerView, coordinator: Coordinator) {
+        nsView.stopEdgeScroll()
+        coordinator.detach(from: nsView)
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: ContainerView, context: Context) -> CGSize? {
@@ -72,6 +90,9 @@ struct CardGridScrollView: NSViewRepresentable {
         private(set) var offset: CGFloat = 0
         private var committedOffset: CGFloat = 0
         private var commitTimer: Timer?
+        private var edgeScrollTimer: Timer?
+        private var edgeScrollRequest: EdgeScrollRequest?
+        private var edgeScrollSpeed: CGFloat = 0
 
         var maxOffset: CGFloat {
             max(0, scrollsVertically ? contentSize.height - bounds.height : contentSize.width - bounds.width)
@@ -88,6 +109,11 @@ struct CardGridScrollView: NSViewRepresentable {
 
         @available(*, unavailable)
         required init?(coder: NSCoder) { nil }
+
+        deinit {
+            commitTimer?.invalidate()
+            edgeScrollTimer?.invalidate()
+        }
 
         override var isFlipped: Bool { true }
 
@@ -117,9 +143,18 @@ struct CardGridScrollView: NSViewRepresentable {
             }
         }
 
-        func scrollBy(_ delta: CGFloat) {
-            setOffset(offset + delta)
-            scheduleCommit()
+        func updateEdgeScroll(request: EdgeScrollRequest?, speed: CGFloat) {
+            edgeScrollSpeed = speed
+            guard request != edgeScrollRequest || (request != nil && edgeScrollTimer == nil) else { return }
+            edgeScrollRequest = request
+            restartEdgeScrollIfNeeded()
+        }
+
+        func stopEdgeScroll() {
+            edgeScrollTimer?.invalidate()
+            edgeScrollTimer = nil
+            edgeScrollRequest = nil
+            commit()
         }
 
         func scroll(to newOffset: CGFloat, animated: Bool) {
@@ -147,6 +182,32 @@ struct CardGridScrollView: NSViewRepresentable {
                 : CATransform3DMakeTranslation(visualShift, 0, 0)
             onScrollStateChange?(clamped > 1, maxOffset <= 1 || clamped >= maxOffset - 1)
             if changed { onOffsetChange?(clamped) }
+        }
+
+        private func restartEdgeScrollIfNeeded() {
+            edgeScrollTimer?.invalidate()
+            edgeScrollTimer = nil
+
+            guard let edgeScrollRequest, maxOffset > 1 else {
+                commit()
+                return
+            }
+            let canScroll = edgeScrollRequest == .backward ? offset > 0 : offset < maxOffset
+            guard canScroll else {
+                commit()
+                return
+            }
+
+            let timer = Timer(timeInterval: 1.0 / 60.0, repeats: true) { [weak self] _ in
+                guard let self, let request = self.edgeScrollRequest else { return }
+                let previousOffset = offset
+                setOffset(offset + edgeScrollSpeed * request.direction)
+                if offset == previousOffset {
+                    stopEdgeScroll()
+                }
+            }
+            edgeScrollTimer = timer
+            RunLoop.main.add(timer, forMode: .common)
         }
 
         private func scheduleCommit() {
@@ -203,6 +264,12 @@ struct CardGridScrollView: NSViewRepresentable {
                 .store(in: &cancellables)
 
             update(representable: representable)
+        }
+
+        func detach(from detachedContainer: ContainerView) {
+            guard container === detachedContainer else { return }
+            cancellables.removeAll()
+            container = nil
         }
 
         func update(representable: CardGridScrollView) {

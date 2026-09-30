@@ -959,6 +959,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             appName: appName,
             filters: Defaults[.widgetAppFilters]
         )
+        var startsNewPointerSession = !isVisible
 
         if let bundleId = bundleIdentifier, !widgetsAreFiltered {
             let actualAppContentType = getEmbeddedContentType(for: bundleId)
@@ -1013,6 +1014,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             let newPID = windows.first?.app.processIdentifier ?? (try? dockItemElement.pid())
             if newPID != currentlyDisplayedPID {
                 anchoredDockItem = nil
+                startsNewPointerSession = true
             } else if anchoredDockItem?.element == dockItemElement, isVisible {
                 // Same dock item element is already displayed and anchored.
                 // Skip re-display to prevent position bouncing from duplicate AX notifications
@@ -1023,6 +1025,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             if let dockIconRect {
                 anchoredDockItem = (element: dockItemElement, iconRect: dockIconRect)
             }
+        }
+
+        if startsNewPointerSession {
+            windowSwitcherCoordinator.beginPointerInteractionSession()
         }
 
         if useBigStandaloneViewInstead, let viewToShow = viewForBigStandalone {

@@ -195,6 +195,12 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
+    func beginPointerInteractionSession(at location: CGPoint = NSEvent.mouseLocation) {
+        hasMovedSinceOpen = false
+        initialHoverLocation = location
+    }
+
+    @MainActor
     func clearSelectionIfMouseSource(shouldScroll: Bool = false) {
         guard selectionInputSource == .mouse else { return }
         updateSelectionIndex(-1, source: .programmatic, shouldScroll: shouldScroll)
@@ -1152,8 +1158,7 @@ class PreviewStateCoordinator: ObservableObject {
     ) {
         setWindows(newWindows, dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
         searchQuery = ""
-        hasMovedSinceOpen = false
-        initialHoverLocation = NSEvent.mouseLocation
+        beginPointerInteractionSession()
 
         if startUnfocused {
             setIndex(to: -1, shouldScroll: false, source: .programmatic)

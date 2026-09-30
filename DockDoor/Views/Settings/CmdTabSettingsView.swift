@@ -11,6 +11,8 @@ struct CmdTabSettingsView: View {
     @Default(.cmdTabAutoSelectFirstWindow) var cmdTabAutoSelectFirstWindow
     @Default(.cmdTabPreviewHoverAction) var cmdTabPreviewHoverAction
     @Default(.cmdTabTapEquivalentInterval) var cmdTabTapEquivalentInterval
+    @Default(.enableCmdTabEdgeAutoScroll) var enableCmdTabEdgeAutoScroll
+    @Default(.cmdTabEdgeAutoScrollSpeed) var cmdTabEdgeAutoScrollSpeed
     @Default(.includeHiddenWindowsInCmdTab) var includeHiddenWindowsInCmdTab
     @Default(.showWindowlessAppsInCmdTab) var showWindowlessAppsInCmdTab
     @Default(.ignoreAppsWithSingleWindowInCmdTab) var ignoreAppsWithSingleWindowInCmdTab
@@ -118,6 +120,23 @@ struct CmdTabSettingsView: View {
                 }
                 .disabled(cmdTabPreviewHoverAction == .none)
                 .settingsSearchTarget("cmdTab.hoverDelay")
+
+                Toggle(isOn: $enableCmdTabEdgeAutoScroll) {
+                    Text("Enable edge auto-scroll")
+                }
+                .settingsSearchTarget("cmdTab.edgeAutoScroll")
+
+                if enableCmdTabEdgeAutoScroll {
+                    HStack {
+                        Text("Auto-scroll speed:")
+                        Slider(value: $cmdTabEdgeAutoScrollSpeed, in: 1 ... 10, step: 0.5)
+                        Text(String(format: "%.1f", cmdTabEdgeAutoScrollSpeed))
+                            .frame(width: 30)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.leading, 20)
+                    .settingsSearchTarget("cmdTab.edgeAutoScrollSpeed")
+                }
             }
         }
     }

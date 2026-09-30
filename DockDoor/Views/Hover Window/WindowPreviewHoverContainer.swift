@@ -95,7 +95,12 @@ struct WindowPreviewHoverContainer: View {
     @Default(.gradientColorPalette) var gradientColorPalette
     @Default(.showAnimations) var showAnimations
     @Default(.enableMouseHoverInSwitcher) var enableMouseHoverInSwitcher
+    @Default(.enableWindowSwitcherEdgeAutoScroll) var enableWindowSwitcherEdgeAutoScroll
     @Default(.mouseHoverAutoScrollSpeed) var mouseHoverAutoScrollSpeed
+    @Default(.enableDockPreviewEdgeAutoScroll) var enableDockPreviewEdgeAutoScroll
+    @Default(.dockPreviewEdgeAutoScrollSpeed) var dockPreviewEdgeAutoScrollSpeed
+    @Default(.enableCmdTabEdgeAutoScroll) var enableCmdTabEdgeAutoScroll
+    @Default(.cmdTabEdgeAutoScrollSpeed) var cmdTabEdgeAutoScrollSpeed
     @Default(.windowSwitcherLivePreviewScope) var windowSwitcherLivePreviewScope
 
     // Live preview settings for compact fallback computation
@@ -124,9 +129,7 @@ struct WindowPreviewHoverContainer: View {
 
     @State private var dragPoints: [CGPoint] = []
     @State private var lastShakeCheck: Date = .init()
-    @State private var edgeScrollTimer: Timer?
-    @State private var edgeScrollDirection: CGFloat = 0
-    @State private var cachedScrollView: CardGridScrollView.ContainerView?
+    @State private var edgeScrollRequest: CardGridScrollView.EdgeScrollRequest?
     @State private var edgeScrollHoverSize: CGSize = .zero
     @State private var scrolledFromStart = false
     @State private var scrolledToEnd = true
@@ -492,14 +495,14 @@ struct WindowPreviewHoverContainer: View {
             if Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
                 Task { await LiveCaptureManager.shared.panelClosed() }
             }
-            stopEdgeScroll()
+            edgeScrollRequest = nil
             cancelDockHighlightAction()
             cancelAllDeferredActionWatchers()
         }
         .onChange(of: previewStateCoordinator.windowSwitcherActive) { isActive in
             if !isActive {
                 previewStateCoordinator.searchQuery = ""
-                stopEdgeScroll()
+                edgeScrollRequest = nil
             }
             refreshHighlightActionIfNeeded()
         }
@@ -537,9 +540,9 @@ struct WindowPreviewHoverContainer: View {
         .onChange(of: previewStateCoordinator.selectionInputSource) { _ in
             refreshHighlightActionIfNeeded()
         }
-        .onChange(of: enableMouseHoverInSwitcher) { isEnabled in
+        .onChange(of: edgeAutoScrollEnabled) { isEnabled in
             if !isEnabled {
-                stopEdgeScroll()
+                edgeScrollRequest = nil
             }
         }
         .onChange(of: shouldUseCompactMode) { _ in
@@ -616,15 +619,19 @@ struct WindowPreviewHoverContainer: View {
         }
         .measure($edgeScrollHoverSize)
         .onContinuousHover { phase in
-            guard enableMouseHoverInSwitcher, previewStateCoordinator.windowSwitcherActive else { return }
+            guard edgeAutoScrollEnabled else {
+                edgeScrollRequest = nil
+                return
+            }
 
             switch phase {
             case let .active(location):
                 handleEdgeScrollHover(at: location, isHorizontal: scrollAxis == .horizontal)
             case .ended:
-                stopEdgeScroll()
+                edgeScrollRequest = nil
             }
         }
+        .onDisappear { edgeScrollRequest = nil }
     }
 
     private func handleWindowDrop(at location: CGPoint, for index: Int) {
@@ -1007,6 +1014,8 @@ struct WindowPreviewHoverContainer: View {
                 scrolledFromStart: $scrolledFromStart,
                 scrolledToEnd: $scrolledToEnd,
                 isInteractive: !mockPreviewActive,
+                edgeScrollRequest: edgeScrollRequest,
+                edgeScrollSpeed: edgeAutoScrollSpeed,
                 makeCard: { item in
                     AnyView(buildFlowItem(
                         item: item,
@@ -1023,48 +1032,9 @@ struct WindowPreviewHoverContainer: View {
         }
     }
 
-    private func startEdgeScroll(direction: CGFloat, isHorizontal: Bool) {
-        edgeScrollDirection = direction
-        guard edgeScrollTimer == nil else { return }
-
-        if cachedScrollView == nil || cachedScrollView?.window == nil {
-            if let window = NSApp.windows.first(where: { $0.isVisible && $0.title.isEmpty }) {
-                cachedScrollView = findScrollView(in: window.contentView)
-            }
-        }
-
-        edgeScrollTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { _ in
-            smoothScrollBy(direction: edgeScrollDirection, isHorizontal: isHorizontal)
-        }
-    }
-
-    private func stopEdgeScroll() {
-        edgeScrollTimer?.invalidate()
-        edgeScrollTimer = nil
-        edgeScrollDirection = 0
-        cachedScrollView = nil
-    }
-
-    private func smoothScrollBy(direction: CGFloat, isHorizontal: Bool) {
-        cachedScrollView?.scrollBy(mouseHoverAutoScrollSpeed * direction)
-    }
-
-    private func findScrollView(in view: NSView?) -> CardGridScrollView.ContainerView? {
-        guard let view else { return nil }
-        if let container = view as? CardGridScrollView.ContainerView {
-            return container
-        }
-        for subview in view.subviews {
-            if let found = findScrollView(in: subview) {
-                return found
-            }
-        }
-        return nil
-    }
-
     private func handleEdgeScrollHover(at location: CGPoint, isHorizontal: Bool) {
         guard previewStateCoordinator.registerMouseMovementSinceOpen() else {
-            stopEdgeScroll()
+            edgeScrollRequest = nil
             return
         }
 
@@ -1073,7 +1043,7 @@ struct WindowPreviewHoverContainer: View {
         let height = edgeScrollHoverSize.height
 
         guard width > 0, height > 0 else {
-            stopEdgeScroll()
+            edgeScrollRequest = nil
             return
         }
 
@@ -1087,26 +1057,40 @@ struct WindowPreviewHoverContainer: View {
             let bottomExclusion = appearance.controlPosition.showsOnBottom ? toolbarExclusion : 0
 
             guard location.y >= topExclusion, location.y <= height - bottomExclusion else {
-                stopEdgeScroll()
+                edgeScrollRequest = nil
                 return
             }
 
             if location.x <= edgeSize {
-                startEdgeScroll(direction: -1, isHorizontal: true)
+                edgeScrollRequest = .backward
             } else if location.x >= width - edgeSize {
-                startEdgeScroll(direction: 1, isHorizontal: true)
+                edgeScrollRequest = .forward
             } else {
-                stopEdgeScroll()
+                edgeScrollRequest = nil
             }
         } else {
             if location.y <= edgeSize {
-                startEdgeScroll(direction: -1, isHorizontal: false)
+                edgeScrollRequest = .backward
             } else if location.y >= height - edgeSize {
-                startEdgeScroll(direction: 1, isHorizontal: false)
+                edgeScrollRequest = .forward
             } else {
-                stopEdgeScroll()
+                edgeScrollRequest = nil
             }
         }
+    }
+
+    private var edgeAutoScrollEnabled: Bool {
+        if previewStateCoordinator.windowSwitcherActive {
+            return enableWindowSwitcherEdgeAutoScroll
+        }
+        return dockPosition == .cmdTab ? enableCmdTabEdgeAutoScroll : enableDockPreviewEdgeAutoScroll
+    }
+
+    private var edgeAutoScrollSpeed: CGFloat {
+        if previewStateCoordinator.windowSwitcherActive {
+            return mouseHoverAutoScrollSpeed
+        }
+        return dockPosition == .cmdTab ? cmdTabEdgeAutoScrollSpeed : dockPreviewEdgeAutoScrollSpeed
     }
 
     private func loadAppIcon() {

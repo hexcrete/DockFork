@@ -10,6 +10,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.searchFuzziness) var searchFuzziness
     @Default(.preventSwitcherHide) var preventSwitcherHide
     @Default(.enableMouseHoverInSwitcher) var enableMouseHoverInSwitcher
+    @Default(.enableWindowSwitcherEdgeAutoScroll) var enableWindowSwitcherEdgeAutoScroll
     @Default(.mouseHoverAutoScrollSpeed) var mouseHoverAutoScrollSpeed
     @Default(.switcherPreviewHoverAction) var switcherPreviewHoverAction
     @Default(.switcherTapEquivalentInterval) var switcherTapEquivalentInterval
@@ -214,12 +215,17 @@ struct WindowSwitcherBehaviorSettingsView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle(isOn: $enableMouseHoverInSwitcher) { Text("Enable mouse hover selection") }
                     .settingsSearchTarget("windowSwitcher.mouseHover")
-                Text("Select and scroll to windows when hovering with mouse.")
+                Text("Select windows when hovering with the mouse.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)
 
-                if enableMouseHoverInSwitcher {
+                Toggle(isOn: $enableWindowSwitcherEdgeAutoScroll) {
+                    Text("Enable edge auto-scroll")
+                }
+                .settingsSearchTarget("windowSwitcher.edgeAutoScroll")
+
+                if enableWindowSwitcherEdgeAutoScroll {
                     HStack {
                         Text("Auto-scroll speed:")
                         Slider(value: $mouseHoverAutoScrollSpeed, in: 1 ... 10, step: 0.5)
@@ -228,6 +234,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
                             .foregroundColor(.secondary)
                     }
                     .padding(.leading, 20)
+                    .settingsSearchTarget("windowSwitcher.edgeAutoScrollSpeed")
                 }
 
                 Picker("Window Switcher Hover Action", selection: $switcherPreviewHoverAction) {

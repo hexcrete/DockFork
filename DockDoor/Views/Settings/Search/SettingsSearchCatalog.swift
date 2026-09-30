@@ -251,6 +251,22 @@ enum SettingsSearchCatalog {
             icon: "timer"
         ),
         SettingsSearchItem(
+            id: "dockPreviews.edgeAutoScroll",
+            title: String(localized: "Enable edge auto-scroll"),
+            keywords: ["edge", "hover", "scroll", "automatic", "mouse"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.edgeAutoScrollSpeed",
+            title: String(localized: "Auto-scroll speed:"),
+            keywords: ["edge", "hover", "scroll", "speed"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "gauge.with.dots.needle.67percent"
+        ),
+        SettingsSearchItem(
             id: "dockPreviews.hideOnClick",
             title: String(localized: "Override Dock icon click"),
             keywords: ["dock", "click", "action", "hide", "minimize", "cycle"],
@@ -429,11 +445,27 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "windowSwitcher.mouseHover",
             title: String(localized: "Enable mouse hover selection"),
-            description: String(localized: "Select and scroll to windows when hovering with mouse."),
+            description: String(localized: "Select windows when hovering with the mouse."),
             keywords: ["mouse", "hover", "select"],
             tab: "WindowSwitcher",
             section: String(localized: "Hover Actions"),
             icon: "cursorarrow"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.edgeAutoScroll",
+            title: String(localized: "Enable edge auto-scroll"),
+            keywords: ["edge", "hover", "scroll", "automatic", "mouse"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.edgeAutoScrollSpeed",
+            title: String(localized: "Auto-scroll speed:"),
+            keywords: ["edge", "hover", "scroll", "speed"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "gauge.with.dots.needle.67percent"
         ),
         SettingsSearchItem(
             id: "windowSwitcher.hoverAction",
@@ -554,6 +586,22 @@ enum SettingsSearchCatalog {
             tab: "CmdTab",
             section: String(localized: "Hover Actions"),
             icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.edgeAutoScroll",
+            title: String(localized: "Enable edge auto-scroll"),
+            keywords: ["cmd tab", "command tab", "edge", "hover", "scroll", "automatic", "mouse"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.edgeAutoScrollSpeed",
+            title: String(localized: "Auto-scroll speed:"),
+            keywords: ["cmd tab", "command tab", "edge", "hover", "scroll", "speed"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "gauge.with.dots.needle.67percent"
         ),
         SettingsSearchItem(
             id: "cmdTab.currentSpaceOnly",
