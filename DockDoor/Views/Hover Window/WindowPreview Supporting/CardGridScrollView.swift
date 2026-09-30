@@ -208,10 +208,25 @@ struct CardGridScrollView: NSViewRepresentable {
                 container.scrollsVertically = representable.layout.scrollsVertically
                 rebuild(in: container, representable: representable)
             } else if contentKey != representable.contentKey {
+                let previousContentSize = contentSize
+                let identityChanged = contentKey.count == representable.contentKey.count &&
+                    zip(contentKey, representable.contentKey).contains {
+                        $0.id != $1.id || $0.pid != $1.pid
+                    }
                 contentKey = representable.contentKey
                 makeCard = representable.makeCard
-                for (item, hostingView) in hostingViews {
-                    hostingView.rootView = Self.hostedCard(representable.makeCard(item))
+
+                if identityChanged {
+                    rebuild(in: container, representable: representable)
+                    if previousContentSize != contentSize {
+                        DispatchQueue.main.async { [weak previewCoordinator] in
+                            previewCoordinator?.onFrameRefreshNeeded?()
+                        }
+                    }
+                } else {
+                    for (item, hostingView) in hostingViews {
+                        hostingView.rootView = Self.hostedCard(representable.makeCard(item))
+                    }
                 }
             }
         }
