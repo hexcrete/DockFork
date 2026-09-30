@@ -3,6 +3,38 @@ import Defaults
 
 // Holds logic related to precomputing image thumbnail sizes
 extension WindowPreviewHoverContainer {
+    struct GridFlow: Equatable {
+        let laysOutItemsInRows: Bool
+        let scrollsVertically: Bool
+        let fillsLinesToLimit: Bool
+
+        static func resolve(
+            compact: Bool,
+            windowSwitcherActive: Bool,
+            dockPosition: DockPosition
+        ) -> Self {
+            if compact {
+                return Self(laysOutItemsInRows: true, scrollsVertically: true, fillsLinesToLimit: false)
+            }
+
+            if windowSwitcherActive {
+                let scrollsVertically = Defaults[.windowSwitcherScrollDirection] == .vertical
+                return Self(
+                    laysOutItemsInRows: scrollsVertically,
+                    scrollsVertically: scrollsVertically,
+                    fillsLinesToLimit: true
+                )
+            }
+
+            let laysOutItemsInRows = dockPosition.isHorizontalFlow
+            return Self(
+                laysOutItemsInRows: laysOutItemsInRows,
+                scrollsVertically: !laysOutItemsInRows,
+                fillsLinesToLimit: false
+            )
+        }
+    }
+
     struct WindowDimensions: Equatable {
         let size: CGSize
         let maxDimensions: CGSize
@@ -143,13 +175,17 @@ extension WindowPreviewHoverContainer {
             let thickness: CGFloat = orientationIsHorizontal ? overallMaxDimensions.y : overallMaxDimensions.x
 
             if isWindowSwitcherActive {
-                let fillToLimit = Defaults[.windowSwitcherScrollDirection] == .vertical
+                let gridFlow = GridFlow.resolve(
+                    compact: false,
+                    windowSwitcherActive: true,
+                    dockPosition: dockPosition
+                )
                 let chunks = chunkArray(
                     items: Array(windows.indices),
-                    isHorizontal: true,
+                    isHorizontal: gridFlow.laysOutItemsInRows,
                     maxColumns: effectiveMaxColumns,
                     maxRows: effectiveMaxRows,
-                    fillToLimit: fillToLimit
+                    fillToLimit: gridFlow.fillsLinesToLimit
                 )
                 let minImageWidth = min(maxDims.width, dynamicSwitcherMinimumImageWidth)
 
@@ -163,15 +199,15 @@ extension WindowPreviewHoverContainer {
                             isHorizontal: true
                         ).height
                     }
-                    let rowHeight = min(maxDims.height, max(fittedHeights.max() ?? maxDims.height, 50))
+                    let lineItemHeight = min(maxDims.height, max(fittedHeights.max() ?? maxDims.height, 50))
 
                     for index in chunk {
                         guard index < windows.count else { continue }
                         if let cgImage = windows[index].image {
                             let aspectRatio = CGFloat(cgImage.width) / CGFloat(cgImage.height)
-                            let width = min(max(rowHeight * aspectRatio, minImageWidth), maxDims.width)
+                            let width = min(max(lineItemHeight * aspectRatio, minImageWidth), maxDims.width)
                             dimensionsMap[index] = WindowDimensions(
-                                size: CGSize(width: width, height: rowHeight),
+                                size: CGSize(width: width, height: lineItemHeight),
                                 maxDimensions: maxDims
                             )
                         } else {
@@ -289,7 +325,9 @@ extension WindowPreviewHoverContainer {
                 if let totalItems, totalItems <= calculatedMaxColumns {
                     effectiveMaxRows = 1
                 } else {
-                    effectiveMaxRows = switcherMaxRows
+                    effectiveMaxRows = Defaults[.switcherIgnoreScreenLimit]
+                        ? switcherMaxRows
+                        : min(switcherMaxRows, calculatedMaxRows)
                 }
             }
         } else if dockPosition == .bottom || dockPosition == .cmdTab {
@@ -398,36 +436,26 @@ extension WindowPreviewHoverContainer {
             return (currentIndex + delta + totalItems) % totalItems
         }
 
-        let bestGuessMonitor = NSScreen.main ?? NSScreen.screens.first!
-        let isHorizontalFlow: Bool = if isWindowSwitcherActive {
-            true
-        } else {
-            dockPosition.isHorizontalFlow
-        }
-
-        let (maxColumns, maxRows) = calculateEffectiveMaxColumnsAndRows(
-            bestGuessMonitor: bestGuessMonitor,
-            overallMaxDimensions: coordinator.dimensionState.overallMaxPreviewDimension,
-            dockPosition: dockPosition,
-            isWindowSwitcherActive: isWindowSwitcherActive,
-            previewMaxColumns: Defaults[.previewMaxColumns],
-            previewMaxRows: Defaults[.previewMaxRows],
-            switcherMaxRows: Defaults[.switcherMaxRows],
-            totalItems: totalItems
+        let gridFlow = GridFlow.resolve(
+            compact: false,
+            windowSwitcherActive: isWindowSwitcherActive,
+            dockPosition: dockPosition
         )
+
+        let maxColumns = coordinator.dimensionState.effectiveGridColumns
+        let maxRows = coordinator.dimensionState.effectiveGridRows
 
         let shouldReverse = (dockPosition == .bottom || dockPosition == .right) && !isWindowSwitcherActive
 
-        let isVerticalScroll = isWindowSwitcherActive && Defaults[.windowSwitcherScrollDirection] == .vertical
         return navigateInGrid(
             from: currentIndex,
             direction: direction,
             totalItems: totalItems,
-            isHorizontal: isHorizontalFlow,
+            isHorizontal: gridFlow.laysOutItemsInRows,
             maxColumns: maxColumns,
             maxRows: maxRows,
             reverse: shouldReverse,
-            fillToLimit: isVerticalScroll
+            fillToLimit: gridFlow.fillsLinesToLimit
         )
     }
 

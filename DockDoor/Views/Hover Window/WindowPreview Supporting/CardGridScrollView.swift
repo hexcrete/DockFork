@@ -6,14 +6,13 @@ import SwiftUI
 struct CardGridScrollView: NSViewRepresentable {
     struct Layout: Equatable {
         let lines: [[FlowItem]]
-        let isHorizontal: Bool
+        let laysOutItemsInRows: Bool
         let scrollsVertically: Bool
         let centerLines: Bool
         let spacing: CGFloat
         let inset: CGFloat
         let dimensions: [Int: WindowPreviewHoverContainer.WindowDimensions]
         let appearance: PreviewAppearanceSettings
-        let compact: Bool
     }
 
     let layout: Layout
@@ -277,11 +276,13 @@ struct CardGridScrollView: NSViewRepresentable {
             container.contentSize = contentSize
 
             // Cards that cannot be on screen at open are created after the first frame so opening pays only for the visible rows.
-            let eagerExtent = NSScreen.main.map { layout.isHorizontal ? $0.visibleFrame.height : $0.visibleFrame.width } ?? .greatestFiniteMagnitude
+            let eagerExtent = NSScreen.main.map {
+                layout.scrollsVertically ? $0.visibleFrame.height : $0.visibleFrame.width
+            } ?? .greatestFiniteMagnitude
             pendingItems = []
             for item in items {
                 guard let frame = frames[item] else { continue }
-                let leadingEdge = layout.isHorizontal ? frame.minY : frame.minX
+                let leadingEdge = layout.scrollsVertically ? frame.minY : frame.minX
                 if hostingViews[item] != nil || leadingEdge <= eagerExtent {
                     ensureView(for: item, in: container.contentView).frame = frame
                 } else {
@@ -346,18 +347,18 @@ struct CardGridScrollView: NSViewRepresentable {
         private static func frames(for layout: Layout, sizes: [FlowItem: CGSize]) -> [FlowItem: CGRect] {
             var frames: [FlowItem: CGRect] = [:]
             let lineExtents: [CGFloat] = layout.lines.map { line in
-                let itemExtents = line.map { layout.isHorizontal ? (sizes[$0]?.width ?? 0) : (sizes[$0]?.height ?? 0) }
+                let itemExtents = line.map { layout.laysOutItemsInRows ? (sizes[$0]?.width ?? 0) : (sizes[$0]?.height ?? 0) }
                 return itemExtents.reduce(0, +) + CGFloat(max(0, line.count - 1)) * layout.spacing
             }
             let longestLine = lineExtents.max() ?? 0
 
             var cross = layout.inset
             for (lineIndex, line) in layout.lines.enumerated() {
-                let lineThickness = line.map { layout.isHorizontal ? (sizes[$0]?.height ?? 0) : (sizes[$0]?.width ?? 0) }.max() ?? 0
+                let lineThickness = line.map { layout.laysOutItemsInRows ? (sizes[$0]?.height ?? 0) : (sizes[$0]?.width ?? 0) }.max() ?? 0
                 var along = layout.inset + (layout.centerLines ? (longestLine - lineExtents[lineIndex]) / 2 : 0)
                 for item in line {
                     let size = sizes[item] ?? .zero
-                    if layout.isHorizontal {
+                    if layout.laysOutItemsInRows {
                         frames[item] = CGRect(x: along, y: cross + (lineThickness - size.height) / 2, width: size.width, height: size.height)
                         along += size.width + layout.spacing
                     } else {

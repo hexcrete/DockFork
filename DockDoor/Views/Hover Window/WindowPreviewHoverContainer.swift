@@ -560,22 +560,15 @@ struct WindowPreviewHoverContainer: View {
     private func windowGridContent() -> some View {
         let calculatedMaxDimension = previewStateCoordinator.dimensionState.overallMaxPreviewDimension
         let calculatedDimensionsMap = previewStateCoordinator.dimensionState.windowDimensionsMap
-        let orientationIsHorizontal: Bool = if previewStateCoordinator.windowSwitcherActive {
-            true
-        } else {
-            dockPosition.isHorizontalFlow
-        }
-        let scrollAxis: Axis.Set = if shouldUseCompactMode {
-            .vertical
-        } else if previewStateCoordinator.windowSwitcherActive {
-            Defaults[.windowSwitcherScrollDirection] == .horizontal ? .horizontal : .vertical
-        } else {
-            orientationIsHorizontal ? .horizontal : .vertical
-        }
+        let gridFlow = GridFlow.resolve(
+            compact: shouldUseCompactMode,
+            windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
+            dockPosition: dockPosition
+        )
+        let scrollAxis: Axis.Set = gridFlow.scrollsVertically ? .vertical : .horizontal
 
         buildFlowStack(
-            orientationIsHorizontal,
-            scrollAxis: scrollAxis,
+            gridFlow: gridFlow,
             currentMaxDimensionForPreviews: calculatedMaxDimension,
             currentDimensionsMapForPreviews: calculatedDimensionsMap
         )
@@ -956,8 +949,7 @@ struct WindowPreviewHoverContainer: View {
 
     @ViewBuilder
     private func buildFlowStack(
-        _ isHorizontal: Bool,
-        scrollAxis: Axis.Set,
+        gridFlow: GridFlow,
         currentMaxDimensionForPreviews: CGPoint,
         currentDimensionsMapForPreviews: [Int: WindowDimensions]
     ) -> some View {
@@ -989,7 +981,7 @@ struct WindowPreviewHoverContainer: View {
         } else {
             let lines: [[FlowItem]] = shouldUseCompactMode
                 ? createFlowItems(filteredIndices: cachedFilteredIndices).map { [$0] }
-                : createChunkedItems(filteredIndices: cachedFilteredIndices)
+                : createChunkedItems(filteredIndices: cachedFilteredIndices, gridFlow: gridFlow)
             let scaledContentInset = HoverContainerPadding.contentInner * appearance.globalPaddingMultiplier
             let onlyWindowlessDockLikeRows = !previewStateCoordinator.windowSwitcherActive &&
                 !cachedFilteredIndices.isEmpty &&
@@ -998,16 +990,15 @@ struct WindowPreviewHoverContainer: View {
                 }
             let layout = CardGridScrollView.Layout(
                 lines: lines,
-                isHorizontal: shouldUseCompactMode || isHorizontal,
-                scrollsVertically: scrollAxis == .vertical,
+                laysOutItemsInRows: gridFlow.laysOutItemsInRows,
+                scrollsVertically: gridFlow.scrollsVertically,
                 centerLines: previewStateCoordinator.windowSwitcherActive && appearance.allowDynamicImageSizing && !shouldUseCompactMode,
                 spacing: shouldUseCompactMode ? 4 : HoverContainerPadding.itemSpacing,
                 inset: shouldUseCompactMode || onlyWindowlessDockLikeRows
                     ? max(0, scaledContentInset - CGFloat(CardRadius.innerPadding))
                     : scaledContentInset,
                 dimensions: currentDimensionsMapForPreviews,
-                appearance: appearance,
-                compact: shouldUseCompactMode
+                appearance: appearance
             )
             CardGridScrollView(
                 layout: layout,
@@ -1019,7 +1010,7 @@ struct WindowPreviewHoverContainer: View {
                 makeCard: { item in
                     AnyView(buildFlowItem(
                         item: item,
-                        isHorizontal: isHorizontal,
+                        laysOutItemsInRows: gridFlow.laysOutItemsInRows,
                         currentMaxDimensionForPreviews: currentMaxDimensionForPreviews,
                         currentDimensionsMapForPreviews: currentDimensionsMapForPreviews,
                         filteredIndices: cachedFilteredIndices,
@@ -1933,13 +1924,7 @@ struct WindowPreviewHoverContainer: View {
         return allItems
     }
 
-    private func createChunkedItems(filteredIndices: [Int]) -> [[FlowItem]] {
-        let isHorizontal: Bool = if previewStateCoordinator.windowSwitcherActive {
-            true
-        } else {
-            dockPosition.isHorizontalFlow
-        }
-
+    private func createChunkedItems(filteredIndices: [Int], gridFlow: GridFlow) -> [[FlowItem]] {
         var itemsToProcess: [FlowItem] = []
         itemsToProcess.reserveCapacity(filteredIndices.count + (embeddedContentType != .none ? 1 : 0))
         for index in filteredIndices {
@@ -1949,16 +1934,8 @@ struct WindowPreviewHoverContainer: View {
             itemsToProcess.append(.embedded)
         }
 
-        var (maxColumns, maxRows) = WindowPreviewHoverContainer.calculateEffectiveMaxColumnsAndRows(
-            bestGuessMonitor: bestGuessMonitor,
-            overallMaxDimensions: previewStateCoordinator.dimensionState.overallMaxPreviewDimension,
-            dockPosition: dockPosition,
-            isWindowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
-            previewMaxColumns: previewMaxColumns,
-            previewMaxRows: previewMaxRows,
-            switcherMaxRows: switcherMaxRows,
-            totalItems: itemsToProcess.count
-        )
+        let maxColumns = previewStateCoordinator.dimensionState.effectiveGridColumns
+        var maxRows = previewStateCoordinator.dimensionState.effectiveGridRows
 
         guard maxColumns > 0, maxRows > 0 else {
             return itemsToProcess.isEmpty ? [[]] : [itemsToProcess]
@@ -1972,11 +1949,11 @@ struct WindowPreviewHoverContainer: View {
 
         let chunks = WindowPreviewHoverContainer.chunkArray(
             items: itemsToProcess,
-            isHorizontal: isHorizontal,
+            isHorizontal: gridFlow.laysOutItemsInRows,
             maxColumns: maxColumns,
             maxRows: maxRows,
             reverse: shouldReverse,
-            fillToLimit: previewStateCoordinator.windowSwitcherActive && Defaults[.windowSwitcherScrollDirection] == .vertical
+            fillToLimit: gridFlow.fillsLinesToLimit
         )
 
         return chunks.isEmpty ? [[]] : chunks
@@ -1985,7 +1962,7 @@ struct WindowPreviewHoverContainer: View {
     @ViewBuilder
     private func buildFlowItem(
         item: FlowItem,
-        isHorizontal: Bool,
+        laysOutItemsInRows: Bool,
         currentMaxDimensionForPreviews: CGPoint,
         currentDimensionsMapForPreviews: [Int: WindowDimensions],
         filteredIndices: [Int],
@@ -1998,9 +1975,9 @@ struct WindowPreviewHoverContainer: View {
             embeddedContentView()
                 .padding(.trailing, shouldUseCompactMode ? -compactEmbeddedContentOverflow : 0)
                 .frame(
-                    minWidth: shouldUseCompactMode ? nil : (isHorizontal ? nil : dims?.size.width),
+                    minWidth: shouldUseCompactMode ? nil : (laysOutItemsInRows ? nil : dims?.size.width),
                     maxWidth: shouldUseCompactMode ? appearance.compactModeWidth + compactEmbeddedContentOverflow : nil,
-                    minHeight: isHorizontal ? (shouldUseCompactMode ? nil : dims?.size.height) : nil
+                    minHeight: laysOutItemsInRows ? (shouldUseCompactMode ? nil : dims?.size.height) : nil
                 )
                 .fixedSize(horizontal: false, vertical: shouldUseCompactMode)
                 .id("\(appName)-embedded")
