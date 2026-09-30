@@ -586,7 +586,7 @@ struct WindowPreviewHoverContainer: View {
             disableTrailing: scrolledToEnd
         )
         .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .default && effectiveShowAppName) ? 25 : 0)
-        .clipShape(RoundedRectangle(cornerRadius: CardRadius.container, style: .continuous))
+        .clipShape(CardRadius.containerContentClip)
         .overlay(alignment: effectiveAppNameStyle == .popover ? .top : .topLeading) {
             hoverTitleBaseView(labelSize: measureString(appName, fontSize: 14))
         }

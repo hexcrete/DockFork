@@ -14,6 +14,10 @@ enum CardRadius {
     static var inner: Double { outer(for: innerPadding) }
     static var container: Double { outer(for: outerPadding) }
     static var image: Double { max(fallback, inner - innerPadding) }
+    static var containerContentClip: some Shape {
+        RoundedRectangle(cornerRadius: container, style: .continuous)
+            .inset(by: 1)
+    }
 
     static func switcherToolbarHorizontalPadding(uniformCardRadius: Bool) -> CGFloat {
         guard uniformCardRadius else { return 0 }
