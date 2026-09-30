@@ -20,6 +20,7 @@ struct CardGridScrollView: NSViewRepresentable {
     let contentKey: [WindowInfo.ViewSnapshot]
     let coordinator: PreviewStateCoordinator
     @Binding var scrolledFromStart: Bool
+    @Binding var scrolledToEnd: Bool
     var isInteractive = true
     let makeCard: (FlowItem) -> AnyView
 
@@ -59,6 +60,7 @@ struct CardGridScrollView: NSViewRepresentable {
         }
 
         var onOffsetChange: ((CGFloat) -> Void)?
+        var onScrollStateChange: ((_ scrolledFromStart: Bool, _ scrolledToEnd: Bool) -> Void)?
         var isInteractive = true
 
         var contentSize: CGSize = .zero {
@@ -144,6 +146,7 @@ struct CardGridScrollView: NSViewRepresentable {
             contentView.layer?.sublayerTransform = scrollsVertically
                 ? CATransform3DMakeTranslation(0, visualShift, 0)
                 : CATransform3DMakeTranslation(visualShift, 0, 0)
+            onScrollStateChange?(clamped > 1, maxOffset <= 1 || clamped >= maxOffset - 1)
             if changed { onOffsetChange?(clamped) }
         }
 
@@ -177,6 +180,7 @@ struct CardGridScrollView: NSViewRepresentable {
         private var contentKey: [WindowInfo.ViewSnapshot] = []
         private var previewCoordinator: PreviewStateCoordinator?
         private var scrolledFromStart: Binding<Bool>?
+        private var scrolledToEnd: Binding<Bool>?
         private var makeCard: ((FlowItem) -> AnyView)?
         private var pendingItems: [FlowItem] = []
         private var cancellables: Set<AnyCancellable> = []
@@ -186,8 +190,12 @@ struct CardGridScrollView: NSViewRepresentable {
             self.container = container
             previewCoordinator = representable.coordinator
             scrolledFromStart = representable.$scrolledFromStart
+            scrolledToEnd = representable.$scrolledToEnd
 
             container.onOffsetChange = { [weak self] offset in self?.offsetChanged(offset) }
+            container.onScrollStateChange = { [weak self] fromStart, toEnd in
+                self?.scrollStateChanged(fromStart: fromStart, toEnd: toEnd)
+            }
 
             representable.coordinator.selection.$currIndex
                 .dropFirst()
@@ -201,6 +209,7 @@ struct CardGridScrollView: NSViewRepresentable {
         func update(representable: CardGridScrollView) {
             guard let container else { return }
             scrolledFromStart = representable.$scrolledFromStart
+            scrolledToEnd = representable.$scrolledToEnd
 
             if layout != representable.layout {
                 layout = representable.layout
@@ -361,11 +370,16 @@ struct CardGridScrollView: NSViewRepresentable {
             return frames
         }
 
-        private func offsetChanged(_ offset: CGFloat) {
+        private func offsetChanged(_: CGFloat) {
             materializePending(onlyVisible: true)
-            let scrolled = offset > 1
-            if scrolledFromStart?.wrappedValue != scrolled {
-                scrolledFromStart?.wrappedValue = scrolled
+        }
+
+        private func scrollStateChanged(fromStart: Bool, toEnd: Bool) {
+            if scrolledFromStart?.wrappedValue != fromStart {
+                scrolledFromStart?.wrappedValue = fromStart
+            }
+            if scrolledToEnd?.wrappedValue != toEnd {
+                scrolledToEnd?.wrappedValue = toEnd
             }
         }
 

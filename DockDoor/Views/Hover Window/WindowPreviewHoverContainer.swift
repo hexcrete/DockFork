@@ -129,6 +129,7 @@ struct WindowPreviewHoverContainer: View {
     @State private var cachedScrollView: CardGridScrollView.ContainerView?
     @State private var edgeScrollHoverSize: CGSize = .zero
     @State private var scrolledFromStart = false
+    @State private var scrolledToEnd = true
     @State private var dynamicFadeEnabled = false
     @State private var cachedAppearance: PreviewAppearanceSettings? = nil
     @State private var backgroundAppearance: BackgroundAppearance = .resolve()
@@ -578,8 +579,14 @@ struct WindowPreviewHoverContainer: View {
             currentMaxDimensionForPreviews: calculatedMaxDimension,
             currentDimensionsMapForPreviews: calculatedDimensionsMap
         )
-        .fadeOnEdges(axis: scrollAxis == .horizontal ? .horizontal : .vertical, fadeLength: 20, disableLeading: dynamicFadeEnabled && !scrolledFromStart)
+        .fadeOnEdges(
+            axis: scrollAxis == .horizontal ? .horizontal : .vertical,
+            fadeLength: 20,
+            disableLeading: dynamicFadeEnabled && !scrolledFromStart,
+            disableTrailing: scrolledToEnd
+        )
         .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .default && effectiveShowAppName) ? 25 : 0)
+        .clipShape(RoundedRectangle(cornerRadius: CardRadius.container, style: .continuous))
         .overlay(alignment: effectiveAppNameStyle == .popover ? .top : .topLeading) {
             hoverTitleBaseView(labelSize: measureString(appName, fontSize: 14))
         }
@@ -983,13 +990,21 @@ struct WindowPreviewHoverContainer: View {
             let lines: [[FlowItem]] = shouldUseCompactMode
                 ? createFlowItems(filteredIndices: cachedFilteredIndices).map { [$0] }
                 : createChunkedItems(filteredIndices: cachedFilteredIndices)
+            let scaledContentInset = HoverContainerPadding.contentInner * appearance.globalPaddingMultiplier
+            let onlyWindowlessDockLikeRows = !previewStateCoordinator.windowSwitcherActive &&
+                !cachedFilteredIndices.isEmpty &&
+                cachedFilteredIndices.allSatisfy { index in
+                    index < previewStateCoordinator.windows.count && previewStateCoordinator.windows[index].isWindowlessApp
+                }
             let layout = CardGridScrollView.Layout(
                 lines: lines,
                 isHorizontal: shouldUseCompactMode || isHorizontal,
                 scrollsVertically: scrollAxis == .vertical,
                 centerLines: previewStateCoordinator.windowSwitcherActive && appearance.allowDynamicImageSizing && !shouldUseCompactMode,
                 spacing: shouldUseCompactMode ? 4 : HoverContainerPadding.itemSpacing,
-                inset: 20 * appearance.globalPaddingMultiplier,
+                inset: shouldUseCompactMode || onlyWindowlessDockLikeRows
+                    ? max(0, scaledContentInset - CGFloat(CardRadius.innerPadding))
+                    : scaledContentInset,
                 dimensions: currentDimensionsMapForPreviews,
                 appearance: appearance,
                 compact: shouldUseCompactMode
@@ -999,6 +1014,7 @@ struct WindowPreviewHoverContainer: View {
                 contentKey: previewStateCoordinator.windows.map(\.viewSnapshot),
                 coordinator: previewStateCoordinator,
                 scrolledFromStart: $scrolledFromStart,
+                scrolledToEnd: $scrolledToEnd,
                 isInteractive: !mockPreviewActive,
                 makeCard: { item in
                     AnyView(buildFlowItem(
