@@ -374,14 +374,24 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         hostingView.layoutSubtreeIfNeeded()
         let fittingSize = hostingView.fittingSize
 
-        let screen = NSScreen.screenFromQuartzPoint(NSEvent.mouseLocation)
-        let screenFrame = screen.frame
+        let pointerScreen = NSScreen.screenFromQuartzPoint(NSEvent.mouseLocation)
+        let targetScreen = reservesWindowSwitcherSearchSpace ? (screen ?? pointerScreen) : pointerScreen
+        let screenFrame = targetScreen.frame
 
-        let newSize = fittingSize
+        let newSize: CGSize
+        if reservesWindowSwitcherSearchSpace {
+            let maximumSize = maximumPreviewSize(on: targetScreen)
+            newSize = CGSize(
+                width: min(fittingSize.width, maximumSize.width),
+                height: min(fittingSize.height, maximumSize.height)
+            )
+        } else {
+            newSize = fittingSize
+        }
         guard newSize != frame.size else { return }
 
         if let centeredFrame = centeredSwitcherFrame(for: newSize) {
-            let searchFrame = searchWindow.flatMap { $0.isVisible ? $0.targetFrame(relativeTo: centeredFrame, on: self.screen ?? screen) : nil }
+            let searchFrame = searchWindow.flatMap { $0.isVisible ? $0.targetFrame(relativeTo: centeredFrame, on: self.screen ?? targetScreen) : nil }
             animateWithUserPreference {
                 self.animator().setFrame(centeredFrame, display: true)
                 if let searchFrame { self.searchWindow?.animator().setFrame(searchFrame, display: true) }
@@ -428,7 +438,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         guard let center = switcherAnchorCenter else { return nil }
         let screen = NSScreen.screens.first { $0.frame.contains(center) } ?? NSScreen.main
         var origin = CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
-        if let screenFrame = screen?.frame {
+        if let screenFrame = screen.map({ previewPlacementFrame(on: $0) }) {
             origin.x = max(screenFrame.minX, min(origin.x, screenFrame.maxX - size.width))
             origin.y = max(screenFrame.minY, min(origin.y, screenFrame.maxY - size.height))
         }
@@ -562,9 +572,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                         height: max(fittingSize.height, expectedContentSize.height)
                     )
             }
+            let maximumSize = maximumPreviewSize(on: mouseScreen)
             newHoverWindowSize = CGSize(
-                width: min(targetSize.width, mouseScreen.visibleFrame.width),
-                height: min(targetSize.height, mouseScreen.visibleFrame.height)
+                width: min(targetSize.width, maximumSize.width),
+                height: min(targetSize.height, maximumSize.height)
             )
         }
 
@@ -742,22 +753,23 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     private func centerWindowOnScreen(size: CGSize, screen: NSScreen) -> CGPoint {
+        let placementFrame = previewPlacementFrame(on: screen)
         let baseXPosition: CGFloat = switch Defaults[.windowSwitcherHorizontalAnchor] {
         case .left:
-            screen.frame.minX
+            placementFrame.minX
         case .center:
-            screen.frame.midX - (size.width / 2)
+            placementFrame.midX - (size.width / 2)
         case .right:
-            screen.frame.maxX - size.width
+            placementFrame.maxX - size.width
         }
 
         let baseYPosition: CGFloat = switch Defaults[.windowSwitcherVerticalAnchor] {
         case .top:
-            screen.frame.maxY - size.height
+            placementFrame.maxY - size.height
         case .center:
-            screen.frame.midY - (size.height / 2)
+            placementFrame.midY - (size.height / 2)
         case .bottom:
-            screen.frame.minY
+            placementFrame.minY
         }
 
         let isOffsetEnabled = Defaults[.enableShiftWindowSwitcherPlacement]
@@ -768,10 +780,32 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             ? screen.frame.height * (Defaults[.windowSwitcherVerticalOffsetPercent] / 100.0)
             : 0
 
-        let xPosition = baseXPosition + horizontalOffset
-        let yPosition = baseYPosition + verticalOffset
+        var xPosition = baseXPosition + horizontalOffset
+        var yPosition = baseYPosition + verticalOffset
+
+        if reservesWindowSwitcherSearchSpace {
+            xPosition = max(placementFrame.minX, min(xPosition, placementFrame.maxX - size.width))
+            yPosition = max(placementFrame.minY, min(yPosition, placementFrame.maxY - size.height))
+        }
 
         return CGPoint(x: xPosition, y: yPosition)
+    }
+
+    private var reservesWindowSwitcherSearchSpace: Bool {
+        windowSwitcherCoordinator.windowSwitcherActive && Defaults[.enableWindowSwitcherSearch]
+    }
+
+    private func previewPlacementFrame(on screen: NSScreen) -> CGRect {
+        guard reservesWindowSwitcherSearchSpace else { return screen.frame }
+
+        var frame = screen.visibleFrame
+        frame.size.height = max(0, frame.height - SearchWindow.reservedHeight)
+        return frame
+    }
+
+    private func maximumPreviewSize(on screen: NSScreen) -> CGSize {
+        let frame = reservesWindowSwitcherSearchSpace ? previewPlacementFrame(on: screen) : screen.visibleFrame
+        return frame.size
     }
 
     private func calculateWindowPositionFromMouse(mouseLocation: CGPoint, windowSize: CGSize, screen: NSScreen) -> CGPoint {

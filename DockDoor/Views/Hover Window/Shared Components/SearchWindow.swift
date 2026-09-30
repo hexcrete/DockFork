@@ -17,7 +17,7 @@ struct SearchFieldView: View {
         }
         .padding(.horizontal, 12)
         .materialPill(backgroundAppearance: backgroundAppearance)
-        .frame(height: 40)
+        .frame(height: SearchWindow.searchHeight)
         .task {
             for await _ in Defaults.updates(BackgroundAppearance.observedKeys, initial: true) {
                 let updated = BackgroundAppearance.resolve()
@@ -38,13 +38,23 @@ struct SearchTextFieldRepresentable: NSViewRepresentable {
 }
 
 class SearchWindow: NSPanel, NSTextFieldDelegate {
+    static let searchWidth: CGFloat = 300
+    static let searchHeight: CGFloat = 40
+    // The panel frame sits slightly inside the container edge. The capsule is
+    // vertically centered within that frame, leaving a small visible gap.
+    static let panelEdgeOffset: CGFloat = -4
+    static let reservedHeight = max(
+        0,
+        searchHeight + panelEdgeOffset - HoverContainerPadding.container
+    )
+
     private var searchField: NSTextField!
     private weak var previewCoordinator: PreviewStateCoordinator?
 
     init(previewCoordinator: PreviewStateCoordinator) {
         self.previewCoordinator = previewCoordinator
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 300, height: 40),
+            contentRect: NSRect(x: 0, y: 0, width: Self.searchWidth, height: Self.searchHeight),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -124,22 +134,26 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     }
 
     func targetFrame(relativeTo frame: NSRect, on windowScreen: NSScreen?) -> NSRect {
-        let searchWidth: CGFloat = 300
-        let searchHeight: CGFloat = 40
-        let gap: CGFloat = -20
+        let searchWidth = Self.searchWidth
+        let searchHeight = Self.searchHeight
+        let gap = Self.panelEdgeOffset
+        let containerFrame = frame.insetBy(
+            dx: HoverContainerPadding.container,
+            dy: HoverContainerPadding.container
+        )
 
         guard let screen = windowScreen ?? NSScreen.main else {
             return NSRect(
-                x: frame.midX - searchWidth / 2,
-                y: frame.maxY + gap,
+                x: containerFrame.midX - searchWidth / 2,
+                y: containerFrame.maxY + gap,
                 width: searchWidth,
                 height: searchHeight
             )
         }
 
         let screenFrame = screen.visibleFrame
-        let spaceAbove = screenFrame.maxY - frame.maxY
-        let spaceBelow = frame.minY - screenFrame.minY
+        let spaceAbove = screenFrame.maxY - containerFrame.maxY
+        let spaceBelow = containerFrame.minY - screenFrame.minY
         let requiredVerticalSpace = searchHeight + gap
 
         var searchFrame: NSRect
@@ -147,45 +161,45 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
         if spaceAbove >= requiredVerticalSpace {
             // Fits above
             searchFrame = NSRect(
-                x: frame.midX - searchWidth / 2,
-                y: frame.maxY + gap,
+                x: containerFrame.midX - searchWidth / 2,
+                y: containerFrame.maxY + gap,
                 width: searchWidth,
                 height: searchHeight
             )
         } else if spaceBelow >= requiredVerticalSpace {
             // Fits below
             searchFrame = NSRect(
-                x: frame.midX - searchWidth / 2,
-                y: frame.minY - searchHeight - gap,
+                x: containerFrame.midX - searchWidth / 2,
+                y: containerFrame.minY - searchHeight - gap,
                 width: searchWidth,
                 height: searchHeight
             )
         } else {
             // Neither fits - position to the side
-            let spaceRight = screenFrame.maxX - frame.maxX
-            let spaceLeft = frame.minX - screenFrame.minX
+            let spaceRight = screenFrame.maxX - containerFrame.maxX
+            let spaceLeft = containerFrame.minX - screenFrame.minX
 
             if spaceRight >= searchWidth + gap {
                 // Position to the right
                 searchFrame = NSRect(
-                    x: frame.maxX + gap,
-                    y: frame.maxY - searchHeight,
+                    x: containerFrame.maxX + gap,
+                    y: containerFrame.maxY - searchHeight,
                     width: searchWidth,
                     height: searchHeight
                 )
             } else if spaceLeft >= searchWidth + gap {
                 // Position to the left
                 searchFrame = NSRect(
-                    x: frame.minX - searchWidth - gap,
-                    y: frame.maxY - searchHeight,
+                    x: containerFrame.minX - searchWidth - gap,
+                    y: containerFrame.maxY - searchHeight,
                     width: searchWidth,
                     height: searchHeight
                 )
             } else {
                 // No room anywhere - overlay at top of window
                 searchFrame = NSRect(
-                    x: frame.midX - searchWidth / 2,
-                    y: frame.maxY - searchHeight - gap,
+                    x: containerFrame.midX - searchWidth / 2,
+                    y: containerFrame.maxY - searchHeight - gap,
                     width: searchWidth,
                     height: searchHeight
                 )
