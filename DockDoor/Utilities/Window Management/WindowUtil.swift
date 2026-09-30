@@ -2922,6 +2922,10 @@ extension WindowUtil {
 // MARK: - Window Sorting
 
 extension WindowUtil {
+    static func sortWindowsForSwitcherByRecency(_ windows: [WindowInfo]) -> [WindowInfo] {
+        sortWindowsWithOptions(windows, sortOrder: .recentlyUsed)
+    }
+
     /// Centralized sorting for dock preview and cmd+tab contexts (single app windows)
     static func sortWindows(_ windows: Set<WindowInfo>, for context: WindowFetchContext) -> [WindowInfo] {
         sortWindows(Array(windows), for: context)

@@ -189,7 +189,7 @@ private class WindowSwitchingCoordinator {
 
     @MainActor
     func eligibleRealWindows(mode: SwitcherInvocationMode) -> [WindowInfo] {
-        buildSwitcherWindows(mode: mode).filter { !$0.isWindowlessApp }
+        buildSwitcherWindows(mode: mode, forceRecencyOrder: true).filter { !$0.isWindowlessApp }
     }
 
     @MainActor
@@ -268,7 +268,10 @@ private class WindowSwitchingCoordinator {
     }
 
     @MainActor
-    private func buildSwitcherWindows(mode: SwitcherInvocationMode) -> [WindowInfo] {
+    private func buildSwitcherWindows(
+        mode: SwitcherInvocationMode,
+        forceRecencyOrder: Bool = false
+    ) -> [WindowInfo] {
         var windows: [WindowInfo]
         if mode == .allWindows {
             windows = WindowUtil.getAllWindowsOfAllApps()
@@ -301,7 +304,9 @@ private class WindowSwitchingCoordinator {
             windows = windows.filter { !$0.isHidden && !$0.isMinimized }
         }
 
-        windows = WindowUtil.sortWindowsForSwitcher(windows)
+        windows = forceRecencyOrder
+            ? WindowUtil.sortWindowsForSwitcherByRecency(windows)
+            : WindowUtil.sortWindowsForSwitcher(windows)
 
         if !filterByApp {
             windows = WindowUtil.groupWindowsByApp(windows)
@@ -1199,27 +1204,12 @@ class KeybindHelper {
     private func switchToLastFocusedWindow(mode: SwitcherInvocationMode) {
         let windows = windowSwitchingCoordinator.eligibleRealWindows(mode: mode)
             .filter { !$0.app.isTerminated }
-            .sorted {
-                if $0.lastAccessedTime != $1.lastAccessedTime {
-                    return $0.lastAccessedTime > $1.lastAccessedTime
-                }
-                if $0.app.processIdentifier != $1.app.processIdentifier {
-                    return $0.app.processIdentifier < $1.app.processIdentifier
-                }
-                return $0.id < $1.id
-            }
 
-        guard windows.count >= 2,
-              let frontmostApp = NSWorkspace.shared.frontmostApplication,
-              let focusedElement = try? AXUIElementCreateApplication(frontmostApp.processIdentifier).focusedWindow(),
-              let focusedWindowID = try? focusedElement.cgWindowId(),
-              let target = windows.first(where: {
-                  $0.app.processIdentifier != frontmostApp.processIdentifier || $0.id != focusedWindowID
-              })
-        else {
+        guard windows.count >= 2 else {
             NSSound.beep()
             return
         }
+        let target = windows[1]
 
         switcherSessionActive = false
         windowSwitchingCoordinator.cancelSwitching(previewCoordinator: previewCoordinator)
