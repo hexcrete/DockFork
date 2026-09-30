@@ -20,6 +20,7 @@ struct WindowSwitcherAppearanceSection: View {
     @Default(.switcherWindowStateIndicatorPlacement) var switcherWindowStateIndicatorPlacement
     @Default(.switcherDisableDockStyleWindowStateIndicator) var switcherDisableDockStyleWindowStateIndicator
     @Default(.swapSwitcherTrafficLightsAndWindowStateIndicator) var swapTrafficLightsAndWindowStateIndicator
+    @Default(.limitSwitcherIndicatorSwapToCompactMode) var limitIndicatorSwapToCompactMode
 
     private var automaticAppIconSizeBinding: Binding<Bool> {
         Binding(
@@ -165,6 +166,12 @@ struct WindowSwitcherAppearanceSection: View {
 
                     Toggle("Swap Window State Indicator and Traffic Light Buttons", isOn: $swapTrafficLightsAndWindowStateIndicator)
                         .settingsSearchTarget("appearance.switcherSwapWindowStateIndicator")
+
+                    if swapTrafficLightsAndWindowStateIndicator {
+                        Toggle("Limit to Compact Mode only", isOn: $limitIndicatorSwapToCompactMode)
+                            .padding(.leading, 20)
+                            .settingsSearchTarget("appearance.switcherLimitIndicatorSwapToCompactMode")
+                    }
                 }
             }
 

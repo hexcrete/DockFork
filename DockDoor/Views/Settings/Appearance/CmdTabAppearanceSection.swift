@@ -19,6 +19,7 @@ struct CmdTabAppearanceSection: View {
     @Default(.cmdTabWindowStateIndicatorPlacement) var cmdTabWindowStateIndicatorPlacement
     @Default(.cmdTabDisableDockStyleWindowStateIndicator) var cmdTabDisableDockStyleWindowStateIndicator
     @Default(.swapCmdTabTrafficLightsAndWindowStateIndicator) var swapTrafficLightsAndWindowStateIndicator
+    @Default(.limitCmdTabIndicatorSwapToCompactMode) var limitIndicatorSwapToCompactMode
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -162,6 +163,12 @@ struct CmdTabAppearanceSection: View {
 
                     Toggle("Swap Window State Indicator and Traffic Light Buttons", isOn: $swapTrafficLightsAndWindowStateIndicator)
                         .settingsSearchTarget("appearance.cmdTabSwapWindowStateIndicator")
+
+                    if swapTrafficLightsAndWindowStateIndicator {
+                        Toggle("Limit to Compact Mode only", isOn: $limitIndicatorSwapToCompactMode)
+                            .padding(.leading, 20)
+                            .settingsSearchTarget("appearance.cmdTabLimitIndicatorSwapToCompactMode")
+                    }
                 }
             }
 

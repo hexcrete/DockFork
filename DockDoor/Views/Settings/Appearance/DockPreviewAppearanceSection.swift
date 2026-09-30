@@ -19,6 +19,7 @@ struct DockPreviewAppearanceSection: View {
     @Default(.dockPreviewWindowStateIndicatorPlacement) var dockPreviewWindowStateIndicatorPlacement
     @Default(.disableDockStyleWindowStateIndicator) var disableDockStyleWindowStateIndicator
     @Default(.swapDockPreviewTrafficLightsAndWindowStateIndicator) var swapTrafficLightsAndWindowStateIndicator
+    @Default(.limitDockPreviewIndicatorSwapToCompactMode) var limitIndicatorSwapToCompactMode
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -135,6 +136,12 @@ struct DockPreviewAppearanceSection: View {
 
                     Toggle("Swap Window State Indicator and Traffic Light Buttons", isOn: $swapTrafficLightsAndWindowStateIndicator)
                         .settingsSearchTarget("appearance.dockSwapWindowStateIndicator")
+
+                    if swapTrafficLightsAndWindowStateIndicator {
+                        Toggle("Limit to Compact Mode only", isOn: $limitIndicatorSwapToCompactMode)
+                            .padding(.leading, 20)
+                            .settingsSearchTarget("appearance.dockLimitIndicatorSwapToCompactMode")
+                    }
                 }
             }
 

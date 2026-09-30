@@ -427,6 +427,7 @@ struct PreviewAppearanceSettings: Equatable {
     let windowStateIndicatorPlacement: WindowStateIndicatorPlacement
     let disableDockStyleWindowStateIndicator: Bool
     let swapTrafficLightsAndWindowStateIndicator: Bool
+    let limitIndicatorSwapToCompactMode: Bool
     let showWindowlessAppQuitButton: Bool
     let titleOverflowStyle: TitleOverflowStyle
 
@@ -459,6 +460,7 @@ struct PreviewAppearanceSettings: Equatable {
         .dockPreviewWindowStateIndicatorPlacement, .switcherWindowStateIndicatorPlacement, .cmdTabWindowStateIndicatorPlacement,
         .disableDockStyleWindowStateIndicator, .switcherDisableDockStyleWindowStateIndicator, .cmdTabDisableDockStyleWindowStateIndicator,
         .swapDockPreviewTrafficLightsAndWindowStateIndicator, .swapSwitcherTrafficLightsAndWindowStateIndicator, .swapCmdTabTrafficLightsAndWindowStateIndicator,
+        .limitDockPreviewIndicatorSwapToCompactMode, .limitSwitcherIndicatorSwapToCompactMode, .limitCmdTabIndicatorSwapToCompactMode,
         .dimMinimizedHiddenPreviews, .selectionOpacity, .unselectedContentOpacity, .hoverHighlightColor,
         .allowDynamicImageSizing, .hidePreviewCardBackground,
         .tapEquivalentInterval, .switcherTapEquivalentInterval, .cmdTabTapEquivalentInterval,
@@ -522,6 +524,7 @@ struct PreviewAppearanceSettings: Equatable {
             windowStateIndicatorPlacement: pick(.dockPreviewWindowStateIndicatorPlacement, switcher: .switcherWindowStateIndicatorPlacement, cmdTab: .cmdTabWindowStateIndicatorPlacement),
             disableDockStyleWindowStateIndicator: pick(.disableDockStyleWindowStateIndicator, switcher: .switcherDisableDockStyleWindowStateIndicator, cmdTab: .cmdTabDisableDockStyleWindowStateIndicator),
             swapTrafficLightsAndWindowStateIndicator: pick(.swapDockPreviewTrafficLightsAndWindowStateIndicator, switcher: .swapSwitcherTrafficLightsAndWindowStateIndicator, cmdTab: .swapCmdTabTrafficLightsAndWindowStateIndicator),
+            limitIndicatorSwapToCompactMode: pick(.limitDockPreviewIndicatorSwapToCompactMode, switcher: .limitSwitcherIndicatorSwapToCompactMode, cmdTab: .limitCmdTabIndicatorSwapToCompactMode),
             showWindowlessAppQuitButton: Defaults[.showWindowlessAppQuitButton],
             titleOverflowStyle: Defaults[.titleOverflowStyle]
         )
@@ -664,7 +667,8 @@ struct WindowPreview: View, Equatable {
         @ViewBuilder content: () -> some View
     ) -> some View {
         let sideInset: CGFloat = nonAlignmentPadding > 0 ? 2 : 0
-        let controlsComeFirst = controlsAreLeading != appearance.swapTrafficLightsAndWindowStateIndicator
+        let swapsIndicators = appearance.swapTrafficLightsAndWindowStateIndicator && !appearance.limitIndicatorSwapToCompactMode
+        let controlsComeFirst = controlsAreLeading != swapsIndicators
         HStack(spacing: spacing) {
             if controlsComeFirst {
                 content()

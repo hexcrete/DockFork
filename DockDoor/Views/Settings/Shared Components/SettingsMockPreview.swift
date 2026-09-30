@@ -45,6 +45,7 @@ struct SettingsMockPreview: View {
     @Default(.dockPreviewWindowStateIndicatorPlacement) private var dockPreviewWindowStateIndicatorPlacement
     @Default(.disableDockStyleWindowStateIndicator) private var disableDockStyleWindowStateIndicator
     @Default(.swapDockPreviewTrafficLightsAndWindowStateIndicator) private var swapDockPreviewTrafficLightsAndWindowStateIndicator
+    @Default(.limitDockPreviewIndicatorSwapToCompactMode) private var limitDockPreviewIndicatorSwapToCompactMode
 
     // MARK: - Window Switcher appearance settings
 
@@ -65,6 +66,7 @@ struct SettingsMockPreview: View {
     @Default(.switcherWindowStateIndicatorPlacement) private var switcherWindowStateIndicatorPlacement
     @Default(.switcherDisableDockStyleWindowStateIndicator) private var switcherDisableDockStyleWindowStateIndicator
     @Default(.swapSwitcherTrafficLightsAndWindowStateIndicator) private var swapSwitcherTrafficLightsAndWindowStateIndicator
+    @Default(.limitSwitcherIndicatorSwapToCompactMode) private var limitSwitcherIndicatorSwapToCompactMode
 
     // MARK: - Cmd+Tab appearance settings
 
@@ -82,6 +84,7 @@ struct SettingsMockPreview: View {
     @Default(.cmdTabWindowStateIndicatorPlacement) private var cmdTabWindowStateIndicatorPlacement
     @Default(.cmdTabDisableDockStyleWindowStateIndicator) private var cmdTabDisableDockStyleWindowStateIndicator
     @Default(.swapCmdTabTrafficLightsAndWindowStateIndicator) private var swapCmdTabTrafficLightsAndWindowStateIndicator
+    @Default(.limitCmdTabIndicatorSwapToCompactMode) private var limitCmdTabIndicatorSwapToCompactMode
 
     // MARK: - Shared appearance settings
 
@@ -261,6 +264,13 @@ struct SettingsMockPreview: View {
         } else {
             swapDockPreviewTrafficLightsAndWindowStateIndicator
         }
+        let limitIndicatorSwapToCompactMode: Bool = if isWindowSwitcher {
+            limitSwitcherIndicatorSwapToCompactMode
+        } else if isCmdTab {
+            limitCmdTabIndicatorSwapToCompactMode
+        } else {
+            limitDockPreviewIndicatorSwapToCompactMode
+        }
 
         return PreviewAppearanceSettings(
             trafficLightVisibility: trafficLightVisibility,
@@ -302,6 +312,7 @@ struct SettingsMockPreview: View {
             windowStateIndicatorPlacement: windowStateIndicatorPlacement,
             disableDockStyleWindowStateIndicator: disableDockStyleWindowStateIndicator,
             swapTrafficLightsAndWindowStateIndicator: swapTrafficLightsAndWindowStateIndicator,
+            limitIndicatorSwapToCompactMode: limitIndicatorSwapToCompactMode,
             showWindowlessAppQuitButton: showWindowlessAppQuitButton,
             titleOverflowStyle: titleOverflowStyle
         )

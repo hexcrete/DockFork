@@ -1139,6 +1139,15 @@ enum SettingsSearchCatalog {
             icon: "arrow.left.arrow.right"
         ),
         SettingsSearchItem(
+            id: "appearance.dockLimitIndicatorSwapToCompactMode",
+            title: String(localized: "Limit to Compact Mode only"),
+            description: String(localized: "Applies the swapped indicator and traffic light button order only in Compact Mode dock previews."),
+            keywords: ["window", "state", "indicator", "traffic light", "swap", "compact", "dock"],
+            tab: "DockPreviews",
+            section: String(localized: "Appearance"),
+            icon: "rectangle"
+        ),
+        SettingsSearchItem(
             id: "appearance.dockMassActionButtons",
             title: String(localized: "Show Close All and Minimize All buttons"),
             description: String(localized: "Displays Close All and Minimize All buttons when hovering the app header in dock previews."),
@@ -1271,6 +1280,15 @@ enum SettingsSearchCatalog {
             tab: "WindowSwitcher",
             section: String(localized: "Appearance"),
             icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherLimitIndicatorSwapToCompactMode",
+            title: String(localized: "Limit to Compact Mode only"),
+            description: String(localized: "Applies the swapped indicator and traffic light button order only in Compact Mode window switcher previews."),
+            keywords: ["window", "state", "indicator", "traffic light", "swap", "compact", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
+            icon: "rectangle"
         ),
         SettingsSearchItem(
             id: "appearance.switcherShowWindowTitle",
@@ -1456,6 +1474,15 @@ enum SettingsSearchCatalog {
             tab: "CmdTab",
             section: String(localized: "Appearance"),
             icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabLimitIndicatorSwapToCompactMode",
+            title: String(localized: "Limit to Compact Mode only"),
+            description: String(localized: "Applies the swapped indicator and traffic light button order only in Compact Mode Cmd+Tab previews."),
+            keywords: ["window", "state", "indicator", "traffic light", "swap", "compact", "cmd tab"],
+            tab: "CmdTab",
+            section: String(localized: "Appearance"),
+            icon: "rectangle"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabEmbedControls",
