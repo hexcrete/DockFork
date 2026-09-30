@@ -14,6 +14,10 @@ enum CardRadius {
     static var inner: Double { outer(for: innerPadding) }
     static var container: Double { outer(for: outerPadding) }
     static var image: Double { max(fallback, inner - innerPadding) }
+    static func previewCard(uniform: Bool, paddingMultiplier: CGFloat) -> Double {
+        uniform ? base + (innerPadding * paddingMultiplier) : fallback
+    }
+
     static var containerContentClip: some Shape {
         RoundedRectangle(cornerRadius: container, style: .continuous)
             .inset(by: 1)
@@ -22,6 +26,85 @@ enum CardRadius {
     static func switcherToolbarHorizontalPadding(uniformCardRadius: Bool) -> CGFloat {
         guard uniformCardRadius else { return 0 }
         return CGFloat(innerPadding / 2)
+    }
+}
+
+private struct PreviewCardChromeModifier: ViewModifier {
+    let uniformCardRadius: Bool
+    let paddingMultiplier: CGFloat
+    let expansionEdges: Edge.Set
+    let hideBackground: Bool
+    let isHighlighted: Bool
+    let isActiveWindow: Bool
+    let showsHighlightWhenBackgroundHidden: Bool
+    let highlightColor: Color
+    let highlightOpacity: Double
+    let activeBorderColor: Color
+    let backgroundAppearance: BackgroundAppearance
+
+    private var cornerRadius: Double {
+        CardRadius.previewCard(uniform: uniformCardRadius, paddingMultiplier: paddingMultiplier)
+    }
+
+    func body(content: Content) -> some View {
+        content.background {
+            if !hideBackground {
+                BlurView(cornerRadius: cornerRadius, appearance: backgroundAppearance)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+                    .borderedBackground(.primary.opacity(0.1), lineWidth: 1.75, cornerRadius: cornerRadius)
+                    .padding(expansionEdges, -CardRadius.innerPadding)
+                    .overlay {
+                        if isHighlighted {
+                            RoundedRectangle(cornerRadius: cornerRadius)
+                                .fill(highlightColor.opacity(highlightOpacity))
+                                .padding(expansionEdges, -CardRadius.innerPadding)
+                        }
+                    }
+                    .overlay {
+                        if isActiveWindow {
+                            RoundedRectangle(cornerRadius: cornerRadius)
+                                .strokeBorder(activeBorderColor, lineWidth: 2.5)
+                                .padding(expansionEdges, -CardRadius.innerPadding)
+                        }
+                    }
+            }
+
+            if hideBackground, showsHighlightWhenBackgroundHidden, isHighlighted {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(highlightColor, lineWidth: 2.5)
+                    .padding(expansionEdges, -CardRadius.innerPadding)
+            }
+        }
+    }
+}
+
+extension View {
+    func previewCardChrome(
+        uniformCardRadius: Bool,
+        paddingMultiplier: CGFloat,
+        expansionEdges: Edge.Set = .all,
+        hideBackground: Bool,
+        isHighlighted: Bool,
+        isActiveWindow: Bool = false,
+        showsHighlightWhenBackgroundHidden: Bool = true,
+        highlightColor: Color,
+        highlightOpacity: Double,
+        activeBorderColor: Color,
+        backgroundAppearance: BackgroundAppearance
+    ) -> some View {
+        modifier(PreviewCardChromeModifier(
+            uniformCardRadius: uniformCardRadius,
+            paddingMultiplier: paddingMultiplier,
+            expansionEdges: expansionEdges,
+            hideBackground: hideBackground,
+            isHighlighted: isHighlighted,
+            isActiveWindow: isActiveWindow,
+            showsHighlightWhenBackgroundHidden: showsHighlightWhenBackgroundHidden,
+            highlightColor: highlightColor,
+            highlightOpacity: highlightOpacity,
+            activeBorderColor: activeBorderColor,
+            backgroundAppearance: backgroundAppearance
+        ))
     }
 }
 

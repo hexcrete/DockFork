@@ -1404,44 +1404,24 @@ struct WindowPreview: View, Equatable {
             .if(switcherCardWidth == nil) { view in
                 view.frame(maxWidth: dimensions.maxDimensions.width > 0 ? dimensions.maxDimensions.width : nil)
             }
-            .background {
-                let cornerRadius = uniformCardRadius ? CardRadius.base + (CardRadius.innerPadding * appearance.globalPaddingMultiplier) : 8.0
-
-                if !appearance.hidePreviewCardBackground {
-                    BlurView(cornerRadius: cornerRadius, appearance: backgroundAppearance)
-                        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-                        .borderedBackground(.primary.opacity(0.1), lineWidth: 1.75, cornerRadius: cornerRadius)
-                        .padding(-CardRadius.innerPadding)
-                        .overlay {
-                            if finalIsSelected {
-                                let highlightColor = appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor)
-                                RoundedRectangle(cornerRadius: cornerRadius)
-                                    .fill(highlightColor.opacity(appearance.selectionOpacity))
-                                    .padding(-CardRadius.innerPadding)
-                            }
-                        }
-                        .overlay {
-                            if isActiveWindow {
-                                RoundedRectangle(cornerRadius: cornerRadius)
-                                    .strokeBorder(appearance.activeAppIndicatorColor, lineWidth: 2.5)
-                                    .padding(-CardRadius.innerPadding)
-                            }
-                        }
-                }
-
-                // Selection border drawn outside the card-background branch so the
-                // selected item stays visible when hidePreviewCardBackground is on.
-                if appearance.hidePreviewCardBackground, finalIsSelected {
-                    let highlightColor = appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor)
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .strokeBorder(highlightColor, lineWidth: 2.5)
-                        .padding(-CardRadius.innerPadding)
-                }
-            }
+            .previewCardChrome(
+                uniformCardRadius: uniformCardRadius,
+                paddingMultiplier: appearance.globalPaddingMultiplier,
+                hideBackground: appearance.hidePreviewCardBackground,
+                isHighlighted: finalIsSelected,
+                isActiveWindow: isActiveWindow,
+                highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+                highlightOpacity: appearance.selectionOpacity,
+                activeBorderColor: appearance.activeAppIndicatorColor,
+                backgroundAppearance: backgroundAppearance
+            )
         }
         .overlay {
             if isDraggingOver {
-                let dragRadius = uniformCardRadius ? CardRadius.base + (CardRadius.innerPadding * appearance.globalPaddingMultiplier) : CardRadius.fallback
+                let dragRadius = CardRadius.previewCard(
+                    uniform: uniformCardRadius,
+                    paddingMultiplier: appearance.globalPaddingMultiplier
+                )
                 RoundedRectangle(cornerRadius: dragRadius)
                     .fill(Color(nsColor: .controlAccentColor).opacity(0.3))
                     .padding(-CardRadius.innerPadding)

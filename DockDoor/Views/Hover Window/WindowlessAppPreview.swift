@@ -186,24 +186,17 @@ struct WindowlessAppPreview: View, Equatable {
             }
         }
         .frame(maxWidth: (dimensions?.maxDimensions.width ?? 0) > 0 ? dimensions!.maxDimensions.width : nil)
-        .background {
-            let cornerRadius = uniformCardRadius ? CardRadius.base + (CardRadius.innerPadding * appearance.globalPaddingMultiplier) : 8.0
-
-            if !appearance.hidePreviewCardBackground {
-                BlurView(cornerRadius: cornerRadius, appearance: backgroundAppearance)
-                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-                    .borderedBackground(.primary.opacity(0.1), lineWidth: 1.75, cornerRadius: cornerRadius)
-                    .padding(-CardRadius.innerPadding)
-                    .overlay {
-                        if isSelected {
-                            let highlightColor = appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor)
-                            RoundedRectangle(cornerRadius: cornerRadius)
-                                .fill(highlightColor.opacity(appearance.selectionOpacity))
-                                .padding(-CardRadius.innerPadding)
-                        }
-                    }
-            }
-        }
+        .previewCardChrome(
+            uniformCardRadius: uniformCardRadius,
+            paddingMultiplier: appearance.globalPaddingMultiplier,
+            hideBackground: appearance.hidePreviewCardBackground,
+            isHighlighted: isSelected,
+            showsHighlightWhenBackgroundHidden: false,
+            highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+            highlightOpacity: appearance.selectionOpacity,
+            activeBorderColor: appearance.activeAppIndicatorColor,
+            backgroundAppearance: backgroundAppearance
+        )
         .contentShape(Rectangle())
         .onContinuousHover { phase in
             let setHoverState: (Bool) -> Void = { newState in

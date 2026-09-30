@@ -230,40 +230,18 @@ struct WindowPreviewCompact: View, Equatable {
         .padding(.vertical, 8)
         .frame(width: rowWidth, height: appearance.compactModeItemSize.rowHeight, alignment: .leading)
         .clipped()
-        .background {
-            let cornerRadius = uniformCardRadius ? CardRadius.base + (CardRadius.innerPadding * appearance.globalPaddingMultiplier) : CardRadius.fallback
-
-            if !appearance.hidePreviewCardBackground {
-                BlurView(cornerRadius: cornerRadius, appearance: backgroundAppearance)
-                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-                    .borderedBackground(.primary.opacity(0.1), lineWidth: 1.75, cornerRadius: cornerRadius)
-                    .padding(.horizontal, -CardRadius.innerPadding)
-                    .overlay {
-                        if isHighlighted {
-                            let highlightColor = appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor)
-                            RoundedRectangle(cornerRadius: cornerRadius)
-                                .fill(highlightColor.opacity(appearance.selectionOpacity))
-                                .padding(.horizontal, -CardRadius.innerPadding)
-                        }
-                    }
-                    .overlay {
-                        if isActiveWindow {
-                            RoundedRectangle(cornerRadius: cornerRadius)
-                                .strokeBorder(appearance.activeAppIndicatorColor, lineWidth: 2.5)
-                                .padding(.horizontal, -CardRadius.innerPadding)
-                        }
-                    }
-            }
-
-            // Selection border drawn outside the card-background branch so the
-            // selected item stays visible when hidePreviewCardBackground is on.
-            if appearance.hidePreviewCardBackground, isHighlighted {
-                let highlightColor = appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor)
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .strokeBorder(highlightColor, lineWidth: 2.5)
-                    .padding(.horizontal, -CardRadius.innerPadding)
-            }
-        }
+        .previewCardChrome(
+            uniformCardRadius: uniformCardRadius,
+            paddingMultiplier: appearance.globalPaddingMultiplier,
+            expansionEdges: .horizontal,
+            hideBackground: appearance.hidePreviewCardBackground,
+            isHighlighted: isHighlighted,
+            isActiveWindow: isActiveWindow,
+            highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+            highlightOpacity: appearance.selectionOpacity,
+            activeBorderColor: appearance.activeAppIndicatorColor,
+            backgroundAppearance: backgroundAppearance
+        )
         .opacity(isHighlighted ? 1.0 : appearance.unselectedContentOpacity)
         .padding(.horizontal, CardRadius.innerPadding)
         .contentShape(Rectangle())
