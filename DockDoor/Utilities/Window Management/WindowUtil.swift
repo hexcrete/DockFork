@@ -767,21 +767,20 @@ extension WindowUtil {
     }
 
     static func updateWindowDateTime(element: AXUIElement, app: NSRunningApplication) {
-        updateTimestampLock.lock()
-        defer { updateTimestampLock.unlock() }
-
-        // Check if this window was recently updated
+        let windowID = try? element.cgWindowId()
         let now = Date()
+        updateTimestampLock.lock()
         if let lastUpdate = timestampUpdates[element],
            now.timeIntervalSince(lastUpdate) < windowUpdateTimeWindow
         {
-            // Clean up expired timestamp entries
             cleanupExpiredUpdates(currentTime: now)
-            return // Skip update
+            updateTimestampLock.unlock()
+            return
         }
+        timestampUpdates[element] = now
+        updateTimestampLock.unlock()
 
         desktopSpaceWindowCacheManager.updateCache(pid: app.processIdentifier) { windowSet in
-            let windowID = try? element.cgWindowId()
             if let index = windowSet.firstIndex(where: { cachedWindow in
                 if cachedWindow.axElement == element {
                     return true
@@ -795,8 +794,6 @@ extension WindowUtil {
                 windowSet.insert(updatedWindow)
             }
         }
-
-        timestampUpdates[element] = now
     }
 
     /// Updates window timestamp optimistically and records breadcrumb for observer deduplication
@@ -2647,6 +2644,9 @@ extension WindowUtil {
     }
 
     static func updateDesktopSpaceWindowCache(with windowInfo: WindowInfo) {
+        // Image validation may query AX. Keep it outside the cache lock because
+        // DockDoor-owned AX elements synchronously marshal reads to the main thread.
+        let shouldRejectImage = shouldRejectCapturedImage(windowInfo.image, for: windowInfo)
         desktopSpaceWindowCacheManager.updateCache(pid: windowInfo.app.processIdentifier) { windowSet in
             let matchingWindows = windowSet.filter { $0.id == windowInfo.id || $0.axElement == windowInfo.axElement }
             let bestMatch = matchingWindows.reduce(nil as WindowInfo?) { best, window in
@@ -2668,7 +2668,6 @@ extension WindowUtil {
                     matchingWindowCopy.isFullscreen = isFullscreen
                 }
 
-                let shouldRejectImage = shouldRejectCapturedImage(windowInfo.image, for: windowInfo)
                 if shouldRejectImage, matchingWindow.image != nil {
                     DebugLogger.log(
                         "Window image cache",
@@ -2684,7 +2683,7 @@ extension WindowUtil {
                 }
                 windowSet.insert(matchingWindowCopy)
             } else {
-                if shouldRejectCapturedImage(windowInfo.image, for: windowInfo) {
+                if shouldRejectImage {
                     var sanitizedWindowInfo = windowInfo
                     sanitizedWindowInfo.image = nil
                     windowSet.insert(sanitizedWindowInfo)

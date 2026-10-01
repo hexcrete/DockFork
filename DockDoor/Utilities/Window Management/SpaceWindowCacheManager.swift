@@ -19,22 +19,29 @@ class SpaceWindowCacheManager {
     private var pendingAdded: [WindowInfo] = []
     private var pendingUpdated: [WindowInfo] = []
     private var flushScheduled = false
+    private let pendingChangesLock = NSLock()
 
     private func enqueueCoordinatorChanges(removed: Set<WindowInfo> = [], added: Set<WindowInfo> = [], updated: [WindowInfo] = []) {
         guard !removed.isEmpty || !added.isEmpty || !updated.isEmpty else { return }
+        pendingChangesLock.lock()
         pendingRemoved.append(contentsOf: removed)
         pendingAdded.append(contentsOf: added)
         pendingUpdated.append(contentsOf: updated)
-        guard !flushScheduled else { return }
-        flushScheduled = true
+        let shouldScheduleFlush = !flushScheduled
+        if shouldScheduleFlush {
+            flushScheduled = true
+        }
+        pendingChangesLock.unlock()
+        guard shouldScheduleFlush else { return }
+
         DispatchQueue.main.async { [weak self] in
             self?.flushCoordinatorChanges()
         }
     }
 
     private func takePendingCoordinatorChanges() -> (removed: [WindowInfo], added: [WindowInfo], updated: [WindowInfo]) {
-        cacheLock.lock()
-        defer { cacheLock.unlock() }
+        pendingChangesLock.lock()
+        defer { pendingChangesLock.unlock() }
         let batch = (pendingRemoved, pendingAdded, pendingUpdated)
         pendingRemoved.removeAll()
         pendingAdded.removeAll()
@@ -155,6 +162,7 @@ class SpaceWindowCacheManager {
         defer { cacheLock.unlock() }
         var currentWindowSet = windowCache[pid] ?? []
         let oldWindowSet = currentWindowSet
+        // Callers must precompute AX, AppKit, and other potentially blocking work.
         update(&currentWindowSet)
         windowCache[pid] = currentWindowSet
 
