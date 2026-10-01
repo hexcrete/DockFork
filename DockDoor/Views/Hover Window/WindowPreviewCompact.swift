@@ -12,6 +12,7 @@ struct WindowPreviewCompact: View, Equatable {
     let mockPreviewActive: Bool
     let onTap: (() -> Void)?
     let onHoverIndexChange: ((Int?, CGPoint?) -> Void)?
+    let onDragHoverIndexChange: ((Int?) -> Void)?
     let widthOverride: CGFloat?
     var appearance: PreviewAppearanceSettings
     let backgroundAppearance: BackgroundAppearance
@@ -239,6 +240,16 @@ struct WindowPreviewCompact: View, Equatable {
             highlightOpacity: appearance.selectionOpacity,
             activeBorderColor: appearance.activeAppIndicatorColor,
             backgroundAppearance: backgroundAppearance
+        )
+        .externalDragSpringLoading(
+            windowInfo: windowInfo,
+            index: index,
+            uniformCardRadius: uniformCardRadius,
+            appearance: appearance,
+            windowSwitcherActive: windowSwitcherActive,
+            handleWindowAction: handleWindowAction,
+            onTap: onTap,
+            onDragHoverIndexChange: onDragHoverIndexChange
         )
         .opacity(isHighlighted ? 1.0 : appearance.unselectedContentOpacity)
         .padding(.horizontal, CardRadius.innerPadding)

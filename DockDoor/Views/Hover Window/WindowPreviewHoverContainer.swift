@@ -2255,6 +2255,7 @@ struct WindowPreviewHoverContainer: View {
                     mockPreviewActive: mockPreviewActive,
                     onTap: onWindowTap,
                     onHoverIndexChange: handleHoverIndexChange,
+                    onDragHoverIndexChange: handleDragHoverIndexChange,
                     widthOverride: compactRowWidth,
                     appearance: appearance,
                     backgroundAppearance: backgroundAppearance,

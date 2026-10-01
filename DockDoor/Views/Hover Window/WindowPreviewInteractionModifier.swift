@@ -1,5 +1,108 @@
 import Defaults
 import SwiftUI
+import UniformTypeIdentifiers
+
+private struct ExternalDragSpringLoadingModifier: ViewModifier {
+    let windowInfo: WindowInfo
+    let index: Int
+    let uniformCardRadius: Bool
+    let paddingMultiplier: CGFloat
+    let windowSwitcherActive: Bool
+    let keepPreviewOnHoverActivation: Bool
+    let handleWindowAction: (WindowAction) -> Void
+    let onTap: (() -> Void)?
+    let onDragHoverIndexChange: ((Int?) -> Void)?
+
+    @State private var isTargeted = false
+    @State private var springLoadTask: Task<Void, Never>?
+
+    private var windowIdentity: String {
+        "\(windowInfo.app.processIdentifier)-\(windowInfo.id)"
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if isTargeted {
+                    RoundedRectangle(
+                        cornerRadius: CardRadius.previewCard(
+                            uniform: uniformCardRadius,
+                            paddingMultiplier: paddingMultiplier
+                        )
+                    )
+                    .fill(Color(nsColor: .controlAccentColor).opacity(0.3))
+                    .padding(-CardRadius.innerPadding)
+                    .allowsHitTesting(false)
+                }
+            }
+            .onDrop(of: [UTType.item], isTargeted: $isTargeted) { _ in
+                guard isTargeted, !windowInfo.isWindowlessApp else { return false }
+                cancelSpringLoading()
+                performReleaseFallback()
+                return true
+            }
+            .onChange(of: isTargeted) { isOver in
+                if isOver {
+                    beginSpringLoading()
+                } else {
+                    cancelSpringLoading()
+                }
+            }
+            .onChange(of: windowIdentity) { _ in
+                cancelSpringLoading()
+                if isTargeted {
+                    beginSpringLoading()
+                }
+            }
+            .onDisappear {
+                cancelSpringLoading()
+            }
+    }
+
+    private func beginSpringLoading() {
+        guard !windowInfo.isWindowlessApp else { return }
+
+        springLoadTask?.cancel()
+        if windowSwitcherActive {
+            onDragHoverIndexChange?(index)
+        }
+
+        springLoadTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 1_500_000_000)
+            } catch {
+                return
+            }
+            guard !Task.isCancelled, isTargeted else { return }
+
+            SharedPreviewWindowCoordinator.activeInstance?.restoreDockAutoHideState()
+            guard WindowUtil.springLoadWindow(windowInfo) else {
+                NSSound.beep()
+                cancelSpringLoading()
+                return
+            }
+
+            springLoadTask = nil
+            onTap?()
+        }
+    }
+
+    private func performReleaseFallback() {
+        SharedPreviewWindowCoordinator.activeInstance?.restoreDockAutoHideState()
+        if windowInfo.isMinimized {
+            handleWindowAction(.minimize)
+        } else if windowInfo.isEffectivelyHiddenForUI {
+            handleWindowAction(.hide)
+        } else if windowInfo.bringToFront(), !keepPreviewOnHoverActivation {
+            onTap?()
+        }
+    }
+
+    private func cancelSpringLoading() {
+        springLoadTask?.cancel()
+        springLoadTask = nil
+    }
+}
 
 /// Shared interaction modifier for window preview views (both standard and compact)
 /// Provides: middle click, trackpad gestures, context menu, and tap handling
@@ -126,6 +229,29 @@ struct WindowPreviewInteractionModifier: ViewModifier {
 }
 
 extension View {
+    func externalDragSpringLoading(
+        windowInfo: WindowInfo,
+        index: Int,
+        uniformCardRadius: Bool,
+        appearance: PreviewAppearanceSettings,
+        windowSwitcherActive: Bool,
+        handleWindowAction: @escaping (WindowAction) -> Void,
+        onTap: (() -> Void)?,
+        onDragHoverIndexChange: ((Int?) -> Void)?
+    ) -> some View {
+        modifier(ExternalDragSpringLoadingModifier(
+            windowInfo: windowInfo,
+            index: index,
+            uniformCardRadius: uniformCardRadius,
+            paddingMultiplier: appearance.globalPaddingMultiplier,
+            windowSwitcherActive: windowSwitcherActive,
+            keepPreviewOnHoverActivation: appearance.keepPreviewOnHoverActivation,
+            handleWindowAction: handleWindowAction,
+            onTap: onTap,
+            onDragHoverIndexChange: onDragHoverIndexChange
+        ))
+    }
+
     /// Applies shared window preview interactions (middle click, gestures, context menu, tap)
     func windowPreviewInteractions(
         windowInfo: WindowInfo,

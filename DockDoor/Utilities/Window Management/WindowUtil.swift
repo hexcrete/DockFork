@@ -946,6 +946,31 @@ extension WindowUtil {
         return min(max(pointer - length / 2, minimum), maximum - length)
     }
 
+    @MainActor
+    @discardableResult
+    static func springLoadWindow(_ windowInfo: WindowInfo) -> Bool {
+        guard !windowInfo.isWindowlessApp, !windowInfo.app.isTerminated else { return false }
+
+        do {
+            if windowInfo.app.isHidden {
+                try windowInfo.appAxElement.setAttribute(kAXHiddenAttribute, false)
+                updateCachedWindowState(windowInfo, isHidden: false)
+            }
+            if windowInfo.isMinimized || (try? windowInfo.axElement.isMinimized()) == true {
+                try windowInfo.axElement.setAttribute(kAXMinimizedAttribute, false)
+                updateCachedWindowState(windowInfo, isMinimized: false)
+            }
+        } catch {
+            DebugLogger.log(
+                "WindowUtil.springLoadWindow",
+                details: "Failed to reveal window \(windowInfo.id): \(error)"
+            )
+            return false
+        }
+
+        return windowInfo.bringToFront()
+    }
+
     @discardableResult
     static func exitFullScreenWithoutActivation(_ windowInfo: WindowInfo) -> Bool {
         guard !windowInfo.isWindowlessApp,

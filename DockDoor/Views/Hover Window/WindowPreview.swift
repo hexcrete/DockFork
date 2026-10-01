@@ -1,6 +1,5 @@
 import Defaults
 import SwiftUI
-import UniformTypeIdentifiers
 
 @MainActor
 final class SpaceMoveMenuController: NSObject {
@@ -626,9 +625,6 @@ struct WindowPreview: View, Equatable {
 
     @State private var isHoveringOverDockPeekPreview = false
     @State private var isHoveringOverWindowSwitcherPreview = false
-    @State private var isDraggingOver = false
-    @State private var dragTimer: Timer?
-    @State private var highlightOpacity = 0.0
 
     private var effectiveTrafficLightButtons: Set<WindowAction> {
         resolvedTrafficLightButtons(
@@ -1471,42 +1467,13 @@ struct WindowPreview: View, Equatable {
             )
         }
         .overlay {
-            if isDraggingOver {
-                let dragRadius = CardRadius.previewCard(
-                    uniform: uniformCardRadius,
-                    paddingMultiplier: appearance.globalPaddingMultiplier
-                )
-                RoundedRectangle(cornerRadius: dragRadius)
-                    .fill(Color(nsColor: .controlAccentColor).opacity(0.3))
-                    .padding(-CardRadius.innerPadding)
-                    .opacity(highlightOpacity)
-            }
-
             if appearance.useEmbeddedElements {
                 embeddedControlsOverlay(finalIsSelected)
-            }
-        }
-        .onDrop(of: [UTType.item], isTargeted: $isDraggingOver) { providers in
-            if !isDraggingOver { return false }
-            handleWindowTap()
-            return true
-        }
-        .onChange(of: isDraggingOver) { isOver in
-            if isOver {
-                if windowSwitcherActive {
-                    onDragHoverIndexChange?(index)
-                } else {
-                    startDragTimer()
-                }
-            } else {
-                cancelDragTimer()
             }
         }
         .environment(\.layoutDirection, .leftToRight)
         .contentShape(Rectangle())
         .onContinuousHover { phase in
-            if isDraggingOver { return }
-
             let setHoverState: (Bool) -> Void = { newState in
                 if appearance.showAnimations {
                     withAnimation(.snappy(duration: 0.175)) {
@@ -1536,6 +1503,16 @@ struct WindowPreview: View, Equatable {
 
     var body: some View {
         previewCoreContent
+            .externalDragSpringLoading(
+                windowInfo: windowInfo,
+                index: index,
+                uniformCardRadius: uniformCardRadius,
+                appearance: appearance,
+                windowSwitcherActive: windowSwitcherActive,
+                handleWindowAction: handleWindowAction,
+                onTap: onTap,
+                onDragHoverIndexChange: onDragHoverIndexChange
+            )
             .windowPreviewInteractions(
                 windowInfo: windowInfo,
                 windowSwitcherActive: windowSwitcherActive,
@@ -1546,46 +1523,5 @@ struct WindowPreview: View, Equatable {
             .fixedSize()
             .opacity(skeletonMode ? 0 : 1)
             .allowsHitTesting(!skeletonMode && !mockPreviewActive)
-    }
-
-    private func handleWindowTap() {
-        if windowInfo.isMinimized {
-            handleWindowAction(.minimize)
-        } else if isEffectivelyHidden {
-            handleWindowAction(.hide)
-        } else {
-            windowInfo.bringToFront()
-            if !appearance.keepPreviewOnHoverActivation {
-                onTap?()
-            }
-        }
-    }
-
-    private func startDragTimer() {
-        dragTimer?.invalidate()
-        highlightOpacity = 1.0
-        dragTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: false) { _ in
-            withAnimation(.easeInOut(duration: 0.08)) { highlightOpacity = 0.0 }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                withAnimation(.easeInOut(duration: 0.08)) { highlightOpacity = 1.0 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                    withAnimation(.easeInOut(duration: 0.08)) { highlightOpacity = 0.0 }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                        withAnimation(.easeInOut(duration: 0.08)) { highlightOpacity = 1.0 }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
-                            cancelDragTimer()
-                            handleWindowTap()
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    private func cancelDragTimer() {
-        dragTimer?.invalidate()
-        dragTimer = nil
-        isDraggingOver = false
-        highlightOpacity = 0.0
     }
 }
