@@ -142,7 +142,6 @@ struct WindowPreviewCompact: View, Equatable {
                 previewAppearance: appearance,
                 hoveringOverParentWindow: isSelected || isHovering,
                 onWindowAction: handleWindowAction,
-                pillStyling: true,
                 mockPreviewActive: mockPreviewActive,
                 enabledButtons: effectiveTrafficLightButtons,
                 backgroundAppearance: backgroundAppearance
