@@ -215,10 +215,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         // Always restore dock auto-hide state, even if the preview isn't visible.
         restoreDockAutoHideState()
         hideFullPreviewWindow()
+        DragPreviewCoordinator.shared.endDragging()
 
         guard isVisible else { return }
-
-        DragPreviewCoordinator.shared.endDragging()
 
         searchWindow?.hideSearch()
 

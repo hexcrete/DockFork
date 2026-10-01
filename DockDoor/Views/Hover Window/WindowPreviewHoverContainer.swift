@@ -120,7 +120,24 @@ struct WindowPreviewHoverContainer: View {
     @Default(.compactModeWidth) var compactModeWidth
     @Default(.enableHoverActionsInCompactMode) var enableHoverActionsInCompactMode
 
-    @State private var draggedWindowIndex: Int? = nil
+    private struct DraggedWindowIdentity: Equatable {
+        let processIdentifier: pid_t
+        let windowID: CGWindowID
+
+        init(_ window: WindowInfo) {
+            processIdentifier = window.app.processIdentifier
+            windowID = window.id
+        }
+    }
+
+    private struct PreviewDragSession {
+        let token = UUID()
+        let identity: DraggedWindowIdentity
+        let window: WindowInfo
+        var consumedByShake = false
+    }
+
+    @State private var dragSession: PreviewDragSession?
     @State private var isDragging = false
 
     @State private var hasAppeared: Bool = false
@@ -493,12 +510,18 @@ struct WindowPreviewHoverContainer: View {
         }
         .onDisappear {
             hasAppeared = false
+            cancelPreviewDrag()
             if Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
                 Task { await LiveCaptureManager.shared.panelClosed() }
             }
             edgeScrollRequest = nil
             cancelDockHighlightAction()
             cancelAllDeferredActionWatchers()
+        }
+        .onChange(of: previewStateCoordinator.windows.map(DraggedWindowIdentity.init)) { identities in
+            if let dragSession, !identities.contains(dragSession.identity) {
+                cancelPreviewDrag()
+            }
         }
         .onChange(of: previewStateCoordinator.windowSwitcherActive) { isActive in
             if !isActive {
@@ -648,9 +671,7 @@ struct WindowPreviewHoverContainer: View {
         .onDisappear { edgeScrollRequest = nil }
     }
 
-    private func handleWindowDrop(at location: CGPoint, for index: Int) {
-        guard index < previewStateCoordinator.windows.count else { return }
-        let window = previewStateCoordinator.windows[index]
+    private func handleWindowDrop(at location: CGPoint, for window: WindowInfo) {
         guard !window.isWindowlessApp else { return }
 
         let currentScreen = NSScreen.screenFromQuartzPoint(location)
@@ -671,6 +692,90 @@ struct WindowPreviewHoverContainer: View {
             window.bringToFront()
             onWindowTap?()
         }
+    }
+
+    private func beginPreviewDrag(for window: WindowInfo, at location: CGPoint) {
+        guard dragSession == nil, !mockPreviewActive, !window.isWindowlessApp else { return }
+
+        let session = PreviewDragSession(
+            identity: DraggedWindowIdentity(window),
+            window: window
+        )
+        dragSession = session
+        isDragging = true
+        dragPoints.removeAll(keepingCapacity: true)
+        lastShakeCheck = .distantPast
+        DragPreviewCoordinator.shared.startDragging(
+            windowInfo: window,
+            at: location,
+            token: session.token
+        )
+    }
+
+    private func updatePreviewDrag(
+        for window: WindowInfo,
+        cursorLocation: CGPoint,
+        shakeLocation: CGPoint
+    ) {
+        if dragSession == nil {
+            beginPreviewDrag(for: window, at: cursorLocation)
+        }
+
+        guard var session = dragSession,
+              session.identity == DraggedWindowIdentity(window),
+              DragPreviewCoordinator.shared.isActive(token: session.token),
+              !session.consumedByShake
+        else { return }
+
+        if !previewStateCoordinator.windowSwitcherActive,
+           aeroShakeAction != .none,
+           checkForShakeGesture(currentPoint: shakeLocation)
+        {
+            session.consumedByShake = true
+            dragSession = session
+            isDragging = false
+            DragPreviewCoordinator.shared.endDragging(token: session.token)
+
+            switch aeroShakeAction {
+            case .all:
+                minimizeAllWindows()
+            case .except:
+                minimizeAllWindows(window)
+            case .none:
+                break
+            }
+            return
+        }
+
+        DragPreviewCoordinator.shared.updatePreviewPosition(to: cursorLocation)
+    }
+
+    private func finishPreviewDrag(for window: WindowInfo, at location: CGPoint) {
+        guard let session = dragSession,
+              session.identity == DraggedWindowIdentity(window)
+        else { return }
+
+        if !session.consumedByShake,
+           DragPreviewCoordinator.shared.isActive(token: session.token)
+        {
+            handleWindowDrop(at: location, for: session.window)
+        }
+        cancelPreviewDrag(token: session.token)
+    }
+
+    private func cancelPreviewDrag(token: UUID? = nil) {
+        guard let session = dragSession else {
+            isDragging = false
+            dragPoints.removeAll(keepingCapacity: true)
+            return
+        }
+        let token = token ?? session.token
+        guard token == session.token else { return }
+
+        DragPreviewCoordinator.shared.endDragging(token: token)
+        dragSession = nil
+        isDragging = false
+        dragPoints.removeAll(keepingCapacity: true)
     }
 
     @ViewBuilder
@@ -2126,43 +2231,14 @@ struct WindowPreviewHoverContainer: View {
                 .gesture(
                     DragGesture(minimumDistance: 3, coordinateSpace: .global)
                         .onChanged { value in
-                            if draggedWindowIndex == nil {
-                                draggedWindowIndex = index
-                                isDragging = true
-                                DragPreviewCoordinator.shared.startDragging(
-                                    windowInfo: windowInfo,
-                                    at: NSEvent.mouseLocation
-                                )
-                            }
-                            if draggedWindowIndex == index {
-                                let currentPoint = value.location
-                                if !previewStateCoordinator.windowSwitcherActive, aeroShakeAction != .none,
-                                   checkForShakeGesture(currentPoint: currentPoint)
-                                {
-                                    DragPreviewCoordinator.shared.endDragging()
-                                    draggedWindowIndex = nil
-                                    isDragging = false
-
-                                    switch aeroShakeAction {
-                                    case .all:
-                                        minimizeAllWindows()
-                                    case .except:
-                                        minimizeAllWindows(windowInfo)
-                                    default: break
-                                    }
-                                } else {
-                                    DragPreviewCoordinator.shared.updatePreviewPosition(to: NSEvent.mouseLocation)
-                                }
-                            }
+                            updatePreviewDrag(
+                                for: windowInfo,
+                                cursorLocation: NSEvent.mouseLocation,
+                                shakeLocation: value.location
+                            )
                         }
-                        .onEnded { value in
-                            if draggedWindowIndex == index {
-                                handleWindowDrop(at: NSEvent.mouseLocation, for: index)
-                                DragPreviewCoordinator.shared.endDragging()
-                                draggedWindowIndex = nil
-                                isDragging = false
-                                dragPoints.removeAll()
-                            }
+                        .onEnded { _ in
+                            finishPreviewDrag(for: windowInfo, at: NSEvent.mouseLocation)
                         }
                 )
             }

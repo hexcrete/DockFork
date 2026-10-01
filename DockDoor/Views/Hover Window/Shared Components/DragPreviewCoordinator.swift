@@ -1,18 +1,20 @@
-import SwiftUI
+import AppKit
 
+@MainActor
 final class DragPreviewCoordinator {
     static let shared = DragPreviewCoordinator()
     private var previewWindow: NSWindow?
+    private var registeredWindowID: CGWindowID?
+    private var sessionToken: UUID?
     private var initialWindowFrame: CGRect?
     private var dragStartLocation: CGPoint?
-    private var initialScreenForDrag: NSScreen?
     private let previewScale: CGFloat = 0.2
     private let previewOpacity: CGFloat = 0.5
 
-    func startDragging(windowInfo: WindowInfo, at location: CGPoint) {
+    func startDragging(windowInfo: WindowInfo, at location: CGPoint, token: UUID) {
         endDragging()
 
-        initialScreenForDrag = NSScreen.screenFromQuartzPoint(location)
+        sessionToken = token
         dragStartLocation = location
 
         guard let image = windowInfo.image else { return }
@@ -40,6 +42,10 @@ final class DragPreviewCoordinator {
         previewWindow.hasShadow = true
         previewWindow.level = .popUpMenu
         previewWindow.animationBehavior = .none
+        previewWindow.isReleasedWhenClosed = false
+        previewWindow.ignoresMouseEvents = true
+        previewWindow.sharingType = .none
+        previewWindow.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle, .fullScreenAuxiliary]
 
         let imageView = NSImageView(frame: NSRect(origin: .zero, size: scaledFrame.size))
         imageView.image = NSImage(cgImage: image, size: scaledFrame.size)
@@ -48,6 +54,11 @@ final class DragPreviewCoordinator {
 
         previewWindow.contentView = imageView
         initialWindowFrame = scaledFrame
+        if previewWindow.windowNumber > 0 {
+            let windowID = CGWindowID(previewWindow.windowNumber)
+            WindowUtil.registerInternalWindow(windowID)
+            registeredWindowID = windowID
+        }
         previewWindow.setFrame(scaledFrame, display: true)
         previewWindow.orderFront(nil)
         previewWindow.alphaValue = 1
@@ -68,12 +79,26 @@ final class DragPreviewCoordinator {
         previewWindow.setFrame(newFrame, display: true)
     }
 
-    func endDragging() {
-        guard let window = previewWindow else { return }
-        window.alphaValue = 0
-        previewWindow = nil
+    func isActive(token: UUID) -> Bool {
+        sessionToken == token
+    }
+
+    func endDragging(token: UUID? = nil) {
+        if let token, sessionToken != token { return }
+
+        sessionToken = nil
         dragStartLocation = nil
         initialWindowFrame = nil
-        initialScreenForDrag = nil
+
+        if let window = previewWindow {
+            window.orderOut(nil)
+            window.contentView = nil
+            window.close()
+        }
+        if let windowID = registeredWindowID {
+            WindowUtil.unregisterInternalWindow(windowID)
+        }
+        previewWindow = nil
+        registeredWindowID = nil
     }
 }

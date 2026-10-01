@@ -598,13 +598,13 @@ enum WindowUtil {
         return internalWindowIDs.contains(windowID)
     }
 
-    fileprivate static func registerInternalWindow(_ windowID: CGWindowID) {
+    static func registerInternalWindow(_ windowID: CGWindowID) {
         internalWindowLock.lock()
         internalWindowIDs.insert(windowID)
         internalWindowLock.unlock()
     }
 
-    fileprivate static func unregisterInternalWindow(_ windowID: CGWindowID) {
+    static func unregisterInternalWindow(_ windowID: CGWindowID) {
         internalWindowLock.lock()
         internalWindowIDs.remove(windowID)
         internalWindowLock.unlock()
