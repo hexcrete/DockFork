@@ -189,8 +189,7 @@ enum ShortcutModifierKey: String, CaseIterable, Codable, Defaults.Serializable, 
 }
 
 enum ModifierKeySide: String, CaseIterable, Codable, Defaults.Serializable, Identifiable {
-    // Keep the original raw value so modifier-side preferences from earlier builds remain decodable.
-    case either = "both"
+    case either
     case left
     case right
 
