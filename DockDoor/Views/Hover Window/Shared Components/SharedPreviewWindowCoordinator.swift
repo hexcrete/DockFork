@@ -1182,12 +1182,17 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         coordinator.hasMovedSinceOpen = false
         coordinator.initialHoverLocation = nil
 
-        let threshold = Defaults[.windowSwitcherCompactThreshold]
+        let threshold = if coordinator.windowSwitcherActive {
+            Defaults[.windowSwitcherCompactThreshold]
+        } else if currentDockPosition == .cmdTab {
+            Defaults[.cmdTabCompactThreshold]
+        } else {
+            Defaults[.dockPreviewCompactThreshold]
+        }
         let forcedCompact = Defaults[.disableImagePreview] || !hasScreenRecordingPermission
-        let isListViewMode = coordinator.windowSwitcherActive
-            && (forcedCompact || (threshold > 0 && coordinator.windows.count >= threshold))
+        let isListViewMode = forcedCompact || (threshold > 0 && coordinator.windows.count >= threshold)
 
-        // Handle list view navigation (up/down only, with filtering support)
+        // In compact lists, horizontal and vertical arrows both move sequentially.
         if isListViewMode {
             let filteredIndices = coordinator.filteredWindowIndices()
             let indicesToUse = coordinator.hasActiveSearch ? filteredIndices : Array(coordinator.windows.indices)

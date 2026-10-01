@@ -925,37 +925,21 @@ class KeybindHelper {
                         }
                         // Pass Escape through so the Dock can dismiss the system switcher too
                         return Unmanaged.passUnretained(event)
-                    case Int64(kVK_LeftArrow):
+                    case Int64(kVK_LeftArrow), Int64(kVK_RightArrow), Int64(kVK_UpArrow), Int64(kVK_DownArrow):
                         if hasSelection {
-                            Task { @MainActor in
-                                self.previewCoordinator.navigateWithArrowKey(direction: .left)
+                            let direction: ArrowDirection = switch keyCode {
+                            case Int64(kVK_LeftArrow): .left
+                            case Int64(kVK_RightArrow): .right
+                            case Int64(kVK_UpArrow): .up
+                            default: .down
                             }
-                            // Consume only when a selection is active (focused mode)
+                            Task { @MainActor in
+                                self.previewCoordinator.navigateWithArrowKey(direction: direction)
+                            }
+                            // Consume arrows only while a DockDoor preview is focused.
                             return nil
                         } else {
-                            // Let system Cmd+Tab handle left/right until user focuses with Up
-                            return Unmanaged.passUnretained(event)
-                        }
-                    case Int64(kVK_RightArrow):
-                        if hasSelection {
-                            Task { @MainActor in
-                                self.previewCoordinator.navigateWithArrowKey(direction: .right)
-                            }
-                            return nil
-                        } else {
-                            return Unmanaged.passUnretained(event)
-                        }
-                    case Int64(kVK_UpArrow):
-                        return Unmanaged.passUnretained(event)
-                    case Int64(kVK_DownArrow):
-                        // If a preview is selected, first Down just deselects and is consumed.
-                        // Subsequent Down (with no selection) is passed through to system Exposé.
-                        if hasSelection {
-                            Task { @MainActor in
-                                self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: -1, source: .keyboard)
-                            }
-                            return nil
-                        } else {
+                            // Preserve native Cmd+Tab arrow behavior before entering previews.
                             return Unmanaged.passUnretained(event)
                         }
                     case Int64(kVK_ANSI_H), Int64(kVK_ANSI_L):
