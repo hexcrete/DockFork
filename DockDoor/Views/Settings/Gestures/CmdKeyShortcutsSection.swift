@@ -5,6 +5,7 @@ struct CmdKeyShortcutsSection: View {
     @Default(.cmdShortcuts) var cmdShortcuts
     @Default(.UserKeybind) private var windowSwitcherKeybind
     @Default(.enableSpacesShortcuts) private var enableSpacesShortcuts
+    @Default(.ignoreMainModifierSideForDependentShortcuts) private var ignoreMainModifierSideForDependentShortcuts
 
     var body: some View {
         SettingsGroup(header: "Window Preview Keyboard Shortcuts") {
@@ -63,12 +64,19 @@ struct CmdKeyShortcutsSection: View {
         cmdShortcuts.count < maxShortcutCount && !hasPendingShortcut
     }
 
+    private var previewShortcutKeybind: UserKeyBind {
+        WindowSwitcherShortcutResolver.dependentShortcutKeybind(
+            windowSwitcherKeybind,
+            ignoreModifierSide: ignoreMainModifierSideForDependentShortcuts
+        )
+    }
+
     private func cmdShortcutRow(index: Int, shortcut: CmdShortcut) -> some View {
         let conflict = conflict(at: index)
 
         return HStack(spacing: 12) {
             HStack(spacing: 4) {
-                Text(modifierConverter.toSymbol(windowSwitcherKeybind.modifierFlags))
+                Text(modifierConverter.toSymbol(previewShortcutKeybind))
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(.secondary)
                 KeyCaptureButton(
@@ -163,7 +171,8 @@ struct CmdKeyShortcutsSection: View {
         if enableSpacesShortcuts,
            WindowSwitcherShortcutResolver.conflictsWithSpacesShortcut(
                keyCode: candidate.keyCode,
-               modifierFlags: windowSwitcherKeybind.modifierFlags,
+               modifierFlags: previewShortcutKeybind.modifierFlags,
+               modifierSide: previewShortcutKeybind.modifierSide,
                mainKeybind: windowSwitcherKeybind
            )
         {

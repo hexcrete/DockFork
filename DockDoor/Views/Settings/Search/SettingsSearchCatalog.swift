@@ -1874,6 +1874,15 @@ enum SettingsSearchCatalog {
             icon: "arrow.uturn.backward"
         ),
         SettingsSearchItem(
+            id: "gestures.ignoreMainModifierSideForDependentShortcuts",
+            title: String(localized: "Ignore modifier key side for Window Preview Keyboard Shortcuts"),
+            description: String(localized: "Allows either side of the selected modifier to trigger shortcuts that inherit the main Window Switcher modifier. The main Window Switcher shortcut still uses the selected side."),
+            keywords: ["modifier", "side", "left", "right", "both", "preview", "spaces", "shortcut"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
             id: "gestures.selectionKey",
             title: String(localized: "Selection Key"),
             description: String(localized: "The key used to select and bring to front the highlighted window in the switcher."),

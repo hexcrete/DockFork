@@ -72,6 +72,7 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
     var id: UUID
     var keyCode: UInt16
     var modifierFlags: Int
+    var modifierSide: ModifierKeySide
     var mode: SwitcherInvocationMode
     var isConfigured: Bool
     var isPending: Bool
@@ -80,6 +81,7 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
         id: UUID = UUID(),
         keyCode: UInt16 = 0,
         modifierFlags: Int = 0,
+        modifierSide: ModifierKeySide = .either,
         mode: SwitcherInvocationMode = .activeAppOnly,
         isConfigured: Bool = false,
         isPending: Bool = false
@@ -87,6 +89,7 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
         self.id = id
         self.keyCode = keyCode
         self.modifierFlags = modifierFlags
+        self.modifierSide = modifierSide
         self.mode = mode
         self.isConfigured = isConfigured
         self.isPending = isPending
@@ -94,10 +97,33 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
 
     func resolvedKeybind(mainKeybind: UserKeyBind) -> UserKeyBind? {
         guard isConfigured, !isPending else { return nil }
+        let inheritsMainModifier = modifierFlags == 0
         return UserKeyBind(
             keyCode: keyCode,
-            modifierFlags: modifierFlags == 0 ? mainKeybind.modifierFlags : modifierFlags
+            modifierFlags: inheritsMainModifier ? mainKeybind.modifierFlags : modifierFlags,
+            modifierSide: inheritsMainModifier ? mainKeybind.modifierSide : modifierSide
         )
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case keyCode
+        case modifierFlags
+        case modifierSide
+        case mode
+        case isConfigured
+        case isPending
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        keyCode = try container.decodeIfPresent(UInt16.self, forKey: .keyCode) ?? 0
+        modifierFlags = try container.decodeIfPresent(Int.self, forKey: .modifierFlags) ?? 0
+        modifierSide = try container.decodeIfPresent(ModifierKeySide.self, forKey: .modifierSide) ?? .either
+        mode = try container.decodeIfPresent(SwitcherInvocationMode.self, forKey: .mode) ?? .activeAppOnly
+        isConfigured = try container.decodeIfPresent(Bool.self, forKey: .isConfigured) ?? false
+        isPending = try container.decodeIfPresent(Bool.self, forKey: .isPending) ?? false
     }
 
     static let defaultShortcuts = [AlternateSwitcherShortcut()]
@@ -126,7 +152,7 @@ struct ResolvedAlternateSwitcherShortcut {
     let mode: SwitcherInvocationMode
 }
 
-enum ModifierDoubleTapKey: String, CaseIterable, Codable, Defaults.Serializable, Identifiable {
+enum ShortcutModifierKey: String, CaseIterable, Codable, Defaults.Serializable, Identifiable {
     case shift
     case control
     case option
@@ -151,10 +177,20 @@ enum ModifierDoubleTapKey: String, CaseIterable, Codable, Defaults.Serializable,
         case .command: (UInt16(kVK_Command), UInt16(kVK_RightCommand))
         }
     }
+
+    var modifierFlags: Int {
+        switch self {
+        case .shift: Int(CGEventFlags.maskShift.rawValue)
+        case .control: Int(CGEventFlags.maskControl.rawValue)
+        case .option: Int(CGEventFlags.maskAlternate.rawValue)
+        case .command: Int(CGEventFlags.maskCommand.rawValue)
+        }
+    }
 }
 
 enum ModifierKeySide: String, CaseIterable, Codable, Defaults.Serializable, Identifiable {
-    case both
+    // Keep the original raw value so modifier-side preferences from earlier builds remain decodable.
+    case either = "both"
     case left
     case right
 
@@ -162,7 +198,7 @@ enum ModifierKeySide: String, CaseIterable, Codable, Defaults.Serializable, Iden
 
     var localizedName: String {
         switch self {
-        case .both: String(localized: "Both", comment: "Modifier key side option")
+        case .either: String(localized: "Either", comment: "Modifier key side option")
         case .left: String(localized: "Left", comment: "Modifier key side option")
         case .right: String(localized: "Right", comment: "Modifier key side option")
         }
@@ -175,7 +211,7 @@ struct PersistentSwitcherShortcut: Codable, Defaults.Serializable, Identifiable,
     var modifierFlags: Int
     var mode: SwitcherInvocationMode
     var usesDoubleTap: Bool
-    var doubleTapKey: ModifierDoubleTapKey
+    var doubleTapKey: ShortcutModifierKey
     var doubleTapSide: ModifierKeySide
     var isConfigured: Bool
     var isPending: Bool
@@ -186,8 +222,8 @@ struct PersistentSwitcherShortcut: Codable, Defaults.Serializable, Identifiable,
         modifierFlags: Int = 0,
         mode: SwitcherInvocationMode = .allWindows,
         usesDoubleTap: Bool = false,
-        doubleTapKey: ModifierDoubleTapKey = .option,
-        doubleTapSide: ModifierKeySide = .both,
+        doubleTapKey: ShortcutModifierKey = .option,
+        doubleTapSide: ModifierKeySide = .either,
         isConfigured: Bool = false,
         isPending: Bool = false
     ) {
@@ -210,11 +246,23 @@ struct ResolvedPersistentSwitcherShortcut {
     let keyCode: UInt16
     let modifierFlags: Int
     let mode: SwitcherInvocationMode
-    let doubleTapKey: ModifierDoubleTapKey?
+    let doubleTapKey: ShortcutModifierKey?
     let doubleTapSide: ModifierKeySide?
 }
 
 enum WindowSwitcherShortcutResolver {
+    static func dependentShortcutKeybind(
+        _ keybind: UserKeyBind,
+        ignoreModifierSide: Bool = Defaults[.ignoreMainModifierSideForDependentShortcuts]
+    ) -> UserKeyBind {
+        guard ignoreModifierSide else { return keybind }
+        return UserKeyBind(
+            keyCode: keybind.keyCode,
+            modifierFlags: keybind.modifierFlags,
+            modifierSide: .either
+        )
+    }
+
     static func spaceNumber(forPhysicalKeyCode keyCode: Int64) -> Int? {
         switch keyCode {
         case Int64(kVK_ANSI_1): 1
@@ -234,13 +282,16 @@ enum WindowSwitcherShortcutResolver {
     static func conflictsWithSpacesShortcut(
         keyCode: UInt16,
         modifierFlags: Int,
+        modifierSide: ModifierKeySide = .either,
         mainKeybind: UserKeyBind
     ) -> Bool {
+        let spacesKeybind = dependentShortcutKeybind(mainKeybind)
         let mainModifiers = normalizedModifiers(mainKeybind.modifierFlags)
         return Defaults[.enableSpacesShortcuts] &&
             mainModifiers != 0 &&
             spaceNumber(forPhysicalKeyCode: Int64(keyCode)) != nil &&
-            normalizedModifiers(modifierFlags) == mainModifiers
+            normalizedModifiers(modifierFlags) == mainModifiers &&
+            sidesOverlap(modifierSide, spacesKeybind.modifierSide)
     }
 
     static func alternateConflict(
@@ -256,6 +307,7 @@ enum WindowSwitcherShortcutResolver {
         if conflictsWithSpacesShortcut(
             keyCode: UInt16(candidate.keyCode),
             modifierFlags: candidate.modifierFlags,
+            modifierSide: candidate.modifierSide,
             mainKeybind: mainKeybind
         ) {
             return .spacesShortcut
@@ -272,9 +324,11 @@ enum WindowSwitcherShortcutResolver {
             }
         }
 
-        let conflictsWithPreviewAction = candidate.modifierFlags == mainKeybind.modifierFlags && previewShortcuts.contains {
-            !$0.isPending && $0.action != .none && $0.keyCode == candidate.keyCode
-        }
+        let previewKeybind = dependentShortcutKeybind(mainKeybind)
+        let conflictsWithPreviewAction = normalizedModifiers(candidate.modifierFlags) == normalizedModifiers(previewKeybind.modifierFlags) &&
+            sidesOverlap(candidate.modifierSide, previewKeybind.modifierSide) && previewShortcuts.contains {
+                !$0.isPending && $0.action != .none && $0.keyCode == candidate.keyCode
+            }
         return conflictsWithPreviewAction ? .previewAction : nil
     }
 
@@ -514,11 +568,13 @@ enum WindowSwitcherShortcutResolver {
     }
 
     private static func combinationsMatch(_ first: UserKeyBind, _ second: UserKeyBind) -> Bool {
-        first.keyCode == second.keyCode && normalizedModifiers(first.modifierFlags) == normalizedModifiers(second.modifierFlags)
+        first.keyCode == second.keyCode &&
+            normalizedModifiers(first.modifierFlags) == normalizedModifiers(second.modifierFlags) &&
+            sidesOverlap(first.modifierSide, second.modifierSide)
     }
 
     private static func sidesOverlap(_ first: ModifierKeySide, _ second: ModifierKeySide) -> Bool {
-        first == .both || second == .both || first == second
+        first == .either || second == .either || first == second
     }
 }
 
@@ -534,6 +590,7 @@ extension Defaults.Keys {
     static let preventDockHide = Key<Bool>("preventDockHide", default: false)
     static let preventSwitcherHide = Key<Bool>("preventSwitcherHide", default: false)
     static let requireShiftTabToGoBack = Key<Bool>("requireShiftTabToGoBack", default: false)
+    static let ignoreMainModifierSideForDependentShortcuts = Key<Bool>("ignoreMainModifierSideForDependentShortcuts", default: false)
     static let switcherBackwardKeyCode = Key<UInt16>("switcherBackwardKeyCode", default: 56)
     static let shouldHideOnDockItemClick = Key<Bool>("shouldHideOnDockItemClick", default: false)
     static let dockClickAction = Key<DockClickAction>("dockClickAction", default: .hide)
@@ -681,7 +738,7 @@ extension Defaults.Keys {
     static let Int64maskCommand = Key<Int>("Int64maskCommand", default: 1_048_840)
     static let Int64maskControl = Key<Int>("Int64maskControl", default: 262_401)
     static let Int64maskAlternate = Key<Int>("Int64maskAlternate", default: 524_576)
-    static let UserKeybind = Key<UserKeyBind>("UserKeybind", default: UserKeyBind(keyCode: 48, modifierFlags: Defaults[.Int64maskAlternate]))
+    static let UserKeybind = Key<UserKeyBind>("UserKeybind", default: UserKeyBind(keyCode: 48, modifierFlags: Defaults[.Int64maskAlternate], modifierSide: .either))
 
     static let showAppName = Key<Bool>("showAppName", default: true)
     static let appNameStyle = Key<AppNameStyle>("appNameStyle", default: .default)

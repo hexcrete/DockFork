@@ -133,6 +133,7 @@ struct MainSettingsView: View {
 
                 Defaults[.UserKeybind] = Defaults.Keys.UserKeybind.defaultValue
                 Defaults[.requireShiftTabToGoBack] = Defaults.Keys.requireShiftTabToGoBack.defaultValue
+                Defaults[.ignoreMainModifierSideForDependentShortcuts] = Defaults.Keys.ignoreMainModifierSideForDependentShortcuts.defaultValue
                 Defaults[.windowSwitcherPlacementStrategy] = Defaults.Keys.windowSwitcherPlacementStrategy.defaultValue
                 Defaults[.pinnedScreenIdentifier] = Defaults.Keys.pinnedScreenIdentifier.defaultValue
                 Defaults[.windowSwitcherHorizontalAnchor] = Defaults.Keys.windowSwitcherHorizontalAnchor.defaultValue

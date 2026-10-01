@@ -10,10 +10,14 @@ enum KeyboardLabel {
         case 53: return String(localized: "Escape")
         case 49: return String(localized: "Space")
         case 76: return String(localized: "Enter")
-        case 56, 60: return "⇧"
-        case 59, 62: return "⌃"
-        case 58, 61: return "⌥"
-        case 55, 54: return "⌘"
+        case 56: return String(localized: "Left Shift ⇧", comment: "Physical keyboard modifier key")
+        case 60: return String(localized: "Right Shift ⇧", comment: "Physical keyboard modifier key")
+        case 59: return String(localized: "Left Control ⌃", comment: "Physical keyboard modifier key")
+        case 62: return String(localized: "Right Control ⌃", comment: "Physical keyboard modifier key")
+        case 58: return String(localized: "Left Option ⌥", comment: "Physical keyboard modifier key")
+        case 61: return String(localized: "Right Option ⌥", comment: "Physical keyboard modifier key")
+        case 55: return String(localized: "Left Command ⌘", comment: "Physical keyboard modifier key")
+        case 54: return String(localized: "Right Command ⌘", comment: "Physical keyboard modifier key")
         case 57: return "⇪"
         case 63: return "Fn"
         default: break

@@ -15,6 +15,7 @@ struct WindowSwitcherKeybindSection: View {
     @Default(.UserKeybind) private var mainKeybind
     @Default(.enableSpacesShortcuts) private var enableSpacesShortcuts
     @Default(.requireShiftTabToGoBack) var requireShiftTabToGoBack
+    @Default(.ignoreMainModifierSideForDependentShortcuts) private var ignoreMainModifierSideForDependentShortcuts
     @Default(.switcherBackwardKeyCode) var switcherBackwardKeyCode
     @Default(.windowSwitcherSelectionKeyCode) var selectionKeyCode
     @Default(.enableVimMotions) var enableVimMotions
@@ -137,7 +138,7 @@ struct WindowSwitcherKeybindSection: View {
                             .foregroundColor(.secondary)
 
                         HStack(spacing: 12) {
-                            Text(modifierConverter.toString(keybindModel.modifierKey))
+                            Text(modifierConverter.toString(mainKeybind))
                                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                                 .foregroundColor(.secondary)
                             Text("+")
@@ -167,7 +168,9 @@ struct WindowSwitcherKeybindSection: View {
             .settingsSearchTarget("gestures.switcherKeybind")
         }
         .onAppear {
+            materializeInheritedAlternateModifiers()
             keybindModel.modifierKey = Defaults[.UserKeybind].modifierFlags
+            keybindModel.modifierSide = Defaults[.UserKeybind].modifierSide
             keybindModel.currentKeybind = Defaults[.UserKeybind]
         }
     }
@@ -176,33 +179,22 @@ struct WindowSwitcherKeybindSection: View {
 
     private var keyboardShortcutSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            // Current shortcut summary
-            if let keybind = keybindModel.currentKeybind {
-                HStack(spacing: 8) {
-                    KeyCapView(text: modifierConverter.toString(keybind.modifierFlags), symbol: nil)
+            Text("Main Window Switcher Shortcut")
+                .font(.headline)
+
+            HStack(spacing: 8) {
+                if let keybind = keybindModel.currentKeybind {
+                    KeyCapView(
+                        text: modifierConverter.toString(keybind),
+                        symbol: nil
+                    )
                     Text("+").foregroundColor(.secondary)
                     KeyCapView(text: KeyboardLabel.localizedKey(for: keybind.keyCode), symbol: nil)
+                } else {
+                    Text("No shortcut set").foregroundColor(.secondary)
                 }
-            } else {
-                Text("No shortcut set").foregroundColor(.secondary)
-            }
 
-            // Controls: initializer modifier + capture button
-            HStack(spacing: 12) {
-                Picker("Initializer", selection: $keybindModel.modifierKey) {
-                    Text("Control ⌃").tag(Defaults[.Int64maskControl])
-                    Text("Option ⌥").tag(Defaults[.Int64maskAlternate])
-                    Text("Command ⌘").tag(Defaults[.Int64maskCommand])
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .onChange(of: keybindModel.modifierKey) { newValue in
-                    if let currentKeybind = keybindModel.currentKeybind {
-                        let updatedKeybind = UserKeyBind(keyCode: currentKeybind.keyCode, modifierFlags: newValue)
-                        Defaults[.UserKeybind] = updatedKeybind
-                        keybindModel.currentKeybind = updatedKeybind
-                    }
-                }
+                Spacer(minLength: 0)
 
                 Button(action: { keybindModel.isRecording.toggle() }) {
                     HStack {
@@ -214,17 +206,74 @@ struct WindowSwitcherKeybindSection: View {
                 .disabled(keybindModel.isRecording)
 
                 Button("Reset") {
-                    let def = UserKeyBind(keyCode: 48, modifierFlags: Defaults[.Int64maskAlternate])
-                    Defaults[.UserKeybind] = def
-                    keybindModel.currentKeybind = def
-                    keybindModel.modifierKey = def.modifierFlags
+                    let defaultKeybind = UserKeyBind(
+                        keyCode: 48,
+                        modifierFlags: Defaults[.Int64maskAlternate],
+                        modifierSide: .left
+                    )
+                    Defaults[.UserKeybind] = defaultKeybind
+                    keybindModel.currentKeybind = defaultKeybind
+                    keybindModel.modifierKey = defaultKeybind.modifierFlags
+                    keybindModel.modifierSide = defaultKeybind.modifierSide
                 }
                 .buttonStyle(.bordered)
             }
 
-            Text("Either left or right Command, Option, or Control keys work. You can also hold the modifier while pressing the trigger to capture both.")
+            HStack(spacing: 12) {
+                Picker("Initializer", selection: $keybindModel.modifierKey) {
+                    Text("Control ⌃").tag(Defaults[.Int64maskControl])
+                    Text("Option ⌥").tag(Defaults[.Int64maskAlternate])
+                    Text("Command ⌘").tag(Defaults[.Int64maskCommand])
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .onChange(of: keybindModel.modifierKey) { newValue in
+                    if let currentKeybind = keybindModel.currentKeybind {
+                        let updatedKeybind = UserKeyBind(
+                            keyCode: currentKeybind.keyCode,
+                            modifierFlags: newValue,
+                            modifierSide: keybindModel.modifierSide
+                        )
+                        Defaults[.UserKeybind] = updatedKeybind
+                        keybindModel.currentKeybind = updatedKeybind
+                    }
+                }
+
+                Picker("Side", selection: $keybindModel.modifierSide) {
+                    ForEach(ModifierKeySide.allCases) { side in
+                        Text(side.localizedName).tag(side)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .onChange(of: keybindModel.modifierSide) { newValue in
+                    if let currentKeybind = keybindModel.currentKeybind {
+                        let updatedKeybind = UserKeyBind(
+                            keyCode: currentKeybind.keyCode,
+                            modifierFlags: currentKeybind.modifierFlags,
+                            modifierSide: newValue
+                        )
+                        Defaults[.UserKeybind] = updatedKeybind
+                        keybindModel.currentKeybind = updatedKeybind
+                    }
+                }
+            }
+
+            Text("Choose whether the left, right, or either modifier key activates the Window Switcher.")
                 .font(.caption)
                 .foregroundColor(.secondary)
+
+            if keybindModel.modifierSide != .either {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle("Ignore modifier key side for Window Preview Keyboard Shortcuts", isOn: $ignoreMainModifierSideForDependentShortcuts)
+                        .settingsSearchTarget("gestures.ignoreMainModifierSideForDependentShortcuts")
+
+                    Text("Allows either side of the selected modifier to trigger shortcuts that inherit the main Window Switcher modifier. The main Window Switcher shortcut still uses the selected side.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 20)
+                }
+            }
         }
         .background(
             ShortcutCaptureView(
@@ -316,14 +365,15 @@ struct WindowSwitcherKeybindSection: View {
 
         return HStack(spacing: 12) {
             Picker("Modifier", selection: alternateModifierBinding(for: shortcut.id)) {
-                Text("Same as main (\(modifierConverter.toString(mainKeybind.modifierFlags)))").tag(0)
-                Text("Control ⌃").tag(Defaults[.Int64maskControl])
-                Text("Option ⌥").tag(Defaults[.Int64maskAlternate])
-                Text("Command ⌘").tag(Defaults[.Int64maskCommand])
+                ForEach(ShortcutModifierKey.allCases) { modifier in
+                    Text(modifier.localizedName).tag(modifier.modifierFlags)
+                }
             }
             .pickerStyle(.menu)
             .labelsHidden()
             .fixedSize()
+
+            ModifierSidePicker(selection: alternateSideBinding(for: shortcut.id))
 
             Text("+")
                 .font(.system(size: 12))
@@ -398,10 +448,26 @@ struct WindowSwitcherKeybindSection: View {
 
     private func alternateModifierBinding(for id: UUID) -> Binding<Int> {
         Binding(
-            get: { alternateSwitcherShortcuts.first(where: { $0.id == id })?.modifierFlags ?? 0 },
+            get: {
+                guard let shortcut = alternateSwitcherShortcuts.first(where: { $0.id == id }) else {
+                    return Defaults[.Int64maskAlternate]
+                }
+                let flags = shortcut.modifierFlags == 0 ? mainKeybind.modifierFlags : shortcut.modifierFlags
+                return WindowSwitcherShortcutResolver.normalizedModifiers(flags)
+            },
             set: { newValue in
                 guard let index = alternateSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
                 alternateSwitcherShortcuts[index].modifierFlags = newValue
+            }
+        )
+    }
+
+    private func alternateSideBinding(for id: UUID) -> Binding<ModifierKeySide> {
+        Binding(
+            get: { alternateSwitcherShortcuts.first(where: { $0.id == id })?.modifierSide ?? .either },
+            set: { newValue in
+                guard let index = alternateSwitcherShortcuts.firstIndex(where: { $0.id == id }) else { return }
+                alternateSwitcherShortcuts[index].modifierSide = newValue
             }
         )
     }
@@ -424,8 +490,20 @@ struct WindowSwitcherKeybindSection: View {
         )
         let usedModes = Set(alternateSwitcherShortcuts.map(\.mode))
         let nextMode = SwitcherInvocationMode.sortedCases.first { !usedModes.contains($0) } ?? .activeAppOnly
-        let pending = AlternateSwitcherShortcut(mode: nextMode, isPending: true)
+        let pending = AlternateSwitcherShortcut(
+            modifierFlags: WindowSwitcherShortcutResolver.normalizedModifiers(mainKeybind.modifierFlags),
+            modifierSide: mainKeybind.modifierSide,
+            mode: nextMode,
+            isPending: true
+        )
         alternateSwitcherShortcuts.insert(pending, at: insertionIndex)
+    }
+
+    private func materializeInheritedAlternateModifiers() {
+        for index in alternateSwitcherShortcuts.indices where alternateSwitcherShortcuts[index].modifierFlags == 0 {
+            alternateSwitcherShortcuts[index].modifierFlags = WindowSwitcherShortcutResolver.normalizedModifiers(mainKeybind.modifierFlags)
+            alternateSwitcherShortcuts[index].modifierSide = mainKeybind.modifierSide
+        }
     }
 
     private func removeAlternateShortcut(_ id: UUID) {
@@ -445,7 +523,7 @@ struct WindowSwitcherKeybindSection: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Alternate Shortcuts (Keep Open)").font(.headline)
             (Text("Releasing initializer keys will always keep the Window Switcher open. Window preview keyboard shortcuts use the default modifier key.")
-                + Text(" (currently \(modifierConverter.toSymbol(mainKeybind.modifierFlags)))."))
+                + Text(" (currently \(modifierConverter.toSymbol(WindowSwitcherShortcutResolver.dependentShortcutKeybind(mainKeybind))))."))
                 .font(.caption)
                 .foregroundColor(.secondary)
             Text("Each shortcut can use either a standard key combination pressed once or a single modifier key pressed twice.")
@@ -580,6 +658,21 @@ struct WindowSwitcherKeybindSection: View {
     }
 }
 
+private struct ModifierSidePicker: View {
+    @Binding var selection: ModifierKeySide
+
+    var body: some View {
+        Picker("Side", selection: $selection) {
+            ForEach(ModifierKeySide.allCases) { side in
+                Text(side.localizedName).tag(side)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .fixedSize()
+    }
+}
+
 private struct ScopedShortcutRows: View {
     @Binding var shortcuts: [PersistentSwitcherShortcut]
     let defaultMode: SwitcherInvocationMode
@@ -615,7 +708,7 @@ private struct ScopedShortcutRows: View {
 
             if shortcut.usesDoubleTap {
                 Picker("Modifier", selection: doubleTapKeyBinding(for: shortcut.id)) {
-                    ForEach(ModifierDoubleTapKey.allCases) { key in
+                    ForEach(ShortcutModifierKey.allCases) { key in
                         Text(key.localizedName).tag(key)
                     }
                 }
@@ -623,14 +716,7 @@ private struct ScopedShortcutRows: View {
                 .pickerStyle(.menu)
                 .fixedSize()
 
-                Picker("Side", selection: doubleTapSideBinding(for: shortcut.id)) {
-                    ForEach(ModifierKeySide.allCases) { side in
-                        Text(side.localizedName).tag(side)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .fixedSize()
+                ModifierSidePicker(selection: doubleTapSideBinding(for: shortcut.id))
             } else {
                 KeyCombinationCaptureButton(
                     keyCode: keyBinding(for: shortcut.id),
@@ -730,7 +816,7 @@ private struct ScopedShortcutRows: View {
         )
     }
 
-    private func doubleTapKeyBinding(for id: UUID) -> Binding<ModifierDoubleTapKey> {
+    private func doubleTapKeyBinding(for id: UUID) -> Binding<ShortcutModifierKey> {
         Binding(
             get: { rowIndex(for: id).map { shortcuts[$0].doubleTapKey } ?? .option },
             set: { if let index = rowIndex(for: id) { shortcuts[index].doubleTapKey = $0 } }
@@ -739,7 +825,7 @@ private struct ScopedShortcutRows: View {
 
     private func doubleTapSideBinding(for id: UUID) -> Binding<ModifierKeySide> {
         Binding(
-            get: { rowIndex(for: id).map { shortcuts[$0].doubleTapSide } ?? .both },
+            get: { rowIndex(for: id).map { shortcuts[$0].doubleTapSide } ?? .either },
             set: { if let index = rowIndex(for: id) { shortcuts[index].doubleTapSide = $0 } }
         )
     }

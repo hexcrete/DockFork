@@ -40,12 +40,32 @@ func measureString(_ string: String, fontSize: CGFloat, fontWeight: NSFont.Weigh
 }
 
 enum modifierConverter {
+    static func toString(_ keybind: UserKeyBind) -> String {
+        toString(keybind.modifierFlags, side: keybind.modifierSide)
+    }
+
+    static func toSymbol(_ keybind: UserKeyBind) -> String {
+        toSymbol(keybind.modifierFlags, side: keybind.modifierSide)
+    }
+
+    static func toString(_ modifierIntValue: Int, side: ModifierKeySide) -> String {
+        guard side != .either else { return toString(modifierIntValue) }
+        return "\(side.localizedName) \(toString(modifierIntValue))"
+    }
+
+    static func toSymbol(_ modifierIntValue: Int, side: ModifierKeySide) -> String {
+        guard side != .either else { return toSymbol(modifierIntValue) }
+        return "\(side.localizedName) \(toSymbol(modifierIntValue))"
+    }
+
     static func toString(_ modifierIntValue: Int) -> String {
-        if modifierIntValue == Defaults[.Int64maskCommand] {
+        if (modifierIntValue & Int(CGEventFlags.maskShift.rawValue)) != 0 {
+            String(localized: "Shift")
+        } else if (modifierIntValue & Int(CGEventFlags.maskCommand.rawValue)) != 0 {
             String(localized: "Command")
-        } else if modifierIntValue == Defaults[.Int64maskAlternate] {
+        } else if (modifierIntValue & Int(CGEventFlags.maskAlternate.rawValue)) != 0 {
             String(localized: "Option")
-        } else if modifierIntValue == Defaults[.Int64maskControl] {
+        } else if (modifierIntValue & Int(CGEventFlags.maskControl.rawValue)) != 0 {
             String(localized: "Control")
         } else {
             ""
@@ -53,7 +73,9 @@ enum modifierConverter {
     }
 
     static func toSymbol(_ modifierIntValue: Int) -> String {
-        if (modifierIntValue & Int(CGEventFlags.maskCommand.rawValue)) != 0 {
+        if (modifierIntValue & Int(CGEventFlags.maskShift.rawValue)) != 0 {
+            "⇧"
+        } else if (modifierIntValue & Int(CGEventFlags.maskCommand.rawValue)) != 0 {
             "⌘"
         } else if (modifierIntValue & Int(CGEventFlags.maskAlternate.rawValue)) != 0 {
             "⌥"

@@ -5,11 +5,13 @@ import SwiftUI
 
 class KeybindModel: ObservableObject {
     @Published var modifierKey: Int
+    @Published var modifierSide: ModifierKeySide
     @Published var isRecording: Bool = false
     @Published var currentKeybind: UserKeyBind?
 
     init() {
         modifierKey = Defaults[.UserKeybind].modifierFlags
+        modifierSide = Defaults[.UserKeybind].modifierSide
         currentKeybind = Defaults[.UserKeybind]
     }
 }
@@ -102,7 +104,11 @@ struct ShortcutCaptureView: NSViewControllerRepresentable {
                     else if wantsOpt { capturedModifier = Defaults[.Int64maskAlternate] }
                     else if wantsCtrl { capturedModifier = Defaults[.Int64maskControl] }
                 }
-                let newKeybind = UserKeyBind(keyCode: UInt16(event.keyCode), modifierFlags: capturedModifier)
+                let newKeybind = UserKeyBind(
+                    keyCode: UInt16(event.keyCode),
+                    modifierFlags: capturedModifier,
+                    modifierSide: parent.currentKeybind?.modifierSide ?? .either
+                )
                 Defaults[.UserKeybind] = newKeybind
                 parent.currentKeybind = newKeybind
                 parent.modifierKey = capturedModifier

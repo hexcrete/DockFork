@@ -27,6 +27,14 @@ private struct SpacesSettingsSection: View {
     @Default(.showCurrentSpaceBadgeInMenu) private var showCurrentSpaceBadgeInMenu
     @Default(.enableSpacesShortcuts) private var enableSpacesShortcuts
     @Default(.UserKeybind) private var windowSwitcherKeybind
+    @Default(.ignoreMainModifierSideForDependentShortcuts) private var ignoreMainModifierSideForDependentShortcuts
+
+    private var spacesShortcutKeybind: UserKeyBind {
+        WindowSwitcherShortcutResolver.dependentShortcutKeybind(
+            windowSwitcherKeybind,
+            ignoreModifierSide: ignoreMainModifierSideForDependentShortcuts
+        )
+    }
 
     var body: some View {
         SettingsGroup(header: "Spaces") {
@@ -87,7 +95,7 @@ private struct SpacesSettingsSection: View {
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)
 
-                    Text("Current modifier: \(modifierConverter.toSymbol(windowSwitcherKeybind.modifierFlags))")
+                    Text("Current modifier: \(modifierConverter.toSymbol(spacesShortcutKeybind))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)
