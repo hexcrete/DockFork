@@ -822,7 +822,8 @@ extension WindowUtil {
         isHidden: Bool? = nil,
         isFullscreen: Bool? = nil,
         spaceID: Int?? = nil,
-        screenIdentifier: String?? = nil
+        screenIdentifier: String?? = nil,
+        frame: CGRect? = nil
     ) {
         desktopSpaceWindowCacheManager.updateCache(pid: windowInfo.app.processIdentifier) { windowSet in
             if let existingIndex = windowSet.firstIndex(where: {
@@ -844,10 +845,105 @@ extension WindowUtil {
                 if let screenIdentifier {
                     updatedWindow.screenIdentifier = screenIdentifier
                 }
+                if let frame {
+                    updatedWindow.frame = frame
+                }
                 windowSet.remove(at: existingIndex)
                 windowSet.insert(updatedWindow)
             }
         }
+    }
+
+    struct WindowPlacementResult {
+        let frame: CGRect
+        let screenIdentifier: String
+    }
+
+    @MainActor
+    static func placeWindowCentered(
+        _ windowInfo: WindowInfo,
+        at pointerLocation: CGPoint,
+        on screen: NSScreen
+    ) -> WindowPlacementResult? {
+        guard !windowInfo.isWindowlessApp,
+              let windowSize = try? windowInfo.axElement.size(),
+              windowSize.width > 0,
+              windowSize.height > 0
+        else { return nil }
+
+        let visibleFrame = screen.visibleFrame
+        let fittedSize = CGSize(
+            width: min(windowSize.width, visibleFrame.width),
+            height: min(windowSize.height, visibleFrame.height)
+        )
+        if fittedSize != windowSize,
+           let sizeValue = AXValue.from(size: fittedSize)
+        {
+            try? windowInfo.axElement.setAttribute(kAXSizeAttribute, sizeValue)
+        }
+        let resolvedSize = (try? windowInfo.axElement.size()) ?? fittedSize
+        let x = clampedCenteredOrigin(
+            pointer: pointerLocation.x,
+            length: resolvedSize.width,
+            minimum: visibleFrame.minX,
+            maximum: visibleFrame.maxX
+        )
+        let y = clampedCenteredOrigin(
+            pointer: pointerLocation.y,
+            length: resolvedSize.height,
+            minimum: visibleFrame.minY,
+            maximum: visibleFrame.maxY
+        )
+        let targetFrame = CGRect(origin: CGPoint(x: x, y: y), size: resolvedSize)
+        let primaryMaxY = NSScreen.screens.first?.frame.maxY ?? screen.frame.maxY
+        let targetAXPosition = CGPoint(x: targetFrame.minX, y: primaryMaxY - targetFrame.maxY)
+
+        guard let positionValue = AXValue.from(point: targetAXPosition) else { return nil }
+        do {
+            try windowInfo.axElement.setAttribute(kAXPositionAttribute, positionValue)
+        } catch {
+            DebugLogger.log(
+                "WindowUtil.placeWindowCentered",
+                details: "Failed to position window \(windowInfo.id): \(error)"
+            )
+            return nil
+        }
+
+        let actualPosition = (try? windowInfo.axElement.position()) ?? targetAXPosition
+        let actualSize = (try? windowInfo.axElement.size()) ?? resolvedSize
+        let actualFrame = CGRect(origin: actualPosition, size: actualSize)
+        let screenIdentifier = screen.uniqueIdentifier()
+        updateCachedWindowState(
+            windowInfo,
+            spaceID: windowInfo.id.cgsSpaces().first.map { Int($0) } ?? windowInfo.spaceID,
+            screenIdentifier: .some(screenIdentifier),
+            frame: actualFrame
+        )
+        scheduleCachedWindowMetadataReconciliation(
+            pid: windowInfo.app.processIdentifier,
+            windowID: windowInfo.id
+        )
+        scheduleForcedPreviewRecapture(
+            pid: windowInfo.app.processIdentifier,
+            windowID: windowInfo.id,
+            fallbackWindowInfo: windowInfo,
+            targetScreenIdentifier: screenIdentifier,
+            delayNanos: programmaticResizeRefreshDelayNanos
+        )
+        return WindowPlacementResult(frame: actualFrame, screenIdentifier: screenIdentifier)
+    }
+
+    private static func clampedCenteredOrigin(
+        pointer: CGFloat,
+        length: CGFloat,
+        minimum: CGFloat,
+        maximum: CGFloat
+    ) -> CGFloat {
+        let availableLength = maximum - minimum
+        guard length <= availableLength else {
+            return minimum + (availableLength - length) / 2
+        }
+        return min(max(pointer - length / 2, minimum), maximum - length)
     }
 
     @discardableResult

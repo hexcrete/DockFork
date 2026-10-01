@@ -10,23 +10,36 @@ final class DragPreviewCoordinator {
     private var dragStartLocation: CGPoint?
     private let previewScale: CGFloat = 0.2
     private let previewOpacity: CGFloat = 0.5
+    private let maximumPreviewSize = CGSize(width: 240, height: 160)
+    private let iconPreviewSize = CGSize(width: 45, height: 45)
 
-    func startDragging(windowInfo: WindowInfo, at location: CGPoint, token: UUID) {
+    func startDragging(
+        image: CGImage?,
+        fallbackIcon: NSImage?,
+        logicalWindowSize: CGSize,
+        at location: CGPoint,
+        token: UUID
+    ) {
         endDragging()
 
         sessionToken = token
         dragStartLocation = location
 
-        guard let image = windowInfo.image else { return }
-
-        let scaledSize = CGSize(
-            width: CGFloat(image.width) * previewScale,
-            height: CGFloat(image.height) * previewScale
-        )
+        let content: NSImage
+        let scaledSize: CGSize
+        if let image {
+            content = NSImage(cgImage: image, size: logicalWindowSize)
+            scaledSize = constrainedPreviewSize(for: logicalWindowSize)
+        } else if let fallbackIcon {
+            content = fallbackIcon
+            scaledSize = iconPreviewSize
+        } else {
+            return
+        }
 
         let scaledFrame = CGRect(
-            x: location.x,
-            y: location.y - scaledSize.height,
+            x: location.x - scaledSize.width / 2,
+            y: location.y - scaledSize.height / 2,
             width: scaledSize.width,
             height: scaledSize.height
         )
@@ -48,8 +61,8 @@ final class DragPreviewCoordinator {
         previewWindow.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle, .fullScreenAuxiliary]
 
         let imageView = NSImageView(frame: NSRect(origin: .zero, size: scaledFrame.size))
-        imageView.image = NSImage(cgImage: image, size: scaledFrame.size)
-        imageView.imageScaling = .scaleAxesIndependently
+        imageView.image = content
+        imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.alphaValue = previewOpacity
 
         previewWindow.contentView = imageView
@@ -64,6 +77,26 @@ final class DragPreviewCoordinator {
         previewWindow.alphaValue = 1
 
         self.previewWindow = previewWindow
+    }
+
+    private func constrainedPreviewSize(for logicalSize: CGSize) -> CGSize {
+        guard logicalSize.width > 0, logicalSize.height > 0 else {
+            return iconPreviewSize
+        }
+
+        let scaled = CGSize(
+            width: logicalSize.width * previewScale,
+            height: logicalSize.height * previewScale
+        )
+        let constraintScale = min(
+            1,
+            maximumPreviewSize.width / scaled.width,
+            maximumPreviewSize.height / scaled.height
+        )
+        return CGSize(
+            width: scaled.width * constraintScale,
+            height: scaled.height * constraintScale
+        )
     }
 
     func updatePreviewPosition(to currentLocation: CGPoint) {

@@ -671,26 +671,66 @@ struct WindowPreviewHoverContainer: View {
         .onDisappear { edgeScrollRequest = nil }
     }
 
-    private func handleWindowDrop(at location: CGPoint, for window: WindowInfo) {
-        guard !window.isWindowlessApp else { return }
+    private func handleWindowDrop(at location: CGPoint, for window: WindowInfo, token: UUID) {
+        let displays = WindowSpaces.managedDisplays()
+        guard !window.isWindowlessApp,
+              let currentScreen = location.screen(),
+              let targetSpaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: location),
+              let destination = WindowSpaces.destination(forSpaceID: targetSpaceID, in: displays),
+              destination.space.kind == .desktop,
+              WindowSpaces.validateMoveSource(window, in: displays) == nil
+        else {
+            NSSound.beep()
+            cancelPreviewDrag(token: token)
+            return
+        }
 
-        let currentScreen = NSScreen.screenFromQuartzPoint(location)
-        let globalLocation = DockObserver.cgPointFromNSPoint(location, forScreen: currentScreen)
-        window.moveToCurrentManagedSpace(mouseLocation: location)
+        let finishPlacement: @MainActor () -> Void = {
+            guard revealWindowForDragPlacement(window),
+                  WindowUtil.placeWindowCentered(window, at: location, on: currentScreen) != nil,
+                  window.bringToFront()
+            else {
+                NSSound.beep()
+                cancelPreviewDrag(token: token)
+                return
+            }
 
-        let finalPosition = CGPoint(
-            x: globalLocation.x,
-            y: globalLocation.y
-        )
-
-        if let positionValue = AXValue.from(point: finalPosition) {
-            try? window.axElement.setAttribute(kAXPositionAttribute, positionValue)
-            WindowUtil.updateCachedWindowState(
-                window,
-                screenIdentifier: .some(currentScreen.uniqueIdentifier())
-            )
-            window.bringToFront()
+            cancelPreviewDrag(token: token)
             onWindowTap?()
+        }
+
+        if WindowSpaces.sourceSpaceIDs(for: window).contains(targetSpaceID) {
+            finishPlacement()
+            return
+        }
+
+        WindowUtil.moveWindowConfirmed(window, toManagedSpace: targetSpaceID) { success in
+            guard success else {
+                NSSound.beep()
+                cancelPreviewDrag(token: token)
+                return
+            }
+            finishPlacement()
+        }
+    }
+
+    private func revealWindowForDragPlacement(_ window: WindowInfo) -> Bool {
+        do {
+            if window.app.isHidden {
+                try window.appAxElement.setAttribute(kAXHiddenAttribute, false)
+                WindowUtil.updateCachedWindowState(window, isHidden: false)
+            }
+            if window.isMinimized || (try? window.axElement.isMinimized()) == true {
+                try window.axElement.setAttribute(kAXMinimizedAttribute, false)
+                WindowUtil.updateCachedWindowState(window, isMinimized: false)
+            }
+            return true
+        } catch {
+            DebugLogger.log(
+                "WindowPreviewHoverContainer.revealWindowForDragPlacement",
+                details: "Failed to reveal window \(window.id): \(error)"
+            )
+            return false
         }
     }
 
@@ -705,8 +745,11 @@ struct WindowPreviewHoverContainer: View {
         isDragging = true
         dragPoints.removeAll(keepingCapacity: true)
         lastShakeCheck = .distantPast
+        let logicalWindowSize = (try? window.axElement.size()) ?? window.frame.size
         DragPreviewCoordinator.shared.startDragging(
-            windowInfo: window,
+            image: window.image,
+            fallbackIcon: window.app.icon,
+            logicalWindowSize: logicalWindowSize,
             at: location,
             token: session.token
         )
@@ -755,12 +798,28 @@ struct WindowPreviewHoverContainer: View {
               session.identity == DraggedWindowIdentity(window)
         else { return }
 
+        DragPreviewCoordinator.shared.endDragging(token: session.token)
         if !session.consumedByShake,
-           DragPreviewCoordinator.shared.isActive(token: session.token)
+           !window.app.isTerminated
         {
-            handleWindowDrop(at: location, for: session.window)
+            handleWindowDrop(at: location, for: session.window, token: session.token)
+        } else {
+            cancelPreviewDrag(token: session.token)
         }
-        cancelPreviewDrag(token: session.token)
+    }
+
+    private func previewDragGesture(for window: WindowInfo) -> some Gesture {
+        DragGesture(minimumDistance: 3, coordinateSpace: .global)
+            .onChanged { value in
+                updatePreviewDrag(
+                    for: window,
+                    cursorLocation: NSEvent.mouseLocation,
+                    shakeLocation: value.location
+                )
+            }
+            .onEnded { _ in
+                finishPreviewDrag(for: window, at: NSEvent.mouseLocation)
+            }
     }
 
     private func cancelPreviewDrag(token: UUID? = nil) {
@@ -2203,6 +2262,7 @@ struct WindowPreviewHoverContainer: View {
                     currentSpaceNumbers: currentSpaceNumbers
                 )
                 .equatable()
+                .gesture(previewDragGesture(for: windowInfo))
             case .regular:
                 WindowPreview(
                     windowInfo: windowInfo,
@@ -2228,19 +2288,7 @@ struct WindowPreviewHoverContainer: View {
                     currentSpaceNumbers: currentSpaceNumbers
                 )
                 .equatable()
-                .gesture(
-                    DragGesture(minimumDistance: 3, coordinateSpace: .global)
-                        .onChanged { value in
-                            updatePreviewDrag(
-                                for: windowInfo,
-                                cursorLocation: NSEvent.mouseLocation,
-                                shakeLocation: value.location
-                            )
-                        }
-                        .onEnded { _ in
-                            finishPreviewDrag(for: windowInfo, at: NSEvent.mouseLocation)
-                        }
-                )
+                .gesture(previewDragGesture(for: windowInfo))
             }
         } else {
             EmptyView()
