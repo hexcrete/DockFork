@@ -60,7 +60,7 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
     }
 
     private func beginSpringLoading() {
-        guard !windowInfo.isWindowlessApp else { return }
+        guard Defaults[.enableSpringLoading], !windowInfo.isWindowlessApp else { return }
 
         springLoadTask?.cancel()
         if windowSwitcherActive {
@@ -69,7 +69,7 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
 
         springLoadTask = Task { @MainActor in
             do {
-                try await Task.sleep(nanoseconds: 1_500_000_000)
+                try await Task.sleep(nanoseconds: UInt64(effectiveSpringLoadingDelay * 1_000_000_000))
             } catch {
                 return
             }
@@ -85,6 +85,20 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
             springLoadTask = nil
             onTap?()
         }
+    }
+
+    private var effectiveSpringLoadingDelay: TimeInterval {
+        guard Defaults[.useSystemSpringLoadingSpeed] else {
+            return TimeInterval(Defaults[.springLoadingDelay])
+        }
+
+        // AppKit does not expose this preference through a public API.
+        guard let delay = (UserDefaults.standard.object(forKey: "com.apple.springing.delay") as? NSNumber)?.doubleValue,
+              delay.isFinite,
+              delay > 0,
+              delay <= 60
+        else { return TimeInterval(Defaults.Keys.springLoadingDelay.defaultValue) }
+        return delay
     }
 
     private func performReleaseFallback() {

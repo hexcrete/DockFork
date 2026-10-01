@@ -2116,6 +2116,31 @@ enum SettingsSearchCatalog {
 
     private static let advancedItems: [SettingsSearchItem] = [
         SettingsSearchItem(
+            id: "advanced.enableSpringLoading",
+            title: String(localized: "Enable spring-loading"),
+            description: String(localized: "Spring-loading reveals and activates a window after you drag an item over its preview in Dock previews, Window Switcher, or Cmd+Tab."),
+            keywords: ["spring", "loading", "drag", "hover", "activate", "window"],
+            tab: "Advanced",
+            section: String(localized: "Spring-loading"),
+            icon: "cursorarrow.motionlines"
+        ),
+        SettingsSearchItem(
+            id: "advanced.useSystemSpringLoadingSpeed",
+            title: String(localized: "Use system spring-loading speed"),
+            keywords: ["spring", "loading", "system", "speed", "delay"],
+            tab: "Advanced",
+            section: String(localized: "Spring-loading"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "advanced.springLoadingDelay",
+            title: String(localized: "Spring-loading delay"),
+            keywords: ["spring", "loading", "custom", "speed", "delay", "timer"],
+            tab: "Advanced",
+            section: String(localized: "Spring-loading"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
             id: "advanced.openDelay",
             title: String(localized: "Preview Window Open Delay"),
             keywords: ["delay", "open", "hover", "timer"],

@@ -10,6 +10,9 @@ struct AdvancedSettingsView: View {
     @Default(.windowProcessingDebounceInterval) var windowProcessingDebounceInterval
     @Default(.programmaticResizePreviewRefreshDelay) var programmaticResizePreviewRefreshDelay
     @Default(.nativeResizePreviewRefreshDelay) var nativeResizePreviewRefreshDelay
+    @Default(.enableSpringLoading) var enableSpringLoading
+    @Default(.useSystemSpringLoadingSpeed) var useSystemSpringLoadingSpeed
+    @Default(.springLoadingDelay) var springLoadingDelay
     @Default(.anchorDockPreviewPosition) var anchorDockPreviewPosition
     @Default(.preventDockHide) var preventDockHide
     @Default(.raisedWindowLevel) var raisedWindowLevel
@@ -38,6 +41,7 @@ struct AdvancedSettingsView: View {
         BaseSettingsView {
             VStack(alignment: .leading, spacing: 16) {
                 performanceTuningSection
+                springLoadingSection
                 previewQualitySection
                 livePreviewSection
 
@@ -60,6 +64,43 @@ struct AdvancedSettingsView: View {
         }
         .onChange(of: nativeResizePreviewRefreshDelay) { _ in
             applyResizeRefreshDebounceDelays()
+        }
+    }
+
+    // MARK: - Spring-loading
+
+    private var springLoadingSection: some View {
+        SettingsGroup(header: "Spring-loading") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(isOn: $enableSpringLoading) {
+                    Text("Enable spring-loading")
+                }
+                .settingsSearchTarget("advanced.enableSpringLoading")
+
+                Text("Spring-loading reveals and activates a window after you drag an item over its preview in Dock previews, Window Switcher, or Cmd+Tab.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 20)
+
+                if enableSpringLoading {
+                    Toggle(isOn: $useSystemSpringLoadingSpeed) {
+                        Text("Use system spring-loading speed")
+                    }
+                    .settingsSearchTarget("advanced.useSystemSpringLoadingSpeed")
+
+                    if !useSystemSpringLoadingSpeed {
+                        sliderSetting(
+                            title: "Spring-loading delay",
+                            value: $springLoadingDelay,
+                            range: 0.5 ... 2,
+                            step: 0.05,
+                            unit: "seconds",
+                            formatter: NumberFormatter.twoDecimalFormatter
+                        )
+                        .settingsSearchTarget("advanced.springLoadingDelay")
+                    }
+                }
+            }
         }
     }
 
