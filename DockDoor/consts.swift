@@ -136,10 +136,10 @@ enum ModifierDoubleTapKey: String, CaseIterable, Codable, Defaults.Serializable,
 
     var localizedName: String {
         switch self {
-        case .shift: String(localized: "Shift", comment: "Modifier key name")
-        case .control: String(localized: "Control", comment: "Modifier key name")
-        case .option: String(localized: "Option", comment: "Modifier key name")
-        case .command: String(localized: "Command", comment: "Modifier key name")
+        case .shift: String(localized: "Shift ⇧", comment: "Modifier key name")
+        case .control: String(localized: "Control ⌃", comment: "Modifier key name")
+        case .option: String(localized: "Option ⌥", comment: "Modifier key name")
+        case .command: String(localized: "Command ⌘", comment: "Modifier key name")
         }
     }
 
