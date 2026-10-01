@@ -199,7 +199,9 @@ struct SettingsMockPreview: View {
             dockDisableStyleTrafficLights
         }
 
-        let disableStyleTitles: Bool = if isCmdTab {
+        let disableStyleTitles: Bool = if isWindowSwitcher {
+            true
+        } else if isCmdTab {
             cmdTabDisableStyleTitles
         } else {
             dockDisableStyleTitles

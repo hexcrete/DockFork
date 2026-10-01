@@ -314,6 +314,31 @@ enum WindowStateSymbolResolver {
     }
 }
 
+private struct EmbeddedPreviewContrastShadow: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    let isEnabled: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.shadow(
+                color: colorScheme == .dark ? .black.opacity(0.6) : .white.opacity(0.85),
+                radius: 3,
+                y: 2
+            )
+        } else {
+            content
+        }
+    }
+}
+
+extension View {
+    func embeddedPreviewContrastShadow(_ isEnabled: Bool) -> some View {
+        modifier(EmbeddedPreviewContrastShadow(isEnabled: isEnabled))
+    }
+}
+
 struct WindowStateIndicator: View {
     static let unstyledControlLineHeight: CGFloat = 24
     private static let styledBadgeMinimumSize = CGSize(width: 14, height: 14)
@@ -364,7 +389,6 @@ struct WindowStateIndicator: View {
                     stateIcons()
                 }
                 .frame(height: Self.unstyledControlLineHeight)
-                .shadow(color: .black.opacity(0.6), radius: 3, y: 2)
             } else {
                 HStack(spacing: 4) {
                     badgeContent(minimumWidth: nil, minimumHeight: 0)
@@ -440,6 +464,18 @@ struct PreviewAppearanceSettings: Equatable {
         }
     }
 
+    var usesEmbeddedTitleContrastShadow: Bool {
+        useEmbeddedElements && disableDockStyleTitles
+    }
+
+    var usesEmbeddedTrafficLightContrastShadow: Bool {
+        useEmbeddedElements && disableDockStyleTrafficLights
+    }
+
+    var usesEmbeddedWindowStateContrastShadow: Bool {
+        useEmbeddedElements && disableDockStyleWindowStateIndicator
+    }
+
     static let observedKeys: [Defaults._AnyKey] = [
         .trafficLightButtonsVisibility, .switcherTrafficLightButtonsVisibility, .cmdTabTrafficLightButtonsVisibility,
         .enabledTrafficLightButtons, .switcherEnabledTrafficLightButtons, .cmdTabEnabledTrafficLightButtons,
@@ -493,7 +529,7 @@ struct PreviewAppearanceSettings: Equatable {
             controlPosition: pick(.dockPreviewControlPosition, switcher: .windowSwitcherControlPosition, cmdTab: .cmdTabControlPosition),
             useEmbeddedElements: pick(.useEmbeddedDockPreviewElements, switcher: .switcherUseEmbeddedDockPreviewElements, cmdTab: .cmdTabUseEmbeddedDockPreviewElements),
             disableDockStyleTrafficLights: pick(.disableDockStyleTrafficLights, switcher: .switcherDisableDockStyleTrafficLights, cmdTab: .cmdTabDisableDockStyleTrafficLights),
-            disableDockStyleTitles: pick(.disableDockStyleTitles, cmdTab: .cmdTabDisableDockStyleTitles),
+            disableDockStyleTitles: windowSwitcherActive ? true : pick(.disableDockStyleTitles, cmdTab: .cmdTabDisableDockStyleTitles),
             dimMinimizedHiddenPreviews: Defaults[.dimMinimizedHiddenPreviews],
             selectionOpacity: Defaults[.selectionOpacity],
             unselectedContentOpacity: Defaults[.unselectedContentOpacity],
@@ -718,6 +754,7 @@ struct WindowPreview: View, Equatable {
                     highlightOpacity: appearance.selectionOpacity,
                     activeBorderColor: appearance.activeAppIndicatorColor
                 )
+                .embeddedPreviewContrastShadow(appearance.usesEmbeddedWindowStateContrastShadow)
             }
             .fixedSize(horizontal: true, vertical: false)
             .layoutPriority(1)
@@ -942,6 +979,7 @@ struct WindowPreview: View, Equatable {
                     }
                     .frame(minWidth: 0)
                     .clipped()
+                    .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
             }
         }
 
@@ -961,6 +999,7 @@ struct WindowPreview: View, Equatable {
                 )
                 .frame(width: showTrafficLights ? nil : 0)
                 .clipped()
+                .embeddedPreviewContrastShadow(appearance.usesEmbeddedTrafficLightContrastShadow)
                 .animation(nil, value: showTrafficLights)
             } else if let stateLabel = visibleWindowStateLabel,
                       appearance.trafficLightVisibility != .never
@@ -975,6 +1014,7 @@ struct WindowPreview: View, Equatable {
                         view.materialPill(backgroundAppearance: backgroundAppearance)
                             .frame(height: 34)
                     }
+                    .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
             }
         }
 
@@ -1210,6 +1250,7 @@ struct WindowPreview: View, Equatable {
                     .multilineTextAlignment(textAlignment)
             }
         }
+        .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
 
         let appIconContent = Group {
             if let appIcon = windowInfo.app.icon {
@@ -1236,6 +1277,7 @@ struct WindowPreview: View, Equatable {
                 )
                 .frame(width: showTrafficLights ? nil : 0)
                 .clipped()
+                .embeddedPreviewContrastShadow(appearance.usesEmbeddedTrafficLightContrastShadow)
             } else if let stateLabel = visibleWindowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
@@ -1249,6 +1291,7 @@ struct WindowPreview: View, Equatable {
                         view.materialPill(backgroundAppearance: backgroundAppearance)
                             .frame(height: 34)
                     }
+                    .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
             }
         }
         .fixedSize()
@@ -1326,6 +1369,7 @@ struct WindowPreview: View, Equatable {
                     }
                     .frame(minWidth: 0)
                     .clipped()
+                    .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
             }
         }
 
@@ -1345,6 +1389,7 @@ struct WindowPreview: View, Equatable {
                 )
                 .frame(width: showTrafficLights ? nil : 0)
                 .clipped()
+                .embeddedPreviewContrastShadow(appearance.usesEmbeddedTrafficLightContrastShadow)
             } else if let stateLabel = visibleWindowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
@@ -1358,6 +1403,7 @@ struct WindowPreview: View, Equatable {
                         view.materialPill(backgroundAppearance: backgroundAppearance)
                             .frame(height: 34)
                     }
+                    .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
             }
         }
         .fixedSize()

@@ -130,6 +130,7 @@ struct WindowlessAppPreview: View, Equatable {
         .frame(minWidth: 34, minHeight: 34, alignment: alignment)
         .frame(width: isVisible ? nil : 0)
         .clipped()
+        .embeddedPreviewContrastShadow(appearance.usesEmbeddedTrafficLightContrastShadow)
         .contentShape(Rectangle())
     }
 
@@ -163,6 +164,7 @@ struct WindowlessAppPreview: View, Equatable {
             }
         }
         .padding(.trailing, 8)
+        .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
     }
 
     var body: some View {
