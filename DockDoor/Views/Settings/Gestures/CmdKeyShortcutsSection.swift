@@ -5,7 +5,6 @@ struct CmdKeyShortcutsSection: View {
     @Default(.cmdShortcuts) var cmdShortcuts
     @Default(.UserKeybind) private var windowSwitcherKeybind
     @Default(.enableSpacesShortcuts) private var enableSpacesShortcuts
-    @State private var autoCaptureShortcutID: UUID?
 
     var body: some View {
         SettingsGroup(header: "Window Preview Keyboard Shortcuts") {
@@ -39,16 +38,12 @@ struct CmdKeyShortcutsSection: View {
                 HStack(spacing: 8) {
                     Button("Reset to Defaults") {
                         cmdShortcuts = Defaults.Keys.cmdShortcuts.defaultValue
-                        autoCaptureShortcutID = nil
                     }
                     .buttonStyle(AccentButtonStyle(small: true))
                 }
                 .padding(.top, 4)
             }
             .settingsSearchTarget("gestures.cmdShortcuts")
-            .onAppear {
-                removeUnassignedRowsIfNeeded()
-            }
         }
     }
 
@@ -81,10 +76,7 @@ struct CmdKeyShortcutsSection: View {
                     emptyLabel: "Not set",
                     forceEmptyLabel: shortcut.isPending,
                     treatKeyCodeZeroAsEmpty: false,
-                    autoStartCapture: autoCaptureShortcutID == shortcut.id,
-                    onCaptureFinished: { assigned in
-                        handleCaptureFinished(for: shortcut.id, assigned: assigned)
-                    }
+                    cancelOnOutsideClick: true
                 )
             }
             .frame(minWidth: 80, alignment: .leading)
@@ -100,7 +92,6 @@ struct CmdKeyShortcutsSection: View {
             }
             .pickerStyle(.menu)
             .labelsHidden()
-            .disabled(shortcut.isPending)
 
             if let conflict {
                 Text(conflict.localizedMessage)
@@ -191,9 +182,6 @@ struct CmdKeyShortcutsSection: View {
 
     private func removeShortcut(_ id: UUID) {
         cmdShortcuts.removeAll { $0.id == id }
-        if autoCaptureShortcutID == id {
-            autoCaptureShortcutID = nil
-        }
     }
 
     private func addShortcut(after id: UUID?) {
@@ -205,31 +193,6 @@ struct CmdKeyShortcutsSection: View {
         }
         let pending = CmdShortcut(keyCode: 0, action: .none, isPending: true)
         cmdShortcuts.insert(pending, at: insertionIndex)
-        autoCaptureShortcutID = pending.id
-    }
-
-    private func handleCaptureFinished(for id: UUID, assigned: Bool) {
-        defer {
-            if autoCaptureShortcutID == id {
-                autoCaptureShortcutID = nil
-            }
-        }
-
-        guard !assigned else { return }
-        guard let rowIndex = cmdShortcuts.firstIndex(where: { $0.id == id }) else { return }
-        if cmdShortcuts[rowIndex].isPending {
-            cmdShortcuts.remove(at: rowIndex)
-        }
-    }
-
-    private func removeUnassignedRowsIfNeeded() {
-        let cleaned = cmdShortcuts.filter { !$0.isPending }
-        if cleaned.count != cmdShortcuts.count {
-            cmdShortcuts = cleaned
-        }
-        if let autoCaptureShortcutID, !cleaned.contains(where: { $0.id == autoCaptureShortcutID }) {
-            self.autoCaptureShortcutID = nil
-        }
     }
 }
 

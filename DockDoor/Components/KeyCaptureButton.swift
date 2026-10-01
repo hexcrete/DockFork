@@ -9,6 +9,7 @@ struct KeyCaptureButton: View {
     var captureModifiers: Bool = false
     var allowsEscape: Bool = false
     var autoStartCapture: Bool = false
+    var cancelOnOutsideClick: Bool = false
     var onCaptureFinished: ((Bool) -> Void)? = nil
 
     @State private var isCapturing = false
@@ -84,7 +85,7 @@ struct KeyCaptureButton: View {
             return nil
         }!)
 
-        if onCaptureFinished != nil {
+        if cancelOnOutsideClick || onCaptureFinished != nil {
             monitors.append(NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
                 stopCapture(reportAssigned: false)
                 return event

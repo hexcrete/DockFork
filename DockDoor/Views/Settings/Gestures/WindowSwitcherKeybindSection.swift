@@ -25,7 +25,6 @@ struct WindowSwitcherKeybindSection: View {
     @StateObject private var keybindModel = KeybindModel()
     @State private var showingAddBlacklistAppSheet = false
     @State private var newBlacklistApp = ""
-    @State private var autoCaptureAlternateShortcutID: UUID?
 
     var body: some View {
         SettingsGroup(header: "Window Switcher Shortcuts") {
@@ -293,21 +292,18 @@ struct WindowSwitcherKeybindSection: View {
             }
         }
         .settingsSearchTarget("gestures.alternateShortcuts")
-        .onAppear {
-            removePendingAlternateShortcutsIfNeeded()
-        }
     }
 
     private var indexedAlternateShortcuts: [(index: Int, shortcut: AlternateSwitcherShortcut)] {
         Array(alternateSwitcherShortcuts.enumerated()).map { (index: $0.offset, shortcut: $0.element) }
     }
 
-    private var hasPendingAlternateShortcut: Bool {
-        alternateSwitcherShortcuts.contains { $0.isPending }
+    private var hasIncompleteAlternateShortcut: Bool {
+        alternateSwitcherShortcuts.contains { $0.isPending || !$0.isConfigured }
     }
 
     private var canAddAlternateShortcut: Bool {
-        alternateSwitcherShortcuts.count < SwitcherInvocationMode.allCases.count && !hasPendingAlternateShortcut
+        alternateSwitcherShortcuts.count < SwitcherInvocationMode.allCases.count && !hasIncompleteAlternateShortcut
     }
 
     private func alternateShortcutRow(index: Int, shortcut: AlternateSwitcherShortcut) -> some View {
@@ -328,7 +324,6 @@ struct WindowSwitcherKeybindSection: View {
             .pickerStyle(.menu)
             .labelsHidden()
             .fixedSize()
-            .disabled(shortcut.isPending)
 
             Text("+")
                 .font(.system(size: 12))
@@ -340,10 +335,7 @@ struct WindowSwitcherKeybindSection: View {
                 forceEmptyLabel: !shortcut.isConfigured,
                 treatKeyCodeZeroAsEmpty: false,
                 allowsEscape: true,
-                autoStartCapture: autoCaptureAlternateShortcutID == shortcut.id,
-                onCaptureFinished: { assigned in
-                    handleAlternateCaptureFinished(for: shortcut.id, assigned: assigned)
-                }
+                cancelOnOutsideClick: true
             )
 
             Picker("Mode", selection: alternateModeBinding(for: shortcut.id)) {
@@ -354,7 +346,6 @@ struct WindowSwitcherKeybindSection: View {
             .pickerStyle(.menu)
             .labelsHidden()
             .frame(maxWidth: 220)
-            .disabled(shortcut.isPending)
 
             if let conflict {
                 Text(conflict.localizedMessage)
@@ -435,7 +426,6 @@ struct WindowSwitcherKeybindSection: View {
         let nextMode = SwitcherInvocationMode.sortedCases.first { !usedModes.contains($0) } ?? .activeAppOnly
         let pending = AlternateSwitcherShortcut(mode: nextMode, isPending: true)
         alternateSwitcherShortcuts.insert(pending, at: insertionIndex)
-        autoCaptureAlternateShortcutID = pending.id
     }
 
     private func removeAlternateShortcut(_ id: UUID) {
@@ -446,39 +436,6 @@ struct WindowSwitcherKeybindSection: View {
             alternateSwitcherShortcuts[index].isPending = false
         } else {
             alternateSwitcherShortcuts.remove(at: index)
-        }
-        if autoCaptureAlternateShortcutID == id {
-            autoCaptureAlternateShortcutID = nil
-        }
-    }
-
-    private func handleAlternateCaptureFinished(for id: UUID, assigned: Bool) {
-        defer {
-            if autoCaptureAlternateShortcutID == id {
-                autoCaptureAlternateShortcutID = nil
-            }
-        }
-
-        guard !assigned,
-              let index = alternateSwitcherShortcuts.firstIndex(where: { $0.id == id }),
-              alternateSwitcherShortcuts[index].isPending
-        else { return }
-
-        if alternateSwitcherShortcuts.count == 1 {
-            alternateSwitcherShortcuts[index].isPending = false
-            alternateSwitcherShortcuts[index].isConfigured = false
-        } else {
-            alternateSwitcherShortcuts.remove(at: index)
-        }
-    }
-
-    private func removePendingAlternateShortcutsIfNeeded() {
-        let configuredRows = alternateSwitcherShortcuts.filter { !$0.isPending }
-        alternateSwitcherShortcuts = configuredRows.isEmpty ? AlternateSwitcherShortcut.defaultShortcuts : configuredRows
-        if let autoCaptureAlternateShortcutID,
-           !alternateSwitcherShortcuts.contains(where: { $0.id == autoCaptureAlternateShortcutID })
-        {
-            self.autoCaptureAlternateShortcutID = nil
         }
     }
 
