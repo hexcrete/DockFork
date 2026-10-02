@@ -88,17 +88,15 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
     }
 
     private var effectiveSpringLoadingDelay: TimeInterval {
-        guard Defaults[.useSystemSpringLoadingSpeed] else {
-            return TimeInterval(Defaults[.springLoadingDelay])
+        let fallback = TimeInterval(Defaults.Keys.springLoadingDelay.defaultValue)
+        let delay: TimeInterval = if Defaults[.useSystemSpringLoadingSpeed] {
+            // AppKit does not expose this preference through a public API.
+            (UserDefaults.standard.object(forKey: "com.apple.springing.delay") as? NSNumber)?.doubleValue ?? fallback
+        } else {
+            TimeInterval(Defaults[.springLoadingDelay])
         }
 
-        // AppKit does not expose this preference through a public API.
-        guard let delay = (UserDefaults.standard.object(forKey: "com.apple.springing.delay") as? NSNumber)?.doubleValue,
-              delay.isFinite,
-              delay > 0,
-              delay <= 60
-        else { return TimeInterval(Defaults.Keys.springLoadingDelay.defaultValue) }
-        return delay
+        return delay.isFinite && delay > 0 && delay <= 60 ? delay : fallback
     }
 
     private func performReleaseFallback() {

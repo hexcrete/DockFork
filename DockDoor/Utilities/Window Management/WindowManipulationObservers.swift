@@ -6,7 +6,14 @@ import Defaults
 
 private weak var activeWindowManipulationObserversInstance: WindowManipulationObservers?
 private var pendingNotifications: [String: DispatchWorkItem] = [:]
-private let windowProcessingDebounceInterval: TimeInterval = Defaults[.windowProcessingDebounceInterval]
+private let windowProcessingDebounceInterval: TimeInterval = {
+    let configuredDelay = TimeInterval(Defaults[.windowProcessingDebounceInterval])
+    guard configuredDelay.isFinite, (0 ... 3).contains(configuredDelay) else {
+        return TimeInterval(Defaults.Keys.windowProcessingDebounceInterval.defaultValue)
+    }
+    return configuredDelay
+}()
+
 private let spaceChangeMinimumSettleInterval: TimeInterval = 0.35
 private let axObserverWorkQueue = DispatchQueue(label: "ddObsWorkQueue", qos: .userInitiated)
 
