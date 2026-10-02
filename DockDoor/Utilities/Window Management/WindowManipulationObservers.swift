@@ -51,12 +51,12 @@ class WindowManipulationObservers {
 
     private var observers: [pid_t: AXObserver] = [:]
     private var runningApplicationsObservation: NSKeyValueObservation?
+    private let debouncedTasksLock = NSLock()
     private var debouncedTasks: [String: Task<Void, Never>] = [:]
     private var cacheUpdateWorkItem: (token: UUID, workItem: DispatchWorkItem, hasStateAdjustment: Bool, needsValidation: Bool)?
     var updateDateTimeWorkItem: DispatchWorkItem?
     private func debounce(key: String, delay: TimeInterval = windowProcessingDebounceInterval, operation: @escaping () async -> Void) {
-        debouncedTasks[key]?.cancel()
-        debouncedTasks[key] = Task {
+        let task = Task {
             do {
                 try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             } catch {
@@ -69,6 +69,27 @@ class WindowManipulationObservers {
             }
             await operation()
         }
+
+        debouncedTasksLock.lock()
+        let previousTask = debouncedTasks.updateValue(task, forKey: key)
+        debouncedTasksLock.unlock()
+        previousTask?.cancel()
+    }
+
+    private func cancelDebouncedTask(key: String) {
+        debouncedTasksLock.lock()
+        let task = debouncedTasks.removeValue(forKey: key)
+        debouncedTasksLock.unlock()
+        task?.cancel()
+    }
+
+    private func cancelAllDebouncedTasks() {
+        debouncedTasksLock.lock()
+        let tasks = Array(debouncedTasks.values)
+        debouncedTasks.removeAll()
+        debouncedTasksLock.unlock()
+
+        tasks.forEach { $0.cancel() }
     }
 
     init(
@@ -82,6 +103,7 @@ class WindowManipulationObservers {
     }
 
     deinit {
+        cancelAllDebouncedTasks()
         NSWorkspace.shared.notificationCenter.removeObserver(self)
         NotificationCenter.default.removeObserver(self)
         removeAllObservers()
@@ -98,6 +120,7 @@ class WindowManipulationObservers {
     }
 
     func reset() {
+        cancelAllDebouncedTasks()
         removeAllObservers()
         let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
         for app in apps {
@@ -172,6 +195,7 @@ class WindowManipulationObservers {
 
     @MainActor
     private func handleAppTermination(pid: pid_t) {
+        cancelDebouncedTask(key: "windowCreation-\(pid)")
         WindowUtil.purgeAppCache(with: pid)
         removeObserver(for: pid)
 
@@ -533,9 +557,8 @@ class WindowManipulationObservers {
                     WindowUtil.quitAppOnLastWindowCloseIfNeeded(app: app)
                 }
             }
-            DispatchQueue.main.async { [weak self] in
-                guard self?.cacheUpdateWorkItem?.token == token else { return }
-                self?.cacheUpdateWorkItem = nil
+            if cacheUpdateWorkItem?.token == token {
+                cacheUpdateWorkItem = nil
             }
         }
         cacheUpdateWorkItem = (token, workItem, hasStateAdjustment, effectiveValidate)
