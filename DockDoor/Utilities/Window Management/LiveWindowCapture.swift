@@ -4,6 +4,11 @@ import ScreenCaptureKit
 import SwiftUI
 import VideoToolbox
 
+private func keepAliveNanoseconds(for seconds: Int) -> UInt64 {
+    let (nanoseconds, overflow) = UInt64(clamping: seconds).multipliedReportingOverflow(by: 1_000_000_000)
+    return overflow ? .max : nanoseconds
+}
+
 struct LivePreviewImage: View {
     let windowID: CGWindowID
     let fallbackImage: CGImage?
@@ -111,7 +116,7 @@ final class LiveCaptureManager {
         stopGeneration += 1
         let generationAtClose = stopGeneration
 
-        try? await Task.sleep(nanoseconds: UInt64(keepAlive) * 1_000_000_000)
+        try? await Task.sleep(nanoseconds: keepAliveNanoseconds(for: keepAlive))
 
         guard stopGeneration == generationAtClose else { return }
 
@@ -270,7 +275,7 @@ final class WindowLiveCapture: ObservableObject {
         stopGeneration += 1
         let generationAtStop = stopGeneration
 
-        try? await Task.sleep(nanoseconds: UInt64(keepAlive) * 1_000_000_000)
+        try? await Task.sleep(nanoseconds: keepAliveNanoseconds(for: keepAlive))
 
         guard stopGeneration == generationAtStop else { return }
 
