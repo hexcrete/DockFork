@@ -1175,8 +1175,7 @@ class KeybindHelper {
         if modifierDoubleTapState.pressedKeyCodes.contains(keyCode) {
             modifierDoubleTapState.pressedKeyCodes.remove(keyCode)
             if let firstPress = modifierDoubleTapState.firstPressTimestampByKeyCode[keyCode] {
-                let pressDuration = Double(event.timestamp - firstPress) / 1_000_000_000
-                if pressDuration <= NSEvent.doubleClickInterval {
+                if isWithinModifierDoubleTapInterval(event.timestamp, after: firstPress) {
                     modifierDoubleTapState.completedFirstTapKeyCodes.insert(keyCode)
                 } else {
                     modifierDoubleTapState.resetSequence()
@@ -1195,15 +1194,24 @@ class KeybindHelper {
         if modifierDoubleTapState.completedFirstTapKeyCodes.contains(keyCode),
            let firstPress = modifierDoubleTapState.firstPressTimestampByKeyCode[keyCode]
         {
-            let elapsed = Double(event.timestamp - firstPress) / 1_000_000_000
+            let isWithinInterval = isWithinModifierDoubleTapInterval(event.timestamp, after: firstPress)
             modifierDoubleTapState.resetSequence()
-            if elapsed <= NSEvent.doubleClickInterval {
+            if isWithinInterval {
                 return matchingShortcut.1
             }
         }
 
         modifierDoubleTapState.firstPressTimestampByKeyCode[keyCode] = event.timestamp
         return nil
+    }
+
+    private func isWithinModifierDoubleTapInterval(
+        _ timestamp: CGEventTimestamp,
+        after firstPressTimestamp: CGEventTimestamp
+    ) -> Bool {
+        guard timestamp >= firstPressTimestamp else { return false }
+        let elapsed = Double(timestamp - firstPressTimestamp) / 1_000_000_000
+        return elapsed <= NSEvent.doubleClickInterval
     }
 
     @MainActor
