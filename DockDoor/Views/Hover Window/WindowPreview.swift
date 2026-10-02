@@ -342,6 +342,14 @@ extension View {
 struct WindowStateIndicator: View {
     static let unstyledControlLineHeight: CGFloat = 24
     private static let styledBadgeMinimumSize = CGSize(width: 14, height: 14)
+    private static let styledContentPadding: CGFloat = 4
+
+    static func controlHeight(disableDockStyling: Bool) -> CGFloat {
+        if disableDockStyling {
+            return unstyledControlLineHeight
+        }
+        return styledBadgeMinimumSize.height + 2 * styledContentPadding + 2 * MaterialPillStyle.verticalPadding
+    }
 
     let number: Int?
     let stateSymbols: [String]
@@ -380,7 +388,7 @@ struct WindowStateIndicator: View {
                     if number != nil {
                         badgeContent(minimumWidth: 18, minimumHeight: 18)
                             .overlay {
-                                Capsule().stroke(
+                                Capsule().strokeBorder(
                                     highlightsCurrentSpace ? activeBorderColor : .secondary,
                                     lineWidth: highlightsCurrentSpace ? 2.5 : 1
                                 )
@@ -398,7 +406,7 @@ struct WindowStateIndicator: View {
                     minWidth: Self.styledBadgeMinimumSize.width,
                     minHeight: Self.styledBadgeMinimumSize.height
                 )
-                .padding(4)
+                .padding(Self.styledContentPadding)
                 .materialPill(
                     backgroundAppearance: backgroundAppearance,
                     highlightColor: highlightsCurrentSpace ? highlightColor : nil,
@@ -474,6 +482,37 @@ struct PreviewAppearanceSettings: Equatable {
 
     var usesEmbeddedWindowStateContrastShadow: Bool {
         useEmbeddedElements && disableDockStyleWindowStateIndicator
+    }
+
+    func compactControlAlignmentEdgeInset(
+        hasWindowStateIndicator: Bool,
+        hasTrafficLightButtons: Bool,
+        windowStateIndicatorIsOutermost: Bool
+    ) -> CGFloat {
+        let outerControlHeight: CGFloat? = if windowStateIndicatorIsOutermost {
+            WindowStateIndicator.controlHeight(disableDockStyling: disableDockStyleWindowStateIndicator)
+        } else if hasTrafficLightButtons {
+            TrafficLightButtons.controlHeight(
+                buttonScale: trafficLightButtonScale,
+                pillStyling: !disableDockStyleTrafficLights
+            )
+        } else if hasWindowStateIndicator {
+            WindowStateIndicator.controlHeight(disableDockStyling: disableDockStyleWindowStateIndicator)
+        } else {
+            nil
+        }
+        guard let outerControlHeight else { return 0 }
+
+        let outerControlUsesPill = windowStateIndicatorIsOutermost
+            ? !disableDockStyleWindowStateIndicator
+            : hasTrafficLightButtons && !disableDockStyleTrafficLights
+        let opticalInset: CGFloat = windowStateIndicatorIsOutermost && disableDockStyleWindowStateIndicator ? 2 : 0
+        let pillInsetReduction: CGFloat = outerControlUsesPill ? 1 : 0
+        let edgeInset = max(
+            0,
+            (compactModeItemSize.rowHeight - outerControlHeight) / 2 - pillInsetReduction + opticalInset
+        )
+        return max(-CGFloat(CardRadius.innerPadding), edgeInset - CGFloat(CardRadius.innerPadding))
     }
 
     static let observedKeys: [Defaults._AnyKey] = [
@@ -637,6 +676,42 @@ struct PreviewTitleCluster<Icon: View, Labels: View>: View {
     }
 }
 
+private extension WindowTitleFontSize {
+    static let measuredLineHeights = Dictionary(uniqueKeysWithValues: allCases.map { size in
+        let font = NSFont.preferredFont(forTextStyle: size.appKitTextStyle, options: [:])
+        return (size, ceil(font.ascender - font.descender + font.leading))
+    })
+
+    static let bodyLineHeight = ceil(
+        NSFont.preferredFont(forTextStyle: .body, options: [:]).boundingRectForFont.height
+    )
+
+    var measuredLineHeight: CGFloat {
+        Self.measuredLineHeights[self] ?? Self.bodyLineHeight
+    }
+
+    private var appKitTextStyle: NSFont.TextStyle {
+        switch self {
+        case .system, .subheadline: .subheadline
+        case .caption2: .caption2
+        case .caption: .caption1
+        case .footnote: .footnote
+        case .body: .body
+        case .headline: .headline
+        case .title3: .title3
+        case .title2: .title2
+        case .title: .title1
+        }
+    }
+}
+
+private extension View {
+    func previewOuterEdgePadding(_ amount: CGFloat, onLeadingEdge: Bool, enabled: Bool = true) -> some View {
+        padding(.leading, enabled && onLeadingEdge ? amount : 0)
+            .padding(.trailing, enabled && !onLeadingEdge ? amount : 0)
+    }
+}
+
 struct WindowPreview: View, Equatable {
     let windowInfo: WindowInfo
     let onTap: (() -> Void)?
@@ -729,14 +804,10 @@ struct WindowPreview: View, Equatable {
     }
 
     @ViewBuilder
-    private func windowStateIndicator(
-        controlsAreLeading: Bool,
-        nonAlignmentPadding: CGFloat
-    ) -> some View {
+    private var windowStateIndicator: some View {
         let stateSymbols = movesWindowStateToIndicator ? windowStateSymbols : []
         let spaceNumber = appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : nil
         if spaceNumber != nil || !stateSymbols.isEmpty {
-            let adjustedPadding = stateSymbols.isEmpty ? max(0, nonAlignmentPadding) : 0
             SpaceMoveIndicatorControl(
                 window: windowInfo,
                 spaceNumber: spaceNumber,
@@ -758,42 +829,90 @@ struct WindowPreview: View, Equatable {
             }
             .fixedSize(horizontal: true, vertical: false)
             .layoutPriority(1)
-            .padding(.leading, controlsAreLeading ? 0 : -adjustedPadding)
-            .padding(.trailing, controlsAreLeading ? -adjustedPadding : 0)
         }
     }
 
     @ViewBuilder
     private func controlsWithWindowStateIndicator(
         controlsAreLeading: Bool,
-        nonAlignmentPadding: CGFloat = 0,
+        hasAdjacentControl: Bool,
+        adjacentControlHeight: CGFloat?,
         spacing: CGFloat = 8,
         @ViewBuilder content: () -> some View
     ) -> some View {
-        let sideInset: CGFloat = nonAlignmentPadding > 0 ? 2 : 0
         let swapsIndicators = appearance.swapTrafficLightsAndWindowStateIndicator && !appearance.limitIndicatorSwapToCompactMode
         let controlsComeFirst = controlsAreLeading != swapsIndicators
+        let stateIndicatorIsOutermost = hasWindowStateIndicator &&
+            (!hasAdjacentControl || controlsAreLeading != controlsComeFirst)
+        let opticalEdgeInset: CGFloat = stateIndicatorIsOutermost && appearance.disableDockStyleWindowStateIndicator ? 2 : 0
+        let stateIndicatorHeight = hasWindowStateIndicator
+            ? WindowStateIndicator.controlHeight(disableDockStyling: appearance.disableDockStyleWindowStateIndicator)
+            : nil
+        let clusterHeight = max(stateIndicatorHeight ?? 0, adjacentControlHeight ?? 0)
+        let outerControlHeight = stateIndicatorIsOutermost ? stateIndicatorHeight : adjacentControlHeight
+        let heightAlignmentInset = max(
+            0,
+            (clusterHeight - (outerControlHeight ?? clusterHeight)) / 2
+        )
+        let edgeInset = heightAlignmentInset + opticalEdgeInset
         HStack(spacing: spacing) {
             if controlsComeFirst {
                 content()
-                windowStateIndicator(
-                    controlsAreLeading: controlsAreLeading,
-                    nonAlignmentPadding: nonAlignmentPadding
-                )
+                windowStateIndicator
             } else {
-                windowStateIndicator(
-                    controlsAreLeading: controlsAreLeading,
-                    nonAlignmentPadding: nonAlignmentPadding
-                )
+                windowStateIndicator
                 content()
             }
         }
-        .padding(.leading, controlsAreLeading ? 0 : sideInset)
-        .padding(.trailing, controlsAreLeading ? sideInset : 0)
+        .padding(.leading, controlsAreLeading ? edgeInset : 0)
+        .padding(.trailing, controlsAreLeading ? 0 : edgeInset)
     }
 
-    private func controlsSpacing(hasAdjacentControl: Bool) -> CGFloat {
-        appearance.disableDockStyleWindowStateIndicator || hasAdjacentControl ? 8 : 0
+    private func dockTitleControlHeight() -> CGFloat {
+        let contentHeight = appearance.windowTitleFontSize.measuredLineHeight + 8
+        return contentHeight + (appearance.disableDockStyleTitles ? 0 : 2 * MaterialPillStyle.verticalPadding)
+    }
+
+    private func controlClusterHeight(adjacentControlHeight: CGFloat?) -> CGFloat? {
+        let stateIndicatorHeight = hasWindowStateIndicator
+            ? WindowStateIndicator.controlHeight(disableDockStyling: appearance.disableDockStyleWindowStateIndicator)
+            : nil
+        guard stateIndicatorHeight != nil || adjacentControlHeight != nil else { return nil }
+        return max(stateIndicatorHeight ?? 0, adjacentControlHeight ?? 0)
+    }
+
+    private func rowEdgeInsets(
+        titleHeight: CGFloat?,
+        controlsHeight: CGFloat?
+    ) -> (title: CGFloat, controls: CGFloat) {
+        let rowHeight = max(titleHeight ?? 0, controlsHeight ?? 0)
+        return (
+            titleHeight.map { max(0, (rowHeight - $0) / 2) } ?? 0,
+            controlsHeight.map { max(0, (rowHeight - $0) / 2) } ?? 0
+        )
+    }
+
+    private func controlsSpacing(hasAdjacentControl: Bool, hasVisibleTrafficLights: Bool) -> CGFloat {
+        if hasAdjacentControl {
+            return hasVisibleTrafficLights && appearance.disableDockStyleTrafficLights ? 6 : 8
+        }
+        return !appearance.useEmbeddedElements && appearance.disableDockStyleWindowStateIndicator ? 8 : 0
+    }
+
+    private func configuredAdjacentControlHeight(
+        hasTrafficLights: Bool,
+        stateLabelHeight: CGFloat
+    ) -> CGFloat? {
+        if hasTrafficLights {
+            return TrafficLightButtons.controlHeight(
+                buttonScale: appearance.trafficLightButtonScale,
+                pillStyling: !appearance.disableDockStyleTrafficLights
+            )
+        }
+        guard !hasTrafficLights, visibleWindowStateLabel != nil,
+              appearance.trafficLightVisibility != .never
+        else { return nil }
+        return appearance.disableDockStyleTitles ? stateLabelHeight + 8 : 34
     }
 
     private var canRenderTrafficLightButtons: Bool {
@@ -967,6 +1086,22 @@ struct WindowPreview: View, Equatable {
         )
         let hasVisibleAdjacentControl = (hasTrafficLights && showTrafficLights) ||
             (!hasTrafficLights && visibleWindowStateLabel != nil && appearance.trafficLightVisibility != .never)
+        let configuredAdjacentHeight = configuredAdjacentControlHeight(
+            hasTrafficLights: hasTrafficLights,
+            stateLabelHeight: 17 * appearance.trafficLightButtonScale
+        )
+        let controlsHeight = controlClusterHeight(adjacentControlHeight: configuredAdjacentHeight)
+        let titleIsConfigured = appearance.showWindowTitle && titleToShow != nil
+        let sharesToolbarRow = switch appearance.controlPosition {
+        case .topLeading, .topTrailing, .bottomLeading, .bottomTrailing: true
+        default: false
+        }
+        let edgeInsets = sharesToolbarRow
+            ? rowEdgeInsets(
+                titleHeight: titleIsConfigured ? dockTitleControlHeight() : nil,
+                controlsHeight: controlsHeight
+            )
+            : (title: 0, controls: 0)
         let titleTextAlignment: TextAlignment = appearance.controlPosition.titleIsTrailing ? .trailing : .leading
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
@@ -982,11 +1117,16 @@ struct WindowPreview: View, Equatable {
                     .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
             }
         }
+        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !embeddedControlsAreLeading, enabled: hasTitle)
 
         let controlsContent = controlsWithWindowStateIndicator(
             controlsAreLeading: embeddedControlsAreLeading,
-            nonAlignmentPadding: hasTrafficLights && showTrafficLights ? 10 : 0,
-            spacing: controlsSpacing(hasAdjacentControl: hasVisibleAdjacentControl)
+            hasAdjacentControl: hasVisibleAdjacentControl,
+            adjacentControlHeight: configuredAdjacentHeight,
+            spacing: controlsSpacing(
+                hasAdjacentControl: hasVisibleAdjacentControl,
+                hasVisibleTrafficLights: hasTrafficLights && showTrafficLights
+            )
         ) {
             if hasTrafficLights {
                 TrafficLightButtons(
@@ -1017,19 +1157,24 @@ struct WindowPreview: View, Equatable {
                     .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
             }
         }
+        .previewOuterEdgePadding(
+            edgeInsets.controls,
+            onLeadingEdge: embeddedControlsAreLeading,
+            enabled: hasWindowStateIndicator || hasVisibleAdjacentControl
+        )
 
         if hasTitle || hasTrafficLights || hasWindowStateIndicator {
             switch appearance.controlPosition {
             case .topLeading, .topTrailing:
                 VStack {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 0) {
                         if appearance.controlPosition == .topLeading {
                             titleContent
-                            Spacer()
+                            Spacer(minLength: 8)
                             controlsContent
                         } else {
                             controlsContent
-                            Spacer()
+                            Spacer(minLength: 8)
                             titleContent
                         }
                     }
@@ -1039,14 +1184,14 @@ struct WindowPreview: View, Equatable {
             case .bottomLeading, .bottomTrailing:
                 VStack {
                     Spacer()
-                    HStack(spacing: 4) {
+                    HStack(spacing: 0) {
                         if appearance.controlPosition == .bottomLeading {
                             titleContent
-                            Spacer()
+                            Spacer(minLength: 8)
                             controlsContent
                         } else {
                             controlsContent
-                            Spacer()
+                            Spacer(minLength: 8)
                             titleContent
                         }
                     }
@@ -1216,7 +1361,12 @@ struct WindowPreview: View, Equatable {
         }
     }
 
-    private func windowSwitcherContent(_ selected: Bool, isLeadingControls: Bool, showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View {
+    private func windowSwitcherContent(
+        _ selected: Bool,
+        isLeadingControls: Bool,
+        showTitleContent: Bool = true,
+        showControlsContent: Bool = true
+    ) -> some View {
         let shouldShowAppHeader = appearance.showAppHeader && showTitleContent
         let shouldShowControls = showControlsContent && hasWindowSwitcherControlContent
         let shouldShowWindowTitle = appearance.showWindowTitle &&
@@ -1226,11 +1376,27 @@ struct WindowPreview: View, Equatable {
         )
         let hasVisibleAdjacentControl = (canRenderTrafficLightButtons && showTrafficLights) ||
             (!canRenderTrafficLightButtons && visibleWindowStateLabel != nil && appearance.trafficLightVisibility != .never)
+        let configuredAdjacentHeight = configuredAdjacentControlHeight(
+            hasTrafficLights: canRenderTrafficLightButtons,
+            stateLabelHeight: 17
+        )
         let windowTitle = windowInfo.windowName
         let hasWindowTitleLabel = shouldShowWindowTitle &&
             windowTitle?.isEmpty == false &&
             windowTitle != windowInfo.app.localizedName
         let appIconSize = switcherAppIconSize(hasSecondaryLabel: hasWindowTitleLabel)
+        let configuredWindowTitle = appearance.showWindowTitle &&
+            windowTitle?.isEmpty == false &&
+            windowTitle != windowInfo.app.localizedName
+        let labelsHeight = showAppIconOnly
+            ? 0
+            : WindowTitleFontSize.bodyLineHeight +
+            (configuredWindowTitle ? appearance.windowTitleFontSize.measuredLineHeight : 0)
+        let titleHeight = shouldShowAppHeader ? max(appIconSize, labelsHeight) : nil
+        let controlsHeight = shouldShowControls
+            ? controlClusterHeight(adjacentControlHeight: configuredAdjacentHeight)
+            : nil
+        let edgeInsets = rowEdgeInsets(titleHeight: titleHeight, controlsHeight: controlsHeight)
 
         let titleOnRight = appearance.controlPosition.titleIsTrailing
         let titleAlignment: HorizontalAlignment = titleOnRight ? .trailing : .leading
@@ -1263,8 +1429,12 @@ struct WindowPreview: View, Equatable {
 
         let controlsContent = controlsWithWindowStateIndicator(
             controlsAreLeading: isLeadingControls,
-            nonAlignmentPadding: 0,
-            spacing: controlsSpacing(hasAdjacentControl: hasVisibleAdjacentControl)
+            hasAdjacentControl: hasVisibleAdjacentControl,
+            adjacentControlHeight: configuredAdjacentHeight,
+            spacing: controlsSpacing(
+                hasAdjacentControl: hasVisibleAdjacentControl,
+                hasVisibleTrafficLights: canRenderTrafficLightButtons && showTrafficLights
+            )
         ) {
             if canRenderTrafficLightButtons {
                 TrafficLightButtons(
@@ -1295,6 +1465,11 @@ struct WindowPreview: View, Equatable {
             }
         }
         .fixedSize()
+        .previewOuterEdgePadding(
+            edgeInsets.controls,
+            onLeadingEdge: isLeadingControls,
+            enabled: shouldShowControls && (hasWindowStateIndicator || hasVisibleAdjacentControl)
+        )
 
         let controlsGap: CGFloat = (canRenderTrafficLightButtons && showTrafficLights) ? 0 : 8
 
@@ -1304,6 +1479,7 @@ struct WindowPreview: View, Equatable {
             titleAndSubtitleContent
         }
         .layoutPriority(1)
+        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !isLeadingControls, enabled: shouldShowAppHeader)
 
         if !shouldShowAppHeader, !shouldShowControls {
             return AnyView(EmptyView())
@@ -1339,7 +1515,12 @@ struct WindowPreview: View, Equatable {
         }
     }
 
-    private func dockPreviewContent(_ selected: Bool, isLeadingControls: Bool, showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View {
+    private func dockPreviewContent(
+        _ selected: Bool,
+        isLeadingControls: Bool,
+        showTitleContent: Bool = true,
+        showControlsContent: Bool = true
+    ) -> some View {
         // Determine what title to show: window name first, then app name as fallback
         let titleToShow: String? = if let windowTitle = windowInfo.windowName, !windowTitle.isEmpty {
             windowTitle
@@ -1357,6 +1538,18 @@ struct WindowPreview: View, Equatable {
         )
         let hasVisibleAdjacentControl = (hasTrafficLights && showTrafficLights) ||
             (!hasTrafficLights && visibleWindowStateLabel != nil && appearance.trafficLightVisibility != .never)
+        let configuredAdjacentHeight = configuredAdjacentControlHeight(
+            hasTrafficLights: hasTrafficLights,
+            stateLabelHeight: 17 * appearance.trafficLightButtonScale
+        )
+        let titleIsConfigured = appearance.showWindowTitle && titleToShow != nil && showTitleContent
+        let controlsHeight = showControlsContent
+            ? controlClusterHeight(adjacentControlHeight: configuredAdjacentHeight)
+            : nil
+        let edgeInsets = rowEdgeInsets(
+            titleHeight: titleIsConfigured ? dockTitleControlHeight() : nil,
+            controlsHeight: controlsHeight
+        )
         let titleTextAlignment: TextAlignment = appearance.controlPosition.titleIsTrailing ? .trailing : .leading
         let titleContent = Group {
             if hasTitle, let title = titleToShow {
@@ -1372,11 +1565,16 @@ struct WindowPreview: View, Equatable {
                     .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
             }
         }
+        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !isLeadingControls, enabled: hasTitle)
 
         let controlsContent = controlsWithWindowStateIndicator(
             controlsAreLeading: isLeadingControls,
-            nonAlignmentPadding: 0,
-            spacing: controlsSpacing(hasAdjacentControl: hasVisibleAdjacentControl)
+            hasAdjacentControl: hasVisibleAdjacentControl,
+            adjacentControlHeight: configuredAdjacentHeight,
+            spacing: controlsSpacing(
+                hasAdjacentControl: hasVisibleAdjacentControl,
+                hasVisibleTrafficLights: hasTrafficLights && showTrafficLights
+            )
         ) {
             if hasTrafficLights {
                 TrafficLightButtons(
@@ -1407,6 +1605,11 @@ struct WindowPreview: View, Equatable {
             }
         }
         .fixedSize()
+        .previewOuterEdgePadding(
+            edgeInsets.controls,
+            onLeadingEdge: isLeadingControls,
+            enabled: showControlsContent && (hasWindowStateIndicator || hasVisibleAdjacentControl)
+        )
 
         if hasTitle || hasTrafficLights || hasWindowStateIndicator {
             if appearance.controlPosition.isCentered {
@@ -1457,9 +1660,19 @@ struct WindowPreview: View, Equatable {
                     if shouldShowTopToolbar {
                         Group {
                             if windowSwitcherActive {
-                                windowSwitcherContent(finalIsSelected, isLeadingControls: config.isLeadingControls, showTitleContent: config.showTitle, showControlsContent: config.showControls)
+                                windowSwitcherContent(
+                                    finalIsSelected,
+                                    isLeadingControls: config.isLeadingControls,
+                                    showTitleContent: config.showTitle,
+                                    showControlsContent: config.showControls
+                                )
                             } else {
-                                dockPreviewContent(finalIsSelected, isLeadingControls: config.isLeadingControls, showTitleContent: config.showTitle, showControlsContent: config.showControls)
+                                dockPreviewContent(
+                                    finalIsSelected,
+                                    isLeadingControls: config.isLeadingControls,
+                                    showTitleContent: config.showTitle,
+                                    showControlsContent: config.showControls
+                                )
                             }
                         }
                         .padding(.horizontal, switcherToolbarHorizontalPadding)
@@ -1484,9 +1697,19 @@ struct WindowPreview: View, Equatable {
                     if shouldShowBottomToolbar {
                         Group {
                             if windowSwitcherActive {
-                                windowSwitcherContent(finalIsSelected, isLeadingControls: config.isLeadingControls, showTitleContent: config.showTitle, showControlsContent: config.showControls)
+                                windowSwitcherContent(
+                                    finalIsSelected,
+                                    isLeadingControls: config.isLeadingControls,
+                                    showTitleContent: config.showTitle,
+                                    showControlsContent: config.showControls
+                                )
                             } else {
-                                dockPreviewContent(finalIsSelected, isLeadingControls: config.isLeadingControls, showTitleContent: config.showTitle, showControlsContent: config.showControls)
+                                dockPreviewContent(
+                                    finalIsSelected,
+                                    isLeadingControls: config.isLeadingControls,
+                                    showTitleContent: config.showTitle,
+                                    showControlsContent: config.showControls
+                                )
                             }
                         }
                         .padding(.horizontal, switcherToolbarHorizontalPadding)

@@ -1,6 +1,19 @@
 import Defaults
 import SwiftUI
 
+private struct CompactRowContentClip: Shape {
+    let trailingOverflow: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        Path(CGRect(
+            x: rect.minX,
+            y: rect.minY,
+            width: rect.width + trailingOverflow,
+            height: rect.height
+        ))
+    }
+}
+
 struct WindowPreviewCompact: View, Equatable {
     let windowInfo: WindowInfo
     let index: Int
@@ -108,6 +121,10 @@ struct WindowPreviewCompact: View, Equatable {
         movesWindowStateToIndicator ? windowStateSymbols : []
     }
 
+    private var hasWindowStateIndicator: Bool {
+        (appearance.showSpaceNumberIndicator && windowInfo.spaceNumber != nil) || !indicatorStateSymbols.isEmpty
+    }
+
     @ViewBuilder
     private var windowStateIndicator: some View {
         let spaceNumber = appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : nil
@@ -158,7 +175,18 @@ struct WindowPreviewCompact: View, Equatable {
         )
         let hasVisibleTrafficLightButtons = !appearance.compactModeHideTrafficLights &&
             canRenderTrafficLightButtons && showTrafficLightButtons
-        let controlsSpacing: CGFloat = appearance.disableDockStyleWindowStateIndicator || hasVisibleTrafficLightButtons ? 8 : 0
+        let windowStateIndicatorIsOutermost = hasWindowStateIndicator &&
+            (!hasVisibleTrafficLightButtons || appearance.swapTrafficLightsAndWindowStateIndicator)
+        let controlsTrailingInset = appearance.compactControlAlignmentEdgeInset(
+            hasWindowStateIndicator: hasWindowStateIndicator,
+            hasTrafficLightButtons: hasVisibleTrafficLightButtons,
+            windowStateIndicatorIsOutermost: windowStateIndicatorIsOutermost
+        )
+        let controlsSpacing: CGFloat = if hasWindowStateIndicator, hasVisibleTrafficLightButtons {
+            appearance.disableDockStyleTrafficLights ? 6 : 8
+        } else {
+            0
+        }
 
         HStack(spacing: 10) {
             // App icon
@@ -223,11 +251,12 @@ struct WindowPreviewCompact: View, Equatable {
                     trafficLightButtons(isVisible: showTrafficLightButtons)
                 }
             }
+            .padding(.trailing, controlsTrailingInset)
         }
         .animation(nil, value: showTrafficLightButtons)
         .padding(.vertical, 8)
         .frame(width: rowWidth, height: appearance.compactModeItemSize.rowHeight, alignment: .leading)
-        .clipped()
+        .clipShape(CompactRowContentClip(trailingOverflow: max(0, -controlsTrailingInset)))
         .previewCardChrome(
             uniformCardRadius: uniformCardRadius,
             paddingMultiplier: appearance.globalPaddingMultiplier,

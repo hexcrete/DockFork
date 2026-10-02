@@ -3,6 +3,9 @@ import ScreenCaptureKit
 import SwiftUI
 
 struct TrafficLightButtons: View {
+    private static let buttonFrameSize: CGFloat = 17
+    private static let contentPadding: CGFloat = 4
+
     @Environment(\.colorScheme) var colorScheme
     let displayMode: TrafficLightButtonsVisibility
     let hoveringOverParentWindow: Bool
@@ -55,7 +58,7 @@ struct TrafficLightButtons: View {
                                   fillColor: Color(red: 0.42, green: 0.60, blue: 0.98))
                     }
                 }
-                .padding(4)
+                .padding(Self.contentPadding)
                 .simultaneousGesture(TapGesture())
                 .onHover { isHovering in
                     withAnimation(.snappy(duration: 0.175)) {
@@ -97,7 +100,7 @@ struct TrafficLightButtons: View {
                 .foregroundStyle(useMonochrome ? AnyShapeStyle(.secondary) : AnyShapeStyle(color), .clear)
         }
         .scaleEffect(buttonScale)
-        .frame(width: 17 * buttonScale, height: 17 * buttonScale)
+        .frame(width: Self.buttonFrameSize * buttonScale, height: Self.buttonFrameSize * buttonScale)
         .contentShape(Rectangle())
         .onTapGesture {
             onWindowAction(action)
@@ -105,6 +108,11 @@ struct TrafficLightButtons: View {
     }
 
     private static let glyphFontSize: CGFloat = 13
+
+    static func controlHeight(buttonScale: CGFloat, pillStyling: Bool) -> CGFloat {
+        let contentHeight = buttonFrameSize * buttonScale + 2 * contentPadding
+        return contentHeight + (pillStyling ? 2 * MaterialPillStyle.verticalPadding : 0)
+    }
 }
 
 struct TrafficLightOrb: View {

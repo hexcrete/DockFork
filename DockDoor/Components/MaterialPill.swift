@@ -1,14 +1,17 @@
 import SwiftUI
 
 struct MaterialPillStyle: ViewModifier {
+    static let horizontalPadding: CGFloat = 8
+    static let verticalPadding: CGFloat = 5
+
     let backgroundAppearance: BackgroundAppearance
     let highlightColor: Color?
     let highlightOpacity: Double
 
     func body(content: Content) -> some View {
         content
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
+            .padding(.horizontal, Self.horizontalPadding)
+            .padding(.vertical, Self.verticalPadding)
             .background {
                 ZStack {
                     BlurView(appearance: backgroundAppearance)
