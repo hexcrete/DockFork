@@ -78,6 +78,8 @@ final class DockObserver {
     var cmdTabDiscoveryTask: Task<Void, Never>?
     var cmdTabSelectionRetryWorkItem: DispatchWorkItem?
     var cmdTabSelectionGeneration: UInt = 0
+    private var dockPreviewDiscoveryTask: Task<Void, Never>?
+    private var dockPreviewDiscoveryGeneration: UInt = 0
 
     private var eventTap: CFMachPort?
     private var eventTapRunLoopSource: CFRunLoopSource?
@@ -154,6 +156,7 @@ final class DockObserver {
             DockObserver.activeInstance = nil
         }
         healthCheckTimer?.invalidate()
+        dockPreviewDiscoveryTask?.cancel()
         teardownObserver()
         teardownCmdTabObserver()
 
@@ -168,6 +171,9 @@ final class DockObserver {
     }
 
     func reset() {
+        dockPreviewDiscoveryGeneration &+= 1
+        dockPreviewDiscoveryTask?.cancel()
+        dockPreviewDiscoveryTask = nil
         teardownObserver()
         teardownCmdTabObserver()
         setupSelectedDockItemObserver()
@@ -280,6 +286,7 @@ final class DockObserver {
     func hideWindowAndResetLastApp() {
         Task { @MainActor [weak self] in
             guard let self else { return }
+            cancelDockPreviewDiscovery()
             previewCoordinator.hideWindow()
         }
     }
@@ -309,6 +316,8 @@ final class DockObserver {
 
     @MainActor
     private func showPreviewForHoveredDockApp(mouseLocation currentMouseLocation: CGPoint, overrideDelay: Bool, refreshLogContext: String) {
+        let previousDiscoveryTask = cancelDockPreviewDiscovery()
+        let discoveryGeneration = dockPreviewDiscoveryGeneration
         let appUnderMouseElement = DebugLogger.measureSlow("getDockItemAppStatusUnderMouse", thresholdMs: 100) {
             getDockItemAppStatusUnderMouse()
         }
@@ -438,16 +447,19 @@ final class DockObserver {
             previousStatus = .success(currentApp)
         }
 
-        Task.detached { [weak self] in
-            guard let self else { return }
+        dockPreviewDiscoveryTask = Task.detached { [weak self] in
+            await previousDiscoveryTask?.value
+            guard !Task.isCancelled else { return }
 
             do {
                 var windows: [WindowInfo] = []
                 for appInstance in appsToFetchWindowsFrom {
+                    guard !Task.isCancelled else { return }
                     try await windows.append(contentsOf: DebugLogger.measureAsync("getActiveWindows (\(refreshLogContext))", details: "PID: \(appInstance.processIdentifier)") {
                         try await WindowUtil.getActiveWindows(of: appInstance)
                     })
                 }
+                guard !Task.isCancelled else { return }
 
                 if Defaults[.showWindowsFromCurrentSpaceOnly] {
                     windows = WindowUtil.filterWindowsByCurrentSpace(windows)
@@ -464,7 +476,8 @@ final class DockObserver {
                 let freshWindows = windows
 
                 await MainActor.run { [weak self] in
-                    guard let self else { return }
+                    guard let self, discoveryGeneration == dockPreviewDiscoveryGeneration else { return }
+                    dockPreviewDiscoveryTask = nil
 
                     let currentAppStatus = getDockItemAppStatusUnderMouse()
                     guard case let .success(stillHoveredApp) = currentAppStatus.status,
@@ -489,14 +502,30 @@ final class DockObserver {
                     DebugLogger.log("WindowRefresh", details: "\(refreshLogContext) final merge, PID: \(currentAppPID), windows: \(freshWindows.count), merged: \(didMerge)")
                 }
             } catch {
+                guard !Task.isCancelled else { return }
                 DebugLogger.log("DockObserver", details: "Failed to fetch windows for \(refreshLogContext): \(error)")
+                await MainActor.run { [weak self] in
+                    guard let self, discoveryGeneration == dockPreviewDiscoveryGeneration else { return }
+                    dockPreviewDiscoveryTask = nil
+                }
             }
         }
     }
 
     @MainActor
+    @discardableResult
+    private func cancelDockPreviewDiscovery() -> Task<Void, Never>? {
+        dockPreviewDiscoveryGeneration &+= 1
+        let previousTask = dockPreviewDiscoveryTask
+        previousTask?.cancel()
+        dockPreviewDiscoveryTask = nil
+        return previousTask
+    }
+
+    @MainActor
     private func handleHoveredFolderDockItemIfNeeded(mouseLocation: CGPoint) -> Bool {
         guard let folderItem = getHoveredFolderDockItem() else { return false }
+        cancelDockPreviewDiscovery()
 
         _ = showFolderPreviewIfPossible(folderItem: folderItem, mouseLocation: mouseLocation)
         return true
@@ -504,6 +533,7 @@ final class DockObserver {
 
     @MainActor
     private func showHoveredFolderDockItemPreviewIfPossible(mouseLocation: CGPoint) -> Bool {
+        cancelDockPreviewDiscovery()
         guard let folderItem = getHoveredFolderDockItem() else { return false }
         return showFolderPreviewIfPossible(folderItem: folderItem, mouseLocation: mouseLocation)
     }
