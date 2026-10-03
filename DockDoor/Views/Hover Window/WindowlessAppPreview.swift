@@ -271,9 +271,10 @@ struct WindowlessAppPreview: View, Equatable {
                 handleWindowAction(middleClickAction)
             }
         }
-        .contextMenu {
-            WindowActionsMenuContent(windowInfo: windowInfo, handleWindowAction: handleWindowAction)
-        }
+        .previewContextMenu(
+            windowInfo: windowInfo,
+            handleWindowAction: handleWindowAction
+        )
         .fixedSize()
     }
 

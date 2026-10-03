@@ -156,9 +156,10 @@ struct WindowPreviewInteractionModifier: ViewModifier {
                 guard !suppressTap else { return }
                 handleWindowTap()
             }
-            .contextMenu {
-                WindowActionsMenuContent(windowInfo: windowInfo, handleWindowAction: handleWindowAction)
-            }
+            .previewContextMenu(
+                windowInfo: windowInfo,
+                handleWindowAction: handleWindowAction
+            )
     }
 
     // MARK: - Swipe Handling
@@ -288,33 +289,162 @@ extension View {
     }
 }
 
-struct WindowActionsMenuContent: View {
-    let windowInfo: WindowInfo
-    let handleWindowAction: (WindowAction) -> Void
+@MainActor
+final class PreviewContextMenuController: NSObject {
+    static let shared = PreviewContextMenuController()
 
-    var body: some View {
-        let groups = WindowAction.availableGroups(for: windowInfo)
-        ForEach(groups) { entry in
-            if entry.id != groups.first?.id {
-                Divider()
-            }
-            if entry.id == .arrange {
-                Menu {
-                    actionButtons(entry.actions)
-                } label: {
-                    Label(entry.id.localizedName, systemImage: "rectangle.split.2x2")
-                }
-            } else {
-                actionButtons(entry.actions)
-            }
+    private final class ActionRequest: NSObject {
+        let action: WindowAction
+        let handler: (WindowAction) -> Void
+
+        init(action: WindowAction, handler: @escaping (WindowAction) -> Void) {
+            self.action = action
+            self.handler = handler
         }
     }
 
-    private func actionButtons(_ actions: [WindowAction]) -> some View {
-        ForEach(actions, id: \.self) { action in
-            Button(role: action == .quit ? .destructive : nil, action: { handleWindowAction(action) }) {
-                Label(action.menuTitle(for: windowInfo), systemImage: action.menuIcon(for: windowInfo))
-            }
+    private var activeMenu: NSMenu?
+
+    func present(
+        for window: WindowInfo,
+        event: NSEvent,
+        sourceView: NSView,
+        handleWindowAction: @escaping (WindowAction) -> Void
+    ) {
+        let menu = makeMenu(
+            for: window,
+            handleWindowAction: handleWindowAction
+        )
+        guard !menu.items.isEmpty else { return }
+
+        activeMenu?.cancelTracking()
+        activeMenu = menu
+        NSMenu.popUpContextMenu(menu, with: event, for: sourceView)
+        if activeMenu === menu {
+            activeMenu = nil
+        }
+    }
+
+    func dismiss() {
+        activeMenu?.cancelTracking()
+        activeMenu = nil
+    }
+
+    private func makeMenu(
+        for window: WindowInfo,
+        handleWindowAction: @escaping (WindowAction) -> Void
+    ) -> NSMenu {
+        let menu = NSMenu()
+        let groups = WindowAction.availableGroups(for: window)
+
+        if let actions = groups.first(where: { $0.id == .window })?.actions {
+            add(actions, for: window, to: menu, handler: handleWindowAction)
+        }
+
+        if !window.isWindowlessApp,
+           let actions = groups.first(where: { $0.id == .arrange })?.actions
+        {
+            addSeparatorIfNeeded(to: menu)
+            let arrangeItem = NSMenuItem(
+                title: WindowAction.Group.arrange.localizedName,
+                action: nil,
+                keyEquivalent: ""
+            )
+            arrangeItem.image = NSImage(
+                systemSymbolName: "rectangle.split.2x2",
+                accessibilityDescription: nil
+            )
+            let arrangeMenu = NSMenu(title: WindowAction.Group.arrange.localizedName)
+            add(actions, for: window, to: arrangeMenu, handler: handleWindowAction)
+            arrangeItem.submenu = arrangeMenu
+            menu.addItem(arrangeItem)
+        }
+
+        if let actions = groups.first(where: { $0.id == .app })?.actions {
+            addSeparatorIfNeeded(to: menu)
+            add(actions, for: window, to: menu, handler: handleWindowAction)
+        }
+
+        return menu
+    }
+
+    private func add(
+        _ actions: [WindowAction],
+        for window: WindowInfo,
+        to menu: NSMenu,
+        handler: @escaping (WindowAction) -> Void
+    ) {
+        for action in actions {
+            let item = NSMenuItem(
+                title: action.menuTitle(for: window),
+                action: #selector(performAction(_:)),
+                keyEquivalent: ""
+            )
+            item.target = self
+            item.representedObject = ActionRequest(action: action, handler: handler)
+            item.image = NSImage(
+                systemSymbolName: action.menuIcon(for: window),
+                accessibilityDescription: nil
+            )
+            menu.addItem(item)
+        }
+    }
+
+    private func addSeparatorIfNeeded(to menu: NSMenu) {
+        guard let lastItem = menu.items.last, !lastItem.isSeparatorItem else { return }
+        menu.addItem(.separator())
+    }
+
+    @objc private func performAction(_ sender: NSMenuItem) {
+        guard let request = sender.representedObject as? ActionRequest else { return }
+        request.handler(request.action)
+    }
+}
+
+private struct PreviewContextMenuCapture: NSViewRepresentable {
+    let windowInfo: WindowInfo
+    let handleWindowAction: (WindowAction) -> Void
+
+    func makeNSView(context: Context) -> ContextMenuView {
+        ContextMenuView()
+    }
+
+    func updateNSView(_ nsView: ContextMenuView, context: Context) {
+        nsView.windowInfo = windowInfo
+        nsView.handleWindowAction = handleWindowAction
+    }
+
+    final class ContextMenuView: NSView {
+        var windowInfo: WindowInfo?
+        var handleWindowAction: ((WindowAction) -> Void)?
+
+        override func hitTest(_ point: NSPoint) -> NSView? {
+            guard bounds.contains(point), NSApp.currentEvent?.type == .rightMouseDown else { return nil }
+            return self
+        }
+
+        override func rightMouseDown(with event: NSEvent) {
+            guard let windowInfo, let handleWindowAction else { return }
+            PreviewContextMenuController.shared.present(
+                for: windowInfo,
+                event: event,
+                sourceView: self,
+                handleWindowAction: handleWindowAction
+            )
+        }
+    }
+}
+
+extension View {
+    func previewContextMenu(
+        windowInfo: WindowInfo,
+        handleWindowAction: @escaping (WindowAction) -> Void
+    ) -> some View {
+        overlay {
+            PreviewContextMenuCapture(
+                windowInfo: windowInfo,
+                handleWindowAction: handleWindowAction
+            )
         }
     }
 }
