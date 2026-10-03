@@ -20,7 +20,6 @@ struct DockPreviewsSettingsView: View {
     @Default(.dockPreviewEdgeAutoScrollSpeed) var dockPreviewEdgeAutoScrollSpeed
     @Default(.shouldHideOnDockItemClick) var shouldHideOnDockItemClick
     @Default(.dockClickAction) var dockClickAction
-    @Default(.restoreAllMinimizedWindowsOnDockClick) var restoreAllMinimizedWindowsOnDockClick
     @Default(.enableCmdRightClickQuit) var enableCmdRightClickQuit
     @Default(.quitAppOnWindowClose) var quitAppOnWindowClose
     @Default(.bufferFromDock) var bufferFromDock
@@ -261,12 +260,6 @@ struct DockPreviewsSettingsView: View {
                     .pickerStyle(MenuPickerStyle())
                     .padding(.leading, 20)
                     .settingsSearchTarget("dockPreviews.clickAction")
-
-                    if dockClickAction == .minimize {
-                        Toggle(isOn: $restoreAllMinimizedWindowsOnDockClick) { Text("Restore all minimized windows on dock icon click") }
-                            .settingsSearchTarget("dockPreviews.restoreAllMinimizedOnClick")
-                            .padding(.leading, 20)
-                    }
                 }
 
                 Toggle(isOn: $enableCmdRightClickQuit) { Text("CMD + Right Click on dock icon to quit app") }

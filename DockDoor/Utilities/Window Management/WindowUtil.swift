@@ -854,6 +854,46 @@ extension WindowUtil {
         }
     }
 
+    static func updateCachedWindowStates(
+        for pid: pid_t,
+        matchingWindowIDs: Set<CGWindowID>? = nil,
+        insertingMissing sourceWindows: [WindowInfo] = [],
+        isMinimized: Bool? = nil,
+        isHidden: Bool? = nil
+    ) {
+        desktopSpaceWindowCacheManager.updateCache(pid: pid) { windowSet in
+            let matchingWindows = windowSet.filter { matchingWindowIDs?.contains($0.id) ?? true }
+            for window in matchingWindows {
+                var updatedWindow = window
+                var didChange = false
+                if let isMinimized, updatedWindow.isMinimized != isMinimized {
+                    updatedWindow.isMinimized = isMinimized
+                    didChange = true
+                }
+                if let isHidden, updatedWindow.isHidden != isHidden {
+                    updatedWindow.isHidden = isHidden
+                    didChange = true
+                }
+                guard didChange else { continue }
+                windowSet.remove(window)
+                windowSet.insert(updatedWindow)
+            }
+
+            guard let matchingWindowIDs else { return }
+            let cachedIDs = Set(windowSet.map(\.id))
+            for window in sourceWindows where matchingWindowIDs.contains(window.id) && !cachedIDs.contains(window.id) {
+                var updatedWindow = window
+                if let isMinimized {
+                    updatedWindow.isMinimized = isMinimized
+                }
+                if let isHidden {
+                    updatedWindow.isHidden = isHidden
+                }
+                windowSet.insert(updatedWindow)
+            }
+        }
+    }
+
     struct WindowPlacementResult {
         let frame: CGRect
         let screenIdentifier: String
@@ -3688,6 +3728,137 @@ extension WindowUtil {
                 }
             }
         }
+    }
+
+    static func minimizableWindowSnapshot(_ windows: [WindowInfo]) async -> [(window: WindowInfo, isMinimized: Bool)] {
+        let ownBundleId = Bundle.main.bundleIdentifier
+        let candidates = windows.filter {
+            !$0.isWindowlessApp && $0.app.bundleIdentifier != ownBundleId
+        }
+        guard !candidates.isEmpty else { return [] }
+
+        let worker = Task.detached(priority: .userInitiated) {
+            var snapshot: [(window: WindowInfo, isMinimized: Bool)] = []
+            snapshot.reserveCapacity(candidates.count)
+            for window in candidates {
+                guard !Task.isCancelled else { return [(window: WindowInfo, isMinimized: Bool)]() }
+                let isFullscreen = (try? window.axElement.isFullscreen()) ?? (window.isFullscreen == true)
+                guard !isFullscreen else { continue }
+                let isMinimized = (try? window.axElement.isMinimized()) ?? window.isMinimized
+                snapshot.append((window, isMinimized))
+            }
+            return snapshot
+        }
+        return await withTaskCancellationHandler {
+            await worker.value
+        } onCancel: {
+            worker.cancel()
+        }
+    }
+
+    // Publish minimized state only after AX reports the requested value.
+    static func setMinimizedStateConfirmed(_ windows: [WindowInfo], isMinimized: Bool) async -> Int {
+        let ownBundleId = Bundle.main.bundleIdentifier
+        let candidates = windows.filter {
+            !$0.isWindowlessApp &&
+                $0.app.bundleIdentifier != ownBundleId
+        }
+        guard !candidates.isEmpty else { return 0 }
+
+        let worker = Task.detached(priority: .userInitiated) {
+            let targets = candidates.filter { window in
+                let isFullscreen = (try? window.axElement.isFullscreen()) ?? (window.isFullscreen == true)
+                return !isFullscreen
+            }
+            guard !targets.isEmpty else { return [WindowInfo]() }
+            var unresolved = targets
+
+            for window in targets {
+                guard !Task.isCancelled else { return [WindowInfo]() }
+                try? window.axElement.setAttribute(kAXMinimizedAttribute, isMinimized)
+                try? await Task.sleep(nanoseconds: 12_000_000)
+            }
+
+            var confirmed: [WindowInfo] = []
+            for (pass, delay) in [UInt64(0), 90_000_000, 220_000_000].enumerated() {
+                if delay > 0 {
+                    try? await Task.sleep(nanoseconds: delay)
+                }
+                guard !Task.isCancelled else { return [WindowInfo]() }
+
+                var stillUnresolved: [WindowInfo] = []
+                for window in unresolved {
+                    if (try? window.axElement.isMinimized()) == isMinimized {
+                        confirmed.append(window)
+                    } else {
+                        stillUnresolved.append(window)
+                    }
+                }
+                unresolved = stillUnresolved
+                guard !unresolved.isEmpty else { break }
+
+                if pass == 0 {
+                    for window in unresolved {
+                        guard !Task.isCancelled else { return [WindowInfo]() }
+                        try? window.axElement.setAttribute(kAXMinimizedAttribute, isMinimized)
+                        try? await Task.sleep(nanoseconds: 12_000_000)
+                    }
+                }
+            }
+            return confirmed
+        }
+        let confirmedWindows = await withTaskCancellationHandler {
+            await worker.value
+        } onCancel: {
+            worker.cancel()
+        }
+
+        guard !Task.isCancelled else { return 0 }
+        let windowsByPID = Dictionary(grouping: confirmedWindows, by: { $0.app.processIdentifier })
+        for (pid, appWindows) in windowsByPID {
+            updateCachedWindowStates(
+                for: pid,
+                matchingWindowIDs: Set(appWindows.map(\.id)),
+                insertingMissing: appWindows,
+                isMinimized: isMinimized
+            )
+        }
+        return confirmedWindows.count
+    }
+
+    // Publish app visibility only after AX reports the requested value.
+    static func setHiddenStateConfirmed(
+        for app: NSRunningApplication,
+        isHidden: Bool
+    ) async -> Bool {
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let worker = Task.detached(priority: .userInitiated) {
+            do {
+                try appElement.setAttribute(kAXHiddenAttribute, isHidden)
+            } catch {
+                return false
+            }
+
+            for delay in [UInt64(0), 80_000_000, 220_000_000] {
+                if delay > 0 {
+                    try? await Task.sleep(nanoseconds: delay)
+                }
+                guard !Task.isCancelled else { return false }
+                if (try? appElement.attribute(kAXHiddenAttribute, Bool.self)) == isHidden {
+                    return true
+                }
+            }
+            return false
+        }
+        let confirmed = await withTaskCancellationHandler {
+            await worker.value
+        } onCancel: {
+            worker.cancel()
+        }
+
+        guard confirmed, !Task.isCancelled else { return false }
+        updateCachedWindowStates(for: app.processIdentifier, isHidden: isHidden)
+        return true
     }
 
     /// Restores minimized windows concurrently off the main thread to avoid UI blocking.

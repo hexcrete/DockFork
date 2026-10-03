@@ -96,8 +96,6 @@ final class SettingsSearchEngine: ObservableObject {
 
     private func isAvailable(_ item: SettingsSearchItem) -> Bool {
         switch item.id {
-        case "dockPreviews.restoreAllMinimizedOnClick":
-            Defaults[.dockClickAction] == .minimize
         case "widgets.folderSort", "widgets.folderSortDirection", "widgets.folderRememberSort", "widgets.folderHiddenFiles":
             Defaults[.enableFolderWidget]
         default:
