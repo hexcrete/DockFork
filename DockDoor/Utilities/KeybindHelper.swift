@@ -583,10 +583,11 @@ class KeybindHelper {
     private let previewCoordinator: SharedPreviewWindowCoordinator
     private let windowSwitchingCoordinator = WindowSwitchingCoordinator()
 
-    private var isSwitcherModifierKeyPressed: Bool = false
+    private var isSwitcherModifierKeyPressed = false
     private var isBackwardModifierPressed = false
-    private var hasProcessedModifierRelease: Bool = false
-    private var preventSwitcherHideOnRelease: Bool = false
+    private var hasProcessedModifierRelease = false
+    private var preventSwitcherHideOnRelease = false
+
     private var menuBarWindowSwitcherMouseDownTimestamp: CGEventTimestamp?
     private var heldKeyRepeatTask: Task<Void, Never>?
     private var modifierDoubleTapState = ModifierDoubleTapState()
@@ -596,13 +597,14 @@ class KeybindHelper {
     private var currentInvocationMode: SwitcherInvocationMode = .allWindows
 
     // Track Command key state to detect key-up fallback for lingering previews
-    private var isCommandKeyCurrentlyDown: Bool = false
-    private var lastCmdTabObservedActive: Bool = false
-    private var cmdTabActionPerformed: Bool = false
+    private var isCommandKeyCurrentlyDown = false
+    private var lastCmdTabObservedActive = false
+    private var cmdTabActionPerformed = false
+
     /// Set on event tap thread when switcher keybind fires, so other keyDown handlers
     /// can detect the switcher is active without reading MainActor-only state.
-    private var switcherSessionActive: Bool = false
-    private var activeSessionKeybind: UserKeyBind = Defaults[.UserKeybind]
+    private var switcherSessionActive = false
+    private var activeSessionKeybind = Defaults[.UserKeybind]
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -860,10 +862,11 @@ class KeybindHelper {
             modifierDoubleTapState.resetSequence()
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
             let flags = event.flags
+            let tapSnapshot = previewCoordinator.tapSnapshot
             let shouldRouteCmdTabToWindowSwitcher = isCmdTabWindowSwitcherKeybind(keyCode: keyCode, flags: flags)
 
             if let spaceNumber = numberedSpaceShortcut(event: event),
-               previewCoordinator.tapSnapshot.isVisible
+               tapSnapshot.isVisible
             {
                 Task { @MainActor [weak self] in
                     self?.handleNumberedSpaceShortcut(spaceNumber)
@@ -883,7 +886,7 @@ class KeybindHelper {
             let backwardKeyCode = Defaults[.switcherBackwardKeyCode]
             if Self.eventFlagForKeyCode(backwardKeyCode) == nil,
                keyCode == Int64(backwardKeyCode),
-               previewCoordinator.tapSnapshot.isVisible
+               tapSnapshot.isVisible
             {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
@@ -913,10 +916,10 @@ class KeybindHelper {
             } else if DockObserver.isCmdTabSwitcherActive {
                 lastCmdTabObservedActive = true
                 if Defaults[.enableCmdTabEnhancements],
-                   previewCoordinator.tapSnapshot.isVisible
+                   tapSnapshot.isVisible
                 {
                     let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-                    let hasSelection = previewCoordinator.windowSwitcherCoordinator.currIndex >= 0
+                    let hasSelection = tapSnapshot.hasSelection
                     let flags = event.flags
                     switch keyCode {
                     case Int64(kVK_Escape):
@@ -1044,10 +1047,10 @@ class KeybindHelper {
             if shouldConsume { return nil }
 
         case .leftMouseDown:
-            let isWindowSwitcherActive = previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive
             let isCmdTabActive = DockObserver.isCmdTabSwitcherActive
 
             let snapshot = previewCoordinator.tapSnapshot
+            let isWindowSwitcherActive = snapshot.isWindowSwitcherActive
             if snapshot.isVisible, isWindowSwitcherActive || isCmdTabActive {
                 let clickLocation = NSEvent.mouseLocation
                 let interactiveWindowFrame = snapshot.frame.insetBy(
@@ -1342,7 +1345,6 @@ class KeybindHelper {
     }
 
     private func updateModifierStatesFromFlags(event: CGEvent, keyBoardShortcutSaved: UserKeyBind) -> (currentSwitcherModifierIsPressed: Bool, currentBackwardState: Bool) {
-        let saved = keyBoardShortcutSaved.modifierFlags
         let flags = event.flags
         let backwardFlag = Self.eventFlagForKeyCode(Defaults[.switcherBackwardKeyCode])
         let currentSwitcherModifierIsPressed = modifierFlagsMatch(keyBoardShortcutSaved, flags: flags)
@@ -1594,7 +1596,7 @@ class KeybindHelper {
 
         if previewIsCurrentlyVisible {
             if modifierFlagsMatch(previewShortcutKeybind(), flags: flags),
-               previewCoordinator.windowSwitcherCoordinator.currIndex >= 0
+               snapshot.hasSelection
             {
                 if let action = getActionForPreviewShortcut(keyCode: keyCode) {
                     preventSwitcherHideOnRelease = true
@@ -1682,7 +1684,7 @@ class KeybindHelper {
                     })
                 }
             case Int64(Defaults[.windowSwitcherSelectionKeyCode]), Int64(kVK_Return), Int64(kVK_ANSI_KeypadEnter):
-                if previewCoordinator.windowSwitcherCoordinator.currIndex >= 0 {
+                if snapshot.hasSelection {
                     return (true, makeEnterSelectionTask())
                 }
             default:
@@ -1691,7 +1693,7 @@ class KeybindHelper {
         }
 
         if previewIsCurrentlyVisible,
-           previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive,
+           snapshot.isWindowSwitcherActive,
            Defaults[.enableWindowSwitcherSearch],
            keyCode == Int64(Defaults[.searchTriggerKey]),
            !snapshot.isSearchFocused
@@ -1702,7 +1704,7 @@ class KeybindHelper {
             })
         }
         if previewIsCurrentlyVisible,
-           previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive,
+           snapshot.isWindowSwitcherActive,
            Defaults[.enableWindowSwitcherSearch],
            !snapshot.isSearchFocused
         {
@@ -1745,7 +1747,7 @@ class KeybindHelper {
         }
 
         if previewIsCurrentlyVisible,
-           previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive,
+           snapshot.isWindowSwitcherActive,
            !isSwitcherModifierKeyPressed,
            !flags.hasSuperfluousModifiers(ignoring: backwardNavigationIgnoredFlags())
         {

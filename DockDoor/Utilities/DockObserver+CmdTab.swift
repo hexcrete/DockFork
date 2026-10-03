@@ -319,7 +319,20 @@ extension DockObserver {
 
     /// Cached state tracking whether the Cmd+Tab switcher is currently active.
     /// Updated by the AXObserver when the switcher appears/disappears.
-    static var isCmdTabSwitcherActive = false
+    private static let cmdTabStateLock = NSLock()
+    private static var cmdTabSwitcherActive = false
+    static var isCmdTabSwitcherActive: Bool {
+        get {
+            cmdTabStateLock.lock()
+            defer { cmdTabStateLock.unlock() }
+            return cmdTabSwitcherActive
+        }
+        set {
+            cmdTabStateLock.lock()
+            cmdTabSwitcherActive = newValue
+            cmdTabStateLock.unlock()
+        }
+    }
 
     private func cmdTabApplicationCandidates(
         resolvedApp: NSRunningApplication?,

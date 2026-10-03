@@ -248,11 +248,12 @@ class WindowManipulationObservers {
         let suppressActionDrivenDismissal = previewCoordinator.shouldSuppressActionDrivenActivationDismissal(
             for: app.processIdentifier
         )
+        let tapSnapshot = previewCoordinator.tapSnapshot
         if Self.shouldDismissPreviewOnAppActivation(
-            isKeybindSessionActive: previewCoordinator.windowSwitcherCoordinator.isKeybindSessionActive,
+            isKeybindSessionActive: tapSnapshot.isKeybindSessionActive,
             keepPreviewOnHoverActivation: Defaults[.keepPreviewOnHoverActivation],
             previewHoverAction: Defaults[.previewHoverAction],
-            mouseIsWithinPreviewWindow: previewCoordinator.mouseIsWithinPreviewWindow
+            mouseIsWithinPreviewWindow: tapSnapshot.mouseIsWithinPreviewWindow
         ), !suppressActionDrivenDismissal {
             previewCoordinator.hideWindow()
         }

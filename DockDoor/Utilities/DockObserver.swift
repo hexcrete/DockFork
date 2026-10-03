@@ -85,11 +85,29 @@ final class DockObserver {
     private var eventTapRunLoopSource: CFRunLoopSource?
 
     // Dock click behavior state
-    var currentClickedAppPID: pid_t?
-    var lastHoveredPID: pid_t?
-    var lastHoveredAppWasFrontmost: Bool = false
-    var lastHoveredAppNeedsRestore: Bool = false
-    var lastHoveredAppHadWindows: Bool = false
+    private struct DockClickState {
+        var currentClickedAppPID: pid_t?
+        var lastHoveredPID: pid_t?
+        var lastHoveredAppWasFrontmost = false
+        var lastHoveredAppNeedsRestore = false
+        var lastHoveredAppHadWindows = false
+    }
+
+    private let dockClickStateLock = NSLock()
+    private var dockClickState = DockClickState()
+    var currentClickedAppPID: pid_t? {
+        get {
+            dockClickStateLock.lock()
+            defer { dockClickStateLock.unlock() }
+            return dockClickState.currentClickedAppPID
+        }
+        set {
+            dockClickStateLock.lock()
+            dockClickState.currentClickedAppPID = newValue
+            dockClickStateLock.unlock()
+        }
+    }
+
     private var windowCycleState: WindowCycleState?
     private var cycleHoverProcessIdentifier: pid_t?
     private var cycleHoverGeneration = 0
@@ -105,6 +123,7 @@ final class DockObserver {
     private let fallbackTitleBarHeight: CGFloat = 48
     private let maximumTitleBarHeight: CGFloat = 72
 
+    private let titleBarCacheLock = NSLock()
     private var cachedTitleBarInfo: CachedTitleBarInfo?
     private var titleBarRefreshScheduled = false
     private let titleBarCacheMaxAge: TimeInterval = 1.0
@@ -396,10 +415,12 @@ final class DockObserver {
 
         HangDiagnostics.record("dock cache ready pid=\(currentApp.processIdentifier) windows=\(cachedWindows.count)")
 
-        lastHoveredPID = currentApp.processIdentifier
-        lastHoveredAppWasFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == currentApp.processIdentifier
-        lastHoveredAppNeedsRestore = currentApp.isHidden || cachedWindows.contains(where: \.isMinimized)
-        lastHoveredAppHadWindows = !cachedWindows.isEmpty
+        updateDockClickHoverState(
+            pid: currentApp.processIdentifier,
+            wasFrontmost: NSWorkspace.shared.frontmostApplication?.processIdentifier == currentApp.processIdentifier,
+            needsRestore: currentApp.isHidden || cachedWindows.contains(where: \.isMinimized),
+            hadWindows: !cachedWindows.isEmpty
+        )
 
         if WindowFetchContext.dockPreview.shouldIgnoreAppsWithSingleWindow, cachedWindows.count == 1 {
             cachedWindows = []
@@ -901,7 +922,7 @@ final class DockObserver {
                 return nil
             }
 
-            if type == .leftMouseDown, !previewCoordinator.mouseIsWithinPreviewWindow {
+            if type == .leftMouseDown, !previewCoordinator.tapSnapshot.mouseIsWithinPreviewWindow {
                 let shouldIntercept = handleDockClick(app: app)
                 if shouldIntercept {
                     return nil
@@ -914,7 +935,7 @@ final class DockObserver {
 
     private func handleDockPreviewActivation(type: CGEventType, event: CGEvent, appUnderMouse: ApplicationReturnType) -> Bool {
         guard Defaults[.enableDockPreviews],
-              !previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive
+              !previewCoordinator.tapSnapshot.isWindowSwitcherActive
         else {
             return false
         }
@@ -1001,8 +1022,9 @@ final class DockObserver {
         currentClickedAppPID = pid
 
         let isFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == pid
-        let hasValidHoverState = lastHoveredPID == pid
-        let wasFrontmostOnHover = hasValidHoverState ? lastHoveredAppWasFrontmost : isFrontmost
+        let hoverState = dockClickStateSnapshot()
+        let hasValidHoverState = hoverState.lastHoveredPID == pid
+        let wasFrontmostOnHover = hasValidHoverState ? hoverState.lastHoveredAppWasFrontmost : isFrontmost
 
         guard Defaults[.shouldHideOnDockItemClick] else { return false }
 
@@ -1019,15 +1041,15 @@ final class DockObserver {
         }
 
         // Defer to native behavior for simple activation
-        if hasValidHoverState, !lastHoveredAppWasFrontmost, !lastHoveredAppNeedsRestore {
-            lastHoveredPID = nil
+        if hasValidHoverState, !hoverState.lastHoveredAppWasFrontmost, !hoverState.lastHoveredAppNeedsRestore {
+            clearLastHoveredDockApp()
             return false
         }
 
         // If app had no windows at hover time, defer to native behavior
         // This prevents minimizing newly created windows when clicking an app with no windows
-        if hasValidHoverState, !lastHoveredAppHadWindows, !app.isHidden {
-            lastHoveredPID = nil
+        if hasValidHoverState, !hoverState.lastHoveredAppHadWindows, !app.isHidden {
+            clearLastHoveredDockApp()
             return false
         }
 
@@ -1050,10 +1072,10 @@ final class DockObserver {
         }
 
         // Capture restoration need from hover state OR from AX query at click time
-        let restorationNeededFromHover = hasValidHoverState && lastHoveredAppNeedsRestore
+        let restorationNeededFromHover = hasValidHoverState && hoverState.lastHoveredAppNeedsRestore
         let restorationNeededAtClickTime = restorationNeededFromHover || hasMinimizedWindowsAtClickTime || app.isHidden
 
-        lastHoveredPID = nil
+        clearLastHoveredDockApp()
         DispatchQueue.main.async { [weak self] in self?.previewCoordinator.cancelPendingShow() }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
@@ -1094,9 +1116,30 @@ final class DockObserver {
 
     @MainActor
     private func prepareForOverriddenDockClick() {
-        lastHoveredPID = nil
+        clearLastHoveredDockApp()
         previewCoordinator.cancelPendingShow()
         previewCoordinator.hideWindow()
+    }
+
+    private func updateDockClickHoverState(pid: pid_t, wasFrontmost: Bool, needsRestore: Bool, hadWindows: Bool) {
+        dockClickStateLock.lock()
+        dockClickState.lastHoveredPID = pid
+        dockClickState.lastHoveredAppWasFrontmost = wasFrontmost
+        dockClickState.lastHoveredAppNeedsRestore = needsRestore
+        dockClickState.lastHoveredAppHadWindows = hadWindows
+        dockClickStateLock.unlock()
+    }
+
+    private func dockClickStateSnapshot() -> DockClickState {
+        dockClickStateLock.lock()
+        defer { dockClickStateLock.unlock() }
+        return dockClickState
+    }
+
+    private func clearLastHoveredDockApp() {
+        dockClickStateLock.lock()
+        dockClickState.lastHoveredPID = nil
+        dockClickStateLock.unlock()
     }
 
     @MainActor
@@ -1371,11 +1414,16 @@ final class DockObserver {
     }
 
     private func scheduleTitleBarCacheRefresh() {
-        guard !titleBarRefreshScheduled else { return }
+        titleBarCacheLock.lock()
+        guard !titleBarRefreshScheduled else {
+            titleBarCacheLock.unlock()
+            return
+        }
         titleBarRefreshScheduled = true
+        titleBarCacheLock.unlock()
+
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            titleBarRefreshScheduled = false
             refreshTitleBarCache()
         }
     }
@@ -1384,7 +1432,7 @@ final class DockObserver {
         guard let focusedWindow = WindowUtil.getFocusedWindowForFrontmostApp(),
               let windowFrame = focusedWindow.currentWindowFrame()
         else {
-            cachedTitleBarInfo = nil
+            replaceTitleBarCache(with: nil)
             return
         }
 
@@ -1396,12 +1444,26 @@ final class DockObserver {
             height: titleBarHeight
         )
 
-        cachedTitleBarInfo = CachedTitleBarInfo(
+        let updatedInfo = CachedTitleBarInfo(
             window: focusedWindow,
             windowFrame: windowFrame,
             titleBarRect: titleBarRect,
             timestamp: Date()
         )
+        replaceTitleBarCache(with: updatedInfo)
+    }
+
+    private func replaceTitleBarCache(with info: CachedTitleBarInfo?) {
+        titleBarCacheLock.lock()
+        cachedTitleBarInfo = info
+        titleBarRefreshScheduled = false
+        titleBarCacheLock.unlock()
+    }
+
+    private func titleBarCacheSnapshot() -> CachedTitleBarInfo? {
+        titleBarCacheLock.lock()
+        defer { titleBarCacheLock.unlock() }
+        return cachedTitleBarInfo
     }
 
     private func handleTitleBarScroll(_ event: CGEvent) -> Bool {
@@ -1416,18 +1478,14 @@ final class DockObserver {
             return false
         }
 
-        if let cached = cachedTitleBarInfo, Date().timeIntervalSince(cached.timestamp) > titleBarCacheMaxAge {
-            cachedTitleBarInfo = nil
-        }
-
-        if cachedTitleBarInfo == nil {
+        guard let cached = titleBarCacheSnapshot(),
+              Date().timeIntervalSince(cached.timestamp) <= titleBarCacheMaxAge
+        else {
             scheduleTitleBarCacheRefresh()
             return false
         }
 
-        guard let cached = cachedTitleBarInfo,
-              cached.titleBarRect.contains(NSEvent.mouseLocation)
-        else {
+        guard cached.titleBarRect.contains(NSEvent.mouseLocation) else {
             return false
         }
 

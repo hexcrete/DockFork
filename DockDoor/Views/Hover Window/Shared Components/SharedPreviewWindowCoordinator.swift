@@ -21,7 +21,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     private var appName: String = ""
     var currentlyDisplayedPID: pid_t?
-    var mouseIsWithinPreviewWindow: Bool = false
+    var mouseIsWithinPreviewWindow: Bool = false {
+        didSet {
+            if oldValue != mouseIsWithinPreviewWindow {
+                publishTapSnapshot()
+            }
+        }
+    }
+
     private var onWindowTap: (() -> Void)?
     private var fullPreviewWindow: NSPanel?
     private var fullPreviewFadeOutToken: UUID?
@@ -65,6 +72,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var fullPreviewFrame: CGRect?
         var searchFrame: CGRect?
         var isSearchFocused = false
+        var isWindowSwitcherActive = false
+        var hasSelection = false
+        var isKeybindSessionActive = false
+        var mouseIsWithinPreviewWindow = false
     }
 
     private let tapSnapshotLock = NSLock()
@@ -83,7 +94,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             frame: frame,
             fullPreviewFrame: fullPreviewWindow.flatMap { $0.isVisible ? $0.frame : nil },
             searchFrame: searchWindowFrame,
-            isSearchFocused: isSearchWindowFocused
+            isSearchFocused: isSearchWindowFocused,
+            isWindowSwitcherActive: windowSwitcherCoordinator.windowSwitcherActive,
+            hasSelection: windowSwitcherCoordinator.currIndex >= 0,
+            isKeybindSessionActive: windowSwitcherCoordinator.isKeybindSessionActive,
+            mouseIsWithinPreviewWindow: mouseIsWithinPreviewWindow
         )
         tapSnapshotLock.lock()
         currentTapSnapshot = snapshot
@@ -96,6 +111,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         SharedPreviewWindowCoordinator.activeInstance = self
         setupWindow()
         setupSearchWindow()
+        windowSwitcherCoordinator.tapStateDidChange = { [weak self] in
+            self?.publishTapSnapshot()
+        }
         setupFrameRefreshObserver()
         for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification, NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification, NSWindow.didExposeNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(publishTapSnapshot), name: name, object: nil)

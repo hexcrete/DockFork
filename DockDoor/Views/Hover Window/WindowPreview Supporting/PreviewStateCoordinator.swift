@@ -18,13 +18,26 @@ class PreviewStateCoordinator: ObservableObject {
     let selection = SwitcherSelectionState()
     var currIndex: Int {
         get { selection.currIndex }
-        set { selection.currIndex = newValue }
+        set {
+            let changed = selection.currIndex != newValue
+            selection.currIndex = newValue
+            if changed {
+                tapStateDidChange?()
+            }
+        }
     }
+
+    var tapStateDidChange: (() -> Void)?
 
     @Published private(set) var selectionInputSource: SelectionInputSource = .programmatic
 
     @Published var windowSwitcherActive: Bool = false {
-        didSet { invalidateFilterCache() }
+        didSet {
+            invalidateFilterCache()
+            if oldValue != windowSwitcherActive {
+                tapStateDidChange?()
+            }
+        }
     }
 
     // MARK: - Keybind Session Tracking
@@ -34,12 +47,20 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func activateKeybindSession() {
+        let changed = !isKeybindSessionActive
         isKeybindSessionActive = true
+        if changed {
+            tapStateDidChange?()
+        }
     }
 
     @MainActor
     func deactivateKeybindSession() {
+        let changed = isKeybindSessionActive
         isKeybindSessionActive = false
+        if changed {
+            tapStateDidChange?()
+        }
         searchQuery = ""
     }
 

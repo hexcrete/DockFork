@@ -272,7 +272,21 @@ enum DockLockerGeometry {
 final class DockLocker {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var cachedTriggerZones: [TriggerZone] = []
+    private let triggerZonesLock = NSLock()
+    private var storedTriggerZones: [TriggerZone] = []
+    private var cachedTriggerZones: [TriggerZone] {
+        get {
+            triggerZonesLock.lock()
+            defer { triggerZonesLock.unlock() }
+            return storedTriggerZones
+        }
+        set {
+            triggerZonesLock.lock()
+            storedTriggerZones = newValue
+            triggerZonesLock.unlock()
+        }
+    }
+
     private var screenObserver: Any?
     private var settingsObserver: Defaults.Observation?
     private var relocationInProgress = false
