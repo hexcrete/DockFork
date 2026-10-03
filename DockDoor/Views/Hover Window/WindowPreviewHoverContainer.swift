@@ -450,28 +450,29 @@ struct WindowPreviewHoverContainer: View {
         performHighlightActionIfNeeded()
     }
 
-    private func handleHoverIndexChange(_ hoveredIndex: Int?, _ location: CGPoint?) {
+    private func handleHoverIndexChange(_ hoveredIndex: Int?, _ location: CGPoint?) -> Bool {
         let isWindowSwitcher = previewStateCoordinator.windowSwitcherActive
         let isCmdTabPreview = !isWindowSwitcher && dockPosition == .cmdTab
         let isDockPreview = !isWindowSwitcher && !isCmdTabPreview
-        guard isWindowSwitcher || isDockPreview || isCmdTabPreview else { return }
-        if isWindowSwitcher, !enableMouseHoverInSwitcher { return }
-        guard edgeScrollRequest == nil else { return }
+        guard isWindowSwitcher || isDockPreview || isCmdTabPreview else { return false }
+        if isWindowSwitcher, !enableMouseHoverInSwitcher { return false }
+        guard edgeScrollRequest == nil else { return false }
 
         guard let hoveredIndex else {
             if isDockPreview || isWindowSwitcher || isCmdTabPreview {
                 previewStateCoordinator.clearSelectionIfMouseSource(shouldScroll: false)
                 refreshHighlightActionIfNeeded()
             }
-            return
+            return false
         }
-        guard hoveredIndex != previewStateCoordinator.currIndex else { return }
 
-        if isWindowSwitcher, !previewStateCoordinator.registerMouseMovementSinceOpen() {
-            return
+        if !previewStateCoordinator.registerMouseMovementSinceOpen() {
+            return false
         }
+        guard hoveredIndex != previewStateCoordinator.currIndex else { return true }
 
         previewStateCoordinator.setIndex(to: hoveredIndex, shouldScroll: false, source: .mouse)
+        return true
     }
 
     private func handleDragHoverIndexChange(_ hoveredIndex: Int?) {
@@ -482,6 +483,13 @@ struct WindowPreviewHoverContainer: View {
         guard previewStateCoordinator.registerMouseMovementSinceOpen() else { return }
 
         previewStateCoordinator.setIndex(to: hoveredIndex, shouldScroll: false)
+    }
+
+    private func handleAppHeaderHover(_ hovering: Bool) {
+        let shouldShowHover = hovering && previewStateCoordinator.registerMouseMovementSinceOpen()
+        if hoveringAppIcon != shouldShowHover {
+            hoveringAppIcon = shouldShowHover
+        }
     }
 
     var body: some View {
@@ -529,6 +537,9 @@ struct WindowPreviewHoverContainer: View {
                 edgeScrollRequest = nil
             }
             refreshHighlightActionIfNeeded()
+        }
+        .onChange(of: previewStateCoordinator.pointerInteractionSessionID) { _ in
+            hoveringAppIcon = false
         }
         .task(id: previewStateCoordinator.windowSwitcherActive) {
             let keys = PreviewAppearanceSettings.observedKeys + BackgroundAppearance.observedKeys
@@ -872,8 +883,13 @@ struct WindowPreviewHoverContainer: View {
                         .padding(.leading, 4)
                     }
                     .contentShape(Rectangle())
-                    .onHover { hover in
-                        hoveringAppIcon = hover
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active:
+                            handleAppHeaderHover(true)
+                        case .ended:
+                            handleAppHeaderHover(false)
+                        }
                     }
                     .shadow(radius: 2)
                     .globalPadding(.top, 12)
@@ -907,8 +923,13 @@ struct WindowPreviewHoverContainer: View {
                         .padding(.leading, 4)
                     }
                     .contentShape(Rectangle())
-                    .onHover { hover in
-                        hoveringAppIcon = hover
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active:
+                            handleAppHeaderHover(true)
+                        case .ended:
+                            handleAppHeaderHover(false)
+                        }
                     }
                     .padding(EdgeInsets(top: -11.5, leading: 15, bottom: -1.5, trailing: 1.5))
 
@@ -946,9 +967,9 @@ struct WindowPreviewHoverContainer: View {
                     .onContinuousHover { phase in
                         switch phase {
                         case .active:
-                            if !hoveringAppIcon { hoveringAppIcon = true }
+                            handleAppHeaderHover(true)
                         case .ended:
-                            if hoveringAppIcon { hoveringAppIcon = false }
+                            handleAppHeaderHover(false)
                         }
                     }
                     .offset(y: -30)
@@ -2164,7 +2185,7 @@ struct WindowPreviewHoverContainer: View {
                     currentSpaceNumbers: currentSpaceNumbers
                 )
             }
-            .id("\(appName)-\(index)")
+            .id("\(appName)-\(index)-\(previewStateCoordinator.pointerInteractionSessionID)")
         }
     }
 

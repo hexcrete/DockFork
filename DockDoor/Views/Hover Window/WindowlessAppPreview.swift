@@ -12,7 +12,7 @@ struct WindowlessAppPreview: View, Equatable {
     let mockPreviewActive: Bool
     let handleWindowAction: (WindowAction) -> Void
     let onTap: (() -> Void)?
-    let onHoverIndexChange: ((Int?, CGPoint?) -> Void)?
+    let onHoverIndexChange: ((Int?, CGPoint?) -> Bool)?
     var appearance: PreviewAppearanceSettings
     let backgroundAppearance: BackgroundAppearance
 
@@ -249,10 +249,10 @@ struct WindowlessAppPreview: View, Equatable {
 
             switch phase {
             case let .active(location):
-                if !isHovering { setHoverState(true) }
-                onHoverIndexChange?(index, location)
+                let shouldShowHover = onHoverIndexChange?(index, location) ?? true
+                if isHovering != shouldShowHover { setHoverState(shouldShowHover) }
             case .ended:
-                onHoverIndexChange?(nil, nil)
+                _ = onHoverIndexChange?(nil, nil)
                 if isHovering { setHoverState(false) }
             }
         }

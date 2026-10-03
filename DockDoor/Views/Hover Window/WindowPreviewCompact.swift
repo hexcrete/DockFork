@@ -24,7 +24,7 @@ struct WindowPreviewCompact: View, Equatable {
     let windowSwitcherActive: Bool
     let mockPreviewActive: Bool
     let onTap: (() -> Void)?
-    let onHoverIndexChange: ((Int?, CGPoint?) -> Void)?
+    let onHoverIndexChange: ((Int?, CGPoint?) -> Bool)?
     let onDragHoverIndexChange: ((Int?) -> Void)?
     let widthOverride: CGFloat?
     var appearance: PreviewAppearanceSettings
@@ -293,10 +293,10 @@ struct WindowPreviewCompact: View, Equatable {
 
             switch phase {
             case let .active(location):
-                if !isHovering { setHoverState(true) }
-                onHoverIndexChange?(index, location)
+                let shouldShowHover = onHoverIndexChange?(index, location) ?? true
+                if isHovering != shouldShowHover { setHoverState(shouldShowHover) }
             case .ended:
-                onHoverIndexChange?(nil, nil)
+                _ = onHoverIndexChange?(nil, nil)
                 if isHovering { setHoverState(false) }
             }
         }
@@ -305,6 +305,7 @@ struct WindowPreviewCompact: View, Equatable {
             windowSwitcherActive: windowSwitcherActive,
             dockPosition: dockPosition,
             useCompactMode: true,
+            pointerHoverActive: isHovering,
             handleWindowAction: handleWindowAction,
             onTap: onTap
         )

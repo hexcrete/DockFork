@@ -1060,9 +1060,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
         }
 
-        if startsNewPointerSession {
-            windowSwitcherCoordinator.beginPointerInteractionSession()
-        }
+        let pointerSessionID = startsNewPointerSession
+            ? windowSwitcherCoordinator.beginPointerInteractionSession()
+            : nil
 
         if useBigStandaloneViewInstead, let viewToShow = viewForBigStandalone {
             performShowView(viewToShow, mouseLocation: mouseLocation, mouseScreen: screen, dockItemElement: dockItemElement, dockIconRect: dockIconRect, dockPositionOverride: dockPositionOverride, dockItemFrameOverride: dockItemFrameOverride)
@@ -1082,6 +1082,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 dockItemFrameOverride: dockItemFrameOverride,
                 renderStartTime: renderStartTime
             )
+        }
+
+        if let pointerSessionID {
+            DispatchQueue.main.async { [weak self] in
+                self?.windowSwitcherCoordinator.armPointerInteractionSession(pointerSessionID)
+            }
         }
 
         dockManager.preventDockHiding(centeredHoverWindowState != nil)

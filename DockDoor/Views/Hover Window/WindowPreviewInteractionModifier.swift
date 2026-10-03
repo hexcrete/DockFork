@@ -123,6 +123,7 @@ struct WindowPreviewInteractionModifier: ViewModifier {
     let windowSwitcherActive: Bool
     let dockPosition: DockPosition
     let useCompactMode: Bool
+    let pointerHoverActive: Bool
     let handleWindowAction: (WindowAction) -> Void
     let onTap: (() -> Void)?
 
@@ -144,6 +145,7 @@ struct WindowPreviewInteractionModifier: ViewModifier {
                 }
             }
             .onTrackpadSwipe(
+                isActive: pointerHoverActive,
                 onScrollingChanged: { scrolling in suppressTap = scrolling },
                 onSwipeUp: { handleSwipe(.up) },
                 onSwipeDown: { handleSwipe(.down) },
@@ -270,6 +272,7 @@ extension View {
         windowSwitcherActive: Bool,
         dockPosition: DockPosition,
         useCompactMode: Bool = false,
+        pointerHoverActive: Bool,
         handleWindowAction: @escaping (WindowAction) -> Void,
         onTap: (() -> Void)?
     ) -> some View {
@@ -278,6 +281,7 @@ extension View {
             windowSwitcherActive: windowSwitcherActive,
             dockPosition: dockPosition,
             useCompactMode: useCompactMode,
+            pointerHoverActive: pointerHoverActive,
             handleWindowAction: handleWindowAction,
             onTap: onTap
         ))

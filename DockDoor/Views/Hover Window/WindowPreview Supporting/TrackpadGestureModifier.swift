@@ -3,22 +3,18 @@ import Defaults
 import SwiftUI
 
 struct TrackpadGestureModifier: ViewModifier {
+    let isActive: Bool
     var onSwipeUp: () -> Void
     var onSwipeDown: () -> Void
     var onSwipeLeft: () -> Void
     var onSwipeRight: () -> Void
     var onScrollingChanged: ((Bool) -> Void)?
 
-    @State private var isHovering = false
-
     func body(content: Content) -> some View {
         content
-            .onHover { hovering in
-                isHovering = hovering
-            }
             .background(
                 TrackpadEventMonitor(
-                    isActive: $isHovering,
+                    isActive: isActive,
                     onSwipeUp: onSwipeUp,
                     onSwipeDown: onSwipeDown,
                     onSwipeLeft: onSwipeLeft,
@@ -31,7 +27,7 @@ struct TrackpadGestureModifier: ViewModifier {
 }
 
 struct TrackpadEventMonitor: NSViewRepresentable {
-    @Binding var isActive: Bool
+    let isActive: Bool
     var onSwipeUp: () -> Void
     var onSwipeDown: () -> Void
     var onSwipeLeft: () -> Void
@@ -44,7 +40,14 @@ struct TrackpadEventMonitor: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        context.coordinator.isActive = isActive
+        context.coordinator.update(
+            isActive: isActive,
+            onSwipeUp: onSwipeUp,
+            onSwipeDown: onSwipeDown,
+            onSwipeLeft: onSwipeLeft,
+            onSwipeRight: onSwipeRight,
+            onScrollingChanged: onScrollingChanged
+        )
     }
 
     func makeCoordinator() -> Coordinator {
@@ -58,12 +61,12 @@ struct TrackpadEventMonitor: NSViewRepresentable {
     }
 
     class Coordinator {
-        var isActive = false
-        var onSwipeUp: () -> Void
-        var onSwipeDown: () -> Void
-        var onSwipeLeft: () -> Void
-        var onSwipeRight: () -> Void
-        var onScrollingChanged: ((Bool) -> Void)?
+        private var isActive = false
+        private var onSwipeUp: () -> Void
+        private var onSwipeDown: () -> Void
+        private var onSwipeLeft: () -> Void
+        private var onSwipeRight: () -> Void
+        private var onScrollingChanged: ((Bool) -> Void)?
 
         private var scrollMonitor: Any?
         private var cumulativeScrollX: CGFloat = 0
@@ -97,6 +100,27 @@ struct TrackpadEventMonitor: NSViewRepresentable {
             scrollCooldownTimer?.invalidate()
         }
 
+        func update(
+            isActive: Bool,
+            onSwipeUp: @escaping () -> Void,
+            onSwipeDown: @escaping () -> Void,
+            onSwipeLeft: @escaping () -> Void,
+            onSwipeRight: @escaping () -> Void,
+            onScrollingChanged: ((Bool) -> Void)?
+        ) {
+            self.onSwipeUp = onSwipeUp
+            self.onSwipeDown = onSwipeDown
+            self.onSwipeLeft = onSwipeLeft
+            self.onSwipeRight = onSwipeRight
+            self.onScrollingChanged = onScrollingChanged
+
+            guard self.isActive != isActive else { return }
+            self.isActive = isActive
+            if !isActive {
+                cancelScroll()
+            }
+        }
+
         private func setupMonitor() {
             scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
                 self?.handleScroll(event)
@@ -126,9 +150,8 @@ struct TrackpadEventMonitor: NSViewRepresentable {
                 finishScroll()
 
             case .cancelled:
-                cumulativeScrollX = 0
-                cumulativeScrollY = 0
-                isScrolling = false
+                cancelScroll()
+                return
 
             default:
                 break
@@ -149,15 +172,27 @@ struct TrackpadEventMonitor: NSViewRepresentable {
 
             if abs(cumulativeScrollY) > abs(cumulativeScrollX), abs(cumulativeScrollY) > swipeThreshold {
                 if normalizedY > 0 {
-                    DispatchQueue.main.async { [weak self] in self?.onSwipeUp() }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, isActive else { return }
+                        onSwipeUp()
+                    }
                 } else {
-                    DispatchQueue.main.async { [weak self] in self?.onSwipeDown() }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, isActive else { return }
+                        onSwipeDown()
+                    }
                 }
             } else if abs(cumulativeScrollX) > abs(cumulativeScrollY), abs(cumulativeScrollX) > swipeThreshold {
                 if cumulativeScrollX < 0 {
-                    DispatchQueue.main.async { [weak self] in self?.onSwipeLeft() }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, isActive else { return }
+                        onSwipeLeft()
+                    }
                 } else {
-                    DispatchQueue.main.async { [weak self] in self?.onSwipeRight() }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self, isActive else { return }
+                        onSwipeRight()
+                    }
                 }
             }
 
@@ -169,11 +204,26 @@ struct TrackpadEventMonitor: NSViewRepresentable {
                 self?.onScrollingChanged?(false)
             }
         }
+
+        private func cancelScroll() {
+            let wasScrolling = isScrolling || scrollCooldownTimer != nil
+            scrollEndTimer?.invalidate()
+            scrollEndTimer = nil
+            scrollCooldownTimer?.invalidate()
+            scrollCooldownTimer = nil
+            cumulativeScrollX = 0
+            cumulativeScrollY = 0
+            isScrolling = false
+            if wasScrolling {
+                onScrollingChanged?(false)
+            }
+        }
     }
 }
 
 extension View {
     func onTrackpadSwipe(
+        isActive: Bool,
         onScrollingChanged: ((Bool) -> Void)? = nil,
         onSwipeUp: @escaping () -> Void = {},
         onSwipeDown: @escaping () -> Void = {},
@@ -181,6 +231,7 @@ extension View {
         onSwipeRight: @escaping () -> Void = {}
     ) -> some View {
         modifier(TrackpadGestureModifier(
+            isActive: isActive,
             onSwipeUp: onSwipeUp,
             onSwipeDown: onSwipeDown,
             onSwipeLeft: onSwipeLeft,

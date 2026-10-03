@@ -47,6 +47,8 @@ class PreviewStateCoordinator: ObservableObject {
 
     var hasMovedSinceOpen: Bool = false
     var initialHoverLocation: CGPoint?
+    @Published private(set) var pointerInteractionSessionID: UInt = 0
+    private var pointerInteractionReady = true
     var fullWindowPreviewActive: Bool = false
     @Published var windows: [WindowInfo] = [] {
         didSet { invalidateFilterCache() }
@@ -179,6 +181,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func registerMouseMovementSinceOpen(at location: CGPoint = NSEvent.mouseLocation) -> Bool {
+        guard pointerInteractionReady else { return false }
         if hasMovedSinceOpen { return true }
 
         guard let initialHoverLocation else {
@@ -195,9 +198,21 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    func beginPointerInteractionSession(at location: CGPoint = NSEvent.mouseLocation) {
+    @discardableResult
+    func beginPointerInteractionSession(at location: CGPoint = NSEvent.mouseLocation) -> UInt {
+        pointerInteractionSessionID &+= 1
+        pointerInteractionReady = false
         hasMovedSinceOpen = false
         initialHoverLocation = location
+        return pointerInteractionSessionID
+    }
+
+    @MainActor
+    func armPointerInteractionSession(_ sessionID: UInt, at location: CGPoint = NSEvent.mouseLocation) {
+        guard sessionID == pointerInteractionSessionID else { return }
+        hasMovedSinceOpen = false
+        initialHoverLocation = location
+        pointerInteractionReady = true
     }
 
     @MainActor
@@ -1171,7 +1186,6 @@ class PreviewStateCoordinator: ObservableObject {
     ) {
         setWindows(newWindows, dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
         searchQuery = ""
-        beginPointerInteractionSession()
 
         if startUnfocused {
             setIndex(to: -1, shouldScroll: false, source: .programmatic)
