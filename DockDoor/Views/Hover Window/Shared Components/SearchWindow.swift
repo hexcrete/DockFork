@@ -51,6 +51,10 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     private var searchField: NSTextField!
     private weak var previewCoordinator: PreviewStateCoordinator?
 
+    private var searchPlaceholder: String {
+        "Press \(KeyboardLabel.localizedKey(for: Defaults[.searchTriggerKey])) to search windows…"
+    }
+
     init(previewCoordinator: PreviewStateCoordinator) {
         self.previewCoordinator = previewCoordinator
         super.init(
@@ -80,7 +84,7 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
 
     private func setupSearchField() {
         searchField = NSTextField()
-        searchField.placeholderString = "Press \(KeyboardLabel.localizedKey(for: Defaults[.searchTriggerKey])) to search windows…"
+        searchField.placeholderString = searchPlaceholder
         searchField.isBordered = false
         searchField.drawsBackground = false
         searchField.backgroundColor = .clear
@@ -110,6 +114,7 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     }
 
     func controlTextDidBeginEditing(_ obj: Notification) {
+        setSearchPlaceholderVisible(false)
         configureFieldEditorForSingleLine()
     }
 
@@ -224,6 +229,7 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
         parent?.removeChildWindow(self)
         orderOut(nil)
         searchField.stringValue = ""
+        setSearchPlaceholderVisible(true)
         previewCoordinator?.searchQuery = ""
     }
 
@@ -236,11 +242,17 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     }
 
     func focusSearchField() {
+        setSearchPlaceholderVisible(false)
         makeKeyAndOrderFront(nil)
         DispatchQueue.main.async {
             _ = self.makeFirstResponder(self.searchField)
             self.configureFieldEditorForSingleLine()
         }
+    }
+
+    private func setSearchPlaceholderVisible(_ isVisible: Bool) {
+        searchField.placeholderString = isVisible ? searchPlaceholder : ""
+        searchField.needsDisplay = true
     }
 
     private func configureFieldEditorForSingleLine() {
