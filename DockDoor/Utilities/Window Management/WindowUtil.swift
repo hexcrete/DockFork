@@ -3242,35 +3242,114 @@ extension WindowUtil {
     static func minimizeAllWindows(for app: NSRunningApplication, preferredWindows: [WindowInfo]? = nil) -> Int {
         let pid = app.processIdentifier
         let preferredAppWindows = preferredWindows?.filter {
-            $0.app.processIdentifier == pid && !$0.isWindowlessApp
+            $0.app.processIdentifier == pid && !$0.isWindowlessApp && $0.isFullscreen != true
         } ?? []
-        let sourceWindows: [WindowInfo] = if !preferredAppWindows.isEmpty {
-            preferredAppWindows
-        } else {
-            // Fallback to cache when invoked from a windowless-only filtered view.
-            readCachedWindows(for: pid)
+        let cachedAppWindows = readCachedWindows(for: pid).filter {
+            !$0.isWindowlessApp && $0.isFullscreen != true
+        }
+        let estimatedCount = max(preferredAppWindows.count, cachedAppWindows.count)
+        guard estimatedCount > 0 else { return 0 }
+
+        Task {
+            _ = await toggleAllMinimizableWindows(for: app, preferredWindows: preferredWindows)
+        }
+        return estimatedCount
+    }
+
+    enum MinimizeAllWindowsOutcome: Equatable {
+        case noEligibleWindows
+        case revealedHiddenApp
+        case minimized
+        case restored
+    }
+
+    struct MinimizeAllWindowsResult {
+        let outcome: MinimizeAllWindowsOutcome
+        let confirmedCount: Int
+        let eligibleCount: Int
+
+        var shouldActivateApp: Bool {
+            outcome == .revealedHiddenApp || (outcome == .restored && confirmedCount > 0)
+        }
+    }
+
+    static func toggleAllMinimizableWindows(
+        for app: NSRunningApplication,
+        preferredWindows: [WindowInfo]? = nil,
+        restoreHiddenAppIfNeeded: Bool = false
+    ) async -> MinimizeAllWindowsResult {
+        let pid = app.processIdentifier
+        let cachedWindows = readCachedWindows(for: pid)
+        let refreshedWindows: [WindowInfo]
+        do {
+            refreshedWindows = try await getActiveWindows(of: app, ignoreSingleWindowFilter: true)
+        } catch {
+            DebugLogger.log(
+                "MinimizeAll",
+                details: "\(app.localizedName ?? "Unknown"): refresh failed, using cached inventory: \(error)"
+            )
+            refreshedWindows = []
+        }
+        guard !Task.isCancelled else {
+            return MinimizeAllWindowsResult(outcome: .noEligibleWindows, confirmedCount: 0, eligibleCount: 0)
         }
 
-        let ownBundleId = Bundle.main.bundleIdentifier
-        let appWindows = sourceWindows.filter {
-            !$0.isWindowlessApp &&
-                $0.app.bundleIdentifier != ownBundleId
+        var windowsByID: [CGWindowID: WindowInfo] = [:]
+        let preferredAppWindows = preferredWindows?.filter { $0.app.processIdentifier == pid } ?? []
+        windowsByID.reserveCapacity(preferredAppWindows.count + cachedWindows.count + refreshedWindows.count)
+        for window in preferredAppWindows {
+            windowsByID[window.id] = window
         }
-        guard !appWindows.isEmpty else { return 0 }
-
-        let nonFullscreenWindows = appWindows.filter { (try? $0.axElement.isFullscreen()) != true }
-        guard !nonFullscreenWindows.isEmpty else { return 0 }
-
-        if nonFullscreenWindows.allSatisfy(\.isMinimized) {
-            unminimizeWindowsAsync(nonFullscreenWindows)
-            return nonFullscreenWindows.count
+        for window in cachedWindows {
+            windowsByID[window.id] = window
+        }
+        for window in refreshedWindows {
+            windowsByID[window.id] = window
         }
 
-        let windowsToMinimize = nonFullscreenWindows.filter { !$0.isMinimized }
-        guard !windowsToMinimize.isEmpty else { return 0 }
+        let snapshot = await minimizableWindowSnapshot(Array(windowsByID.values))
+        guard !Task.isCancelled, !snapshot.isEmpty else {
+            return MinimizeAllWindowsResult(outcome: .noEligibleWindows, confirmedCount: 0, eligibleCount: 0)
+        }
 
-        minimizeWindowsAsync(windowsToMinimize)
-        return windowsToMinimize.count
+        let allWindowsMinimized = snapshot.allSatisfy(\.isMinimized)
+        if restoreHiddenAppIfNeeded, app.isHidden, !allWindowsMinimized {
+            let revealed = await setHiddenStateConfirmed(for: app, isHidden: false)
+            return MinimizeAllWindowsResult(
+                outcome: revealed ? .revealedHiddenApp : .noEligibleWindows,
+                confirmedCount: 0,
+                eligibleCount: snapshot.count
+            )
+        }
+
+        let targetMinimizedState = !allWindowsMinimized
+        if !targetMinimizedState, app.isHidden {
+            guard await setHiddenStateConfirmed(for: app, isHidden: false) else {
+                return MinimizeAllWindowsResult(
+                    outcome: .restored,
+                    confirmedCount: 0,
+                    eligibleCount: snapshot.count
+                )
+            }
+        }
+        guard !Task.isCancelled else {
+            return MinimizeAllWindowsResult(outcome: .noEligibleWindows, confirmedCount: 0, eligibleCount: snapshot.count)
+        }
+
+        let confirmedCount = await setMinimizedStateConfirmed(
+            snapshot.map(\.window),
+            isMinimized: targetMinimizedState
+        )
+        let outcome: MinimizeAllWindowsOutcome = targetMinimizedState ? .minimized : .restored
+        DebugLogger.log(
+            "MinimizeAll",
+            details: "\(app.localizedName ?? "Unknown"): minimized=\(targetMinimizedState), confirmed=\(confirmedCount)/\(snapshot.count)"
+        )
+        return MinimizeAllWindowsResult(
+            outcome: outcome,
+            confirmedCount: confirmedCount,
+            eligibleCount: snapshot.count
+        )
     }
 
     @discardableResult
@@ -3710,26 +3789,6 @@ extension WindowUtil {
         }
     }
 
-    /// Minimizes multiple windows concurrently off the main thread to avoid UI blocking.
-    static func minimizeWindowsAsync(_ windows: [WindowInfo]) {
-        guard !windows.isEmpty else { return }
-
-        let ownBundleId = Bundle.main.bundleIdentifier
-        let windowsToMinimize = windows.filter { !$0.isMinimized && $0.app.bundleIdentifier != ownBundleId }
-        guard !windowsToMinimize.isEmpty else { return }
-
-        // Perform AX operations concurrently in background
-        Task.detached(priority: .userInitiated) {
-            await withTaskGroup(of: Void.self) { group in
-                for window in windowsToMinimize {
-                    group.addTask {
-                        try? window.axElement.setAttribute(kAXMinimizedAttribute, true)
-                    }
-                }
-            }
-        }
-    }
-
     static func minimizableWindowSnapshot(_ windows: [WindowInfo]) async -> [(window: WindowInfo, isMinimized: Bool)] {
         let ownBundleId = Bundle.main.bundleIdentifier
         let candidates = windows.filter {
@@ -3859,35 +3918,6 @@ extension WindowUtil {
         guard confirmed, !Task.isCancelled else { return false }
         updateCachedWindowStates(for: app.processIdentifier, isHidden: isHidden)
         return true
-    }
-
-    /// Restores minimized windows concurrently off the main thread to avoid UI blocking.
-    static func unminimizeWindowsAsync(_ windows: [WindowInfo]) {
-        guard !windows.isEmpty else { return }
-
-        let ownBundleId = Bundle.main.bundleIdentifier
-        let windowsToRestore = windows.filter { $0.isMinimized && $0.app.bundleIdentifier != ownBundleId }
-        guard !windowsToRestore.isEmpty else { return }
-
-        if let app = windowsToRestore.first?.app, app.isHidden {
-            app.unhide()
-        }
-
-        // Unminimize is treated as effectively reliable in practice; update cache eagerly
-        // so cross-space rows clear the "Minimized" tag immediately.
-        for window in windowsToRestore {
-            updateCachedWindowState(window, isMinimized: false)
-        }
-
-        Task.detached(priority: .userInitiated) {
-            await withTaskGroup(of: Void.self) { group in
-                for window in windowsToRestore {
-                    group.addTask {
-                        try? window.axElement.setAttribute(kAXMinimizedAttribute, false)
-                    }
-                }
-            }
-        }
     }
 
     static func openNewWindow(app: NSRunningApplication) {

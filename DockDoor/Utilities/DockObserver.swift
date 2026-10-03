@@ -1128,53 +1128,17 @@ final class DockObserver {
                 }
 
             case .minimize:
-                do {
-                    let cachedWindows = WindowUtil.readCachedWindows(for: pid)
-                    let refreshedWindows = try await WindowUtil.getActiveWindows(of: app, ignoreSingleWindowFilter: true)
-                    guard !Task.isCancelled else { return }
-                    var windowsByID: [CGWindowID: WindowInfo] = [:]
-                    windowsByID.reserveCapacity(cachedWindows.count + refreshedWindows.count)
-                    for window in cachedWindows {
-                        windowsByID[window.id] = window
-                    }
-                    for window in refreshedWindows {
-                        windowsByID[window.id] = window
-                    }
-                    let windows = Array(windowsByID.values)
-                    DebugLogger.log(
-                        "DockClick",
-                        details: "\(appName): minimize inventory cached=\(cachedWindows.count), refreshed=\(refreshedWindows.count), merged=\(windows.count)"
-                    )
-                    let minimizableSnapshot = await WindowUtil.minimizableWindowSnapshot(windows)
-                    guard !Task.isCancelled else { return }
-                    let eligibleWindows = minimizableSnapshot.map(\.window)
-                    guard !eligibleWindows.isEmpty else { return }
-
-                    let allWindowsMinimized = minimizableSnapshot.allSatisfy(\.isMinimized)
-                    if wasHiddenAtClickTime {
-                        guard await WindowUtil.setHiddenStateConfirmed(for: app, isHidden: false) else {
-                            return
-                        }
-                        if !allWindowsMinimized {
-                            app.activate(options: [.activateIgnoringOtherApps])
-                            return
-                        }
-                    }
-
-                    let targetMinimizedState = !allWindowsMinimized
-                    let changedCount = await WindowUtil.setMinimizedStateConfirmed(
-                        eligibleWindows,
-                        isMinimized: targetMinimizedState
-                    )
-                    DebugLogger.log(
-                        "DockClick",
-                        details: "\(appName): minimized=\(targetMinimizedState), confirmed=\(changedCount)/\(eligibleWindows.count)"
-                    )
-                    if !targetMinimizedState, changedCount > 0 {
-                        app.activate(options: [.activateIgnoringOtherApps])
-                    }
-                } catch {
-                    DebugLogger.log("DockClick", details: "\(appName): failed to fetch windows: \(error)")
+                let result = await WindowUtil.toggleAllMinimizableWindows(
+                    for: app,
+                    restoreHiddenAppIfNeeded: wasHiddenAtClickTime
+                )
+                guard !Task.isCancelled else { return }
+                DebugLogger.log(
+                    "DockClick",
+                    details: "\(appName): minimize-all outcome=\(result.outcome), confirmed=\(result.confirmedCount)/\(result.eligibleCount)"
+                )
+                if result.shouldActivateApp {
+                    app.activate(options: [.activateIgnoringOtherApps])
                 }
 
             case .cycleWindows:
