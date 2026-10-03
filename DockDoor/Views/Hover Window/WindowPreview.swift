@@ -43,7 +43,7 @@ final class SpaceMoveMenuController: NSObject {
         activeMenu = nil
     }
 
-    private func makeMenu(for window: WindowInfo, dismissPreviews: (() -> Void)?) -> NSMenu {
+    func makeMenu(for window: WindowInfo, dismissPreviews: (() -> Void)?) -> NSMenu {
         let menu = NSMenu(title: String(localized: "Move to Space", comment: "Space destination menu title"))
         let displays = WindowSpaces.managedDisplays(includeOwners: true)
         let sourceValidation = WindowSpaces.validateMoveSource(window, in: displays)

@@ -158,7 +158,8 @@ struct WindowPreviewInteractionModifier: ViewModifier {
             }
             .previewContextMenu(
                 windowInfo: windowInfo,
-                handleWindowAction: handleWindowAction
+                handleWindowAction: handleWindowAction,
+                dismissPreviews: onTap
             )
     }
 
@@ -309,11 +310,13 @@ final class PreviewContextMenuController: NSObject {
         for window: WindowInfo,
         event: NSEvent,
         sourceView: NSView,
-        handleWindowAction: @escaping (WindowAction) -> Void
+        handleWindowAction: @escaping (WindowAction) -> Void,
+        dismissPreviews: (() -> Void)?
     ) {
         let menu = makeMenu(
             for: window,
-            handleWindowAction: handleWindowAction
+            handleWindowAction: handleWindowAction,
+            dismissPreviews: dismissPreviews
         )
         guard !menu.items.isEmpty else { return }
 
@@ -332,7 +335,8 @@ final class PreviewContextMenuController: NSObject {
 
     private func makeMenu(
         for window: WindowInfo,
-        handleWindowAction: @escaping (WindowAction) -> Void
+        handleWindowAction: @escaping (WindowAction) -> Void,
+        dismissPreviews: (() -> Void)?
     ) -> NSMenu {
         let menu = NSMenu()
         let groups = WindowAction.availableGroups(for: window)
@@ -341,23 +345,38 @@ final class PreviewContextMenuController: NSObject {
             add(actions, for: window, to: menu, handler: handleWindowAction)
         }
 
-        if !window.isWindowlessApp,
-           let actions = groups.first(where: { $0.id == .arrange })?.actions
-        {
+        if !window.isWindowlessApp {
             addSeparatorIfNeeded(to: menu)
-            let arrangeItem = NSMenuItem(
-                title: WindowAction.Group.arrange.localizedName,
+            if let actions = groups.first(where: { $0.id == .arrange })?.actions {
+                let arrangeItem = NSMenuItem(
+                    title: WindowAction.Group.arrange.localizedName,
+                    action: nil,
+                    keyEquivalent: ""
+                )
+                arrangeItem.image = NSImage(
+                    systemSymbolName: "rectangle.split.2x2",
+                    accessibilityDescription: nil
+                )
+                let arrangeMenu = NSMenu(title: WindowAction.Group.arrange.localizedName)
+                add(actions, for: window, to: arrangeMenu, handler: handleWindowAction)
+                arrangeItem.submenu = arrangeMenu
+                menu.addItem(arrangeItem)
+            }
+
+            let moveItem = NSMenuItem(
+                title: String(localized: "Move to Space", comment: "Space destination submenu title"),
                 action: nil,
                 keyEquivalent: ""
             )
-            arrangeItem.image = NSImage(
-                systemSymbolName: "rectangle.split.2x2",
+            moveItem.image = NSImage(
+                systemSymbolName: "rectangle.on.rectangle",
                 accessibilityDescription: nil
             )
-            let arrangeMenu = NSMenu(title: WindowAction.Group.arrange.localizedName)
-            add(actions, for: window, to: arrangeMenu, handler: handleWindowAction)
-            arrangeItem.submenu = arrangeMenu
-            menu.addItem(arrangeItem)
+            moveItem.submenu = SpaceMoveMenuController.shared.makeMenu(
+                for: window,
+                dismissPreviews: dismissPreviews
+            )
+            menu.addItem(moveItem)
         }
 
         if let actions = groups.first(where: { $0.id == .app })?.actions {
@@ -404,6 +423,7 @@ final class PreviewContextMenuController: NSObject {
 private struct PreviewContextMenuCapture: NSViewRepresentable {
     let windowInfo: WindowInfo
     let handleWindowAction: (WindowAction) -> Void
+    let dismissPreviews: (() -> Void)?
 
     func makeNSView(context: Context) -> ContextMenuView {
         ContextMenuView()
@@ -412,11 +432,13 @@ private struct PreviewContextMenuCapture: NSViewRepresentable {
     func updateNSView(_ nsView: ContextMenuView, context: Context) {
         nsView.windowInfo = windowInfo
         nsView.handleWindowAction = handleWindowAction
+        nsView.dismissPreviews = dismissPreviews
     }
 
     final class ContextMenuView: NSView {
         var windowInfo: WindowInfo?
         var handleWindowAction: ((WindowAction) -> Void)?
+        var dismissPreviews: (() -> Void)?
 
         override func hitTest(_ point: NSPoint) -> NSView? {
             guard bounds.contains(point), NSApp.currentEvent?.type == .rightMouseDown else { return nil }
@@ -429,7 +451,8 @@ private struct PreviewContextMenuCapture: NSViewRepresentable {
                 for: windowInfo,
                 event: event,
                 sourceView: self,
-                handleWindowAction: handleWindowAction
+                handleWindowAction: handleWindowAction,
+                dismissPreviews: dismissPreviews
             )
         }
     }
@@ -438,12 +461,14 @@ private struct PreviewContextMenuCapture: NSViewRepresentable {
 extension View {
     func previewContextMenu(
         windowInfo: WindowInfo,
-        handleWindowAction: @escaping (WindowAction) -> Void
+        handleWindowAction: @escaping (WindowAction) -> Void,
+        dismissPreviews: (() -> Void)? = nil
     ) -> some View {
         overlay {
             PreviewContextMenuCapture(
                 windowInfo: windowInfo,
-                handleWindowAction: handleWindowAction
+                handleWindowAction: handleWindowAction,
+                dismissPreviews: dismissPreviews
             )
         }
     }
