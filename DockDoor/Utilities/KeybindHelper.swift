@@ -603,8 +603,20 @@ class KeybindHelper {
 
     /// Set on event tap thread when switcher keybind fires, so other keyDown handlers
     /// can detect the switcher is active without reading MainActor-only state.
-    private var switcherSessionActive = false
-    private var activeSessionKeybind = Defaults[.UserKeybind]
+    private var switcherSessionActive = false {
+        didSet {
+            previewCoordinator.setActivePreviewShortcutKeybind(
+                switcherSessionActive ? activeSessionKeybind : nil
+            )
+        }
+    }
+
+    private var activeSessionKeybind = Defaults[.UserKeybind] {
+        didSet {
+            guard switcherSessionActive else { return }
+            previewCoordinator.setActivePreviewShortcutKeybind(activeSessionKeybind)
+        }
+    }
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -864,6 +876,19 @@ class KeybindHelper {
             let flags = event.flags
             let tapSnapshot = previewCoordinator.tapSnapshot
             let shouldRouteCmdTabToWindowSwitcher = isCmdTabWindowSwitcherKeybind(keyCode: keyCode, flags: flags)
+
+            if let routing = previewCoordinator.contextMenuShortcutRoutingSnapshot(),
+               let action = routing.actionsByKeyCode[UInt16(keyCode)],
+               WindowSwitcherShortcutResolver.normalizedModifiers(Int(flags.rawValue)) ==
+               WindowSwitcherShortcutResolver.normalizedModifiers(routing.keybind.modifierFlags)
+            {
+                guard modifierSideMatches(routing.keybind) else { return nil }
+                guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0 else { return nil }
+                Task { @MainActor in
+                    PreviewContextMenuController.shared.performShortcut(action, token: routing.token)
+                }
+                return nil
+            }
 
             if let spaceNumber = numberedSpaceShortcut(event: event),
                tapSnapshot.isVisible
@@ -1252,6 +1277,17 @@ class KeybindHelper {
 
     private func previewShortcutKeybind() -> UserKeyBind {
         WindowSwitcherShortcutResolver.dependentShortcutKeybind(sessionKeybind())
+    }
+
+    private func effectivePreviewShortcutKeybind() -> UserKeyBind {
+        if DockObserver.isCmdTabSwitcherActive {
+            return UserKeyBind(
+                keyCode: UInt16(kVK_Tab),
+                modifierFlags: Int(CGEventFlags.maskCommand.rawValue),
+                modifierSide: .either
+            )
+        }
+        return previewShortcutKeybind()
     }
 
     private func beginSwitcherSession(with keybind: UserKeyBind) {
@@ -1969,21 +2005,12 @@ class KeybindHelper {
     /// Returns the first active preview action matching the configured key.
     private func getActionForPreviewShortcut(keyCode: Int64) -> WindowAction? {
         let mainKeybind = Defaults[.UserKeybind]
-        let previewKeybind = previewShortcutKeybind()
-        for shortcut in Defaults[.cmdShortcuts] where !shortcut.isPending && Int64(shortcut.keyCode) == keyCode {
-            if WindowSwitcherShortcutResolver.conflictsWithSpacesShortcut(
-                keyCode: shortcut.keyCode,
-                modifierFlags: previewKeybind.modifierFlags,
-                modifierSide: previewKeybind.modifierSide,
-                mainKeybind: mainKeybind
-            ) {
-                continue
-            }
-            if shortcut.action != .none {
-                return shortcut.action
-            }
-        }
-        return nil
+        let previewKeybind = effectivePreviewShortcutKeybind()
+        return WindowSwitcherShortcutResolver.resolvedPreviewShortcuts(
+            Defaults[.cmdShortcuts],
+            previewKeybind: previewKeybind,
+            mainKeybind: mainKeybind
+        ).first { Int64($0.keyCode) == keyCode }?.action
     }
 }
 

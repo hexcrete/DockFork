@@ -278,6 +278,16 @@ enum WindowSwitcherShortcutResolver {
         }
     }
 
+    static func appKitModifierMask(for keybind: UserKeyBind) -> NSEvent.ModifierFlags {
+        let modifiers = normalizedModifiers(keybind.modifierFlags)
+        var mask: NSEvent.ModifierFlags = []
+        if modifiers & Int(CGEventFlags.maskShift.rawValue) != 0 { mask.insert(.shift) }
+        if modifiers & Int(CGEventFlags.maskControl.rawValue) != 0 { mask.insert(.control) }
+        if modifiers & Int(CGEventFlags.maskAlternate.rawValue) != 0 { mask.insert(.option) }
+        if modifiers & Int(CGEventFlags.maskCommand.rawValue) != 0 { mask.insert(.command) }
+        return mask
+    }
+
     static func conflictsWithSpacesShortcut(
         keyCode: UInt16,
         modifierFlags: Int,
@@ -291,6 +301,47 @@ enum WindowSwitcherShortcutResolver {
             spaceNumber(forPhysicalKeyCode: Int64(keyCode)) != nil &&
             normalizedModifiers(modifierFlags) == mainModifiers &&
             sidesOverlap(modifierSide, spacesKeybind.modifierSide)
+    }
+
+    static func resolvedPreviewShortcuts(
+        _ shortcuts: [CmdShortcut],
+        previewKeybind: UserKeyBind,
+        mainKeybind: UserKeyBind
+    ) -> [CmdShortcut] {
+        shortcuts.indices.compactMap { index in
+            guard previewConflict(
+                at: index,
+                shortcuts: shortcuts,
+                previewKeybind: previewKeybind,
+                mainKeybind: mainKeybind
+            ) == nil else { return nil }
+            return shortcuts[index]
+        }
+    }
+
+    static func previewConflict(
+        at index: Int,
+        shortcuts: [CmdShortcut],
+        previewKeybind: UserKeyBind,
+        mainKeybind: UserKeyBind
+    ) -> AlternateSwitcherShortcutConflict? {
+        guard shortcuts.indices.contains(index) else { return nil }
+        let candidate = shortcuts[index]
+        guard !candidate.isPending, candidate.action != .none else { return nil }
+
+        if conflictsWithSpacesShortcut(
+            keyCode: candidate.keyCode,
+            modifierFlags: previewKeybind.modifierFlags,
+            modifierSide: previewKeybind.modifierSide,
+            mainKeybind: mainKeybind
+        ) {
+            return .spacesShortcut
+        }
+
+        let duplicatesEarlierShortcut = shortcuts[..<index].contains {
+            !$0.isPending && $0.action != .none && $0.keyCode == candidate.keyCode
+        }
+        return duplicatesEarlierShortcut ? .duplicate : nil
     }
 
     static func alternateConflict(

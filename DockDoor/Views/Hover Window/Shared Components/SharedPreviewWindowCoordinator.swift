@@ -81,11 +81,62 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private let tapSnapshotLock = NSLock()
     private var currentTapSnapshot = TapSnapshot()
 
+    struct ContextMenuShortcutRoutingSnapshot {
+        let token: UUID
+        let keybind: UserKeyBind
+        let actionsByKeyCode: [UInt16: WindowAction]
+    }
+
+    private let shortcutSnapshotLock = NSLock()
+    private var activePreviewShortcutKeybind: UserKeyBind?
+    private var contextMenuShortcutRouting: ContextMenuShortcutRoutingSnapshot?
+
     /// Window state for event tap callbacks, which run off the main thread.
     var tapSnapshot: TapSnapshot {
         tapSnapshotLock.lock()
         defer { tapSnapshotLock.unlock() }
         return currentTapSnapshot
+    }
+
+    func setActivePreviewShortcutKeybind(_ keybind: UserKeyBind?) {
+        shortcutSnapshotLock.lock()
+        activePreviewShortcutKeybind = keybind
+        shortcutSnapshotLock.unlock()
+    }
+
+    func activePreviewShortcutKeybindSnapshot() -> UserKeyBind? {
+        shortcutSnapshotLock.lock()
+        defer { shortcutSnapshotLock.unlock() }
+        return activePreviewShortcutKeybind
+    }
+
+    @discardableResult
+    func beginContextMenuShortcutRouting(
+        keybind: UserKeyBind,
+        actionsByKeyCode: [UInt16: WindowAction]
+    ) -> UUID {
+        let token = UUID()
+        shortcutSnapshotLock.lock()
+        contextMenuShortcutRouting = ContextMenuShortcutRoutingSnapshot(
+            token: token,
+            keybind: keybind,
+            actionsByKeyCode: actionsByKeyCode
+        )
+        shortcutSnapshotLock.unlock()
+        return token
+    }
+
+    func endContextMenuShortcutRouting(token: UUID? = nil) {
+        shortcutSnapshotLock.lock()
+        defer { shortcutSnapshotLock.unlock() }
+        guard token == nil || contextMenuShortcutRouting?.token == token else { return }
+        contextMenuShortcutRouting = nil
+    }
+
+    func contextMenuShortcutRoutingSnapshot() -> ContextMenuShortcutRoutingSnapshot? {
+        shortcutSnapshotLock.lock()
+        defer { shortcutSnapshotLock.unlock() }
+        return contextMenuShortcutRouting
     }
 
     @objc private func publishTapSnapshot() {
@@ -227,6 +278,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             cancelPendingShow()
         }
         PreviewContextMenuController.shared.dismiss()
+        endContextMenuShortcutRouting()
         SpaceMoveMenuController.shared.dismiss()
         cancelAllDeferredActionWatchers()
         activationDismissalSuppression = nil

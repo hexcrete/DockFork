@@ -1,3 +1,4 @@
+import Carbon.HIToolbox.Events
 import Defaults
 import SwiftUI
 import UniformTypeIdentifiers
@@ -305,6 +306,7 @@ final class PreviewContextMenuController: NSObject {
     }
 
     private var activeMenu: NSMenu?
+    private var activeRoutingToken: UUID?
 
     func present(
         for window: WindowInfo,
@@ -313,28 +315,70 @@ final class PreviewContextMenuController: NSObject {
         handleWindowAction: @escaping (WindowAction) -> Void,
         dismissPreviews: (() -> Void)?
     ) {
+        let shortcutKeybind = effectiveShortcutKeybind()
+        let shortcuts = WindowSwitcherShortcutResolver.resolvedPreviewShortcuts(
+            Defaults[.cmdShortcuts],
+            previewKeybind: shortcutKeybind,
+            mainKeybind: Defaults[.UserKeybind]
+        )
+        var shortcutByAction: [WindowAction: CmdShortcut] = [:]
+        for shortcut in shortcuts where shortcutByAction[shortcut.action] == nil {
+            shortcutByAction[shortcut.action] = shortcut
+        }
+
+        var displayedShortcuts: [UInt16: WindowAction] = [:]
         let menu = makeMenu(
             for: window,
+            shortcutKeybind: shortcutKeybind,
+            shortcutByAction: shortcutByAction,
+            displayedShortcuts: &displayedShortcuts,
             handleWindowAction: handleWindowAction,
             dismissPreviews: dismissPreviews
         )
         guard !menu.items.isEmpty else { return }
 
-        activeMenu?.cancelTracking()
+        dismiss()
         activeMenu = menu
+        let routingToken = SharedPreviewWindowCoordinator.activeInstance?.beginContextMenuShortcutRouting(
+            keybind: shortcutKeybind,
+            actionsByKeyCode: displayedShortcuts
+        )
+        activeRoutingToken = routingToken
         NSMenu.popUpContextMenu(menu, with: event, for: sourceView)
         if activeMenu === menu {
             activeMenu = nil
+        }
+        if activeRoutingToken == routingToken {
+            activeRoutingToken = nil
+        }
+        if let routingToken {
+            SharedPreviewWindowCoordinator.activeInstance?.endContextMenuShortcutRouting(token: routingToken)
         }
     }
 
     func dismiss() {
         activeMenu?.cancelTracking()
         activeMenu = nil
+        if let activeRoutingToken {
+            SharedPreviewWindowCoordinator.activeInstance?.endContextMenuShortcutRouting(token: activeRoutingToken)
+            self.activeRoutingToken = nil
+        }
+    }
+
+    func performShortcut(_ action: WindowAction, token: UUID) {
+        guard activeRoutingToken == token,
+              let request = actionRequest(for: action, in: activeMenu)
+        else { return }
+
+        dismiss()
+        request.handler(request.action)
     }
 
     private func makeMenu(
         for window: WindowInfo,
+        shortcutKeybind: UserKeyBind,
+        shortcutByAction: [WindowAction: CmdShortcut],
+        displayedShortcuts: inout [UInt16: WindowAction],
         handleWindowAction: @escaping (WindowAction) -> Void,
         dismissPreviews: (() -> Void)?
     ) -> NSMenu {
@@ -342,7 +386,15 @@ final class PreviewContextMenuController: NSObject {
         let groups = WindowAction.availableGroups(for: window)
 
         if let actions = groups.first(where: { $0.id == .window })?.actions {
-            add(actions, for: window, to: menu, handler: handleWindowAction)
+            add(
+                actions,
+                for: window,
+                to: menu,
+                shortcutKeybind: shortcutKeybind,
+                shortcutByAction: shortcutByAction,
+                displayedShortcuts: &displayedShortcuts,
+                handler: handleWindowAction
+            )
         }
 
         if !window.isWindowlessApp {
@@ -357,8 +409,17 @@ final class PreviewContextMenuController: NSObject {
                     systemSymbolName: "rectangle.split.2x2",
                     accessibilityDescription: nil
                 )
+                forceImageVisibility(for: arrangeItem)
                 let arrangeMenu = NSMenu(title: WindowAction.Group.arrange.localizedName)
-                add(actions, for: window, to: arrangeMenu, handler: handleWindowAction)
+                add(
+                    actions,
+                    for: window,
+                    to: arrangeMenu,
+                    shortcutKeybind: shortcutKeybind,
+                    shortcutByAction: shortcutByAction,
+                    displayedShortcuts: &displayedShortcuts,
+                    handler: handleWindowAction
+                )
                 arrangeItem.submenu = arrangeMenu
                 menu.addItem(arrangeItem)
             }
@@ -372,6 +433,7 @@ final class PreviewContextMenuController: NSObject {
                 systemSymbolName: "rectangle.on.rectangle",
                 accessibilityDescription: nil
             )
+            forceImageVisibility(for: moveItem)
             moveItem.submenu = SpaceMoveMenuController.shared.makeMenu(
                 for: window,
                 dismissPreviews: dismissPreviews
@@ -381,7 +443,15 @@ final class PreviewContextMenuController: NSObject {
 
         if let actions = groups.first(where: { $0.id == .app })?.actions {
             addSeparatorIfNeeded(to: menu)
-            add(actions, for: window, to: menu, handler: handleWindowAction)
+            add(
+                actions,
+                for: window,
+                to: menu,
+                shortcutKeybind: shortcutKeybind,
+                shortcutByAction: shortcutByAction,
+                displayedShortcuts: &displayedShortcuts,
+                handler: handleWindowAction
+            )
         }
 
         return menu
@@ -391,6 +461,9 @@ final class PreviewContextMenuController: NSObject {
         _ actions: [WindowAction],
         for window: WindowInfo,
         to menu: NSMenu,
+        shortcutKeybind: UserKeyBind,
+        shortcutByAction: [WindowAction: CmdShortcut],
+        displayedShortcuts: inout [UInt16: WindowAction],
         handler: @escaping (WindowAction) -> Void
     ) {
         for action in actions {
@@ -405,7 +478,58 @@ final class PreviewContextMenuController: NSObject {
                 systemSymbolName: action.menuIcon(for: window),
                 accessibilityDescription: nil
             )
+            forceImageVisibility(for: item)
+            if let shortcut = shortcutByAction[action],
+               let keyEquivalent = KeyboardLabel.menuKeyEquivalent(for: shortcut.keyCode)
+            {
+                item.keyEquivalent = keyEquivalent
+                item.keyEquivalentModifierMask = WindowSwitcherShortcutResolver.appKitModifierMask(for: shortcutKeybind)
+                displayedShortcuts[shortcut.keyCode] = action
+            }
+            if action == .quit {
+                item.attributedTitle = NSAttributedString(
+                    string: item.title,
+                    attributes: [.foregroundColor: NSColor.systemRed]
+                )
+                item.image = item.image?.tint(color: .systemRed)
+                item.image?.isTemplate = false
+            }
             menu.addItem(item)
+        }
+    }
+
+    private func effectiveShortcutKeybind() -> UserKeyBind {
+        let keybind: UserKeyBind = if DockObserver.isCmdTabSwitcherActive {
+            UserKeyBind(
+                keyCode: UInt16(kVK_Tab),
+                modifierFlags: Int(CGEventFlags.maskCommand.rawValue),
+                modifierSide: .either
+            )
+        } else {
+            SharedPreviewWindowCoordinator.activeInstance?.activePreviewShortcutKeybindSnapshot()
+                ?? Defaults[.UserKeybind]
+        }
+        return WindowSwitcherShortcutResolver.dependentShortcutKeybind(keybind)
+    }
+
+    private func actionRequest(for action: WindowAction, in menu: NSMenu?) -> ActionRequest? {
+        guard let menu else { return nil }
+        for item in menu.items {
+            if let request = item.representedObject as? ActionRequest,
+               request.action == action
+            {
+                return request
+            }
+            if let request = actionRequest(for: action, in: item.submenu) {
+                return request
+            }
+        }
+        return nil
+    }
+
+    private func forceImageVisibility(for item: NSMenuItem) {
+        if #available(macOS 27.0, *) {
+            item.preferredImageVisibility = .visible
         }
     }
 

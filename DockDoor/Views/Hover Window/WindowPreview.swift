@@ -128,6 +128,8 @@ final class SpaceMoveMenuController: NSObject {
                     item.isEnabled = false
                 }
 
+                applyNumberedSpaceShortcut(to: item, spaceNumber: space.number)
+
                 menu.addItem(item)
             }
         }
@@ -223,6 +225,16 @@ final class SpaceMoveMenuController: NSObject {
         let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
         item.isEnabled = false
         menu.addItem(item)
+    }
+
+    private func applyNumberedSpaceShortcut(to item: NSMenuItem, spaceNumber: Int) {
+        guard Defaults[.enableSpacesShortcuts],
+              (1 ... 10).contains(spaceNumber)
+        else { return }
+
+        let keybind = WindowSwitcherShortcutResolver.dependentShortcutKeybind(Defaults[.UserKeybind])
+        item.keyEquivalent = spaceNumber == 10 ? "0" : String(spaceNumber)
+        item.keyEquivalentModifierMask = WindowSwitcherShortcutResolver.appKitModifierMask(for: keybind)
     }
 
     @objc private func moveWindow(_ sender: NSMenuItem) {

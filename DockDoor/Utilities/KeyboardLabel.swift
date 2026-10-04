@@ -23,17 +23,67 @@ enum KeyboardLabel {
         default: break
         }
 
-        // Try Unicode key layout for regular keys
-        if let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
-           let ptr = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
-        {
-            let cfData = unsafeBitCast(ptr, to: CFData.self)
-            if let result = translate(from: cfData, keyCode: keyCode) {
-                return result
-            }
+        if let result = translatedKey(for: keyCode) {
+            return result.uppercased()
         }
         // As a last resort, return the key code itself
         return String(keyCode)
+    }
+
+    static func menuKeyEquivalent(for keyCode: UInt16) -> String? {
+        switch Int(keyCode) {
+        case kVK_Tab: return "\t"
+        case kVK_Return: return "\r"
+        case kVK_ANSI_KeypadEnter: return "\u{3}"
+        case kVK_Delete: return "\u{8}"
+        case kVK_ForwardDelete: return String(UnicodeScalar(NSDeleteFunctionKey)!)
+        case kVK_Escape: return "\u{1b}"
+        case kVK_Space: return " "
+        case kVK_LeftArrow: return String(UnicodeScalar(NSLeftArrowFunctionKey)!)
+        case kVK_RightArrow: return String(UnicodeScalar(NSRightArrowFunctionKey)!)
+        case kVK_UpArrow: return String(UnicodeScalar(NSUpArrowFunctionKey)!)
+        case kVK_DownArrow: return String(UnicodeScalar(NSDownArrowFunctionKey)!)
+        case kVK_Home: return String(UnicodeScalar(NSHomeFunctionKey)!)
+        case kVK_End: return String(UnicodeScalar(NSEndFunctionKey)!)
+        case kVK_PageUp: return String(UnicodeScalar(NSPageUpFunctionKey)!)
+        case kVK_PageDown: return String(UnicodeScalar(NSPageDownFunctionKey)!)
+        case kVK_Help: return String(UnicodeScalar(NSHelpFunctionKey)!)
+        case kVK_F1: return String(UnicodeScalar(NSF1FunctionKey)!)
+        case kVK_F2: return String(UnicodeScalar(NSF2FunctionKey)!)
+        case kVK_F3: return String(UnicodeScalar(NSF3FunctionKey)!)
+        case kVK_F4: return String(UnicodeScalar(NSF4FunctionKey)!)
+        case kVK_F5: return String(UnicodeScalar(NSF5FunctionKey)!)
+        case kVK_F6: return String(UnicodeScalar(NSF6FunctionKey)!)
+        case kVK_F7: return String(UnicodeScalar(NSF7FunctionKey)!)
+        case kVK_F8: return String(UnicodeScalar(NSF8FunctionKey)!)
+        case kVK_F9: return String(UnicodeScalar(NSF9FunctionKey)!)
+        case kVK_F10: return String(UnicodeScalar(NSF10FunctionKey)!)
+        case kVK_F11: return String(UnicodeScalar(NSF11FunctionKey)!)
+        case kVK_F12: return String(UnicodeScalar(NSF12FunctionKey)!)
+        case kVK_F13: return String(UnicodeScalar(NSF13FunctionKey)!)
+        case kVK_F14: return String(UnicodeScalar(NSF14FunctionKey)!)
+        case kVK_F15: return String(UnicodeScalar(NSF15FunctionKey)!)
+        case kVK_F16: return String(UnicodeScalar(NSF16FunctionKey)!)
+        case kVK_F17: return String(UnicodeScalar(NSF17FunctionKey)!)
+        case kVK_F18: return String(UnicodeScalar(NSF18FunctionKey)!)
+        case kVK_F19: return String(UnicodeScalar(NSF19FunctionKey)!)
+        case kVK_F20: return String(UnicodeScalar(NSF20FunctionKey)!)
+        default:
+            guard let translated = translatedKey(for: keyCode),
+                  translated.count == 1,
+                  translated.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) })
+            else { return nil }
+            return translated.lowercased()
+        }
+    }
+
+    private static func translatedKey(for keyCode: UInt16) -> String? {
+        guard let source = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
+              let ptr = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData)
+        else { return nil }
+
+        let data = unsafeBitCast(ptr, to: CFData.self)
+        return translate(from: data, keyCode: keyCode)
     }
 
     private static func translate(from data: CFData, keyCode: UInt16) -> String? {
@@ -61,8 +111,7 @@ enum KeyboardLabel {
 
             if err == noErr, length > 0 {
                 let str = String(utf16CodeUnits: chars, count: length)
-                // Use uppercase for display consistency on letter keys
-                output = str.uppercased()
+                output = str
             }
         }
         return output

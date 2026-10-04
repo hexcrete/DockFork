@@ -4,7 +4,6 @@ import SwiftUI
 struct CmdKeyShortcutsSection: View {
     @Default(.cmdShortcuts) var cmdShortcuts
     @Default(.UserKeybind) private var windowSwitcherKeybind
-    @Default(.enableSpacesShortcuts) private var enableSpacesShortcuts
     @Default(.ignoreMainModifierSideForDependentShortcuts) private var ignoreMainModifierSideForDependentShortcuts
 
     var body: some View {
@@ -164,29 +163,12 @@ struct CmdKeyShortcutsSection: View {
     }
 
     private func conflict(at index: Int) -> AlternateSwitcherShortcutConflict? {
-        guard cmdShortcuts.indices.contains(index) else { return nil }
-        let candidate = cmdShortcuts[index]
-        guard !candidate.isPending, candidate.action != .none else { return nil }
-
-        if enableSpacesShortcuts,
-           WindowSwitcherShortcutResolver.conflictsWithSpacesShortcut(
-               keyCode: candidate.keyCode,
-               modifierFlags: previewShortcutKeybind.modifierFlags,
-               modifierSide: previewShortcutKeybind.modifierSide,
-               mainKeybind: windowSwitcherKeybind
-           )
-        {
-            return .spacesShortcut
-        }
-
-        for higherPriorityIndex in 0 ..< index {
-            let existing = cmdShortcuts[higherPriorityIndex]
-            if !existing.isPending, existing.keyCode == candidate.keyCode, existing.action != .none {
-                return .duplicate
-            }
-        }
-
-        return nil
+        WindowSwitcherShortcutResolver.previewConflict(
+            at: index,
+            shortcuts: cmdShortcuts,
+            previewKeybind: previewShortcutKeybind,
+            mainKeybind: windowSwitcherKeybind
+        )
     }
 
     private func removeShortcut(_ id: UUID) {
