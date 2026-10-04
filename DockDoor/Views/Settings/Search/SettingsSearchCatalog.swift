@@ -2033,6 +2033,14 @@ enum SettingsSearchCatalog {
             icon: "arrow.left.and.right"
         ),
         SettingsSearchItem(
+            id: "gestures.reverseTrackpadSwipeSelectionDirection",
+            title: String(localized: "Reverse swipe selection direction"),
+            keywords: ["trackpad", "swipe", "reverse", "invert", "selection", "direction"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Trackpad Swipe for Window Switcher"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
             id: "gestures.trackpadSwitcherSwipePersistentSelection",
             title: String(localized: "Select last window when swiping in persistent Window Switchers"),
             description: String(localized: "Swiping takes over persistent Window Switchers and unfocuses search. Lift your fingers to activate the selected window. Regular Window Switchers remain controlled by their initializer key while it is held."),

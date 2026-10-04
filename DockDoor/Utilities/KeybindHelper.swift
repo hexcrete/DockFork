@@ -1616,6 +1616,7 @@ class KeybindHelper {
     private func handleTrackpadSwipe(_ event: TrackpadSwipeEvent) {
         Task { @MainActor [weak self] in
             guard let self else { return }
+            let event = event.reversingSelection(if: Defaults[.reverseTrackpadSwipeSelectionDirection])
             switch event {
             case .open, .cycleForward, .cycleBackward:
                 guard Defaults[.enableWindowSwitcher], Defaults[.enableTrackpadSwitcherSwipe] else { return }

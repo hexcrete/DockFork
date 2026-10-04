@@ -6,6 +6,7 @@ struct TrackpadSwitcherSwipeSection: View {
     @Default(.enableTrackpadSwitcherSwipe) var enableTrackpadSwitcherSwipe
     @Default(.trackpadSwitcherSwipeFingers) var trackpadSwitcherSwipeFingers
     @Default(.trackpadSwitcherSwipeDirection) var trackpadSwitcherSwipeDirection
+    @Default(.reverseTrackpadSwipeSelectionDirection) private var reverseTrackpadSwipeSelectionDirection
     @Default(.selectWindowOnPersistentSwitcherSwipe) private var selectWindowOnPersistentSwitcherSwipe
 
     var body: some View {
@@ -45,6 +46,11 @@ struct TrackpadSwitcherSwipeSection: View {
                     .pickerStyle(.menu)
                     .fixedSize()
                     .settingsSearchTarget("gestures.trackpadSwitcherSwipeDirection")
+
+                    Toggle(isOn: $reverseTrackpadSwipeSelectionDirection) {
+                        Text(String(localized: "Reverse swipe selection direction"))
+                    }
+                    .settingsSearchTarget("gestures.reverseTrackpadSwipeSelectionDirection")
 
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle(isOn: $selectWindowOnPersistentSwitcherSwipe) {

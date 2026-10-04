@@ -11,6 +11,15 @@ enum TrackpadSwipeEvent: Equatable {
     case cycleForward
     case cycleBackward
     case release
+
+    func reversingSelection(if enabled: Bool) -> Self {
+        guard enabled else { return self }
+        switch self {
+        case .cycleForward: return .cycleBackward
+        case .cycleBackward: return .cycleForward
+        case .open, .release: return self
+        }
+    }
 }
 
 struct TrackpadSwipeDetector {
@@ -39,7 +48,9 @@ struct TrackpadSwipeDetector {
             guard abs(averageAlong) >= threshold else { return nil }
             hasCycled = true
             rebase(touches)
-            return averageAlong > 0 ? .cycleForward : .cycleBackward
+            // Trackpad Y increases upward; forward selection follows right/down.
+            let movesForward = horizontal ? averageAlong > 0 : averageAlong < 0
+            return movesForward ? .cycleForward : .cycleBackward
         }
 
         if touches.count <= 1 {

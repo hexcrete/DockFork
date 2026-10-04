@@ -60,6 +60,19 @@ struct TrackpadSwipeReleasePolicyTests {
 }
 
 struct TrackpadSwipeDetectorTests {
+    @Test func reversingSelectionSwapsOnlyCycleEvents() {
+        #expect(TrackpadSwipeEvent.cycleForward.reversingSelection(if: true) == .cycleBackward)
+        #expect(TrackpadSwipeEvent.cycleBackward.reversingSelection(if: true) == .cycleForward)
+        #expect(TrackpadSwipeEvent.open.reversingSelection(if: true) == .open)
+        #expect(TrackpadSwipeEvent.release.reversingSelection(if: true) == .release)
+    }
+
+    @Test func defaultSelectionDirectionPreservesEveryEvent() {
+        for event in [TrackpadSwipeEvent.open, .cycleForward, .cycleBackward, .release] {
+            #expect(event.reversingSelection(if: false) == event)
+        }
+    }
+
     private func fingers(_ count: Int, x: CGFloat, y: CGFloat = 0.5, spacing: CGFloat = 0.1) -> [SwipeTouch] {
         (0 ..< count).map { SwipeTouch(id: $0, position: CGPoint(x: x + CGFloat($0) * spacing, y: y)) }
     }
@@ -190,8 +203,12 @@ struct TrackpadSwipeDetectorTests {
         var detector = TrackpadSwipeDetector()
         _ = detector.handle(fingers(3, x: 0.2, y: 0.2), fingers: 3, horizontal: false)
         #expect(detector.handle(fingers(3, x: 0.2, y: 0.26), fingers: 3, horizontal: false) == .open)
-        #expect(detector.handle(fingers(3, x: 0.25, y: 0.42), fingers: 3, horizontal: false) == .cycleForward)
-        #expect(detector.handle(fingers(3, x: 0.25, y: 0.37), fingers: 3, horizontal: false) == .cycleBackward)
+        let upward = detector.handle(fingers(3, x: 0.25, y: 0.42), fingers: 3, horizontal: false)
+        #expect(upward == .cycleBackward)
+        #expect(upward?.reversingSelection(if: true) == .cycleForward)
+        let downward = detector.handle(fingers(3, x: 0.25, y: 0.37), fingers: 3, horizontal: false)
+        #expect(downward == .cycleForward)
+        #expect(downward?.reversingSelection(if: true) == .cycleBackward)
     }
 
     @Test func liftingFingersReleases() {
