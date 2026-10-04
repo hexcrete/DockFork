@@ -292,10 +292,10 @@ extension View {
 }
 
 @MainActor
-final class PreviewContextMenuController: NSObject {
-    static let shared = PreviewContextMenuController()
+final class WindowActionMenuBuilder: NSObject {
+    static let shared = WindowActionMenuBuilder()
 
-    private final class ActionRequest: NSObject {
+    final class ActionRequest: NSObject {
         let action: WindowAction
         let handler: (WindowAction) -> Void
 
@@ -305,78 +305,42 @@ final class PreviewContextMenuController: NSObject {
         }
     }
 
-    private var activeMenu: NSMenu?
-    private var activeRoutingToken: UUID?
-
-    func present(
+    func makeMenu(
         for window: WindowInfo,
-        event: NSEvent,
-        sourceView: NSView,
+        shortcutKeybind: UserKeyBind? = nil,
+        showShortcutHints: Bool,
         handleWindowAction: @escaping (WindowAction) -> Void,
-        dismissPreviews: (() -> Void)?
-    ) {
-        let shortcutKeybind = effectiveShortcutKeybind()
-        let shortcuts = WindowSwitcherShortcutResolver.resolvedPreviewShortcuts(
-            Defaults[.cmdShortcuts],
-            previewKeybind: shortcutKeybind,
-            mainKeybind: Defaults[.UserKeybind]
-        )
+        dismissPreviews: (() -> Void)? = nil
+    ) -> (menu: NSMenu, shortcuts: [UInt16: WindowAction]) {
+        let keybind = shortcutKeybind ?? Defaults[.UserKeybind]
         var shortcutByAction: [WindowAction: CmdShortcut] = [:]
-        for shortcut in shortcuts where shortcutByAction[shortcut.action] == nil {
-            shortcutByAction[shortcut.action] = shortcut
+        if showShortcutHints {
+            let shortcuts = WindowSwitcherShortcutResolver.resolvedPreviewShortcuts(
+                Defaults[.cmdShortcuts],
+                previewKeybind: keybind,
+                mainKeybind: Defaults[.UserKeybind]
+            )
+            for shortcut in shortcuts where shortcutByAction[shortcut.action] == nil {
+                shortcutByAction[shortcut.action] = shortcut
+            }
         }
-
         var displayedShortcuts: [UInt16: WindowAction] = [:]
-        let menu = makeMenu(
+        let menu = buildMenu(
             for: window,
-            shortcutKeybind: shortcutKeybind,
+            shortcutKeybind: keybind,
+            showShortcutHints: showShortcutHints,
             shortcutByAction: shortcutByAction,
             displayedShortcuts: &displayedShortcuts,
             handleWindowAction: handleWindowAction,
             dismissPreviews: dismissPreviews
         )
-        guard !menu.items.isEmpty else { return }
-
-        dismiss()
-        activeMenu = menu
-        let routingToken = SharedPreviewWindowCoordinator.activeInstance?.beginContextMenuShortcutRouting(
-            keybind: shortcutKeybind,
-            actionsByKeyCode: displayedShortcuts
-        )
-        activeRoutingToken = routingToken
-        NSMenu.popUpContextMenu(menu, with: event, for: sourceView)
-        if activeMenu === menu {
-            activeMenu = nil
-        }
-        if activeRoutingToken == routingToken {
-            activeRoutingToken = nil
-        }
-        if let routingToken {
-            SharedPreviewWindowCoordinator.activeInstance?.endContextMenuShortcutRouting(token: routingToken)
-        }
+        return (menu, displayedShortcuts)
     }
 
-    func dismiss() {
-        activeMenu?.cancelTracking()
-        activeMenu = nil
-        if let activeRoutingToken {
-            SharedPreviewWindowCoordinator.activeInstance?.endContextMenuShortcutRouting(token: activeRoutingToken)
-            self.activeRoutingToken = nil
-        }
-    }
-
-    func performShortcut(_ action: WindowAction, token: UUID) {
-        guard activeRoutingToken == token,
-              let request = actionRequest(for: action, in: activeMenu)
-        else { return }
-
-        dismiss()
-        request.handler(request.action)
-    }
-
-    private func makeMenu(
+    private func buildMenu(
         for window: WindowInfo,
         shortcutKeybind: UserKeyBind,
+        showShortcutHints: Bool,
         shortcutByAction: [WindowAction: CmdShortcut],
         displayedShortcuts: inout [UInt16: WindowAction],
         handleWindowAction: @escaping (WindowAction) -> Void,
@@ -436,7 +400,8 @@ final class PreviewContextMenuController: NSObject {
             forceImageVisibility(for: moveItem)
             moveItem.submenu = SpaceMoveMenuController.shared.makeMenu(
                 for: window,
-                dismissPreviews: dismissPreviews
+                dismissPreviews: dismissPreviews,
+                showShortcutHints: showShortcutHints
             )
             menu.addItem(moveItem)
         }
@@ -498,21 +463,7 @@ final class PreviewContextMenuController: NSObject {
         }
     }
 
-    private func effectiveShortcutKeybind() -> UserKeyBind {
-        let keybind: UserKeyBind = if DockObserver.isCmdTabSwitcherActive {
-            UserKeyBind(
-                keyCode: UInt16(kVK_Tab),
-                modifierFlags: Int(CGEventFlags.maskCommand.rawValue),
-                modifierSide: .either
-            )
-        } else {
-            SharedPreviewWindowCoordinator.activeInstance?.activePreviewShortcutKeybindSnapshot()
-                ?? Defaults[.UserKeybind]
-        }
-        return WindowSwitcherShortcutResolver.dependentShortcutKeybind(keybind)
-    }
-
-    private func actionRequest(for action: WindowAction, in menu: NSMenu?) -> ActionRequest? {
+    func actionRequest(for action: WindowAction, in menu: NSMenu?) -> ActionRequest? {
         guard let menu else { return nil }
         for item in menu.items {
             if let request = item.representedObject as? ActionRequest,
@@ -541,6 +492,83 @@ final class PreviewContextMenuController: NSObject {
     @objc private func performAction(_ sender: NSMenuItem) {
         guard let request = sender.representedObject as? ActionRequest else { return }
         request.handler(request.action)
+    }
+}
+
+@MainActor
+final class PreviewContextMenuController: NSObject {
+    static let shared = PreviewContextMenuController()
+
+    private var activeMenu: NSMenu?
+    private var activeRoutingToken: UUID?
+
+    func present(
+        for window: WindowInfo,
+        event: NSEvent,
+        sourceView: NSView,
+        handleWindowAction: @escaping (WindowAction) -> Void,
+        dismissPreviews: (() -> Void)?
+    ) {
+        let shortcutKeybind = effectiveShortcutKeybind()
+        let builtMenu = WindowActionMenuBuilder.shared.makeMenu(
+            for: window,
+            shortcutKeybind: shortcutKeybind,
+            showShortcutHints: true,
+            handleWindowAction: handleWindowAction,
+            dismissPreviews: dismissPreviews
+        )
+        let menu = builtMenu.menu
+        guard !menu.items.isEmpty else { return }
+
+        dismiss()
+        activeMenu = menu
+        let routingToken = SharedPreviewWindowCoordinator.activeInstance?.beginContextMenuShortcutRouting(
+            keybind: shortcutKeybind,
+            actionsByKeyCode: builtMenu.shortcuts
+        )
+        activeRoutingToken = routingToken
+        NSMenu.popUpContextMenu(menu, with: event, for: sourceView)
+        if activeMenu === menu {
+            activeMenu = nil
+        }
+        if activeRoutingToken == routingToken {
+            activeRoutingToken = nil
+        }
+        if let routingToken {
+            SharedPreviewWindowCoordinator.activeInstance?.endContextMenuShortcutRouting(token: routingToken)
+        }
+    }
+
+    func dismiss() {
+        activeMenu?.cancelTracking()
+        activeMenu = nil
+        if let activeRoutingToken {
+            SharedPreviewWindowCoordinator.activeInstance?.endContextMenuShortcutRouting(token: activeRoutingToken)
+            self.activeRoutingToken = nil
+        }
+    }
+
+    func performShortcut(_ action: WindowAction, token: UUID) {
+        guard activeRoutingToken == token,
+              let request = WindowActionMenuBuilder.shared.actionRequest(for: action, in: activeMenu)
+        else { return }
+
+        dismiss()
+        request.handler(request.action)
+    }
+
+    private func effectiveShortcutKeybind() -> UserKeyBind {
+        let keybind: UserKeyBind = if DockObserver.isCmdTabSwitcherActive {
+            UserKeyBind(
+                keyCode: UInt16(kVK_Tab),
+                modifierFlags: Int(CGEventFlags.maskCommand.rawValue),
+                modifierSide: .either
+            )
+        } else {
+            SharedPreviewWindowCoordinator.activeInstance?.activePreviewShortcutKeybindSnapshot()
+                ?? Defaults[.UserKeybind]
+        }
+        return WindowSwitcherShortcutResolver.dependentShortcutKeybind(keybind)
     }
 }
 

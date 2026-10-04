@@ -43,7 +43,7 @@ final class SpaceMoveMenuController: NSObject {
         activeMenu = nil
     }
 
-    func makeMenu(for window: WindowInfo, dismissPreviews: (() -> Void)?) -> NSMenu {
+    func makeMenu(for window: WindowInfo, dismissPreviews: (() -> Void)?, showShortcutHints: Bool = true) -> NSMenu {
         let menu = NSMenu(title: String(localized: "Move to Space", comment: "Space destination menu title"))
         let displays = WindowSpaces.managedDisplays(includeOwners: true)
         let sourceValidation = WindowSpaces.validateMoveSource(window, in: displays)
@@ -128,7 +128,9 @@ final class SpaceMoveMenuController: NSObject {
                     item.isEnabled = false
                 }
 
-                applyNumberedSpaceShortcut(to: item, spaceNumber: space.number)
+                if showShortcutHints {
+                    applyNumberedSpaceShortcut(to: item, spaceNumber: space.number)
+                }
 
                 menu.addItem(item)
             }

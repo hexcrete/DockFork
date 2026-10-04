@@ -1,11 +1,25 @@
 import AppKit
 
+@MainActor
 final class WindowActionsMenuController: NSObject, NSMenuDelegate {
     let menu: NSMenu
 
-    private struct Request {
+    private final class WindowMenu: NSMenu {
         let window: WindowInfo
-        let action: WindowAction
+
+        init(window: WindowInfo) {
+            self.window = window
+            super.init(title: "")
+            // AppKit needs an item to expose a lazily populated submenu.
+            let placeholder = NSMenuItem(title: String(localized: "Window Actions", comment: "Menu bar submenu title"), action: nil, keyEquivalent: "")
+            placeholder.isEnabled = false
+            addItem(placeholder)
+        }
+
+        @available(*, unavailable)
+        required init(coder: NSCoder) {
+            fatalError("init(coder:) has not been implemented")
+        }
     }
 
     override init() {
@@ -16,6 +30,20 @@ final class WindowActionsMenuController: NSObject, NSMenuDelegate {
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()
+
+        if let windowMenu = menu as? WindowMenu {
+            let window = windowMenu.window
+            let actions = WindowActionMenuBuilder.shared.makeMenu(
+                for: window,
+                showShortcutHints: false,
+                handleWindowAction: { action in _ = action.perform(on: window) }
+            ).menu
+            for item in actions.items {
+                actions.removeItem(item)
+                menu.addItem(item)
+            }
+            return
+        }
 
         let windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters()
         guard !windows.isEmpty else {
@@ -40,7 +68,9 @@ final class WindowActionsMenuController: NSObject, NSMenuDelegate {
             let appSubmenu = NSMenu()
             for window in appWindows {
                 let windowItem = NSMenuItem(title: title(for: window), action: nil, keyEquivalent: "")
-                windowItem.submenu = actionsMenu(for: window)
+                let actionsMenu = WindowMenu(window: window)
+                actionsMenu.delegate = self
+                windowItem.submenu = actionsMenu
                 appSubmenu.addItem(windowItem)
             }
             appItem.submenu = appSubmenu
@@ -61,29 +91,5 @@ final class WindowActionsMenuController: NSObject, NSMenuDelegate {
             decorated += String(localized: " (hidden)", comment: "Suffix for a hidden window in the actions menu")
         }
         return decorated
-    }
-
-    private func actionsMenu(for window: WindowInfo) -> NSMenu {
-        let submenu = NSMenu()
-        let groups = WindowAction.availableGroups(for: window)
-
-        for (index, entry) in groups.enumerated() {
-            if index > 0 {
-                submenu.addItem(.separator())
-            }
-            for action in entry.actions {
-                let item = NSMenuItem(title: action.menuTitle(for: window), action: #selector(performAction(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = Request(window: window, action: action)
-                item.image = NSImage(systemSymbolName: action.menuIcon(for: window), accessibilityDescription: nil)
-                submenu.addItem(item)
-            }
-        }
-        return submenu
-    }
-
-    @objc private func performAction(_ sender: NSMenuItem) {
-        guard let request = sender.representedObject as? Request else { return }
-        _ = request.action.perform(on: request.window)
     }
 }
