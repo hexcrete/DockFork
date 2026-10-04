@@ -47,6 +47,10 @@ struct TrackpadSwitcherSwipeSection: View {
                     .fixedSize()
                     .settingsSearchTarget("gestures.trackpadSwitcherSwipeDirection")
 
+                    Text("If macOS uses the same swipe for Mission Control, App Exposé or switching between full-screen apps, turn that gesture off in System Settings > Trackpad > More Gestures.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
                     Toggle(isOn: $reverseTrackpadSwipeSelectionDirection) {
                         Text(String(localized: "Reverse swipe selection direction"))
                     }
@@ -62,10 +66,6 @@ struct TrackpadSwitcherSwipeSection: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
-
-                    Text("If macOS uses the same swipe for Mission Control, App Exposé or switching between full-screen apps, turn that gesture off in System Settings > Trackpad > More Gestures.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
                 }
             }
             .disabled(!enableWindowSwitcher)
