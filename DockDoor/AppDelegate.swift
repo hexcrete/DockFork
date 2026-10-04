@@ -177,6 +177,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
+    func showWindowSwitcherFromAppleScript() async {
+        await keybindHelper?.showWindowSwitcherFromAppleScript()
+    }
+
+    @MainActor
     func dismissPreviewsForScriptedSpaceMove() {
         if let keybindHelper {
             keybindHelper.dismissPreviewsForSpaceChange()

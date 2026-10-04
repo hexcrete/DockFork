@@ -656,20 +656,34 @@ class KeybindHelper {
             menuBarWindowSwitcherMouseDownTimestamp = mouseDownTimestamp
         }
         Task { @MainActor [weak self] in
-            await self?.togglePersistentWindowSwitcher(mode: .allWindows)
+            await self?.presentPersistentWindowSwitcher(mode: .allWindows)
         }
     }
 
     @MainActor
-    private func togglePersistentWindowSwitcher(mode: SwitcherInvocationMode) async {
+    func showWindowSwitcherFromAppleScript() async {
+        await presentPersistentWindowSwitcher(mode: .allWindows, togglesCurrentScope: false)
+    }
+
+    @MainActor
+    private func presentPersistentWindowSwitcher(
+        mode: SwitcherInvocationMode,
+        togglesCurrentScope: Bool = true
+    ) async {
         guard Defaults[.enableWindowSwitcher] else { return }
 
         let coordinator = previewCoordinator.windowSwitcherCoordinator
         if coordinator.isKeybindSessionActive {
-            if currentInvocationMode == mode {
+            if currentInvocationMode == mode, togglesCurrentScope {
                 switcherSessionActive = false
                 windowSwitchingCoordinator.cancelSwitching(previewCoordinator: previewCoordinator)
                 previewCoordinator.hideWindow()
+                return
+            }
+
+            if currentInvocationMode == mode,
+               !windowSwitchingCoordinator.dismissesOnModifierRelease
+            {
                 return
             }
 
@@ -816,7 +830,7 @@ class KeybindHelper {
                     guard let self else { return }
                     switch action {
                     case let .openPersistentSwitcher(mode):
-                        await togglePersistentWindowSwitcher(mode: mode)
+                        await presentPersistentWindowSwitcher(mode: mode)
                     case let .switchToLastFocusedWindow(mode):
                         switchToLastFocusedWindow(mode: mode)
                     }
@@ -1620,7 +1634,7 @@ class KeybindHelper {
             guard Defaults[.enableWindowSwitcher] else { return (false, nil) }
             if WindowUtil.shouldIgnoreKeybindForFrontmostApp() { return (false, nil) }
             return (true, {
-                await self.togglePersistentWindowSwitcher(mode: matchingPersistentShortcut.mode)
+                await self.presentPersistentWindowSwitcher(mode: matchingPersistentShortcut.mode)
             })
         }
 

@@ -153,35 +153,7 @@ enum DockDoorCommands {
 
     static func showSwitcherAsync() {
         Task { @MainActor in
-            guard let coordinator = SharedPreviewWindowCoordinator.activeInstance else { return }
-
-            let windows = WindowUtil.getAllWindowsOfAllApps()
-            guard !windows.isEmpty else { return }
-
-            let screen = NSScreen.main ?? NSScreen.screens.first!
-
-            let wsCoordinator = coordinator.windowSwitcherCoordinator
-
-            wsCoordinator.initializeForWindowSwitcher(
-                with: windows,
-                dockPosition: DockUtils.getDockPosition(),
-                bestGuessMonitor: screen
-            )
-            wsCoordinator.activateKeybindSession()
-
-            coordinator.showWindow(
-                appName: "Window Switcher",
-                windows: windows,
-                mouseLocation: nil,
-                mouseScreen: screen,
-                dockItemElement: nil,
-                overrideDelay: true,
-                centeredHoverWindowState: .windowSwitcher,
-                onWindowTap: { [weak coordinator] in
-                    wsCoordinator.deactivateKeybindSession()
-                    coordinator?.hideWindow()
-                }
-            )
+            await (NSApp.delegate as? AppDelegate)?.showWindowSwitcherFromAppleScript()
         }
     }
 
