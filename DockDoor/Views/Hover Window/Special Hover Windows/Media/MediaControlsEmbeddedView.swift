@@ -14,17 +14,24 @@ struct MediaControlsEmbeddedView: View {
 
     @Default(.uniformCardRadius) var uniformCardRadius
     @Default(.showAnimations) var showAnimations
+    @Default(.previewCornerRadius) private var previewCornerRadius
+    @Default(.globalPaddingMultiplier) private var paddingMultiplier
 
     var body: some View {
+        let cardRadius = CardRadius.Resolved(
+            uniform: uniformCardRadius,
+            base: Double(previewCornerRadius),
+            paddingMultiplier: Double(paddingMultiplier)
+        ).card
         compactEmbeddedDisplayCore()
             .animation(showAnimations ? .smooth(duration: 0.125) : nil, value: isLoadingMediaInfo)
-            .padding(12)
+            .padding(CardRadius.widgetContentPadding(12, cardRadius: cardRadius))
             .frame(
                 minWidth: idealWidth ?? (MediaControlsLayout.embeddedArtworkSize + MediaControlsLayout.artworkTextSpacing + 165),
                 maxWidth: idealWidth,
                 alignment: .center
             )
-            .dockStyle(backgroundAppearance: backgroundAppearance, cornerRadius: CardRadius.inner, outerPadding: 0)
+            .dockStyle(backgroundAppearance: backgroundAppearance, cornerRadius: cardRadius, outerPadding: 0)
             .if(isMediaApp(bundleIdentifier)) { view in
                 view.mediaScrollable(bundleIdentifier: bundleIdentifier, mediaInfo: mediaInfo, handlesSpacebar: !isPinnedMode)
             }

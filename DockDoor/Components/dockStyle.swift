@@ -2,25 +2,54 @@ import Defaults
 import SwiftUI
 
 enum CardRadius {
-    static let base: Double = 20
     static let innerPadding: Double = 6
     static let outerPadding: Double = 20
     static let fallback: Double = 8
 
-    static func outer(for padding: Double) -> Double {
-        Defaults[.uniformCardRadius] ? base + (padding * Defaults[.globalPaddingMultiplier]) : fallback
+    struct Resolved: Equatable {
+        let card: Double
+        let image: Double
+        let container: Double
+
+        init(uniform: Bool, base: Double, paddingMultiplier: Double) {
+            guard uniform else {
+                card = CardRadius.fallback
+                image = CardRadius.fallback
+                container = CardRadius.fallback
+                return
+            }
+            card = base + CardRadius.innerPadding * paddingMultiplier
+            image = max(0, card - CardRadius.innerPadding)
+            container = base + CardRadius.outerPadding * paddingMultiplier
+        }
+
+        static func current() -> Resolved {
+            Resolved(
+                uniform: Defaults[.uniformCardRadius],
+                base: Defaults[.previewCornerRadius],
+                paddingMultiplier: Defaults[.globalPaddingMultiplier]
+            )
+        }
     }
 
-    static var inner: Double { outer(for: innerPadding) }
-    static var container: Double { outer(for: outerPadding) }
-    static var image: Double { max(fallback, inner - innerPadding) }
+    static var inner: Double { Resolved.current().card }
+    static var container: Double { Resolved.current().container }
+    static var image: Double { Resolved.current().image }
     static func previewCard(uniform: Bool, paddingMultiplier: CGFloat) -> Double {
-        uniform ? base + (innerPadding * paddingMultiplier) : fallback
+        Resolved(
+            uniform: uniform,
+            base: Defaults[.previewCornerRadius],
+            paddingMultiplier: Double(paddingMultiplier)
+        ).card
     }
 
     static var containerContentClip: some Shape {
         RoundedRectangle(cornerRadius: container, style: .continuous)
             .inset(by: 1)
+    }
+
+    static func widgetContentPadding(_ base: CGFloat, cardRadius: Double) -> CGFloat {
+        max(base, CGFloat(cardRadius) * 0.3 + 4.5)
     }
 
     static func switcherToolbarHorizontalPadding(uniformCardRadius: Bool) -> CGFloat {
@@ -30,6 +59,8 @@ enum CardRadius {
 }
 
 private struct PreviewCardChromeModifier: ViewModifier {
+    @Default(.previewCornerRadius) private var previewCornerRadius
+
     let uniformCardRadius: Bool
     let paddingMultiplier: CGFloat
     let expansionEdges: Edge.Set
@@ -43,7 +74,11 @@ private struct PreviewCardChromeModifier: ViewModifier {
     let backgroundAppearance: BackgroundAppearance
 
     private var cornerRadius: Double {
-        CardRadius.previewCard(uniform: uniformCardRadius, paddingMultiplier: paddingMultiplier)
+        CardRadius.Resolved(
+            uniform: uniformCardRadius,
+            base: previewCornerRadius,
+            paddingMultiplier: Double(paddingMultiplier)
+        ).card
     }
 
     func body(content: Content) -> some View {
@@ -140,7 +175,18 @@ struct DockStyleModifier: ViewModifier {
     /// stroke instead.
     @ViewBuilder
     private var glassBackground: some View {
-        if backgroundAppearance.usesSyntheticBlur {
+        if #available(macOS 26.0, *), backgroundAppearance.usesModernGlass,
+           let rim = LiquidGlass.borderGlass(activeAppearance: backgroundAppearance.glassRefraction)
+        {
+            BlurView(cornerRadius: cornerRadius, appearance: backgroundAppearance)
+                .overlay {
+                    Color.clear
+                        .glassEffect(rim, in: shape)
+                        .opacity(0.5)
+                        .allowsHitTesting(false)
+                }
+                .opacity(backgroundOpacity)
+        } else if backgroundAppearance.usesSyntheticBlur {
             BlurView(cornerRadius: cornerRadius, appearance: backgroundAppearance)
                 .overlay {
                     shape.strokeBorder(
@@ -182,7 +228,7 @@ private func glassBorderGradient(opacity: CGFloat) -> LinearGradient {
 extension View {
     func dockStyle(
         backgroundAppearance: BackgroundAppearance,
-        cornerRadius: Double = CardRadius.container,
+        cornerRadius: Double = CardRadius.Resolved.current().container,
         highlightColor: Color? = nil,
         backgroundOpacity: CGFloat = 1.0,
         outerPadding: CGFloat = HoverContainerPadding.dockStyleOuter

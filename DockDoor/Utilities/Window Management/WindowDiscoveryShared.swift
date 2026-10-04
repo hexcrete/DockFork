@@ -36,7 +36,7 @@ struct WindowCandidateAttributes {
 enum WindowOwnerResolver {
     static func ownerApp(for window: SCWindow) -> NSRunningApplication? {
         guard let pid = window.owningApplication?.processID else { return nil }
-        return NSRunningApplication(processIdentifier: pid)
+        return LauncherShortcutResolver.application(forProcessIdentifier: pid)
     }
 
     static func windowBelongsToDisplayApp(_ window: SCWindow, displayApp: NSRunningApplication) -> Bool {
@@ -779,6 +779,16 @@ enum WindowSpaces {
         })
     }
 
+    static func desktopNumbers() -> [Int: Int] {
+        let desktopIDs = managedDisplays()
+            .flatMap(\.spaces)
+            .filter { $0.kind == .desktop }
+            .map { Int($0.id) }
+        guard desktopIDs.count > 1 else { return [:] }
+
+        return Dictionary(desktopIDs.enumerated().map { ($1, $0 + 1) }, uniquingKeysWith: { first, _ in first })
+    }
+
     private static func displayIdentifiers(for screen: NSScreen) -> Set<String> {
         guard let screenNumber = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
             return []
@@ -958,6 +968,10 @@ func shouldAcceptWindow(axWindow: AXUIElement,
     if isOnscreen || scBacked { return true }
 
     if app.isHidden || axIsFullscreen || axIsMinimized { return true }
+
+    if windowSpaces.isEmpty, SLSWindowIsOrderedIn(windowID) == false {
+        return false
+    }
 
     // Window on a different Space; a window whose only Spaces no longer exist is a ghost with a stale space ID
     if !windowSpaces.isEmpty, windowSpaces.isDisjoint(with: activeSpaceIDs) {

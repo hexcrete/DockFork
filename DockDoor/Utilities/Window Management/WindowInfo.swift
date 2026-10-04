@@ -3,6 +3,77 @@ import Cocoa
 import Defaults
 import ScreenCaptureKit
 
+enum WindowActivationResult {
+    case succeeded
+    case failed
+    case cancelled
+}
+
+final class WindowActivationRequest: @unchecked Sendable {
+    private let lock = NSLock()
+    private var cancelled = false
+    private var result: WindowActivationResult?
+    private var completion: ((WindowActivationResult) -> Void)?
+
+    var isCancelled: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return cancelled
+    }
+
+    func onCompletion(_ completion: @escaping (WindowActivationResult) -> Void) {
+        lock.lock()
+        if let result {
+            lock.unlock()
+            completion(result)
+        } else {
+            self.completion = completion
+            lock.unlock()
+        }
+    }
+
+    func finish(_ success: Bool) {
+        resolve(success, cancelling: false)
+    }
+
+    func cancel() {
+        resolve(false, cancelling: true)
+    }
+
+    private func resolve(_ success: Bool, cancelling: Bool) {
+        lock.lock()
+        cancelled = cancelled || cancelling
+        guard result == nil else {
+            lock.unlock()
+            return
+        }
+        let result: WindowActivationResult = cancelled ? .cancelled : success ? .succeeded : .failed
+        self.result = result
+        let completion = completion
+        self.completion = nil
+        lock.unlock()
+        completion?(result)
+    }
+}
+
+final class WindowActivationCoordinator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var latest: WindowActivationRequest?
+
+    func begin(_ request: WindowActivationRequest) {
+        lock.lock()
+        guard !request.isCancelled else {
+            lock.unlock()
+            return
+        }
+        let previous = latest
+        latest = request
+        lock.unlock()
+        // Completion may resume a task; never invoke it while holding the coordinator lock.
+        previous?.cancel()
+    }
+}
+
 struct WindowInfo: Identifiable, Hashable {
     let id: CGWindowID
     let windowProvider: WindowPropertiesProviding
@@ -28,12 +99,16 @@ struct WindowInfo: Identifiable, Hashable {
 
     private var _scWindow: SCWindow?
 
-    init(windowProvider: WindowPropertiesProviding, app: NSRunningApplication, ownerApp: NSRunningApplication? = nil, image: CGImage?, axElement: AXUIElement, appAxElement: AXUIElement, closeButton: AXUIElement?, hasLimitedWindowControls: Bool = false, lastAccessedTime: Date, creationTime: Date? = nil, imageCapturedTime: Date? = nil, spaceID: Int? = nil, spaceNumberOverride: Int? = nil, screenIdentifier: String? = nil, isMinimized: Bool, isHidden: Bool, isFullscreen: Bool? = nil) {
+    init(windowProvider: WindowPropertiesProviding, app: NSRunningApplication, ownerApp: NSRunningApplication? = nil, image: CGImage?, axElement: AXUIElement, appAxElement: AXUIElement, closeButton: AXUIElement?, hasLimitedWindowControls: Bool = false, lastAccessedTime: Date, creationTime: Date? = nil, imageCapturedTime: Date? = nil, spaceID: Int? = nil, spaceNumberOverride: Int? = nil, screenIdentifier: String? = nil, isMinimized: Bool, isHidden: Bool, isFullscreen: Bool? = nil, readsAXTitle: Bool = true) {
         id = windowProvider.windowID
         self.windowProvider = windowProvider
         self.app = app
         self.ownerApp = ownerApp ?? app
-        windowName = (try? axElement.title()) ?? windowProvider.title
+        if readsAXTitle, !AXResponsiveness.isUnresponsive(app.processIdentifier) {
+            windowName = (try? axElement.title()) ?? windowProvider.title
+        } else {
+            windowName = windowProvider.title
+        }
         frame = windowProvider.frame
         self.image = image
         self.axElement = axElement
@@ -131,7 +206,8 @@ extension WindowInfo {
             closeButton: nil,
             lastAccessedTime: .distantPast,
             isMinimized: false,
-            isHidden: false
+            isHidden: false,
+            readsAXTitle: false
         )
         info.isWindowlessApp = true
         return info
@@ -468,49 +544,97 @@ extension WindowInfo {
         WindowUtil.moveWindowToCurrentManagedSpace(self, mouseLocation: mouseLocation)
     }
 
-    @discardableResult
-    func bringToFront() -> Bool {
+    private static let axRaiseQueue = DispatchQueue(label: "com.ethanbills.DockDoor.axRaise", qos: .userInteractive)
+
+    private static let activationCoordinator = WindowActivationCoordinator()
+
+    func bringToFront() {
+        enqueueActivation(request: WindowActivationRequest())
+    }
+
+    @MainActor
+    func bringToFrontConfirmed() async -> Bool {
+        await bringToFrontResult() == .succeeded
+    }
+
+    @MainActor
+    func bringToFrontResult() async -> WindowActivationResult {
+        let request = WindowActivationRequest()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                request.onCompletion { success in
+                    continuation.resume(returning: success)
+                }
+                enqueueActivation(request: request)
+            }
+        } onCancel: {
+            request.cancel()
+        }
+    }
+
+    private func enqueueActivation(request: WindowActivationRequest) {
+        guard !request.isCancelled, !ownerApp.isTerminated else {
+            request.finish(false)
+            return
+        }
+
+        WindowInfo.activationCoordinator.begin(request)
+        guard !request.isCancelled else { return }
+
         guard !isWindowlessApp else {
             WindowUtil.activateWindowlessApp(app: app)
-            return true
+            request.finish(true)
+            return
         }
-        let maxRetries = 3
-        var retryCount = 0
 
-        func attemptActivation() -> Bool {
-            do {
-                var psn = ProcessSerialNumber()
-                _ = GetProcessForPID(ownerApp.processIdentifier, &psn)
-                _ = _SLPSSetFrontProcessWithOptions(&psn, UInt32(id), SLPSMode.userGenerated.rawValue)
+        var psn = ProcessSerialNumber()
+        _ = GetProcessForPID(ownerApp.processIdentifier, &psn)
+        _ = _SLPSSetFrontProcessWithOptions(&psn, UInt32(id), SLPSMode.userGenerated.rawValue)
+        WindowUtil.makeKeyWindow(&psn, windowID: id)
 
-                WindowUtil.makeKeyWindow(&psn, windowID: id)
-
-                try axElement.performAction(kAXRaiseAction)
-                try axElement.setAttribute(kAXMainWindowAttribute, true)
-
-                return true
-            } catch {
-                print("Attempt \(retryCount + 1) failed to bring window to front: \(error)")
-                if error is AxError {
-                    WindowUtil.removeWindowFromDesktopSpaceCache(with: id, in: app.processIdentifier)
+        let window = self
+        WindowInfo.axRaiseQueue.async {
+            let maxRetries = 3
+            for attempt in 0 ..< maxRetries {
+                guard !request.isCancelled, !window.ownerApp.isTerminated else {
+                    request.finish(false)
+                    return
                 }
-                return false
-            }
-        }
+                do {
+                    if attempt > 0 {
+                        var psn = ProcessSerialNumber()
+                        _ = GetProcessForPID(window.ownerApp.processIdentifier, &psn)
+                        _ = _SLPSSetFrontProcessWithOptions(&psn, UInt32(window.id), SLPSMode.userGenerated.rawValue)
+                        WindowUtil.makeKeyWindow(&psn, windowID: window.id)
+                    }
 
-        while retryCount < maxRetries {
-            if attemptActivation() {
-                WindowUtil.updateTimestampOptimistically(for: self)
-                return true
+                    try window.axElement.performAction(kAXRaiseAction)
+                    guard !request.isCancelled else {
+                        request.finish(false)
+                        return
+                    }
+                    try window.axElement.setAttribute(kAXMainWindowAttribute, true)
+                    guard !request.isCancelled else {
+                        request.finish(false)
+                        return
+                    }
+                    WindowUtil.updateTimestampOptimistically(for: window)
+                    request.finish(true)
+                    return
+                } catch {
+                    guard !request.isCancelled else { return }
+                    print("Attempt \(attempt + 1) failed to bring window to front: \(error)")
+                    if error is AxError {
+                        WindowUtil.removeWindowFromDesktopSpaceCache(with: window.id, in: window.app.processIdentifier)
+                    }
+                    if attempt + 1 < maxRetries, !request.isCancelled {
+                        usleep(50000)
+                    }
+                }
             }
-            retryCount += 1
-            if retryCount < maxRetries {
-                usleep(50000)
-            }
+            print("Failed to bring window to front after \(maxRetries) attempts")
+            request.finish(false)
         }
-
-        print("Failed to bring window to front after \(maxRetries) attempts")
-        return false
     }
 
     func warpMouseToCenterIfNeeded() {

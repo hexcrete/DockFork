@@ -76,6 +76,7 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @Published private(set) var focusedWindowID: CGWindowID?
+    @Published private(set) var desktopNumbers: [Int: Int] = [:]
 
     var shouldScrollToIndex: Bool = true
 
@@ -109,7 +110,35 @@ class PreviewStateCoordinator: ObservableObject {
         {
             return
         }
-        focusedWindowID = nil
+        focusedWindowID = Self.currentFocusedWindowID(in: sourceWindows)
+    }
+
+    @MainActor
+    private func refreshDesktopNumbers() {
+        let numbers = Defaults[.showSpaceNumber] ? WindowSpaces.desktopNumbers() : [:]
+        if numbers != desktopNumbers {
+            desktopNumbers = numbers
+        }
+    }
+
+    func desktopNumber(for window: WindowInfo) -> Int? {
+        window.spaceID.flatMap { desktopNumbers[$0] }
+    }
+
+    private static func currentFocusedWindowID(in windows: [WindowInfo]) -> CGWindowID? {
+        guard let activeApp = windows.first(where: { $0.app.isActive })?.app else { return nil }
+        let candidateIDs = Set(windows.filter { $0.app.processIdentifier == activeApp.processIdentifier }.map(\.id))
+        guard !candidateIDs.isEmpty,
+              let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return nil }
+        for entry in list {
+            guard (entry[kCGWindowLayer as String] as? Int) == 0,
+                  let id = entry[kCGWindowNumber as String] as? CGWindowID,
+                  candidateIDs.contains(id)
+            else { continue }
+            return id
+        }
+        return nil
     }
 
     var hasActiveSearch: Bool {
@@ -246,6 +275,7 @@ class PreviewStateCoordinator: ObservableObject {
     func setWindows(_ newWindows: [WindowInfo], dockPosition: DockPosition, bestGuessMonitor: NSScreen, isMockPreviewActive: Bool = false) {
         windows = newWindows
         refreshFocusedWindowID(from: newWindows)
+        refreshDesktopNumbers()
         lastKnownBestGuessMonitor = bestGuessMonitor
 
         if currIndex >= windows.count {
@@ -389,6 +419,7 @@ class PreviewStateCoordinator: ObservableObject {
 
         lastKnownBestGuessMonitor = bestGuessMonitor
         refreshFocusedWindowID()
+        refreshDesktopNumbers()
         recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
 
         if windows.count != previousWindowCount {

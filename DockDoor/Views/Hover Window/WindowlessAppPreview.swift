@@ -186,7 +186,7 @@ struct WindowlessAppPreview: View, Equatable {
                 }
 
                 iconContent
-                    .clipShape(RoundedRectangle(cornerRadius: CardRadius.image, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: appearance.radii.image, style: .continuous))
                     .dynamicWindowFrame(
                         allowDynamicSizing: false,
                         dimensions: dimensions ?? WindowPreviewHoverContainer.WindowDimensions(size: .zero, maxDimensions: .zero),

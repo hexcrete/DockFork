@@ -723,6 +723,8 @@ enum WindowUtil {
     private static var pendingMetadataReconciliations: [String: PendingWindowRefresh] = [:]
     private static var pendingGlobalMinimizeReconciliation: Task<Void, Never>?
     private static var pendingManagedSpaceMoves: [String: PendingWindowRefresh] = [:]
+    @MainActor private static var pendingManagedSpaceSwitch: PendingWindowRefresh?
+    @MainActor private static var pendingManagedSpaceFollows: [String: PendingWindowRefresh] = [:]
 
     private static let captureError = NSError(
         domain: "WindowCaptureError",
@@ -983,8 +985,8 @@ extension WindowUtil {
 
     @MainActor
     @discardableResult
-    static func springLoadWindow(_ windowInfo: WindowInfo) -> Bool {
-        guard !windowInfo.isWindowlessApp, !windowInfo.app.isTerminated else { return false }
+    static func springLoadWindow(_ windowInfo: WindowInfo) async -> Bool {
+        guard !Task.isCancelled, !windowInfo.isWindowlessApp, !windowInfo.app.isTerminated else { return false }
 
         do {
             if windowInfo.app.isHidden {
@@ -1003,7 +1005,7 @@ extension WindowUtil {
             return false
         }
 
-        return windowInfo.bringToFront()
+        return await windowInfo.bringToFrontConfirmed()
     }
 
     @discardableResult
@@ -1228,14 +1230,15 @@ extension WindowUtil {
         return moveWindow(windowInfo, toManagedSpace: targetSpaceID)
     }
 
+    @discardableResult
     static func moveWindowConfirmed(
         _ windowInfo: WindowInfo,
         toManagedSpace targetSpaceID: CGSSpaceID,
         completion: @escaping @MainActor (Bool) -> Void
-    ) {
+    ) -> Task<Void, Never>? {
         guard !windowInfo.isWindowlessApp else {
             Task { @MainActor in completion(false) }
-            return
+            return nil
         }
 
         let key = "\(windowInfo.app.processIdentifier)-\(windowInfo.id)"
@@ -1246,7 +1249,7 @@ extension WindowUtil {
 
         guard WindowSpaces.move(windowID: windowInfo.id, toManagedSpace: targetSpaceID) else {
             Task { @MainActor in completion(false) }
-            return
+            return nil
         }
 
         let token = UUID()
@@ -1264,6 +1267,7 @@ extension WindowUtil {
                 guard !Task.isCancelled else { return }
 
                 if windowInfo.id.cgsSpaces().contains(targetSpaceID) {
+                    guard !Task.isCancelled else { return }
                     updateCachedWindowState(windowInfo, spaceID: .some(Int(targetSpaceID)))
                     scheduleCachedWindowMetadataReconciliation(
                         pid: windowInfo.app.processIdentifier,
@@ -1283,9 +1287,11 @@ extension WindowUtil {
         managedSpaceMoveLock.lock()
         pendingManagedSpaceMoves[key] = PendingWindowRefresh(token: token, task: task)
         managedSpaceMoveLock.unlock()
+        return task
     }
 
     @MainActor
+    @discardableResult
     static func performConfirmedSpaceMove(
         _ windowInfo: WindowInfo,
         to destination: ManagedSpaceDestination,
@@ -1293,14 +1299,18 @@ extension WindowUtil {
         switchToDestination: Bool? = nil,
         isRequestActive: @escaping () -> Bool = { true },
         completion: ((Bool) -> Void)? = nil
-    ) {
+    ) -> (@MainActor () -> Void)? {
+        let key = "\(windowInfo.app.processIdentifier)-\(windowInfo.id)"
+        pendingManagedSpaceFollows.removeValue(forKey: key)?.task.cancel()
         guard WindowSpaces.validateMove(windowInfo, to: destination) == nil else {
             completion?(false)
-            return
+            return nil
         }
 
-        moveWindowConfirmed(windowInfo, toManagedSpace: destination.space.id) { success in
-            guard isRequestActive() else { return }
+        var cancelled = false
+        var followTask: Task<Void, Never>?
+        let moveTask = moveWindowConfirmed(windowInfo, toManagedSpace: destination.space.id) { success in
+            guard !cancelled, !Task.isCancelled, isRequestActive() else { return }
             guard success else {
                 completion?(false)
                 return
@@ -1318,22 +1328,48 @@ extension WindowUtil {
                     movedWindow.isMinimized = false
                     updateCachedWindowState(movedWindow, isMinimized: false)
                 }
-                movedWindow.bringToFront()
+                let token = UUID()
+                let task = Task { @MainActor in
+                    defer {
+                        if pendingManagedSpaceFollows[key]?.token == token {
+                            pendingManagedSpaceFollows.removeValue(forKey: key)
+                        }
+                    }
+                    guard !cancelled, isRequestActive(), !Task.isCancelled else { return }
+                    guard WindowSpaces.sourceSpaceIDs(for: movedWindow).contains(destination.space.id) else {
+                        completion?(false)
+                        return
+                    }
+                    let activated = await movedWindow.bringToFrontConfirmed()
+                    guard !cancelled, isRequestActive(), !Task.isCancelled else { return }
+                    completion?(activated)
+                }
+                pendingManagedSpaceFollows[key] = PendingWindowRefresh(token: token, task: task)
+                followTask = task
+                return
             }
             completion?(true)
+        }
+        // Capture this request's tasks, never cancel a newer request by window key.
+        return {
+            cancelled = true
+            moveTask?.cancel()
+            followTask?.cancel()
         }
     }
 
     @MainActor
+    @discardableResult
     static func switchToManagedSpace(
         _ destination: ManagedSpaceDestination,
         completion: @escaping (Bool) -> Void
-    ) {
+    ) -> (@MainActor () -> Void)? {
+        cancelPendingManagedSpaceSwitch()
         guard destination.space.kind == .desktop || destination.space.kind == .fullscreen,
               let targetScreen = WindowSpaces.screen(forDisplayIdentifier: destination.display.identifier)
         else {
             completion(false)
-            return
+            return nil
         }
 
         let topology = WindowSpaces.managedDisplays()
@@ -1342,7 +1378,7 @@ extension WindowUtil {
               currentDestination.display.currentSpaceID != destination.space.id
         else {
             completion(false)
-            return
+            return nil
         }
 
         moveCursorToDisplayIfNeeded(targetScreen)
@@ -1363,20 +1399,52 @@ extension WindowUtil {
                 sourceSpaceIDs == Set([destination.space.id])
         }
 
-        for candidate in windowsInFrontToBackOrder(candidates) where candidate.bringToFront() {
-            completion(true)
-            return
-        }
+        let token = UUID()
+        let orderedCandidates = windowsInFrontToBackOrder(candidates)
+        let task = Task { @MainActor in
+            defer {
+                if pendingManagedSpaceSwitch?.token == token {
+                    pendingManagedSpaceSwitch = nil
+                }
+            }
+            for candidate in orderedCandidates {
+                guard !Task.isCancelled, pendingManagedSpaceSwitch?.token == token else { return }
+                guard !candidate.app.isTerminated,
+                      WindowSpaces.sourceSpaceIDs(for: candidate).contains(destination.space.id)
+                else { continue }
+                let activation = await candidate.bringToFrontResult()
+                guard !Task.isCancelled, pendingManagedSpaceSwitch?.token == token else { return }
+                if activation == .cancelled {
+                    completion(false)
+                    return
+                }
+                if activation == .succeeded {
+                    completion(true)
+                    return
+                }
+            }
 
-        if destination.space.kind == .desktop {
-            TransientSpaceAnchorController.shared.switchTo(destination, on: targetScreen, completion: completion)
-        } else {
-            completion(false)
+            guard !Task.isCancelled, pendingManagedSpaceSwitch?.token == token else { return }
+            if destination.space.kind == .desktop {
+                TransientSpaceAnchorController.shared.switchTo(destination, on: targetScreen, transitionID: token, completion: completion)
+            } else {
+                completion(false)
+            }
+        }
+        pendingManagedSpaceSwitch = PendingWindowRefresh(token: token, task: task)
+        return {
+            task.cancel()
+            if pendingManagedSpaceSwitch?.token == token {
+                pendingManagedSpaceSwitch = nil
+            }
+            TransientSpaceAnchorController.shared.cancelPending(transitionID: token)
         }
     }
 
     @MainActor
     static func cancelPendingManagedSpaceSwitch() {
+        pendingManagedSpaceSwitch?.task.cancel()
+        pendingManagedSpaceSwitch = nil
         TransientSpaceAnchorController.shared.cancelPending()
     }
 
@@ -1483,11 +1551,11 @@ private final class TransientSpaceAnchorController {
     func switchTo(
         _ destination: ManagedSpaceDestination,
         on screen: NSScreen,
+        transitionID: UUID,
         completion: @escaping (Bool) -> Void
     ) {
         cancelPending()
 
-        let transitionID = UUID()
         self.transitionID = transitionID
         self.destination = destination
         self.completion = completion
@@ -1543,6 +1611,11 @@ private final class TransientSpaceAnchorController {
     }
 
     func cancelPending() {
+        cleanup()
+    }
+
+    func cancelPending(transitionID: UUID) {
+        guard self.transitionID == transitionID else { return }
         cleanup()
     }
 
@@ -1754,6 +1827,10 @@ extension WindowUtil {
         return true
     }
 
+    static func cachedWindowElements(for pid: pid_t) -> [AXUIElement] {
+        desktopSpaceWindowCacheManager.readCache(pid: pid).map(\.axElement)
+    }
+
     static func isValidElement(_ element: AXUIElement) -> Bool {
         DebugLogger.measureSlow("isValidElement", thresholdMs: 50) {
             var pid = pid_t(0)
@@ -1958,7 +2035,7 @@ extension WindowUtil {
         let pidsWithWindows = Set(existingWindows.map(\.app.processIdentifier))
         let ownBundleId = Bundle.main.bundleIdentifier
 
-        return NSWorkspace.shared.runningApplications
+        return LauncherShortcutResolver.resolvingInPlaceReexecs(NSWorkspace.shared.runningApplications)
             .filter {
                 isWindowlessAppEligible($0, pidsWithWindows: pidsWithWindows, ownBundleId: ownBundleId)
             }
@@ -2316,7 +2393,7 @@ extension WindowUtil {
                 let windowAppPairs: [(window: SCWindow, displayApp: NSRunningApplication, ownerApp: NSRunningApplication)] = content.windows.compactMap { window in
                     guard let scApp = window.owningApplication,
                           !filteredBundleIdentifiers.contains(scApp.bundleIdentifier),
-                          let ownerApp = NSRunningApplication(processIdentifier: scApp.processID)
+                          let ownerApp = LauncherShortcutResolver.application(forProcessIdentifier: scApp.processID)
                     else { return nil }
                     let displayApp = displayAppsByOwner[ownerApp.processIdentifier] ?? WindowOwnerResolver.displayApp(forOwner: ownerApp)
                     displayAppsByOwner[ownerApp.processIdentifier] = displayApp
@@ -2349,7 +2426,7 @@ extension WindowUtil {
         }
 
         // AX fallback
-        let runningApps = NSWorkspace.shared.runningApplications.filter {
+        let runningApps = LauncherShortcutResolver.resolvingInPlaceReexecs(NSWorkspace.shared.runningApplications).filter {
             $0.activationPolicy == .regular &&
                 !WindowOwnerResolver.isAuxiliaryOwner($0) &&
                 !filteredBundleIdentifiers.contains($0.bundleIdentifier ?? "") &&
@@ -2592,14 +2669,14 @@ extension WindowUtil {
         var cgID: CGWindowID = 0
         guard _AXUIElementGetWindow(axWindow, &cgID) == .success, cgID != 0 else { return }
 
-        createdWindowsInFlightLock.lock()
-        let alreadyInFlight = !createdWindowsInFlight.insert(axWindow).inserted
-        createdWindowsInFlightLock.unlock()
+        let alreadyInFlight = createdWindowsInFlightLock.withLock {
+            !createdWindowsInFlight.insert(axWindow).inserted
+        }
         guard !alreadyInFlight else { return }
         defer {
-            createdWindowsInFlightLock.lock()
-            createdWindowsInFlight.remove(axWindow)
-            createdWindowsInFlightLock.unlock()
+            _ = createdWindowsInFlightLock.withLock {
+                createdWindowsInFlight.remove(axWindow)
+            }
         }
 
         let appAxElement = AXUIElementCreateApplication(pid)

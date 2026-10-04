@@ -101,7 +101,7 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
 
     private func setupSearchField() {
         searchField = NSTextField()
-        searchField.placeholderString = searchPlaceholder
+        setSearchPlaceholderVisible(true)
         searchField.isBordered = false
         searchField.drawsBackground = false
         searchField.backgroundColor = .clear
@@ -151,6 +151,7 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
             return
         }
 
+        setSearchPlaceholderVisible(!isFocused)
         setFrame(targetFrame(relativeTo: frame, on: window.screen), display: false)
         orderFront(nil)
     }

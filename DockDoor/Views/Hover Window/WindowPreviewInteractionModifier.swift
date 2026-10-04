@@ -16,6 +16,7 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
 
     @State private var isTargeted = false
     @State private var springLoadTask: Task<Void, Never>?
+    @State private var releaseActivationTask: Task<Void, Never>?
 
     private var windowIdentity: String {
         "\(windowInfo.app.processIdentifier)-\(windowInfo.id)"
@@ -51,24 +52,32 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
             }
             .onChange(of: windowIdentity) { _ in
                 cancelSpringLoading()
+                releaseActivationTask?.cancel()
+                releaseActivationTask = nil
                 if isTargeted {
                     beginSpringLoading()
                 }
             }
             .onDisappear {
                 cancelSpringLoading()
+                releaseActivationTask?.cancel()
+                releaseActivationTask = nil
             }
     }
 
     private func beginSpringLoading() {
         guard Defaults[.enableSpringLoading], !windowInfo.isWindowlessApp else { return }
 
+        releaseActivationTask?.cancel()
+        releaseActivationTask = nil
         springLoadTask?.cancel()
         if windowSwitcherActive {
             onDragHoverIndexChange?(index)
         }
 
-        springLoadTask = Task { @MainActor in
+        let coordinator = SharedPreviewWindowCoordinator.activeInstance
+        let sessionID = coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID
+        springLoadTask = Task { @MainActor [weak coordinator] in
             do {
                 try await Task.sleep(nanoseconds: UInt64(effectiveSpringLoadingDelay * 1_000_000_000))
             } catch {
@@ -77,7 +86,12 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
             guard !Task.isCancelled, isTargeted else { return }
 
             SharedPreviewWindowCoordinator.activeInstance?.restoreDockAutoHideState()
-            guard WindowUtil.springLoadWindow(windowInfo) else {
+            let activated = await WindowUtil.springLoadWindow(windowInfo)
+            guard !Task.isCancelled, isTargeted,
+                  coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID == sessionID,
+                  coordinator?.isVisible != false
+            else { return }
+            guard activated else {
                 NSSound.beep()
                 cancelSpringLoading()
                 return
@@ -101,13 +115,25 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
     }
 
     private func performReleaseFallback() {
+        releaseActivationTask?.cancel()
+        releaseActivationTask = nil
         SharedPreviewWindowCoordinator.activeInstance?.restoreDockAutoHideState()
         if windowInfo.isMinimized {
             handleWindowAction(.minimize)
         } else if windowInfo.isEffectivelyHiddenForUI {
             handleWindowAction(.hide)
-        } else if windowInfo.bringToFront(), !keepPreviewOnHoverActivation {
-            onTap?()
+        } else {
+            let coordinator = SharedPreviewWindowCoordinator.activeInstance
+            let sessionID = coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID
+            releaseActivationTask = Task { @MainActor [weak coordinator] in
+                let activated = await windowInfo.bringToFrontConfirmed()
+                guard !Task.isCancelled,
+                      coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID == sessionID,
+                      coordinator?.isVisible != false
+                else { return }
+                releaseActivationTask = nil
+                if activated, !keepPreviewOnHoverActivation { onTap?() }
+            }
         }
     }
 
@@ -137,6 +163,7 @@ struct WindowPreviewInteractionModifier: ViewModifier {
     @Default(.dockSwipeAwayFromDockAction) private var dockSwipeAwayFromDockAction
 
     @State private var suppressTap = false
+    @State private var activationTask: Task<Void, Never>?
 
     func body(content: Content) -> some View {
         content
@@ -162,6 +189,18 @@ struct WindowPreviewInteractionModifier: ViewModifier {
                 handleWindowAction: handleWindowAction,
                 dismissPreviews: onTap
             )
+            .onChange(of: windowInfo.id) { _ in
+                activationTask?.cancel()
+                activationTask = nil
+            }
+            .onChange(of: windowInfo.app.processIdentifier) { _ in
+                activationTask?.cancel()
+                activationTask = nil
+            }
+            .onDisappear {
+                activationTask?.cancel()
+                activationTask = nil
+            }
     }
 
     // MARK: - Swipe Handling
@@ -220,6 +259,8 @@ struct WindowPreviewInteractionModifier: ViewModifier {
     // MARK: - Tap Handling
 
     private func handleWindowTap() {
+        activationTask?.cancel()
+        activationTask = nil
         // Avoid activating the target while the temporarily pinned Dock reduces the usable screen area.
         SharedPreviewWindowCoordinator.activeInstance?.restoreDockAutoHideState()
 
@@ -237,10 +278,18 @@ struct WindowPreviewInteractionModifier: ViewModifier {
         } else if windowInfo.isEffectivelyHiddenForUI {
             handleWindowAction(.hide)
         } else {
-            if windowInfo.bringToFront(), windowSwitcherActive {
-                windowInfo.warpMouseToCenterIfNeeded()
+            let coordinator = SharedPreviewWindowCoordinator.activeInstance
+            let sessionID = coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID
+            activationTask = Task { @MainActor [weak coordinator] in
+                let activated = await windowInfo.bringToFrontConfirmed()
+                guard !Task.isCancelled,
+                      coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID == sessionID,
+                      coordinator?.isVisible != false
+                else { return }
+                activationTask = nil
+                if activated, windowSwitcherActive { windowInfo.warpMouseToCenterIfNeeded() }
+                onTap?()
             }
-            onTap?()
         }
     }
 }

@@ -135,9 +135,11 @@ struct WindowPreviewHoverContainer: View {
         let identity: DraggedWindowIdentity
         let window: WindowInfo
         var consumedByShake = false
+        var isCompletingDrop = false
     }
 
     @State private var dragSession: PreviewDragSession?
+    @State private var dragCompletionTask: Task<Void, Never>?
     @State private var isDragging = false
 
     @State private var hasAppeared: Bool = false
@@ -492,12 +494,17 @@ struct WindowPreviewHoverContainer: View {
         }
     }
 
+    private var radii: CardRadius.Resolved {
+        (appearanceOverride ?? cachedAppearance)?.radii ?? .current()
+    }
+
     var body: some View {
         BaseHoverContainer(
             bestGuessMonitor: bestGuessMonitor,
             mockPreviewActive: mockPreviewActive,
             content: { windowGridContent() },
-            backgroundAppearance: backgroundAppearance
+            backgroundAppearance: backgroundAppearance,
+            cornerRadius: radii.container
         )
         .contentShape(Rectangle())
         .onTapGesture {
@@ -527,7 +534,9 @@ struct WindowPreviewHoverContainer: View {
             cancelAllDeferredActionWatchers()
         }
         .onChange(of: previewStateCoordinator.windows.map(DraggedWindowIdentity.init)) { identities in
-            if let dragSession, !identities.contains(dragSession.identity) {
+            if let dragSession, !identities.contains(dragSession.identity),
+               !dragSession.isCompletingDrop || dragSession.window.app.isTerminated
+            {
                 cancelPreviewDrag()
             }
         }
@@ -630,7 +639,7 @@ struct WindowPreviewHoverContainer: View {
             disableTrailing: scrolledToEnd
         )
         .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .default && effectiveShowAppName) ? 25 : 0)
-        .clipShape(CardRadius.containerContentClip)
+        .clipShape(RoundedRectangle(cornerRadius: radii.container, style: .continuous).inset(by: 1))
         .overlay(alignment: effectiveAppNameStyle == .popover ? .top : .topLeading) {
             hoverTitleBaseView(labelSize: measureString(appName, fontSize: 14))
         }
@@ -661,7 +670,7 @@ struct WindowPreviewHoverContainer: View {
                     CmdTabFocusFullOverlayView()
                         .transition(.opacity)
                         .allowsHitTesting(false)
-                        .clipShape(RoundedRectangle(cornerRadius: CardRadius.container, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: radii.container, style: .continuous))
                 }
             }
         }
@@ -697,17 +706,24 @@ struct WindowPreviewHoverContainer: View {
         }
 
         let finishPlacement: @MainActor () -> Void = {
+            guard dragSession?.token == token else { return }
             guard revealWindowForDragPlacement(window),
-                  WindowUtil.placeWindowCentered(window, at: location, on: currentScreen) != nil,
-                  window.bringToFront()
+                  WindowUtil.placeWindowCentered(window, at: location, on: currentScreen) != nil
             else {
                 NSSound.beep()
                 cancelPreviewDrag(token: token)
                 return
             }
 
-            cancelPreviewDrag(token: token)
-            onWindowTap?()
+            dragCompletionTask?.cancel()
+            dragCompletionTask = Task { @MainActor in
+                let activated = await window.bringToFrontConfirmed()
+                guard !Task.isCancelled, dragSession?.token == token else { return }
+                dragCompletionTask = nil
+                cancelPreviewDrag(token: token)
+                if activated { onWindowTap?() }
+                else { NSSound.beep() }
+            }
         }
 
         if WindowSpaces.sourceSpaceIDs(for: window).contains(targetSpaceID) {
@@ -716,6 +732,7 @@ struct WindowPreviewHoverContainer: View {
         }
 
         WindowUtil.moveWindowConfirmed(window, toManagedSpace: targetSpaceID) { success in
+            guard dragSession?.token == token else { return }
             guard success else {
                 NSSound.beep()
                 cancelPreviewDrag(token: token)
@@ -805,7 +822,7 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func finishPreviewDrag(for window: WindowInfo, at location: CGPoint) {
-        guard let session = dragSession,
+        guard var session = dragSession,
               session.identity == DraggedWindowIdentity(window)
         else { return }
 
@@ -813,6 +830,8 @@ struct WindowPreviewHoverContainer: View {
         if !session.consumedByShake,
            !window.app.isTerminated
         {
+            session.isCompletingDrop = true
+            dragSession = session
             handleWindowDrop(at: location, for: session.window, token: session.token)
         } else {
             cancelPreviewDrag(token: session.token)
@@ -835,6 +854,8 @@ struct WindowPreviewHoverContainer: View {
 
     private func cancelPreviewDrag(token: UUID? = nil) {
         guard let session = dragSession else {
+            dragCompletionTask?.cancel()
+            dragCompletionTask = nil
             isDragging = false
             dragPoints.removeAll(keepingCapacity: true)
             return
@@ -842,6 +863,8 @@ struct WindowPreviewHoverContainer: View {
         let token = token ?? session.token
         guard token == session.token else { return }
 
+        dragCompletionTask?.cancel()
+        dragCompletionTask = nil
         DragPreviewCoordinator.shared.endDragging(token: token)
         dragSession = nil
         isDragging = false
@@ -2281,7 +2304,8 @@ struct WindowPreviewHoverContainer: View {
                     appearance: appearance,
                     backgroundAppearance: backgroundAppearance,
                     focusedWindowID: previewStateCoordinator.focusedWindowID,
-                    currentSpaceNumbers: currentSpaceNumbers
+                    currentSpaceNumbers: currentSpaceNumbers,
+                    spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo)
                 )
                 .equatable()
                 .gesture(previewDragGesture(for: windowInfo))
@@ -2307,7 +2331,8 @@ struct WindowPreviewHoverContainer: View {
                     appearance: appearance,
                     backgroundAppearance: backgroundAppearance,
                     focusedWindowID: previewStateCoordinator.focusedWindowID,
-                    currentSpaceNumbers: currentSpaceNumbers
+                    currentSpaceNumbers: currentSpaceNumbers,
+                    spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo)
                 )
                 .equatable()
                 .gesture(previewDragGesture(for: windowInfo))

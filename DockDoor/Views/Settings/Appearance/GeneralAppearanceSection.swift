@@ -3,12 +3,14 @@ import SwiftUI
 
 struct GeneralAppearanceSection: View {
     @Default(.uniformCardRadius) var uniformCardRadius
+    @Default(.previewCornerRadius) var previewCornerRadius
     @Default(.globalPaddingMultiplier) var globalPaddingMultiplier
     @Default(.trafficLightButtonScale) var trafficLightButtonScale
     @Default(.windowTitleFontSize) var windowTitleFontSize
     @Default(.unselectedContentOpacity) var unselectedContentOpacity
     @Default(.titleOverflowStyle) var titleOverflowStyle
     @Default(.dimMinimizedHiddenPreviews) var dimMinimizedHiddenPreviews
+    @Default(.showSpaceNumber) var showSpaceNumber
     @Default(.showWindowlessAppQuitButton) var showWindowlessAppQuitButton
     @Default(.hidePreviewCardBackground) var hidePreviewCardBackground
     @Default(.hideHoverContainerBackground) var hideHoverContainerBackground
@@ -82,6 +84,18 @@ struct GeneralAppearanceSection: View {
                         .font(.footnote)
                         .foregroundColor(.gray)
                         .padding(.leading, 20)
+
+                    if uniformCardRadius {
+                        sliderSetting(
+                            title: "Corner Radius",
+                            value: $previewCornerRadius,
+                            range: 0 ... 40,
+                            step: 1,
+                            unit: "pt"
+                        )
+                        .padding(.leading, 20)
+                        .settingsSearchTarget("appearance.cornerRadius")
+                    }
                 }
 
                 VStack(alignment: .leading) {
@@ -103,6 +117,17 @@ struct GeneralAppearanceSection: View {
                     }
                     .settingsSearchTarget("appearance.dimMinimizedHiddenPreviews")
                     Text("Dims minimized and hidden window preview images without changing window state indicator visibility.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                        .padding(.leading, 20)
+                }
+
+                VStack(alignment: .leading) {
+                    Toggle(isOn: $showSpaceNumber) {
+                        Text("Show Space number on previews (Legacy)")
+                    }
+                    .settingsSearchTarget("appearance.spaceNumber")
+                    Text("Labels each preview with the number of the desktop (Space) its window is on. Only shown when you have more than one desktop.")
                         .font(.footnote)
                         .foregroundColor(.gray)
                         .padding(.leading, 20)

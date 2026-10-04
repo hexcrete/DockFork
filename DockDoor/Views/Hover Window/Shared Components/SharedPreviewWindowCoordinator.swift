@@ -54,6 +54,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private var deferredActionWatchersByKey: [String: DeferredActionWatcher] = [:]
     private var deferredRefreshTasksByKey: [String: DeferredRefreshTask] = [:]
     private var activationDismissalSuppression: ActivationDismissalSuppression?
+    private var pendingShow: (id: UUID, pid: pid_t?, dockPosition: DockPosition, freshWindows: [WindowInfo]?)?
 
     var windowSize: CGSize = getWindowSize()
 
@@ -61,7 +62,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private var currentDockPosition: DockPosition = .bottom
 
     private var anchoredDockItem: (element: AXUIElement, iconRect: CGRect)?
-    private var switcherAnchorCenter: CGPoint?
+    private var panelAnchor: (screen: NSScreen, origin: (CGSize) -> CGPoint)?
 
     private(set) var hasScreenRecordingPermission: Bool = PermissionsChecker.hasScreenRecordingPermission()
 
@@ -185,7 +186,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification, NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification, NSWindow.didExposeNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(publishTapSnapshot), name: name, object: nil)
         }
-        NotificationCenter.default.addObserver(self, selector: #selector(switcherFrameDidChange), name: NSWindow.didResizeNotification, object: self)
+        NotificationCenter.default.addObserver(self, selector: #selector(panelDidResize), name: NSWindow.didResizeNotification, object: self)
     }
 
     deinit {
@@ -283,6 +284,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     func cancelPendingShow() {
         pendingShowWorkItem?.cancel()
         pendingShowWorkItem = nil
+        pendingShow = nil
     }
 
     func restoreDockAutoHideState() {
@@ -316,7 +318,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         currentlyDisplayedPID = nil
         mouseIsWithinPreviewWindow = false
         anchoredDockItem = nil
-        switcherAnchorCenter = nil
+        panelAnchor = nil
 
         let currentDockPos = DockUtils.getDockPosition()
         let currentScreen = NSScreen.main ?? NSScreen.screens.first!
@@ -444,6 +446,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     @MainActor
     @discardableResult
     func mergeWindowsIfNeeded(_ pid: pid_t? = nil, windows: [WindowInfo], dockPosition: DockPosition, bestGuessMonitor: NSScreen) -> Bool {
+        if !windowSwitcherCoordinator.windowSwitcherActive,
+           let pid, pendingShow?.pid == pid, pendingShow?.dockPosition == dockPosition
+        {
+            pendingShow?.freshWindows = windows
+            return true
+        }
         guard currentlyDisplayedPID == pid, currentDockPosition == dockPosition else { return false }
         windowSwitcherCoordinator.mergeWindows(windows, dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
         if dockPosition == .cmdTab, let refreshedPID = windows.first?.app.processIdentifier {
@@ -458,84 +466,41 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         guard let hostingView = contentView else { return }
 
         hostingView.layoutSubtreeIfNeeded()
+
+        guard let panelAnchor else { return }
+        let maximumSize = maximumPreviewSize(on: panelAnchor.screen)
         let fittingSize = hostingView.fittingSize
+        // The prediction covers all windows; search must size only its filtered content.
+        let expectedSize = windowSwitcherCoordinator.hasActiveSearch ? .zero : windowSwitcherCoordinator.expectedContentSize
+        let newSize = CGSize(
+            width: min(max(fittingSize.width, expectedSize.width), maximumSize.width),
+            height: min(max(fittingSize.height, expectedSize.height), maximumSize.height)
+        )
+        guard let newOrigin = anchoredOrigin(for: newSize) else { return }
+        let targetFrame = CGRect(origin: newOrigin, size: newSize)
+        guard targetFrame != frame else { return }
 
-        let pointerScreen = NSScreen.screenFromQuartzPoint(NSEvent.mouseLocation)
-        let targetScreen = reservesWindowSwitcherSearchSpace ? (screen ?? pointerScreen) : pointerScreen
-        let screenFrame = targetScreen.frame
-
-        let newSize: CGSize
-        if reservesWindowSwitcherSearchSpace {
-            let maximumSize = maximumPreviewSize(on: targetScreen)
-            newSize = CGSize(
-                width: min(fittingSize.width, maximumSize.width),
-                height: min(fittingSize.height, maximumSize.height)
-            )
-        } else {
-            newSize = fittingSize
-        }
-        guard newSize != frame.size else { return }
-
-        if let centeredFrame = centeredSwitcherFrame(for: newSize) {
-            let searchFrame = searchWindow.flatMap { $0.isVisible ? $0.targetFrame(relativeTo: centeredFrame, on: self.screen ?? targetScreen) : nil }
-            animateWithUserPreference {
-                self.animator().setFrame(centeredFrame, display: true)
-                if let searchFrame { self.searchWindow?.animator().setFrame(searchFrame, display: true) }
-            }
-            return
-        }
-
-        let wasClampedToTop = frame.maxY >= screenFrame.maxY - 1
-        let wasClampedToBottom = frame.minY <= screenFrame.minY + 1
-
-        // Anchor based on dock position; if clamped to screen edge, keep that edge fixed
-        var newOrigin = switch currentDockPosition {
-        case .left:
-            if wasClampedToTop {
-                CGPoint(x: frame.minX, y: frame.maxY - newSize.height)
-            } else if wasClampedToBottom {
-                CGPoint(x: frame.minX, y: frame.minY)
-            } else {
-                CGPoint(x: frame.minX, y: frame.midY - newSize.height / 2)
-            }
-        case .right:
-            if wasClampedToTop {
-                CGPoint(x: frame.maxX - newSize.width, y: frame.maxY - newSize.height)
-            } else if wasClampedToBottom {
-                CGPoint(x: frame.maxX - newSize.width, y: frame.minY)
-            } else {
-                CGPoint(x: frame.maxX - newSize.width, y: frame.midY - newSize.height / 2)
-            }
-        case .bottom, .cmdTab:
-            CGPoint(x: frame.midX - newSize.width / 2, y: frame.minY)
-        default:
-            CGPoint(x: frame.midX - newSize.width / 2, y: frame.midY - newSize.height / 2)
-        }
-
-        newOrigin.x = max(screenFrame.minX, min(newOrigin.x, screenFrame.maxX - newSize.width))
-        newOrigin.y = max(screenFrame.minY, min(newOrigin.y, screenFrame.maxY - newSize.height))
-
+        let searchFrame = searchWindow.flatMap { $0.isVisible ? $0.targetFrame(relativeTo: targetFrame, on: self.screen ?? panelAnchor.screen) : nil }
         animateWithUserPreference {
-            self.animator().setFrame(CGRect(origin: newOrigin, size: newSize), display: true)
+            self.animator().setFrame(targetFrame, display: true)
+            if let searchFrame { self.searchWindow?.animator().setFrame(searchFrame, display: true) }
         }
     }
 
-    private func centeredSwitcherFrame(for size: CGSize) -> CGRect? {
-        guard let center = switcherAnchorCenter else { return nil }
-        let screen = NSScreen.screens.first { $0.frame.contains(center) } ?? NSScreen.main
-        var origin = CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2)
-        if let screenFrame = screen.map({ previewPlacementFrame(on: $0) }) {
-            origin.x = max(screenFrame.minX, min(origin.x, screenFrame.maxX - size.width))
-            origin.y = max(screenFrame.minY, min(origin.y, screenFrame.maxY - size.height))
-        }
-        return CGRect(origin: origin, size: size)
+    private func anchoredOrigin(for size: CGSize) -> CGPoint? {
+        guard let panelAnchor else { return nil }
+        let screenFrame = previewPlacementFrame(on: panelAnchor.screen)
+        var origin = panelAnchor.origin(size)
+        origin.x = max(screenFrame.minX, min(origin.x, screenFrame.maxX - size.width))
+        origin.y = max(screenFrame.minY, min(origin.y, screenFrame.maxY - size.height))
+        return origin
     }
 
-    @objc private func switcherFrameDidChange() {
-        guard let target = centeredSwitcherFrame(for: frame.size),
-              abs(target.minX - frame.minX) > 0.5 || abs(target.minY - frame.minY) > 0.5
+    @objc private func panelDidResize() {
+        guard let origin = anchoredOrigin(for: frame.size),
+              abs(origin.x - frame.minX) > 0.5 || abs(origin.y - frame.minY) > 0.5
         else { return }
-        setFrame(target, display: true)
+        setFrameOrigin(origin)
         if let searchWindow, searchWindow.isVisible {
             searchWindow.showSearch(relativeTo: self)
         }
@@ -550,6 +515,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                                  dockPositionOverride: DockPosition? = nil,
                                  dockItemFrameOverride: CGRect? = nil)
     {
+        currentDockPosition = dockPositionOverride ?? DockUtils.getDockPosition()
         let hostingView = NSHostingView(rootView: view)
 
         if let oldContentView = contentView {
@@ -558,36 +524,31 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         contentView = hostingView
 
         let newHoverWindowSize = hostingView.fittingSize
-        let position: CGPoint
+        let isDockIconAnchored = dockItemElement != nil && dockIconRect != nil
 
-        if dockItemElement != nil, let dockIconRect {
-            position = calculateWindowPosition(mouseLocation: mouseLocation,
-                                               windowSize: newHoverWindowSize,
-                                               screen: mouseScreen,
-                                               dockIconRect: dockIconRect,
-                                               dockPositionOverride: dockPositionOverride)
-
-            // Prevent rendering if position calculation failed for cmd-tab
-            if dockPositionOverride == .cmdTab, position == .zero {
-                if let oldContentView = contentView {
-                    oldContentView.removeFromSuperview()
-                }
-                contentView = nil
-                return
-            }
-        } else if let frameOverride = dockItemFrameOverride {
-            position = calculateWindowPositionFromFrame(mouseLocation: mouseLocation,
-                                                        windowSize: newHoverWindowSize,
-                                                        screen: mouseScreen,
-                                                        dockItemFrame: frameOverride,
-                                                        dockPositionOverride: dockPositionOverride)
+        let origin: (CGSize) -> CGPoint = if isDockIconAnchored, let dockIconRect {
+            { [unowned self] in calculateWindowPosition(mouseLocation: mouseLocation, windowSize: $0, screen: mouseScreen, dockIconRect: dockIconRect, dockPositionOverride: dockPositionOverride) }
+        } else if let dockItemFrameOverride {
+            { [unowned self] in calculateWindowPositionFromFrame(mouseLocation: mouseLocation, windowSize: $0, screen: mouseScreen, dockItemFrame: dockItemFrameOverride, dockPositionOverride: dockPositionOverride) }
         } else {
-            position = centerWindowOnScreen(size: newHoverWindowSize, screen: mouseScreen)
+            { [unowned self] in centerWindowOnScreen(size: $0, screen: mouseScreen) }
+        }
+        let position = origin(newHoverWindowSize)
+
+        // Prevent rendering if position calculation failed for cmd-tab
+        if isDockIconAnchored, dockPositionOverride == .cmdTab, position == .zero {
+            if let oldContentView = contentView {
+                oldContentView.removeFromSuperview()
+            }
+            contentView = nil
+            return
         }
 
         let finalFrame = CGRect(origin: position, size: newHoverWindowSize)
+        panelAnchor = nil
         applyWindowFrame(finalFrame, animated: true, dockPositionOverride: dockPositionOverride)
         previousHoverWindowOrigin = position
+        panelAnchor = (mouseScreen, origin)
     }
 
     @MainActor
@@ -665,38 +626,37 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             )
         }
 
-        let position: CGPoint
-        if centerOnScreen {
-            position = centerWindowOnScreen(size: newHoverWindowSize, screen: mouseScreen)
-        } else {
-            if dockItemElement != nil, let dockIconRect {
-                position = calculateWindowPosition(mouseLocation: mouseLocation, windowSize: newHoverWindowSize, screen: mouseScreen, dockIconRect: dockIconRect, dockPositionOverride: dockPositionOverride)
+        let isDockIconAnchored = !centerOnScreen && dockItemElement != nil && dockIconRect != nil
 
-                // Prevent rendering if position calculation failed for cmd-tab
-                if dockPositionOverride == .cmdTab, position == .zero {
-                    if let oldContentView = contentView {
-                        oldContentView.removeFromSuperview()
-                    }
-                    contentView = nil
-                    return
-                }
-            } else if let frameOverride = dockItemFrameOverride {
-                position = calculateWindowPositionFromFrame(mouseLocation: mouseLocation, windowSize: newHoverWindowSize, screen: mouseScreen, dockItemFrame: frameOverride, dockPositionOverride: dockPositionOverride)
-            } else if let mouseLocation, dockPositionOverride == .cli {
-                position = calculateWindowPositionFromMouse(mouseLocation: mouseLocation, windowSize: newHoverWindowSize, screen: mouseScreen)
-            } else {
-                position = centerWindowOnScreen(size: newHoverWindowSize, screen: mouseScreen)
-            }
+        let origin: (CGSize) -> CGPoint = if centerOnScreen {
+            { [unowned self] in centerWindowOnScreen(size: $0, screen: mouseScreen) }
+        } else if isDockIconAnchored, let dockIconRect {
+            { [unowned self] in calculateWindowPosition(mouseLocation: mouseLocation, windowSize: $0, screen: mouseScreen, dockIconRect: dockIconRect, dockPositionOverride: dockPositionOverride) }
+        } else if let dockItemFrameOverride {
+            { [unowned self] in calculateWindowPositionFromFrame(mouseLocation: mouseLocation, windowSize: $0, screen: mouseScreen, dockItemFrame: dockItemFrameOverride, dockPositionOverride: dockPositionOverride) }
+        } else if let mouseLocation, dockPositionOverride == .cli {
+            { [unowned self] in calculateWindowPositionFromMouse(mouseLocation: mouseLocation, windowSize: $0, screen: mouseScreen) }
+        } else {
+            { [unowned self] in centerWindowOnScreen(size: $0, screen: mouseScreen) }
         }
+        let position = origin(newHoverWindowSize)
+
+        // Prevent rendering if position calculation failed for cmd-tab
+        if isDockIconAnchored, dockPositionOverride == .cmdTab, position == .zero {
+            if let oldContentView = contentView {
+                oldContentView.removeFromSuperview()
+            }
+            contentView = nil
+            return
+        }
+
         let finalFrame = CGRect(origin: position, size: newHoverWindowSize)
 
-        switcherAnchorCenter = nil
+        panelAnchor = nil
         setFrame(finalFrame, display: false)
         applyWindowFrame(finalFrame, animated: animated, dockPositionOverride: dockPositionOverride)
         previousHoverWindowOrigin = position
-        if centerOnScreen, windowSwitcherCoordinator.windowSwitcherActive {
-            switcherAnchorCenter = CGPoint(x: finalFrame.midX, y: finalFrame.midY)
-        }
+        panelAnchor = (mouseScreen, origin)
 
         elapsed = renderStartTime.map { (CFAbsoluteTimeGetCurrent() - $0) * 1000 } ?? 0
         DebugLogger.log("PreviewRender", details: "window frame applied, render complete (+\(String(format: "%.1f", elapsed))ms)")
@@ -930,8 +890,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             xPosition = flippedIconRect.maxX
             yPosition = flippedIconRect.midY - (windowSize.height / 2) - flippedIconRect.height
         case .right:
-            xPosition = screenFrame.maxX - flippedIconRect.width - windowSize.width
-            yPosition = flippedIconRect.minY - (windowSize.height / 2)
+            xPosition = flippedIconRect.minX - windowSize.width
+            yPosition = flippedIconRect.midY - (windowSize.height / 2) - flippedIconRect.height
         default:
             xPosition = mouseLocation.x - (windowSize.width / 2)
             yPosition = mouseLocation.y - (windowSize.height / 2)
@@ -1009,38 +969,28 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private func applyWindowFrame(_ frame: CGRect, animated: Bool, dockPositionOverride: DockPosition? = nil) {
         let shouldAnimate = animated && Defaults[.showAnimations]
 
-        if shouldAnimate {
-            // Window is appearing for the first time, apply slide animation
-            let dockPosition = dockPositionOverride ?? DockUtils.getDockPosition()
-            let animationOffset: CGFloat = 7.0
-            var startFrame = frame
-
-            switch dockPosition {
-            case .bottom, .cli:
-                startFrame.origin.y -= animationOffset
-            case .left:
-                startFrame.origin.x -= animationOffset
-            case .right:
-                startFrame.origin.x += animationOffset
-            default:
-                startFrame.origin.y -= animationOffset
-            }
-
-            setFrame(startFrame, display: true)
-            orderFront(nil)
-
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.175
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                self.animator().setFrame(frame, display: true)
-            }
-        } else {
-            setFrame(frame, display: true)
-        }
-
+        setFrame(frame, display: true)
         alphaValue = 1.0
         makeKeyAndOrderFront(nil)
         publishTapSnapshot()
+
+        if shouldAnimate, let layer = contentView?.layer {
+            let animationOffset: CGFloat = 7.0
+            let downward: CGFloat = contentView?.superview?.isFlipped == true ? animationOffset : -animationOffset
+            let offset = switch dockPositionOverride ?? DockUtils.getDockPosition() {
+            case .left: CGSize(width: -animationOffset, height: 0)
+            case .right: CGSize(width: animationOffset, height: 0)
+            default: CGSize(width: 0, height: downward)
+            }
+
+            let slide = CABasicAnimation(keyPath: "transform.translation")
+            slide.fromValue = NSValue(size: offset)
+            slide.toValue = NSValue(size: .zero)
+            slide.isAdditive = true
+            slide.duration = 0.175
+            slide.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            layer.add(slide, forKey: "slideIn")
+        }
     }
 
     @MainActor
@@ -1952,8 +1902,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let delay = shouldSkipDelay ? 0 : Defaults[.hoverWindowOpenDelay]
 
         pendingShowWorkItem?.cancel()
+        let pendingShowID = UUID()
+        pendingShow = (pendingShowID, nil, DockUtils.getDockPosition(), nil)
         let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
+            guard let self, pendingShow?.id == pendingShowID else { return }
 
             if let dockItemElement {
                 guard let currentDockItem = DockObserver.activeInstance?.getHoveredDockItemElement(),
@@ -1962,7 +1914,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
 
             Task { @MainActor [weak self] in
-                guard let self else { return }
+                guard let self, pendingShow?.id == pendingShowID else { return }
+                pendingShow = nil
 
                 let screen = mouseScreen ?? NSScreen.main!
                 let activeDockPosition = DockUtils.getDockPosition()
@@ -2035,8 +1988,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let delay = shouldSkipDelay ? 0 : Defaults[.hoverWindowOpenDelay]
 
         pendingShowWorkItem?.cancel()
+        let pendingShowID = UUID()
+        pendingShow = (pendingShowID, windows.first?.app.processIdentifier, dockPositionOverride ?? DockUtils.getDockPosition(), nil)
         let workItem = DispatchWorkItem { [weak self, renderStartTime] in
-            guard let self else { return }
+            guard let self, pendingShow?.id == pendingShowID else { return }
 
             // Check if mouse entered the preview window and we're trying to show a different app
             if mouseIsWithinPreviewWindow,
@@ -2069,13 +2024,16 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
 
             Task { @MainActor [weak self] in
+                guard let self, pendingShow?.id == pendingShowID else { return }
                 if centeredHoverWindowState == .fullWindowPreview,
                    let fullPreviewHoverID,
-                   self?.isFullPreviewHoverActive(fullPreviewHoverID) != true
+                   !isFullPreviewHoverActive(fullPreviewHoverID)
                 {
                     return
                 }
-                self?.performDisplay(appName: appName, windows: windows, mouseLocation: mouseLocation, mouseScreen: mouseScreen, dockItemElement: dockItemElement, centeredHoverWindowState: centeredHoverWindowState, onWindowTap: onWindowTap, bundleIdentifier: bundleIdentifier, dockPositionOverride: dockPositionOverride, initialIndex: initialIndex, dockItemFrameOverride: dockItemFrameOverride, renderStartTime: renderStartTime)
+                let windowsToShow = pendingShow?.freshWindows ?? windows
+                pendingShow = nil
+                performDisplay(appName: appName, windows: windowsToShow, mouseLocation: mouseLocation, mouseScreen: mouseScreen, dockItemElement: dockItemElement, centeredHoverWindowState: centeredHoverWindowState, onWindowTap: onWindowTap, bundleIdentifier: bundleIdentifier, dockPositionOverride: dockPositionOverride, initialIndex: initialIndex, dockItemFrameOverride: dockItemFrameOverride, renderStartTime: renderStartTime)
             }
         }
         pendingShowWorkItem = workItem

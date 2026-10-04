@@ -16,6 +16,9 @@ struct WidgetHoverContainer<Content: View>: View {
 
     @Default(.showAppName) private var showAppTitleData
     @Default(.appNameStyle) private var appNameStyle
+    @Default(.previewCornerRadius) private var previewCornerRadius
+    @Default(.uniformCardRadius) private var uniformCardRadius
+    @Default(.globalPaddingMultiplier) private var paddingMultiplier
 
     init(
         appName: String,
@@ -95,7 +98,12 @@ struct WidgetHoverContainer<Content: View>: View {
     }
 
     private var pinnedContent: some View {
-        VStack(spacing: 0) {
+        let containerRadius = CardRadius.Resolved(
+            uniform: uniformCardRadius,
+            base: Double(previewCornerRadius),
+            paddingMultiplier: Double(paddingMultiplier)
+        ).container
+        return VStack(spacing: 0) {
             content
         }
         .padding(.top, (appNameStyle == .default && showAppTitleData) ? 25 : 0)
@@ -103,11 +111,11 @@ struct WidgetHoverContainer<Content: View>: View {
             appTitleOverlay
         }
         .background {
-            BlurView(cornerRadius: CardRadius.container, appearance: backgroundAppearance)
+            BlurView(cornerRadius: containerRadius, appearance: backgroundAppearance)
         }
-        .clipShape(RoundedRectangle(cornerRadius: CardRadius.container, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: containerRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: CardRadius.container, style: .continuous)
+            RoundedRectangle(cornerRadius: containerRadius, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.19), lineWidth: 1.75)
         }
         .padding(HoverContainerPadding.dockStyleOuter)

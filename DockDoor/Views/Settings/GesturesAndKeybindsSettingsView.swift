@@ -14,6 +14,7 @@ struct GesturesAndKeybindsSettingsView: View {
                 PreviewPostActionBehaviorSection()
                 SpacesSettingsSection()
                 WindowSwitcherKeybindSection()
+                TrackpadSwitcherSwipeSection()
             }
         }
     }

@@ -363,13 +363,13 @@ enum WindowSwitcherShortcutResolver {
             return .spacesShortcut
         }
 
-        if combinationsMatch(candidate, mainKeybind) {
+        if heldShortcutOverlaps(candidate, initializer: mainKeybind) {
             return .duplicate
         }
 
         for earlierIndex in 0 ..< index {
             guard let earlier = shortcuts[earlierIndex].resolvedKeybind(mainKeybind: mainKeybind) else { continue }
-            if combinationsMatch(candidate, earlier) {
+            if heldShortcutOverlaps(candidate, initializer: earlier) {
                 return .duplicate
             }
         }
@@ -438,14 +438,14 @@ enum WindowSwitcherShortcutResolver {
         }
 
         let combination = UserKeyBind(keyCode: candidate.keyCode, modifierFlags: candidate.modifierFlags)
-        if combinationsMatch(combination, mainKeybind) {
+        if heldShortcutOverlaps(combination, initializer: mainKeybind) {
             return .duplicate
         }
         if resolvedAlternateShortcuts(
             alternateShortcuts,
             mainKeybind: mainKeybind,
             previewShortcuts: previewShortcuts
-        ).contains(where: { combinationsMatch(combination, $0.keybind) }) {
+        ).contains(where: { heldShortcutOverlaps(combination, initializer: $0.keybind) }) {
             return .duplicate
         }
         for earlierIndex in 0 ..< index {
@@ -540,12 +540,12 @@ enum WindowSwitcherShortcutResolver {
         }
 
         let combination = UserKeyBind(keyCode: candidate.keyCode, modifierFlags: candidate.modifierFlags)
-        if combinationsMatch(combination, mainKeybind) { return .duplicate }
+        if heldShortcutOverlaps(combination, initializer: mainKeybind) { return .duplicate }
         if resolvedAlternateShortcuts(
             alternateShortcuts,
             mainKeybind: mainKeybind,
             previewShortcuts: previewShortcuts
-        ).contains(where: { combinationsMatch(combination, $0.keybind) }) {
+        ).contains(where: { heldShortcutOverlaps(combination, initializer: $0.keybind) }) {
             return .duplicate
         }
         if resolvedPersistentShortcuts(
@@ -617,6 +617,24 @@ enum WindowSwitcherShortcutResolver {
         return flags & Int(supported)
     }
 
+    static func heldShortcutOverlaps(
+        _ candidate: UserKeyBind,
+        initializer: UserKeyBind,
+        backwardKeyCode: UInt16 = Defaults[.switcherBackwardKeyCode]
+    ) -> Bool {
+        if combinationsMatch(candidate, initializer) { return true }
+        guard candidate.keyCode == initializer.keyCode,
+              sidesOverlap(candidate.modifierSide, initializer.modifierSide),
+              let backwardModifier = ShortcutModifierKey.allCases.first(where: {
+                  $0.keyCodes.left == backwardKeyCode || $0.keyCodes.right == backwardKeyCode
+              })
+        else { return false }
+
+        // Held initializers also accept their configured backward modifier.
+        return normalizedModifiers(candidate.modifierFlags) ==
+            (normalizedModifiers(initializer.modifierFlags) | backwardModifier.modifierFlags)
+    }
+
     private static func combinationsMatch(_ first: UserKeyBind, _ second: UserKeyBind) -> Bool {
         first.keyCode == second.keyCode &&
             normalizedModifiers(first.modifierFlags) == normalizedModifiers(second.modifierFlags) &&
@@ -685,6 +703,7 @@ extension Defaults.Keys {
     static let livePreviewStreamKeepAlive = Key<Int>("livePreviewStreamKeepAlive", default: 0)
 
     static let uniformCardRadius = Key<Bool>("uniformCardRadius", default: true)
+    static let previewCornerRadius = Key<CGFloat>("previewCornerRadius", default: 20)
     static let allowDynamicImageSizing = Key<Bool>("allowDynamicImageSizing", default: false)
     static let tapEquivalentInterval = Key<CGFloat>("tapEquivalentInterval", default: 1.5)
     static let switcherTapEquivalentInterval = Key<CGFloat>("switcherTapEquivalentInterval", default: Defaults.Keys.tapEquivalentInterval.defaultValue)
@@ -801,6 +820,9 @@ extension Defaults.Keys {
     static let hidePreviewCardBackground = Key<Bool>("hidePreviewCardBackground", default: false)
     static let hideHoverContainerBackground = Key<Bool>("hideHoverContainerBackground", default: false)
     static let hideWidgetContainerBackground = Key<Bool>("hideWidgetContainerBackground", default: false)
+    static let showPreviewShadow = Key<Bool>("showPreviewShadow", default: false)
+    static let previewShadowRadius = Key<CGFloat>("previewShadowRadius", default: 8)
+    static let previewShadowOpacity = Key<CGFloat>("previewShadowOpacity", default: 0.2)
     static let useOpaquePreviewBackground = Key<Bool>("useOpaquePreviewBackground", default: false)
     static let customBackgroundColor = Key<Color?>("customBackgroundColor", default: nil)
     static let appAppearanceMode = Key<AppAppearanceMode>("appAppearanceMode", default: .system)
@@ -814,6 +836,8 @@ extension Defaults.Keys {
     // MARK: - Glass Effect
 
     static let dockBackgroundStyle = Key<DockBackgroundStyle>("dockBackgroundStyle", default: .liquidGlass)
+    static let dockLiquidGlassFlavor = Key<DockLiquidGlassFlavor>("dockLiquidGlassFlavor", default: .cartouchePopover)
+    static let dockGlassRefraction = Key<Bool>("dockGlassRefraction", default: true)
     static let dockGlassOpacity = Key<CGFloat>("dockGlassOpacity", default: 0.95)
     static let dockGlassBlurRadius = Key<CGFloat>("dockGlassBlurRadius", default: 0)
     static let dockGlassSaturation = Key<CGFloat>("dockGlassSaturation", default: 1.8)
@@ -845,6 +869,7 @@ extension Defaults.Keys {
     static let disableDockStyleWindowStateIndicator = Key<Bool>("disableDockStyleSpaceNumberIndicator", default: true)
     static let swapDockPreviewTrafficLightsAndWindowStateIndicator = Key<Bool>("swapDockPreviewTrafficLightsAndWindowStateIndicator", default: false)
     static let limitDockPreviewIndicatorSwapToCompactMode = Key<Bool>("limitDockPreviewIndicatorSwapToCompactMode", default: false)
+    static let showSpaceNumber = Key<Bool>("showSpaceNumber", default: false)
 
     // MARK: - Window Switcher Appearance Settings
 
@@ -937,6 +962,8 @@ extension Defaults.Keys {
     static let activeAppIndicatorOffset = Key<CGFloat>("activeAppIndicatorOffset", default: 5.0)
     static let activeAppIndicatorLength = Key<CGFloat>("activeAppIndicatorLength", default: 40.0)
     static let activeAppIndicatorShift = Key<CGFloat>("activeAppIndicatorShift", default: 0.0)
+    static let activeAppIndicatorStyle = Key<ActiveAppIndicatorStyle>("activeAppIndicatorStyle", default: .bar)
+    static let activeAppIndicatorHighlightFrontmost = Key<Bool>("activeAppIndicatorHighlightFrontmost", default: true)
 
     // MARK: - Trackpad Gestures
 
@@ -951,6 +978,11 @@ extension Defaults.Keys {
     static let enableWindowSwitcherGestures = Key<Bool>("enableWindowSwitcherGestures", default: true)
     static let switcherSwipeUpAction = Key<WindowAction>("switcherSwipeUpAction", default: .maximize)
     static let switcherSwipeDownAction = Key<WindowAction>("switcherSwipeDownAction", default: .minimize)
+
+    // Trackpad swipe that opens the window switcher from anywhere
+    static let enableTrackpadSwitcherSwipe = Key<Bool>("enableTrackpadSwitcherSwipe", default: false)
+    static let trackpadSwitcherSwipeFingers = Key<Int>("trackpadSwitcherSwipeFingers", default: 3)
+    static let trackpadSwitcherSwipeDirection = Key<TrackpadSwipeDirection>("trackpadSwitcherSwipeDirection", default: .horizontal)
 
     // MARK: - Middle Click Action
 
@@ -994,6 +1026,20 @@ extension Defaults.Keys {
         "lastFocusedWindowShortcuts",
         default: [PersistentSwitcherShortcut(mode: .globalAllWindows)]
     )
+}
+
+enum ActiveAppIndicatorStyle: String, CaseIterable, Defaults.Serializable {
+    case bar
+    case runningAppDots
+
+    var localizedName: String {
+        switch self {
+        case .bar:
+            String(localized: "Line (active app)", comment: "Active app indicator style option")
+        case .runningAppDots:
+            String(localized: "Dots (running apps)", comment: "Active app indicator style option")
+        }
+    }
 }
 
 // MARK: Dock Locking
@@ -1605,6 +1651,20 @@ enum MediaDetectionMode: String, CaseIterable, Defaults.Serializable {
     }
 }
 
+enum TrackpadSwipeDirection: String, CaseIterable, Defaults.Serializable {
+    case horizontal
+    case vertical
+
+    var localizedName: String {
+        switch self {
+        case .horizontal:
+            String(localized: "Left or right", comment: "Trackpad swipe direction option")
+        case .vertical:
+            String(localized: "Up or down", comment: "Trackpad swipe direction option")
+        }
+    }
+}
+
 enum DockIconScrollBehavior: String, CaseIterable, Defaults.Serializable {
     case activateHide
     case bringAppWindowsToCurrentSpace
@@ -2172,4 +2232,24 @@ enum DockBackgroundStyle: String, CaseIterable, Defaults.Serializable {
     static var allAvailable: [DockBackgroundStyle] { allCases }
 
     static var preTahoe: [DockBackgroundStyle] { [.frostedMaterial, .clear] }
+}
+
+enum DockLiquidGlassFlavor: String, CaseIterable, Defaults.Serializable {
+    case dock
+    case controlCenter
+    case notificationCenter
+    case regular
+    case sidebar
+    case widgets
+    case appIcons
+    case avPlayer
+    case monogram
+    case loupe
+    case keyboard
+    case clearGlass
+    case siriSnippet
+    case camera
+    case cartouchePopover
+    case siri
+    case menu
 }

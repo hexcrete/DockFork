@@ -521,6 +521,7 @@ class SwitchToSpaceCommand: NSScriptCommand {
     @MainActor private var hasReplied = false
     @MainActor private var deadlineTask: Task<Void, Never>?
     @MainActor private var confirmationTask: Task<Void, Never>?
+    @MainActor private var cancelSpaceRequest: (@MainActor () -> Void)?
 
     override func performDefaultImplementation() -> Any? {
         let number = directParameter as? Int
@@ -567,7 +568,7 @@ class SwitchToSpaceCommand: NSScriptCommand {
             }
             WindowUtil.cancelPendingManagedSpaceSwitch()
             (NSApp.delegate as? AppDelegate)?.dismissPreviewsForScriptedSpaceMove()
-            WindowUtil.switchToManagedSpace(destination) { success in
+            cancelSpaceRequest = WindowUtil.switchToManagedSpace(destination) { success in
                 guard !self.hasReplied else { return }
                 guard success else {
                     self.finish("error: Space could not be activated")
@@ -597,6 +598,8 @@ class SwitchToSpaceCommand: NSScriptCommand {
     private func finish(_ result: String) {
         guard !hasReplied else { return }
         hasReplied = true
+        cancelSpaceRequest?()
+        cancelSpaceRequest = nil
         deadlineTask?.cancel()
         confirmationTask?.cancel()
         deadlineTask = nil
@@ -609,6 +612,7 @@ class SwitchToSpaceCommand: NSScriptCommand {
 class MoveWindowCommand: NSScriptCommand {
     @MainActor private var hasReplied = false
     @MainActor private var deadlineTask: Task<Void, Never>?
+    @MainActor private var cancelSpaceRequest: (@MainActor () -> Void)?
 
     override func performDefaultImplementation() -> Any? {
         guard let windowID = directParameter as? String else {
@@ -640,7 +644,7 @@ class MoveWindowCommand: NSScriptCommand {
                     finish("error: \(validationMessage(error))")
                     return
                 }
-                WindowUtil.performConfirmedSpaceMove(
+                cancelSpaceRequest = WindowUtil.performConfirmedSpaceMove(
                     window,
                     to: destination,
                     dismissPreviews: {
@@ -663,6 +667,8 @@ class MoveWindowCommand: NSScriptCommand {
     private func finish(_ result: String) {
         guard !hasReplied else { return }
         hasReplied = true
+        cancelSpaceRequest?()
+        cancelSpaceRequest = nil
         deadlineTask?.cancel()
         deadlineTask = nil
         resumeExecution(withResult: result)

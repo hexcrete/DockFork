@@ -38,6 +38,7 @@ struct UserKeyBind: Codable, Defaults.Serializable, Equatable, Hashable {
 private enum WindowSwitcherLaunchSource: Equatable {
     case keyboard
     case persistent
+    case trackpad
 
     var dismissesOnModifierRelease: Bool {
         self == .keyboard
@@ -53,14 +54,14 @@ private enum WindowSwitcherLaunchSource: Equatable {
 
     var showsInstantly: Bool {
         switch self {
-        case .keyboard: Defaults[.instantWindowSwitcher]
+        case .keyboard, .trackpad: Defaults[.instantWindowSwitcher]
         case .persistent: true
         }
     }
 
     var focusesSearchOnOpen: Bool {
         switch self {
-        case .keyboard: Defaults[.focusSearchOnWindowSwitcherOpen]
+        case .keyboard, .trackpad: Defaults[.focusSearchOnWindowSwitcherOpen]
         case .persistent: true
         }
     }
@@ -70,10 +71,20 @@ private class WindowSwitchingCoordinator {
     private var isProcessingSwitcher = false
     private var uiRenderingTask: Task<Void, Never>?
     private var windowRefreshTask: Task<Void, Never>?
-    private var currentSessionId = UUID()
+    private(set) var currentSessionId = UUID()
     private var activeLaunchSource: WindowSwitcherLaunchSource?
     /// When true, initialization should complete but immediately select the window instead of showing UI
     private var shouldSelectImmediately = false
+    private var trackpadSessionId: UUID?
+
+    var trackpadOpenedCurrentSession: Bool {
+        trackpadSessionId == currentSessionId && activeLaunchSource == .trackpad
+    }
+
+    func relinquishTrackpadSession(adoptingKeyboard: Bool = false) {
+        trackpadSessionId = nil
+        if adoptingKeyboard, activeLaunchSource == .trackpad { activeLaunchSource = .keyboard }
+    }
 
     private static var lastUpdateAllWindowsTime: Date?
     private static let updateAllWindowsThrottleInterval: TimeInterval = 5.0
@@ -84,7 +95,8 @@ private class WindowSwitchingCoordinator {
         previewCoordinator: SharedPreviewWindowCoordinator,
         isModifierPressed: Bool,
         isBackwardPressed: Bool,
-        mode: SwitcherInvocationMode = .allWindows
+        mode: SwitcherInvocationMode = .allWindows,
+        launchSource: WindowSwitcherLaunchSource = .keyboard
     ) async -> Bool {
         guard !isProcessingSwitcher else { return false }
         isProcessingSwitcher = true
@@ -93,6 +105,8 @@ private class WindowSwitchingCoordinator {
         let coordinator = previewCoordinator.windowSwitcherCoordinator
 
         if coordinator.isKeybindSessionActive {
+            // Keyboard navigation intentionally takes ownership so a swipe can remain open.
+            if launchSource == .keyboard { relinquishTrackpadSession(adoptingKeyboard: true) }
             coordinator.hasMovedSinceOpen = false
             coordinator.initialHoverLocation = nil
 
@@ -106,7 +120,7 @@ private class WindowSwitchingCoordinator {
             return await initializeWindowSwitching(
                 previewCoordinator: previewCoordinator,
                 mode: mode,
-                launchSource: .keyboard
+                launchSource: launchSource
             )
         }
         return false
@@ -126,6 +140,7 @@ private class WindowSwitchingCoordinator {
         defer { isProcessingSwitcher = false }
 
         currentSessionId = UUID()
+        trackpadSessionId = nil
         let sessionId = currentSessionId
         windowRefreshTask?.cancel()
         uiRenderingTask?.cancel()
@@ -225,6 +240,7 @@ private class WindowSwitchingCoordinator {
         windowRefreshTask?.cancel()
 
         currentSessionId = UUID()
+        trackpadSessionId = launchSource == .trackpad ? currentSessionId : nil
         let sessionId = currentSessionId
         let targetScreen = getTargetScreenForSwitcher()
         let currentMouseLocation = DockObserver.getMousePosition()
@@ -526,6 +542,7 @@ private class WindowSwitchingCoordinator {
 
         let selectedWindow = coordinator.getCurrentWindow()
         currentSessionId = UUID()
+        trackpadSessionId = nil
         windowRefreshTask?.cancel()
         coordinator.deactivateKeybindSession()
         activeLaunchSource = nil
@@ -541,9 +558,14 @@ private class WindowSwitchingCoordinator {
         activeLaunchSource?.dismissesOnModifierRelease == true
     }
 
+    var isPersistentSession: Bool {
+        activeLaunchSource == .persistent
+    }
+
     @MainActor
     func cancelSwitching(previewCoordinator: SharedPreviewWindowCoordinator) {
         currentSessionId = UUID()
+        trackpadSessionId = nil
         shouldSelectImmediately = false
         windowRefreshTask?.cancel()
         previewCoordinator.windowSwitcherCoordinator.deactivateKeybindSession()
@@ -622,11 +644,18 @@ class KeybindHelper {
     private var runLoopSource: CFRunLoopSource?
     private var monitorTimer: Timer?
     private var unmanagedEventTapUserInfo: Unmanaged<KeybindHelperUserInfo>?
+    private var trackpadSwipeTrigger: TrackpadSwipeTrigger?
+    private var lastFocusedActivationTask: Task<Void, Never>?
 
     init(previewCoordinator: SharedPreviewWindowCoordinator) {
         self.previewCoordinator = previewCoordinator
         setupEventTap()
         startMonitoring()
+        if Defaults[.enableWindowSwitcher], Defaults[.enableTrackpadSwitcherSwipe] {
+            trackpadSwipeTrigger = TrackpadSwipeTrigger { [weak self] event in
+                self?.handleTrackpadSwipe(event)
+            }
+        }
     }
 
     func reset() {
@@ -634,6 +663,7 @@ class KeybindHelper {
         resetState()
         setupEventTap()
         startMonitoring()
+        trackpadSwipeTrigger?.reset()
     }
 
     func recover() {
@@ -671,6 +701,9 @@ class KeybindHelper {
         togglesCurrentScope: Bool = true
     ) async {
         guard Defaults[.enableWindowSwitcher] else { return }
+        lastFocusedActivationTask?.cancel()
+        lastFocusedActivationTask = nil
+        windowSwitchingCoordinator.relinquishTrackpadSession()
 
         let coordinator = previewCoordinator.windowSwitcherCoordinator
         if coordinator.isKeybindSessionActive {
@@ -682,7 +715,7 @@ class KeybindHelper {
             }
 
             if currentInvocationMode == mode,
-               !windowSwitchingCoordinator.dismissesOnModifierRelease
+               windowSwitchingCoordinator.isPersistentSession
             {
                 return
             }
@@ -725,6 +758,8 @@ class KeybindHelper {
     }
 
     private func cleanup() {
+        lastFocusedActivationTask?.cancel()
+        lastFocusedActivationTask = nil
         monitorTimer?.invalidate()
         monitorTimer = nil
         heldKeyRepeatTask?.cancel()
@@ -767,7 +802,7 @@ class KeybindHelper {
     }
 
     private func setupEventTap() {
-        guard eventTap == nil else { return }
+        guard eventTap == nil, DockObserver.canPostEvents else { return }
 
         let eventMask = (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.keyUp.rawValue) |
@@ -805,13 +840,9 @@ class KeybindHelper {
 
     private func removeEventTap() {
         if let eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: false)
-            if let runLoopSource {
-                EventTapThread.shared.remove(runLoopSource)
-            }
-            CFMachPortInvalidate(eventTap)
+            let userInfo = unmanagedEventTapUserInfo
+            EventTapThread.shared.remove(eventTap, source: runLoopSource) { userInfo?.release() }
         }
-        unmanagedEventTapUserInfo?.release()
         unmanagedEventTapUserInfo = nil
         eventTap = nil
         runLoopSource = nil
@@ -1258,6 +1289,8 @@ class KeybindHelper {
 
     @MainActor
     private func switchToLastFocusedWindow(mode: SwitcherInvocationMode) {
+        lastFocusedActivationTask?.cancel()
+        lastFocusedActivationTask = nil
         let windows = windowSwitchingCoordinator.eligibleRealWindows(mode: mode)
             .filter { !$0.app.isTerminated }
 
@@ -1271,17 +1304,19 @@ class KeybindHelper {
         windowSwitchingCoordinator.cancelSwitching(previewCoordinator: previewCoordinator)
         previewCoordinator.hideWindow()
 
-        var targetWindow = target
-        let activated: Bool = if targetWindow.isMinimized {
-            targetWindow.toggleMinimize() == false
-        } else if targetWindow.isEffectivelyHiddenForUI {
-            targetWindow.toggleHidden() == false
-        } else {
-            targetWindow.bringToFront()
-        }
-
-        if !activated {
-            NSSound.beep()
+        lastFocusedActivationTask = Task { @MainActor [weak self] in
+            guard let self, !Task.isCancelled else { return }
+            var targetWindow = target
+            let activated: Bool = if targetWindow.isMinimized {
+                targetWindow.toggleMinimize() == false
+            } else if targetWindow.isEffectivelyHiddenForUI {
+                targetWindow.toggleHidden() == false
+            } else {
+                await targetWindow.bringToFrontConfirmed()
+            }
+            guard !Task.isCancelled else { return }
+            lastFocusedActivationTask = nil
+            if !activated { NSSound.beep() }
         }
     }
 
@@ -1523,19 +1558,61 @@ class KeybindHelper {
             if oldSwitcherModifierState, !isSwitcherModifierKeyPressed, !hasProcessedModifierRelease {
                 hasProcessedModifierRelease = true
                 preventSwitcherHideOnRelease = false
+                selectOnSwitcherRelease()
+            }
+        }
+    }
 
-                windowSwitchingCoordinator.cancelPendingRender()
+    @MainActor
+    private func selectOnSwitcherRelease() {
+        windowSwitchingCoordinator.cancelPendingRender()
+        let sessionId = windowSwitchingCoordinator.currentSessionId
 
-                Task { @MainActor in
-                    if self.previewCoordinator.isVisible, self.previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
-                        self.previewCoordinator.selectAndBringToFrontCurrentWindow()
-                        self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
-                    } else if let selectedWindow = self.windowSwitchingCoordinator.selectCurrentWindow(previewCoordinator: self.previewCoordinator) {
-                        selectedWindow.bringToFront()
-                        selectedWindow.warpMouseToCenterIfNeeded()
-                        self.previewCoordinator.hideWindow()
+        Task { @MainActor in
+            guard self.windowSwitchingCoordinator.currentSessionId == sessionId else { return }
+            if self.previewCoordinator.isVisible, self.previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
+                self.previewCoordinator.selectAndBringToFrontCurrentWindow()
+                self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
+            } else if let selectedWindow = self.windowSwitchingCoordinator.selectCurrentWindow(previewCoordinator: self.previewCoordinator) {
+                selectedWindow.bringToFront()
+                selectedWindow.warpMouseToCenterIfNeeded()
+                self.previewCoordinator.hideWindow()
+            }
+        }
+    }
+
+    @MainActor
+    private func handleTrackpadSwipe(_ event: TrackpadSwipeEvent) {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            switch event {
+            case .open, .cycleForward, .cycleBackward:
+                guard Defaults[.enableWindowSwitcher], Defaults[.enableTrackpadSwitcherSwipe] else { return }
+                if event == .open {
+                    guard !WindowUtil.shouldIgnoreKeybindForFrontmostApp() else { return }
+                    if !windowSwitchingCoordinator.isActive(previewCoordinator: previewCoordinator) {
+                        lastFocusedActivationTask?.cancel()
+                        lastFocusedActivationTask = nil
+                        currentInvocationMode = .allWindows
+                        switcherSessionActive = false
                     }
                 }
+                await windowSwitchingCoordinator.handleWindowSwitching(
+                    previewCoordinator: previewCoordinator,
+                    isModifierPressed: event == .open,
+                    isBackwardPressed: event == .cycleBackward,
+                    mode: currentInvocationMode,
+                    launchSource: .trackpad
+                )
+            case .release:
+                guard windowSwitchingCoordinator.trackpadOpenedCurrentSession else { return }
+                windowSwitchingCoordinator.relinquishTrackpadSession()
+                // Typed search filters the swipe's selection; focused search explicitly keeps it open.
+                guard !Defaults[.preventSwitcherHide],
+                      !(Defaults[.focusSearchOnWindowSwitcherOpen] && Defaults[.enableWindowSwitcherSearch]),
+                      !previewCoordinator.isSearchWindowFocused
+                else { return }
+                selectOnSwitcherRelease()
             }
         }
     }
@@ -1860,6 +1937,9 @@ class KeybindHelper {
         rollbackSessionActive: Bool? = nil
     ) async {
         guard Defaults[.enableWindowSwitcher] else { return }
+        lastFocusedActivationTask?.cancel()
+        lastFocusedActivationTask = nil
+        windowSwitchingCoordinator.relinquishTrackpadSession(adoptingKeyboard: true)
         hasProcessedModifierRelease = false
         let previousMode = currentInvocationMode
         let shouldSwitchScope = windowSwitchingCoordinator.isActive(previewCoordinator: previewCoordinator) && previousMode != mode

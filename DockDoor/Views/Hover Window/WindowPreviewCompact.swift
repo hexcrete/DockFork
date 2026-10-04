@@ -31,6 +31,7 @@ struct WindowPreviewCompact: View, Equatable {
     let backgroundAppearance: BackgroundAppearance
     let focusedWindowID: CGWindowID?
     let currentSpaceNumbers: Set<Int>
+    var spaceNumber: Int? = nil
 
     @State private var isHovering = false
 
@@ -40,14 +41,15 @@ struct WindowPreviewCompact: View, Equatable {
 
     static func == (l: Self, r: Self) -> Bool {
         l.index == r.index && l.isSelected == r.isSelected
-            && l.uniformCardRadius == r.uniformCardRadius
             && l.windowSwitcherActive == r.windowSwitcherActive
+            && l.uniformCardRadius == r.uniformCardRadius
             && l.widthOverride == r.widthOverride
             && l.appearance == r.appearance
             && l.windowInfo.viewSnapshot == r.windowInfo.viewSnapshot
             && l.backgroundAppearance == r.backgroundAppearance
             && l.focusedWindowID == r.focusedWindowID
             && l.currentSpaceNumbers == r.currentSpaceNumbers
+            && l.spaceNumber == r.spaceNumber
     }
 
     private var rowWidth: CGFloat {
@@ -241,6 +243,14 @@ struct WindowPreviewCompact: View, Equatable {
             }
 
             Spacer(minLength: 0)
+
+            if let spaceNumber {
+                SpaceNumberBadge(
+                    number: spaceNumber,
+                    font: appearance.compactModeItemSize.secondaryFont,
+                    backgroundAppearance: backgroundAppearance
+                )
+            }
 
             HStack(spacing: controlsSpacing) {
                 if appearance.swapTrafficLightsAndWindowStateIndicator {

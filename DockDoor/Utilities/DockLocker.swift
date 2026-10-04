@@ -413,6 +413,7 @@ final class DockLocker {
     // MARK: - Event Tap
 
     private func setupEventTap() {
+        guard DockObserver.canPostEvents else { return }
         let eventMask: CGEventMask =
             (1 << CGEventType.mouseMoved.rawValue)
 
@@ -444,11 +445,7 @@ final class DockLocker {
 
     private func removeEventTap() {
         if let eventTap {
-            CGEvent.tapEnable(tap: eventTap, enable: false)
-            if let runLoopSource {
-                EventTapThread.shared.remove(runLoopSource)
-            }
-            CFMachPortInvalidate(eventTap)
+            EventTapThread.shared.remove(eventTap, source: runLoopSource)
         }
         eventTap = nil
         runLoopSource = nil

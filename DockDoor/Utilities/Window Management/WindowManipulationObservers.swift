@@ -122,7 +122,7 @@ class WindowManipulationObservers {
     func reset() {
         cancelAllDebouncedTasks()
         removeAllObservers()
-        let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
+        let apps = LauncherShortcutResolver.resolvingInPlaceReexecs(NSWorkspace.shared.runningApplications).filter { $0.activationPolicy == .regular }
         for app in apps {
             createObserverForApp(app)
         }
@@ -149,7 +149,7 @@ class WindowManipulationObservers {
             NotificationCenter.default.addObserver(self, selector: #selector(screenParametersDidChange(_:)), name: NSApplication.didChangeScreenParametersNotification, object: nil)
             SpaceNumberResolver.refresh()
 
-            let apps = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }
+            let apps = LauncherShortcutResolver.resolvingInPlaceReexecs(NSWorkspace.shared.runningApplications).filter { $0.activationPolicy == .regular }
             DebugLogger.log("setupObservers", details: "Setting up observers for \(apps.count) running apps")
 
             for app in apps {
@@ -159,11 +159,12 @@ class WindowManipulationObservers {
     }
 
     @objc private func appDidLaunch(_ notification: Notification) {
-        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-              app.activationPolicy == .regular
+        guard let launchedApp = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+              launchedApp.activationPolicy == .regular
         else {
             return
         }
+        let app = LauncherShortcutResolver.resolvingInPlaceReexec(launchedApp)
         DebugLogger.log("appDidLaunch", details: "App: \(app.localizedName ?? "Unknown") (PID: \(app.processIdentifier))")
         createObserverForApp(app)
         handleNewWindow(for: app.processIdentifier)
@@ -265,6 +266,8 @@ class WindowManipulationObservers {
             dockObserver.currentClickedAppPID = nil
         }
 
+        Self.ensureObserver(for: app)
+
         let appAX = AXUIElementCreateApplication(app.processIdentifier)
         axObserverWorkQueue.asyncAfter(deadline: .now() + 0.3) {
             if let focusedWindow = try? appAX.focusedWindow() {
@@ -280,7 +283,8 @@ class WindowManipulationObservers {
         DispatchQueue.main.async {
             guard let instance = activeWindowManipulationObserversInstance,
                   instance.observers[app.processIdentifier] == nil,
-                  !app.isTerminated
+                  !app.isTerminated,
+                  !AXResponsiveness.isUnresponsive(app.processIdentifier)
             else { return }
             instance.createObserverForApp(app)
         }
@@ -290,19 +294,25 @@ class WindowManipulationObservers {
         let pid = app.processIdentifier
         guard pid != ProcessInfo.processInfo.processIdentifier else { return }
 
-        DebugLogger.measure("createObserverForApp", details: "App: \(app.localizedName ?? "Unknown") (PID: \(pid))") {
-            var observer: AXObserver?
-            let result = AXObserverCreate(pid, axObserverCallback, &observer)
-            guard result == .success, let observer else { return }
+        var observer: AXObserver?
+        guard AXObserverCreate(pid, axObserverCallback, &observer) == .success, let observer else { return }
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        observers[pid] = observer
 
-            let appElement = AXUIElementCreateApplication(pid)
-            for notification in observedAXNotifications {
-                AXObserverAddNotification(observer, appElement, notification as CFString, UnsafeMutableRawPointer(bitPattern: Int(pid)))
+        let details = "App: \(app.localizedName ?? "Unknown") (PID: \(pid))"
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let registrationFailed: Bool = DebugLogger.measure("createObserverForApp", details: details) {
+                let appElement = AXUIElementCreateApplication(pid)
+                return observedAXNotifications.map {
+                    AXObserverAddNotification(observer, appElement, $0 as CFString, UnsafeMutableRawPointer(bitPattern: Int(pid)))
+                }.contains(.cannotComplete)
             }
-
-            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
-
-            observers[pid] = observer
+            guard registrationFailed else { return }
+            AXResponsiveness.markUnresponsive(pid)
+            DispatchQueue.main.async {
+                guard let self, self.observers[pid] === observer else { return }
+                self.removeObserver(for: pid)
+            }
         }
     }
 
@@ -311,20 +321,20 @@ class WindowManipulationObservers {
     }
 
     func removeObserver(for pid: pid_t) {
-        guard let observer = observers[pid] else { return }
+        guard let observer = observers.removeValue(forKey: pid) else { return }
 
-        let appElement = AXUIElementCreateApplication(pid)
-        for notification in observedAXNotifications {
-            AXObserverRemoveNotification(observer, appElement, notification as CFString)
+        DispatchQueue.global(qos: .utility).async {
+            let appElement = AXUIElementCreateApplication(pid)
+            for notification in observedAXNotifications {
+                AXObserverRemoveNotification(observer, appElement, notification as CFString)
+            }
         }
-
-        observers.removeValue(forKey: pid)
     }
 
     func handleNewWindow(for pid: pid_t) {
         let delay = AXResponsiveness.isUnresponsive(pid) ? AXResponsiveness.backoff : windowProcessingDebounceInterval
         debounce(key: "windowCreation-\(pid)", delay: delay) {
-            if let app = NSRunningApplication(processIdentifier: pid) {
+            if let app = LauncherShortcutResolver.application(forProcessIdentifier: pid) {
                 let existingWindowIDs = Set(WindowUtil.readCachedWindows(for: pid).map(\.id))
                 DebugLogger.log("handleNewWindow", details: "App: \(app.localizedName ?? "Unknown") (PID: \(pid))")
                 await DebugLogger.measureAsync("updateNewWindowsForApp", details: "PID: \(pid)") {
@@ -343,6 +353,11 @@ class WindowManipulationObservers {
                 }
             }
         }
+    }
+
+    private func notifyRunningAppDotsIfNeeded() {
+        guard Defaults[.showActiveAppIndicator], Defaults[.activeAppIndicatorStyle] == .runningAppDots else { return }
+        ActiveAppIndicatorCoordinator.shared?.notifyWindowsChanged()
     }
 
     func processAXNotification(element: AXUIElement, notificationName: String, app: NSRunningApplication, pid: pid_t) {
@@ -375,15 +390,21 @@ class WindowManipulationObservers {
                 WindowUtil.quitAppOnLastWindowCloseIfNeeded(app: app)
             }
             handleWindowEvent(element: element, app: app, notification: notificationName, validate: true)
+            notifyRunningAppDotsIfNeeded()
         case kAXWindowResizedNotification:
             let resizedWindowID = try? element.cgWindowId()
             handleWindowEvent(element: element, app: app, notification: notificationName, validate: false) { _ in
                 let resizedSpaceID = resizedWindowID?.cgsSpaces().first.map { Int($0) }
-                let resizedScreenIdentifier = (try? element.position()).flatMap(WindowUtil.screenIdentifier(forWindowAt:))
+                let resizedPosition = try? element.position()
+                let resizedSize = resizedPosition.flatMap { _ in try? element.size() }
+                let resizedScreenIdentifier = resizedPosition.flatMap(WindowUtil.screenIdentifier(forWindowAt:))
                 return { windowSet in
                     Self.update(windowSet: &windowSet, matching: resizedWindowID, element: element) { window in
                         window.spaceID = resizedSpaceID ?? window.spaceID
                         window.screenIdentifier = resizedScreenIdentifier ?? window.screenIdentifier
+                        if let resizedPosition, let resizedSize {
+                            window.frame = CGRect(origin: resizedPosition, size: resizedSize)
+                        }
                     }
                 }
             }
@@ -422,7 +443,7 @@ class WindowManipulationObservers {
                 }
             }
             if Defaults[.showActiveAppIndicator] {
-                ActiveAppIndicatorCoordinator.shared?.notifyDockItemsChanged()
+                ActiveAppIndicatorCoordinator.shared?.notifyWindowsChanged()
             }
         case kAXApplicationHiddenNotification:
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
@@ -470,6 +491,7 @@ class WindowManipulationObservers {
                 await WindowUtil.cacheCreatedWindow(axWindow: element, app: app)
             }
             handleNewWindow(for: pid)
+            notifyRunningAppDotsIfNeeded()
         case kAXTitleChangedNotification:
             let windowID = try? element.cgWindowId()
             if let existing = WindowUtil.readCachedWindows(for: pid).first(where: { (windowID != nil && $0.id == windowID) || $0.axElement == element }) {
@@ -601,7 +623,7 @@ func axObserverCallback(observer: AXObserver, element: AXUIElement, notification
 
     axObserverWorkQueue.async {
         if notification == kAXWindowCreatedNotification,
-           let app = NSRunningApplication(processIdentifier: pid),
+           let app = LauncherShortcutResolver.application(forProcessIdentifier: pid),
            let observerInstance = activeWindowManipulationObserversInstance
         {
             observerInstance.processAXNotification(element: element, notificationName: notification, app: app, pid: pid)
@@ -612,7 +634,7 @@ func axObserverCallback(observer: AXObserver, element: AXUIElement, notification
 
         let workItem = DispatchWorkItem {
             pendingNotifications.removeValue(forKey: key)
-            if let app = NSRunningApplication(processIdentifier: pid),
+            if let app = LauncherShortcutResolver.application(forProcessIdentifier: pid),
                let observerInstance = activeWindowManipulationObserversInstance
             {
                 observerInstance.processAXNotification(element: element, notificationName: notification, app: app, pid: pid)

@@ -14,7 +14,7 @@ struct MaterialPillStyle: ViewModifier {
             .padding(.vertical, Self.verticalPadding)
             .background {
                 ZStack {
-                    BlurView(appearance: backgroundAppearance)
+                    BlurView(shape: Capsule(style: .continuous), appearance: backgroundAppearance)
                     if let highlightColor {
                         highlightColor.opacity(highlightOpacity)
                     }

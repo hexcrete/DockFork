@@ -457,6 +457,7 @@ struct PreviewAppearanceSettings: Equatable {
     let activeAppIndicatorColor: Color
     let showAnimations: Bool
     let globalPaddingMultiplier: CGFloat
+    let radii: CardRadius.Resolved
     let windowTitleFontSize: WindowTitleFontSize
     let switcherAppIconSize: CGFloat
     let trafficLightButtonScale: CGFloat
@@ -556,6 +557,7 @@ struct PreviewAppearanceSettings: Equatable {
         .previewHoverAction, .switcherPreviewHoverAction, .cmdTabPreviewHoverAction,
         .keepPreviewOnHoverActivation,
         .showActiveWindowBorder, .activeAppIndicatorColor, .showAnimations, .globalPaddingMultiplier,
+        .uniformCardRadius, .previewCornerRadius,
         .windowTitleFontSize, .switcherAppIconSize, .trafficLightButtonScale,
         .previewWidth, .compactModeWidth, .compactModeTitleFormat, .compactModeItemSize, .compactModeHideTrafficLights,
         .showWindowlessAppQuitButton, .titleOverflowStyle,
@@ -597,6 +599,7 @@ struct PreviewAppearanceSettings: Equatable {
             activeAppIndicatorColor: Defaults[.activeAppIndicatorColor],
             showAnimations: Defaults[.showAnimations],
             globalPaddingMultiplier: Defaults[.globalPaddingMultiplier],
+            radii: .current(),
             windowTitleFontSize: Defaults[.windowTitleFontSize],
             switcherAppIconSize: Defaults[.switcherAppIconSize],
             trafficLightButtonScale: Defaults[.trafficLightButtonScale],
@@ -727,6 +730,23 @@ private extension View {
     }
 }
 
+struct WindowTitlePresentation: Equatable {
+    let isVisible: Bool
+    let reservesSpace: Bool
+
+    static func resolve(
+        title: String?,
+        showWindowTitle: Bool,
+        visibility: WindowTitleVisibility,
+        isHighlighted: Bool
+    ) -> Self {
+        let hasTitle = showWindowTitle && title != nil
+        let isVisible = hasTitle && (visibility == .alwaysVisible || isHighlighted)
+        let reservesSpace = hasTitle
+        return Self(isVisible: isVisible, reservesSpace: reservesSpace)
+    }
+}
+
 struct WindowPreview: View, Equatable {
     let windowInfo: WindowInfo
     let onTap: (() -> Void)?
@@ -748,6 +768,7 @@ struct WindowPreview: View, Equatable {
     let backgroundAppearance: BackgroundAppearance
     let focusedWindowID: CGWindowID?
     let currentSpaceNumbers: Set<Int>
+    var spaceNumber: Int? = nil
 
     @State private var isHoveringOverDockPeekPreview = false
     @State private var isHoveringOverWindowSwitcherPreview = false
@@ -951,6 +972,7 @@ struct WindowPreview: View, Equatable {
             && l.backgroundAppearance == r.backgroundAppearance
             && l.focusedWindowID == r.focusedWindowID
             && l.currentSpaceNumbers == r.currentSpaceNumbers
+            && l.spaceNumber == r.spaceNumber
     }
 
     private var isActiveWindow: Bool {
@@ -991,10 +1013,10 @@ struct WindowPreview: View, Equatable {
     }
 
     @ViewBuilder
-    private func titleLabel(_ text: String, adaptsToAvailableWidth: Bool = false) -> some View {
+    private func titleLabel(_ text: String, adaptsToAvailableWidth: Bool = false, scrolls: Bool = true) -> some View {
         switch appearance.titleOverflowStyle {
         case .marquee:
-            MarqueeText(text: text, startDelay: 1, adaptsToAvailableWidth: adaptsToAvailableWidth)
+            MarqueeText(text: text, startDelay: 1, enableScrolling: scrolls, adaptsToAvailableWidth: adaptsToAvailableWidth)
         case .truncateTail:
             MarqueeText(
                 text: text,
@@ -1048,7 +1070,17 @@ struct WindowPreview: View, Equatable {
             }
         }
         .animation(appearance.showAnimations ? .easeInOut(duration: 0.15) : nil, value: stateSymbol)
-        .clipShape(RoundedRectangle(cornerRadius: CardRadius.image, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: appearance.radii.image, style: .continuous))
+        .overlay(alignment: spaceBadgeAlignment) {
+            if let spaceNumber, !skeletonMode {
+                SpaceNumberBadge(
+                    number: spaceNumber,
+                    font: appearance.windowTitleFontSize.font,
+                    backgroundAppearance: backgroundAppearance
+                )
+                .padding(8)
+            }
+        }
         .dynamicWindowFrame(
             allowDynamicSizing: appearance.allowDynamicImageSizing,
             dimensions: dimensions,
@@ -1056,6 +1088,18 @@ struct WindowPreview: View, Equatable {
             windowSwitcherActive: windowSwitcherActive
         )
         .opacity(isSelected ? 1.0 : appearance.unselectedContentOpacity)
+    }
+
+    private var spaceBadgeAlignment: Alignment {
+        switch appearance.controlPosition {
+        case .topLeading, .topTrailing:
+            .bottomTrailing
+        case .diagonalTopRightBottomLeft, .diagonalBottomLeftTopRight,
+             .parallelTopRightBottomRight, .parallelBottomRightTopRight:
+            .topLeading
+        default:
+            .topTrailing
+        }
     }
 
     @ViewBuilder
@@ -1091,9 +1135,12 @@ struct WindowPreview: View, Equatable {
             windowInfo.app.localizedName
         }
 
-        let hasTitle = appearance.showWindowTitle &&
-            titleToShow != nil &&
-            (appearance.windowTitleVisibility == .alwaysVisible || selected)
+        let titlePresentation = WindowTitlePresentation.resolve(
+            title: titleToShow,
+            showWindowTitle: appearance.showWindowTitle,
+            visibility: appearance.windowTitleVisibility,
+            isHighlighted: selected
+        )
 
         let hasTrafficLights = canRenderTrafficLightButtons
         let showTrafficLights = shouldShowTrafficLightButtons(
@@ -1119,8 +1166,8 @@ struct WindowPreview: View, Equatable {
             : (title: 0, controls: 0)
         let titleTextAlignment: TextAlignment = appearance.controlPosition.titleIsTrailing ? .trailing : .leading
         let titleContent = Group {
-            if hasTitle, let title = titleToShow {
-                titleLabel(title, adaptsToAvailableWidth: true)
+            if titlePresentation.reservesSpace, let title = titleToShow {
+                titleLabel(title, adaptsToAvailableWidth: true, scrolls: titlePresentation.isVisible)
                     .font(appearance.windowTitleFontSize.font)
                     .multilineTextAlignment(titleTextAlignment)
                     .padding(4)
@@ -1130,9 +1177,10 @@ struct WindowPreview: View, Equatable {
                     .frame(minWidth: 0)
                     .clipped()
                     .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
+                    .opacity(titlePresentation.isVisible ? 1 : 0)
             }
         }
-        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !embeddedControlsAreLeading, enabled: hasTitle)
+        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !embeddedControlsAreLeading, enabled: titlePresentation.reservesSpace)
 
         let controlsContent = controlsWithWindowStateIndicator(
             controlsAreLeading: embeddedControlsAreLeading,
@@ -1178,7 +1226,7 @@ struct WindowPreview: View, Equatable {
             enabled: hasWindowStateIndicator || hasVisibleAdjacentControl
         )
 
-        if hasTitle || hasTrafficLights || hasWindowStateIndicator {
+        if titlePresentation.reservesSpace || hasTrafficLights || hasWindowStateIndicator {
             switch appearance.controlPosition {
             case .topLeading, .topTrailing:
                 VStack {
@@ -1543,9 +1591,12 @@ struct WindowPreview: View, Equatable {
             windowInfo.app.localizedName
         }
 
-        let hasTitle = appearance.showWindowTitle &&
-            titleToShow != nil &&
-            (appearance.windowTitleVisibility == .alwaysVisible || selected)
+        let titlePresentation = WindowTitlePresentation.resolve(
+            title: titleToShow,
+            showWindowTitle: appearance.showWindowTitle && showTitleContent,
+            visibility: appearance.windowTitleVisibility,
+            isHighlighted: selected
+        )
 
         let hasTrafficLights = canRenderTrafficLightButtons
         let showTrafficLights = shouldShowTrafficLightButtons(
@@ -1567,8 +1618,8 @@ struct WindowPreview: View, Equatable {
         )
         let titleTextAlignment: TextAlignment = appearance.controlPosition.titleIsTrailing ? .trailing : .leading
         let titleContent = Group {
-            if hasTitle, let title = titleToShow {
-                titleLabel(title, adaptsToAvailableWidth: true)
+            if titlePresentation.reservesSpace, let title = titleToShow {
+                titleLabel(title, adaptsToAvailableWidth: true, scrolls: titlePresentation.isVisible)
                     .font(appearance.windowTitleFontSize.font)
                     .multilineTextAlignment(titleTextAlignment)
                     .padding(4)
@@ -1578,9 +1629,10 @@ struct WindowPreview: View, Equatable {
                     .frame(minWidth: 0)
                     .clipped()
                     .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
+                    .opacity(titlePresentation.isVisible ? 1 : 0)
             }
         }
-        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !isLeadingControls, enabled: hasTitle)
+        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !isLeadingControls, enabled: titlePresentation.reservesSpace)
 
         let controlsContent = controlsWithWindowStateIndicator(
             controlsAreLeading: isLeadingControls,
@@ -1626,7 +1678,7 @@ struct WindowPreview: View, Equatable {
             enabled: showControlsContent && (hasWindowStateIndicator || hasVisibleAdjacentControl)
         )
 
-        if hasTitle || hasTrafficLights || hasWindowStateIndicator {
+        if titlePresentation.reservesSpace || (showControlsContent && (hasTrafficLights || hasWindowStateIndicator)) {
             if appearance.controlPosition.isCentered {
                 return AnyView(
                     HStack(spacing: 4) {
