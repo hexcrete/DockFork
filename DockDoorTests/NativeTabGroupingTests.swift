@@ -113,4 +113,73 @@ struct NativeTabGroupingTests {
     @Test func emptyInputYieldsEmpty() {
         #expect(NativeTabGrouping.representativeIDs(from: []).isEmpty)
     }
+
+    @Test func keepsUnobservedOffSpaceWindowsWithIdenticalFrames() {
+        let kept = NativeTabGrouping.retainedIDs(from: [candidate(id: 1), candidate(id: 2)], previousSnapshot: nil)
+        #expect(kept == [1, 2])
+    }
+
+    @Test func preservesSeparateWindowsAfterLeavingTheirSpaceOrHiding() {
+        let visible = [candidate(id: 1, isOnScreen: true), candidate(id: 2, isOnScreen: true)]
+        let snapshot = NativeTabGrouping.VisibilitySnapshot(
+            observedIDs: [1, 2],
+            keptIDs: NativeTabGrouping.retainedIDs(from: visible, previousSnapshot: nil)
+        )
+        let kept = NativeTabGrouping.retainedIDs(from: [candidate(id: 1), candidate(id: 2)], previousSnapshot: snapshot)
+        #expect(kept == [1, 2])
+    }
+
+    @Test func preservesKnownTabsOffSpaceButKeepsNewWindows() {
+        let snapshot = NativeTabGrouping.VisibilitySnapshot(observedIDs: [1, 2], keptIDs: [1])
+        let kept = NativeTabGrouping.retainedIDs(
+            from: [candidate(id: 1), candidate(id: 2), candidate(id: 3)],
+            previousSnapshot: snapshot
+        )
+        #expect(kept == [1, 3])
+    }
+
+    @Test func visibilityUpdatesWhichTabRepresentsTheWindow() {
+        let snapshot = NativeTabGrouping.VisibilitySnapshot(observedIDs: [1, 2], keptIDs: [1])
+        let kept = NativeTabGrouping.retainedIDs(
+            from: [candidate(id: 1), candidate(id: 2, isOnScreen: true)],
+            previousSnapshot: snapshot
+        )
+        #expect(kept == [2])
+    }
+
+    @Test func keepsNewlyNonGroupableWindowsEvenIfPreviouslyCollapsed() {
+        let snapshot = NativeTabGrouping.VisibilitySnapshot(observedIDs: [1, 2], keptIDs: [1])
+        let kept = NativeTabGrouping.retainedIDs(
+            from: [candidate(id: 1), candidate(id: 2, groupable: false)],
+            previousSnapshot: snapshot
+        )
+        #expect(kept == [1, 2])
+    }
+
+    @Test func keepsRemainingTabsWhenTheirRepresentativeDisappears() {
+        let snapshot = NativeTabGrouping.VisibilitySnapshot(observedIDs: [1, 2, 3], keptIDs: [1])
+        let kept = NativeTabGrouping.retainedIDs(
+            from: [candidate(id: 2), candidate(id: 3)],
+            previousSnapshot: snapshot
+        )
+        #expect(kept == [2, 3])
+    }
+
+    @Test func missingRepresentativeDoesNotDisappearBehindAnotherGroup() {
+        let snapshot = NativeTabGrouping.VisibilitySnapshot(observedIDs: [1, 2, 3], keptIDs: [1, 3])
+        let kept = NativeTabGrouping.retainedIDs(
+            from: [candidate(id: 2), candidate(id: 3)],
+            previousSnapshot: snapshot
+        )
+        #expect(kept == [2, 3])
+    }
+
+    @Test func visibleEvidenceReplacesSnapshotWithMissingRepresentative() {
+        let snapshot = NativeTabGrouping.VisibilitySnapshot(observedIDs: [1, 2, 3], keptIDs: [1])
+        let kept = NativeTabGrouping.retainedIDs(
+            from: [candidate(id: 2), candidate(id: 3, isOnScreen: true)],
+            previousSnapshot: snapshot
+        )
+        #expect(kept == [3])
+    }
 }

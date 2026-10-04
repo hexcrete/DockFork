@@ -14,6 +14,26 @@ import Foundation
 /// that share a process, Space, and an (integer-rounded) frame are therefore treated as a single
 /// group, except that on-screen members are always distinct windows and are all kept.
 enum NativeTabGrouping {
+    struct VisibilitySnapshot {
+        let observedIDs: Set<CGWindowID>
+        let keptIDs: Set<CGWindowID>
+    }
+
+    static func retainedIDs(from candidates: [Candidate], previousSnapshot: VisibilitySnapshot?) -> Set<CGWindowID> {
+        if candidates.contains(where: \.isOnScreen) {
+            return representativeIDs(from: candidates)
+        }
+
+        let currentIDs = Set(candidates.map(\.id))
+        guard let previousSnapshot else { return currentIDs }
+        // A closed or moved representative makes the old grouping inconclusive.
+        guard previousSnapshot.keptIDs.isSubset(of: currentIDs) else { return currentIDs }
+        // Off-Space geometry cannot distinguish separate windows from native tabs.
+        return currentIDs.intersection(previousSnapshot.keptIDs)
+            .union(currentIDs.subtracting(previousSnapshot.observedIDs))
+            .union(candidates.lazy.filter { !$0.groupable }.map(\.id))
+    }
+
     /// The minimal window facts needed to detect tab groups, kept free of Accessibility and
     /// AppKit types so the grouping logic stays pure and unit-testable.
     struct Candidate {

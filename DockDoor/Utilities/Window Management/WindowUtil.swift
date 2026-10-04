@@ -610,38 +610,33 @@ enum WindowUtil {
         internalWindowLock.unlock()
     }
 
-    private struct FinderTabSnapshotKey: Hashable {
+    private struct NativeTabSnapshotKey: Hashable {
         let pid: pid_t
         let spaceID: Int
     }
 
-    private struct FinderTabSnapshot {
-        let observedIDs: Set<CGWindowID>
-        let keptIDs: Set<CGWindowID>
+    private static let nativeTabSnapshotLock = NSLock()
+    private static var nativeTabSnapshots: [NativeTabSnapshotKey: NativeTabGrouping.VisibilitySnapshot] = [:]
+
+    private static func nativeTabSnapshot(for key: NativeTabSnapshotKey) -> NativeTabGrouping.VisibilitySnapshot? {
+        nativeTabSnapshotLock.lock()
+        defer { nativeTabSnapshotLock.unlock() }
+        return nativeTabSnapshots[key]
     }
 
-    private static let finderTabSnapshotLock = NSLock()
-    private static var finderTabSnapshots: [FinderTabSnapshotKey: FinderTabSnapshot] = [:]
-
-    private static func finderTabSnapshot(for key: FinderTabSnapshotKey) -> FinderTabSnapshot? {
-        finderTabSnapshotLock.lock()
-        defer { finderTabSnapshotLock.unlock() }
-        return finderTabSnapshots[key]
+    private static func setNativeTabSnapshot(_ snapshot: NativeTabGrouping.VisibilitySnapshot, for key: NativeTabSnapshotKey) {
+        nativeTabSnapshotLock.lock()
+        nativeTabSnapshots[key] = snapshot
+        nativeTabSnapshotLock.unlock()
     }
 
-    private static func setFinderTabSnapshot(_ snapshot: FinderTabSnapshot, for key: FinderTabSnapshotKey) {
-        finderTabSnapshotLock.lock()
-        finderTabSnapshots[key] = snapshot
-        finderTabSnapshotLock.unlock()
-    }
-
-    private static func purgeFinderTabSnapshots(for pid: pid_t? = nil) {
-        finderTabSnapshotLock.lock()
-        defer { finderTabSnapshotLock.unlock() }
+    private static func purgeNativeTabSnapshots(for pid: pid_t? = nil) {
+        nativeTabSnapshotLock.lock()
+        defer { nativeTabSnapshotLock.unlock() }
         if let pid {
-            finderTabSnapshots = finderTabSnapshots.filter { $0.key.pid != pid }
+            nativeTabSnapshots = nativeTabSnapshots.filter { $0.key.pid != pid }
         } else {
-            finderTabSnapshots.removeAll()
+            nativeTabSnapshots.removeAll()
         }
     }
 
@@ -2046,30 +2041,33 @@ extension WindowUtil {
 
     /// Collapses native macOS window-tab groups (e.g. Ghostty, Finder, Terminal) so a tabbed
     /// window appears as a single entry instead of one per tab. Grouping is keyed by process,
-    /// Space, and frame, so distinct windows on different Spaces are never merged. Finder reuses
-    /// its last reliable visible grouping while a Space is off-screen because WindowServer no
-    /// longer distinguishes same-frame windows from inactive tabs there.
+    /// Space, and frame, so distinct windows on different Spaces are never merged. Off-screen
+    /// windows reuse the last visible grouping; without reliable evidence, all rows are kept.
     static func collapseNativeTabsIfNeeded(_ windows: [WindowInfo]) -> [WindowInfo] {
-        guard Defaults[.collapseNativeTabsIntoSingleWindow], !windows.isEmpty else { return windows }
-        guard windows.contains(where: { $0.app.bundleIdentifier != "com.apple.Safari" }) else { return windows }
+        guard Defaults[.collapseNativeTabsIntoSingleWindow], windows.count > 1 else { return windows }
+
+        var candidatePIDs = Set<pid_t>()
+        let mayContainTabs = windows.contains { window in
+            guard !window.isWindowlessApp, !window.isMinimized else { return false }
+            return !candidatePIDs.insert(window.app.processIdentifier).inserted
+        }
+        guard mayContainTabs else { return windows }
 
         // AX-only tab rows can retain zero or stale cached frames during rapid tab changes.
         let windowIDs = Set(windows.map(\.id))
         let currentWindowEntries =
             (CGWindowListCopyWindowInfo(.excludeDesktopElements, kCGNullWindowID) as? [[String: Any]]) ?? []
-        let onScreenIDs = Set(
-            ((CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]]) ?? [])
-                .compactMap { entry -> CGWindowID? in
-                    guard let number = entry[kCGWindowNumber as String] as? NSNumber else { return nil }
-                    return CGWindowID(number.uint32Value)
-                }
-        )
+        var onScreenIDs = Set<CGWindowID>()
         var currentFramesByID: [CGWindowID: CGRect] = [:]
 
         for entry in currentWindowEntries {
             guard let number = entry[kCGWindowNumber as String] as? NSNumber else { continue }
             let windowID = CGWindowID(number.uint32Value)
             guard windowIDs.contains(windowID) else { continue }
+
+            if (entry[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true {
+                onScreenIDs.insert(windowID)
+            }
 
             if let bounds = entry[kCGWindowBounds as String] as? NSDictionary,
                let frame = CGRect(dictionaryRepresentation: bounds),
@@ -2080,16 +2078,8 @@ extension WindowUtil {
             }
         }
 
-        let finderWindowIDs = Set(
-            windows.lazy
-                .filter { $0.app.bundleIdentifier == "com.apple.finder" }
-                .map(\.id)
-        )
         let candidates = windows.map { window in
             let currentFrame = currentFramesByID[window.id] ?? window.frame
-            let isFinder = window.app.bundleIdentifier == "com.apple.finder"
-            let isSafari = window.app.bundleIdentifier == "com.apple.Safari"
-            let isHidden = window.isHidden || window.app.isHidden
             let spaceID = window.spaceID ?? window.id.cgsSpaces().first.map { Int($0) }
             return NativeTabGrouping.Candidate(
                 id: window.id,
@@ -2098,9 +2088,7 @@ extension WindowUtil {
                 frame: currentFrame,
                 recency: window.lastAccessedTime,
                 groupable: !window.isMinimized
-                    && !isSafari
-                    && (!isFinder || spaceID != nil)
-                    && (!isHidden || isFinder)
+                    && spaceID != nil
                     && !window.isWindowlessApp
                     && currentFrame.width > 0
                     && currentFrame.height > 0,
@@ -2108,31 +2096,25 @@ extension WindowUtil {
             )
         }
 
-        var keptIDs = NativeTabGrouping.representativeIDs(from: candidates)
-
-        let finderCandidates = candidates.filter { finderWindowIDs.contains($0.id) }
-        let finderCandidatesBySpace = Dictionary(grouping: finderCandidates.compactMap { candidate -> (FinderTabSnapshotKey, NativeTabGrouping.Candidate)? in
+        var keptIDs = Set(candidates.lazy.filter { $0.spaceID == nil }.map(\.id))
+        let candidatesBySpace = Dictionary(grouping: candidates.compactMap { candidate -> (NativeTabSnapshotKey, NativeTabGrouping.Candidate)? in
             guard let spaceID = candidate.spaceID else { return nil }
-            return (FinderTabSnapshotKey(pid: candidate.pid, spaceID: spaceID), candidate)
+            return (NativeTabSnapshotKey(pid: candidate.pid, spaceID: spaceID), candidate)
         }, by: \.0)
 
-        for (key, keyedCandidates) in finderCandidatesBySpace {
+        for (key, keyedCandidates) in candidatesBySpace {
             let spaceCandidates = keyedCandidates.map(\.1)
-            let currentIDs = Set(spaceCandidates.map(\.id))
-
-            if spaceCandidates.contains(where: \.isOnScreen) {
-                setFinderTabSnapshot(
-                    FinderTabSnapshot(observedIDs: currentIDs, keptIDs: keptIDs.intersection(currentIDs)),
+            let hasVisibleWindow = spaceCandidates.contains(where: \.isOnScreen)
+            let retainedIDs = NativeTabGrouping.retainedIDs(
+                from: spaceCandidates,
+                previousSnapshot: hasVisibleWindow ? nil : nativeTabSnapshot(for: key)
+            )
+            keptIDs.formUnion(retainedIDs)
+            if hasVisibleWindow {
+                setNativeTabSnapshot(
+                    NativeTabGrouping.VisibilitySnapshot(observedIDs: Set(spaceCandidates.map(\.id)), keptIDs: retainedIDs),
                     for: key
                 )
-            } else {
-                keptIDs.subtract(currentIDs)
-                if let snapshot = finderTabSnapshot(for: key) {
-                    keptIDs.formUnion(currentIDs.intersection(snapshot.keptIDs))
-                    keptIDs.formUnion(currentIDs.subtracting(snapshot.observedIDs))
-                } else {
-                    keptIDs.formUnion(currentIDs)
-                }
             }
         }
 
@@ -2939,12 +2921,12 @@ extension WindowUtil {
 
     static func purgeAppCache(with pid: pid_t) {
         AXUIElement.resetWindowScan(for: pid)
-        purgeFinderTabSnapshots(for: pid)
+        purgeNativeTabSnapshots(for: pid)
         desktopSpaceWindowCacheManager.writeCache(pid: pid, windowSet: [])
     }
 
     static func purgeAllCaches() {
-        purgeFinderTabSnapshots()
+        purgeNativeTabSnapshots()
         desktopSpaceWindowCacheManager.purgeAll()
     }
 
