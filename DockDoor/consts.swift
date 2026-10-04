@@ -1212,12 +1212,12 @@ enum TrafficLightButtonsVisibility: String, CaseIterable, Defaults.Serializable 
     case dimmedUntilButtonHover
     case alwaysVisible
 
-    func isVisible(hoveringOverParentWindow: Bool, mockPreviewActive: Bool) -> Bool {
+    func isVisible(hoveringOverParentWindow: Bool) -> Bool {
         switch self {
         case .never:
             false
         case .dimmedOnPreviewHover, .fullOpacityOnPreviewHover:
-            hoveringOverParentWindow || mockPreviewActive
+            hoveringOverParentWindow
         case .dimmedUntilButtonHover, .alwaysVisible:
             true
         }

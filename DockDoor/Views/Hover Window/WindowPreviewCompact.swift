@@ -172,8 +172,7 @@ struct WindowPreviewCompact: View, Equatable {
 
     var body: some View {
         let showTrafficLightButtons = appearance.trafficLightVisibility.isVisible(
-            hoveringOverParentWindow: isSelected || isHovering,
-            mockPreviewActive: mockPreviewActive
+            hoveringOverParentWindow: isSelected || isHovering
         )
         let hasVisibleTrafficLightButtons = !appearance.compactModeHideTrafficLights &&
             canRenderTrafficLightButtons && showTrafficLightButtons

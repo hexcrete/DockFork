@@ -77,8 +77,7 @@ struct TrafficLightButtons: View {
 
     private var opacity: Double {
         guard displayMode.isVisible(
-            hoveringOverParentWindow: hoveringOverParentWindow,
-            mockPreviewActive: mockPreviewActive
+            hoveringOverParentWindow: hoveringOverParentWindow
         ) else { return 0 }
 
         switch displayMode {

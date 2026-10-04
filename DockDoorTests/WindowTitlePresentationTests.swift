@@ -2,6 +2,23 @@ import Cocoa
 @testable import DockDoor
 import Testing
 
+struct TrafficLightButtonsVisibilityTests {
+    @Test func hoverOnlyButtonsFollowTheCardHighlight() {
+        for visibility in [TrafficLightButtonsVisibility.dimmedOnPreviewHover, .fullOpacityOnPreviewHover] {
+            #expect(!visibility.isVisible(hoveringOverParentWindow: false))
+            #expect(visibility.isVisible(hoveringOverParentWindow: true))
+        }
+    }
+
+    @Test func otherVisibilityModesDoNotDependOnTheCardHighlight() {
+        for highlighted in [false, true] {
+            #expect(!TrafficLightButtonsVisibility.never.isVisible(hoveringOverParentWindow: highlighted))
+            #expect(TrafficLightButtonsVisibility.dimmedUntilButtonHover.isVisible(hoveringOverParentWindow: highlighted))
+            #expect(TrafficLightButtonsVisibility.alwaysVisible.isVisible(hoveringOverParentWindow: highlighted))
+        }
+    }
+}
+
 struct WindowTitlePresentationTests {
     @Test func hoveringTitleReservesSpaceBeforeTheCardIsHighlighted() {
         let presentation = WindowTitlePresentation.resolve(

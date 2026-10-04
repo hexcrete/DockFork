@@ -62,8 +62,7 @@ struct WindowlessAppPreview: View, Equatable {
         let shouldShowTitle = appearance.showAppHeader && showTitleContent
         let shouldShowControls = canRenderTrafficLightButtons && showControlsContent
         let showTrafficLightButtons = appearance.trafficLightVisibility.isVisible(
-            hoveringOverParentWindow: isSelected || isHovering,
-            mockPreviewActive: mockPreviewActive
+            hoveringOverParentWindow: isSelected || isHovering
         )
         let titleOnRight = appearance.controlPosition.titleIsTrailing
         let iconOnRight = windowSwitcherActive && titleOnRight

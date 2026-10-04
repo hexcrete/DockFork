@@ -958,8 +958,7 @@ struct WindowPreview: View, Equatable {
 
     private func shouldShowTrafficLightButtons(parentHovered: Bool) -> Bool {
         appearance.trafficLightVisibility.isVisible(
-            hoveringOverParentWindow: parentHovered,
-            mockPreviewActive: mockPreviewActive
+            hoveringOverParentWindow: parentHovered
         )
     }
 
