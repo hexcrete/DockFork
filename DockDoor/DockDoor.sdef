@@ -38,7 +38,7 @@
             <result type="text" description="Success or error message."/>
         </command>
 
-        <command name="show switcher" code="DKDRshsw" description="Open the Keep Open window switcher using Window Switcher Defaults. Repeated calls leave it open. Requires Window Switcher to be enabled.">
+        <command name="show switcher" code="DKDRshsw" description="Open the Persistent Window Switcher using Window Switcher Defaults. Repeated calls leave it open. Requires Window Switcher to be enabled.">
             <cocoa class="ShowSwitcherCommand"/>
             <result type="text" description="Success or error message."/>
         </command>

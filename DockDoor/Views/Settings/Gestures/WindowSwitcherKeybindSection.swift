@@ -331,7 +331,7 @@ struct WindowSwitcherKeybindSection: View {
 
     private var alternateShortcutsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Alternate Shortcuts").font(.headline)
+            Text(String(localized: "Alternate Shortcuts (Inherit Default Window Switcher)")).font(.headline)
             Text("Additional trigger keys, each with its own modifier and window filter.")
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -521,7 +521,7 @@ struct WindowSwitcherKeybindSection: View {
 
     private var persistentShortcutsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Alternate Shortcuts (Keep Open)").font(.headline)
+            Text(String(localized: "Alternate Shortcuts (Persistent Window Switcher)")).font(.headline)
             (Text("Releasing initializer keys will always keep the Window Switcher open. Window preview keyboard shortcuts use the default modifier key.")
                 + Text(" (currently \(modifierConverter.toSymbol(WindowSwitcherShortcutResolver.dependentShortcutKeybind(mainKeybind))))."))
                 .font(.caption)
@@ -530,7 +530,7 @@ struct WindowSwitcherKeybindSection: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
 
-            Toggle("Start Window Switcher (Keep Open) with no window highlighted", isOn: $persistentSwitcherStartsUnfocused)
+            Toggle(String(localized: "Start Persistent Window Switcher with no window highlighted"), isOn: $persistentSwitcherStartsUnfocused)
                 .settingsSearchTarget("gestures.persistentSwitcherStartsUnfocused")
             Text("Also applies when opening the Window Switcher from the menu bar icon.")
                 .font(.caption)

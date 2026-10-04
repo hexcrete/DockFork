@@ -1954,7 +1954,7 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "gestures.alternateShortcuts",
-            title: String(localized: "Alternate Shortcuts"),
+            title: String(localized: "Alternate Shortcuts (Inherit Default Window Switcher)"),
             description: String(localized: "Additional trigger keys, each with its own modifier and window filter."),
             keywords: ["alternate", "shortcuts", "trigger", "filter", "mode", "modifier", "multiple", "monitor", "display", "space"],
             tab: "GesturesKeybinds",
@@ -1963,7 +1963,7 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "gestures.persistentSwitcherShortcuts",
-            title: String(localized: "Alternate Shortcuts (Keep Open)"),
+            title: String(localized: "Alternate Shortcuts (Persistent Window Switcher)"),
             description: String(localized: "Releasing initializer keys will always keep the Window Switcher open. Window preview keyboard shortcuts use the default modifier key."),
             keywords: ["alternate", "shortcut", "persistent", "keep", "open", "double", "tap", "modifier", "monitor", "display", "space"],
             tab: "GesturesKeybinds",
@@ -1972,7 +1972,7 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "gestures.persistentSwitcherStartsUnfocused",
-            title: String(localized: "Start Window Switcher (Keep Open) with no window highlighted"),
+            title: String(localized: "Start Persistent Window Switcher with no window highlighted"),
             description: String(localized: "Also applies when opening the Window Switcher from the menu bar icon."),
             keywords: ["persistent", "keep", "open", "selection", "highlight", "unfocused", "menu bar"],
             tab: "GesturesKeybinds",
