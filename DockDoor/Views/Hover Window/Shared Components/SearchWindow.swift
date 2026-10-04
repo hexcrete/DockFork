@@ -71,6 +71,23 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
         (NSApp.keyWindow === self) && (searchField.currentEditor() != nil)
     }
 
+    override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
+        let accepted = super.makeFirstResponder(responder)
+        if accepted, isFocused {
+            setSearchPlaceholderVisible(false)
+            configureFieldEditorForSingleLine()
+        }
+        return accepted
+    }
+
+    override func becomeKey() {
+        super.becomeKey()
+        if isFocused {
+            setSearchPlaceholderVisible(false)
+            configureFieldEditorForSingleLine()
+        }
+    }
+
     private func setupWindow() {
         level = .statusBar
         isOpaque = false
