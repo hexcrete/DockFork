@@ -50,6 +50,7 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
 
     private var searchField: NSTextField!
     private weak var previewCoordinator: PreviewStateCoordinator?
+    private var focusRequestID = UUID()
 
     private var searchPlaceholder: String {
         "Press \(KeyboardLabel.localizedKey(for: Defaults[.searchTriggerKey])) to search windows…"
@@ -244,6 +245,7 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     }
 
     func hideSearch() {
+        focusRequestID = UUID()
         parent?.removeChildWindow(self)
         orderOut(nil)
         searchField.stringValue = ""
@@ -260,12 +262,21 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     }
 
     func focusSearchField() {
+        let requestID = UUID()
+        focusRequestID = requestID
         setSearchPlaceholderVisible(false)
         makeKeyAndOrderFront(nil)
-        DispatchQueue.main.async {
-            _ = self.makeFirstResponder(self.searchField)
-            self.configureFieldEditorForSingleLine()
+        DispatchQueue.main.async { [weak self] in
+            guard let self, focusRequestID == requestID, isVisible, isKeyWindow else { return }
+            _ = makeFirstResponder(searchField)
+            configureFieldEditorForSingleLine()
         }
+    }
+
+    func unfocusSearchField() {
+        focusRequestID = UUID()
+        _ = makeFirstResponder(nil)
+        setSearchPlaceholderVisible(true)
     }
 
     private func setSearchPlaceholderVisible(_ isVisible: Bool) {

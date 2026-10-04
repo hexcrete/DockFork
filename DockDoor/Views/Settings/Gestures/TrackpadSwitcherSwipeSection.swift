@@ -6,6 +6,7 @@ struct TrackpadSwitcherSwipeSection: View {
     @Default(.enableTrackpadSwitcherSwipe) var enableTrackpadSwitcherSwipe
     @Default(.trackpadSwitcherSwipeFingers) var trackpadSwitcherSwipeFingers
     @Default(.trackpadSwitcherSwipeDirection) var trackpadSwitcherSwipeDirection
+    @Default(.selectWindowOnPersistentSwitcherSwipe) private var selectWindowOnPersistentSwitcherSwipe
 
     var body: some View {
         SettingsGroup(header: "Trackpad Swipe for Window Switcher") {
@@ -44,6 +45,17 @@ struct TrackpadSwitcherSwipeSection: View {
                     .pickerStyle(.menu)
                     .fixedSize()
                     .settingsSearchTarget("gestures.trackpadSwitcherSwipeDirection")
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle(isOn: $selectWindowOnPersistentSwitcherSwipe) {
+                            Text(String(localized: "Select last window when swiping in persistent Window Switchers"))
+                        }
+                        .settingsSearchTarget("gestures.trackpadSwitcherSwipePersistentSelection")
+
+                        Text(String(localized: "Swiping takes over persistent Window Switchers and unfocuses search. Lift your fingers to activate the selected window. Regular Window Switchers remain controlled by their initializer key while it is held."))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
 
                     Text("If macOS uses the same swipe for Mission Control, App Exposé or switching between full-screen apps, turn that gesture off in System Settings > Trackpad > More Gestures.")
                         .font(.caption)

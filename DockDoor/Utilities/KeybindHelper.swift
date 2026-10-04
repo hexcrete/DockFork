@@ -35,10 +35,14 @@ struct UserKeyBind: Codable, Defaults.Serializable, Equatable, Hashable {
     }
 }
 
-private enum WindowSwitcherLaunchSource: Equatable {
+enum WindowSwitcherLaunchSource: Equatable {
     case keyboard
     case persistent
     case trackpad
+
+    func allowsTrackpadTakeover(enabled: Bool, initializerHeld: Bool) -> Bool {
+        enabled && (self != .keyboard || !initializerHeld)
+    }
 
     var dismissesOnModifierRelease: Bool {
         self == .keyboard
@@ -67,6 +71,18 @@ private enum WindowSwitcherLaunchSource: Equatable {
     }
 }
 
+enum TrackpadSwipeReleasePolicy {
+    static func shouldSelect(
+        tookOverKeepOpenSession: Bool,
+        keepOpen: Bool,
+        focusesSearchOnOpen: Bool,
+        searchEnabled: Bool,
+        searchFocused: Bool
+    ) -> Bool {
+        !searchFocused && (tookOverKeepOpenSession || (!keepOpen && !(focusesSearchOnOpen && searchEnabled)))
+    }
+}
+
 private class WindowSwitchingCoordinator {
     private var isProcessingSwitcher = false
     private var uiRenderingTask: Task<Void, Never>?
@@ -76,6 +92,7 @@ private class WindowSwitchingCoordinator {
     /// When true, initialization should complete but immediately select the window instead of showing UI
     private var shouldSelectImmediately = false
     private var trackpadSessionId: UUID?
+    private(set) var trackpadTookOverKeepOpenSession = false
 
     var trackpadOpenedCurrentSession: Bool {
         trackpadSessionId == currentSessionId && activeLaunchSource == .trackpad
@@ -83,6 +100,7 @@ private class WindowSwitchingCoordinator {
 
     func relinquishTrackpadSession(adoptingKeyboard: Bool = false) {
         trackpadSessionId = nil
+        trackpadTookOverKeepOpenSession = false
         if adoptingKeyboard, activeLaunchSource == .trackpad { activeLaunchSource = .keyboard }
     }
 
@@ -96,7 +114,8 @@ private class WindowSwitchingCoordinator {
         isModifierPressed: Bool,
         isBackwardPressed: Bool,
         mode: SwitcherInvocationMode = .allWindows,
-        launchSource: WindowSwitcherLaunchSource = .keyboard
+        launchSource: WindowSwitcherLaunchSource = .keyboard,
+        initializerHeld: Bool = false
     ) async -> Bool {
         guard !isProcessingSwitcher else { return false }
         isProcessingSwitcher = true
@@ -105,6 +124,17 @@ private class WindowSwitchingCoordinator {
         let coordinator = previewCoordinator.windowSwitcherCoordinator
 
         if coordinator.isKeybindSessionActive {
+            if launchSource == .trackpad, isModifierPressed,
+               activeLaunchSource?.allowsTrackpadTakeover(
+                   enabled: Defaults[.selectWindowOnPersistentSwitcherSwipe],
+                   initializerHeld: initializerHeld
+               ) == true
+            {
+                activeLaunchSource = .trackpad
+                trackpadSessionId = currentSessionId
+                trackpadTookOverKeepOpenSession = true
+                previewCoordinator.unfocusSearchWindow()
+            }
             // Keyboard navigation intentionally takes ownership so a swipe can remain open.
             if launchSource == .keyboard { relinquishTrackpadSession(adoptingKeyboard: true) }
             coordinator.hasMovedSinceOpen = false
@@ -140,7 +170,7 @@ private class WindowSwitchingCoordinator {
         defer { isProcessingSwitcher = false }
 
         currentSessionId = UUID()
-        trackpadSessionId = nil
+        relinquishTrackpadSession()
         let sessionId = currentSessionId
         windowRefreshTask?.cancel()
         uiRenderingTask?.cancel()
@@ -240,6 +270,7 @@ private class WindowSwitchingCoordinator {
         windowRefreshTask?.cancel()
 
         currentSessionId = UUID()
+        trackpadTookOverKeepOpenSession = false
         trackpadSessionId = launchSource == .trackpad ? currentSessionId : nil
         let sessionId = currentSessionId
         let targetScreen = getTargetScreenForSwitcher()
@@ -542,7 +573,7 @@ private class WindowSwitchingCoordinator {
 
         let selectedWindow = coordinator.getCurrentWindow()
         currentSessionId = UUID()
-        trackpadSessionId = nil
+        relinquishTrackpadSession()
         windowRefreshTask?.cancel()
         coordinator.deactivateKeybindSession()
         activeLaunchSource = nil
@@ -565,7 +596,7 @@ private class WindowSwitchingCoordinator {
     @MainActor
     func cancelSwitching(previewCoordinator: SharedPreviewWindowCoordinator) {
         currentSessionId = UUID()
-        trackpadSessionId = nil
+        relinquishTrackpadSession()
         shouldSelectImmediately = false
         windowRefreshTask?.cancel()
         previewCoordinator.windowSwitcherCoordinator.deactivateKeybindSession()
@@ -1602,15 +1633,21 @@ class KeybindHelper {
                     isModifierPressed: event == .open,
                     isBackwardPressed: event == .cycleBackward,
                     mode: currentInvocationMode,
-                    launchSource: .trackpad
+                    launchSource: .trackpad,
+                    initializerHeld: isSwitcherModifierKeyPressed
                 )
             case .release:
                 guard windowSwitchingCoordinator.trackpadOpenedCurrentSession else { return }
+                let tookOverKeepOpenSession = windowSwitchingCoordinator.trackpadTookOverKeepOpenSession
                 windowSwitchingCoordinator.relinquishTrackpadSession()
                 // Typed search filters the swipe's selection; focused search explicitly keeps it open.
-                guard !Defaults[.preventSwitcherHide],
-                      !(Defaults[.focusSearchOnWindowSwitcherOpen] && Defaults[.enableWindowSwitcherSearch]),
-                      !previewCoordinator.isSearchWindowFocused
+                guard TrackpadSwipeReleasePolicy.shouldSelect(
+                    tookOverKeepOpenSession: tookOverKeepOpenSession,
+                    keepOpen: Defaults[.preventSwitcherHide],
+                    focusesSearchOnOpen: Defaults[.focusSearchOnWindowSwitcherOpen],
+                    searchEnabled: Defaults[.enableWindowSwitcherSearch],
+                    searchFocused: previewCoordinator.isSearchWindowFocused
+                )
                 else { return }
                 selectOnSwitcherRelease()
             }

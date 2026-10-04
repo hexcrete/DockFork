@@ -2,6 +2,63 @@ import CoreGraphics
 @testable import DockDoor
 import Testing
 
+struct TrackpadSwipeReleasePolicyTests {
+    @Test func takeoverCanBeDisabledForPersistentSessions() {
+        #expect(WindowSwitcherLaunchSource.persistent.allowsTrackpadTakeover(enabled: true, initializerHeld: false))
+        #expect(!WindowSwitcherLaunchSource.persistent.allowsTrackpadTakeover(enabled: false, initializerHeld: false))
+    }
+
+    @Test func heldKeyboardInitializersKeepOwnership() {
+        #expect(WindowSwitcherLaunchSource.keyboard.dismissesOnModifierRelease)
+        #expect(!WindowSwitcherLaunchSource.keyboard.allowsTrackpadTakeover(enabled: true, initializerHeld: true))
+    }
+
+    @Test func newSwipeCanReclaimKeyboardNavigationWithoutHeldInitializer() {
+        #expect(WindowSwitcherLaunchSource.keyboard.allowsTrackpadTakeover(enabled: true, initializerHeld: false))
+        #expect(!WindowSwitcherLaunchSource.keyboard.allowsTrackpadTakeover(enabled: false, initializerHeld: false))
+    }
+
+    @Test func keptOpenSwipesCanBeReclaimedButPersistentLaunchKeysDoNotOwnTheSession() {
+        #expect(WindowSwitcherLaunchSource.trackpad.allowsTrackpadTakeover(enabled: true, initializerHeld: false))
+        #expect(WindowSwitcherLaunchSource.persistent.allowsTrackpadTakeover(enabled: true, initializerHeld: true))
+    }
+
+    @Test func takeoverReleasesDespiteKeepOpenAndSearchPreferences() {
+        #expect(TrackpadSwipeReleasePolicy.shouldSelect(
+            tookOverKeepOpenSession: true, keepOpen: true,
+            focusesSearchOnOpen: true, searchEnabled: true, searchFocused: false
+        ))
+    }
+
+    @Test func explicitlyRefocusingSearchReclaimsTheSession() {
+        #expect(!TrackpadSwipeReleasePolicy.shouldSelect(
+            tookOverKeepOpenSession: true, keepOpen: false,
+            focusesSearchOnOpen: false, searchEnabled: true, searchFocused: true
+        ))
+    }
+
+    @Test func ordinarySwipesStillRespectKeepOpen() {
+        #expect(!TrackpadSwipeReleasePolicy.shouldSelect(
+            tookOverKeepOpenSession: false, keepOpen: true,
+            focusesSearchOnOpen: false, searchEnabled: true, searchFocused: false
+        ))
+    }
+
+    @Test func ordinarySwipesStillRespectFocusSearchOnOpen() {
+        #expect(!TrackpadSwipeReleasePolicy.shouldSelect(
+            tookOverKeepOpenSession: false, keepOpen: false,
+            focusesSearchOnOpen: true, searchEnabled: true, searchFocused: false
+        ))
+    }
+
+    @Test func ordinarySwipeCanReleaseToFilteredSelection() {
+        #expect(TrackpadSwipeReleasePolicy.shouldSelect(
+            tookOverKeepOpenSession: false, keepOpen: false,
+            focusesSearchOnOpen: false, searchEnabled: true, searchFocused: false
+        ))
+    }
+}
+
 struct TrackpadSwipeDetectorTests {
     private func fingers(_ count: Int, x: CGFloat, y: CGFloat = 0.5, spacing: CGFloat = 0.1) -> [SwipeTouch] {
         (0 ..< count).map { SwipeTouch(id: $0, position: CGPoint(x: x + CGFloat($0) * spacing, y: y)) }

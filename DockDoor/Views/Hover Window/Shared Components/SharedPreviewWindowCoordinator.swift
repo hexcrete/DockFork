@@ -242,6 +242,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         publishTapSnapshot()
     }
 
+    func unfocusSearchWindow() {
+        searchWindow?.unfocusSearchField()
+        publishTapSnapshot()
+    }
+
     var isSearchWindowFocused: Bool {
         searchWindow?.isFocused ?? false
     }

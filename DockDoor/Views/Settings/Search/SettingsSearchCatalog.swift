@@ -2032,6 +2032,15 @@ enum SettingsSearchCatalog {
             section: String(localized: "Trackpad Swipe for Window Switcher"),
             icon: "arrow.left.and.right"
         ),
+        SettingsSearchItem(
+            id: "gestures.trackpadSwitcherSwipePersistentSelection",
+            title: String(localized: "Select last window when swiping in persistent Window Switchers"),
+            description: String(localized: "Swiping takes over persistent Window Switchers and unfocuses search. Lift your fingers to activate the selected window. Regular Window Switchers remain controlled by their initializer key while it is held."),
+            keywords: ["trackpad", "swipe", "persistent", "keep open", "takeover", "select", "release", "search"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Trackpad Swipe for Window Switcher"),
+            icon: "hand.draw"
+        ),
     ]
 
     // MARK: - Filters
