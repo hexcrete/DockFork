@@ -69,6 +69,15 @@
             <result type="text" description="JSON object with windowId, windowName, appName, bundleId, pid, or error if no active window."/>
         </command>
 
+        <command name="switch to space" code="DKDRswsp" description="Switch to a Desktop or fullscreen Space by global number, or by its current Space ID from list spaces. Returns ok after confirmation. An already-current destination is a successful no-op.">
+            <cocoa class="SwitchToSpaceCommand"/>
+            <direct-parameter type="integer" optional="yes" description="Positive global Space number. Supply either this number or by id, not both."/>
+            <parameter name="by id" code="ssid" type="text" optional="yes" description="Space ID string from list spaces. IDs are valid only while that Space exists.">
+                <cocoa key="spaceID"/>
+            </parameter>
+            <result type="text" description="ok after confirmed switching, or error: followed by an explanation."/>
+        </command>
+
         <!-- Window Action Commands -->
 
         <command name="move window" code="DKDRmvwn" description="Move a window to a numbered Desktop and wait for confirmation. Returns ok or error: followed by an explanation.">

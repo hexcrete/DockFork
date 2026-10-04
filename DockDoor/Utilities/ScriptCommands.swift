@@ -365,6 +365,8 @@ enum DockDoorCommands {
         lines.append("  position window \"active\" to \"left\"")
         lines.append("  position window \"12345\" to \"top-right\"")
         lines.append("  list spaces")
+        lines.append("  switch to space 3")
+        lines.append("  switch to space by id \"12345\"")
         lines.append("  move window \"12345\" to space 3")
         lines.append("  move window \"active\" to space 3 with switching")
         lines.append("")
@@ -511,6 +513,95 @@ class ListSpacesCommand: NSScriptCommand {
         } catch {
             return "error: \(error.localizedDescription)"
         }
+    }
+}
+
+@objc(SwitchToSpaceCommand)
+class SwitchToSpaceCommand: NSScriptCommand {
+    @MainActor private var hasReplied = false
+    @MainActor private var deadlineTask: Task<Void, Never>?
+    @MainActor private var confirmationTask: Task<Void, Never>?
+
+    override func performDefaultImplementation() -> Any? {
+        let number = directParameter as? Int
+        let idText = evaluatedArguments?["spaceID"] as? String
+        guard (number != nil) != (idText != nil) else {
+            return "error: Supply either a Space number or by id, not both"
+        }
+        if let number, number <= 0 {
+            return "error: Space number must be a positive integer"
+        }
+        let spaceID = idText.flatMap { UInt64($0) }
+        if idText != nil, spaceID == nil || spaceID == 0 {
+            return "error: Space ID must be a positive integer string from list spaces"
+        }
+
+        suspendExecution()
+        Task { @MainActor in
+            let displays = WindowSpaces.managedDisplays()
+            let destination: ManagedSpaceDestination? = if let spaceID {
+                WindowSpaces.destination(forSpaceID: spaceID, in: displays)
+            } else if let number {
+                WindowSpaces.destination(forSpaceNumber: number, in: displays)
+            } else {
+                nil
+            }
+            guard let destination else {
+                finish("error: Space does not exist")
+                return
+            }
+            guard destination.space.kind == .desktop || destination.space.kind == .fullscreen else {
+                finish("error: Only Desktop and fullscreen Spaces can be selected")
+                return
+            }
+            if destination.display.currentSpaceID == destination.space.id {
+                finish("ok")
+                return
+            }
+
+            deadlineTask = Task { @MainActor in
+                do {
+                    try await Task.sleep(nanoseconds: 4_000_000_000)
+                } catch { return }
+                finish("error: Space switching timed out or was superseded by another request")
+            }
+            WindowUtil.cancelPendingManagedSpaceSwitch()
+            (NSApp.delegate as? AppDelegate)?.dismissPreviewsForScriptedSpaceMove()
+            WindowUtil.switchToManagedSpace(destination) { success in
+                guard !self.hasReplied else { return }
+                guard success else {
+                    self.finish("error: Space could not be activated")
+                    return
+                }
+                // Focusing a resident window can succeed before the Space transition settles.
+                self.confirmationTask = Task { @MainActor in
+                    for _ in 0 ..< 20 {
+                        if WindowSpaces.managedDisplays().contains(where: {
+                            $0.identifier == destination.display.identifier && $0.currentSpaceID == destination.space.id
+                        }) {
+                            self.finish("ok")
+                            return
+                        }
+                        do {
+                            try await Task.sleep(nanoseconds: 100_000_000)
+                        } catch { return }
+                    }
+                    self.finish("error: Space switching could not be confirmed")
+                }
+            }
+        }
+        return nil
+    }
+
+    @MainActor
+    private func finish(_ result: String) {
+        guard !hasReplied else { return }
+        hasReplied = true
+        deadlineTask?.cancel()
+        confirmationTask?.cancel()
+        deadlineTask = nil
+        confirmationTask = nil
+        resumeExecution(withResult: result)
     }
 }
 
