@@ -237,6 +237,35 @@ enum DockDoorCommands {
         return try encodeJSON(apps.map { JSONDictionary($0) })
     }
 
+    static func listSpaces() throws -> String {
+        struct SpaceRecord: Encodable {
+            let number: Int
+            let spaceId: String
+            let type: String
+            let displayIdentifier: String
+            let displayName: String
+            let isCurrent: Bool
+            let canReceiveWindows: Bool
+        }
+
+        let spaces = WindowSpaces.managedDisplays().flatMap { display in
+            let name = WindowSpaces.displayName(for: display.identifier) ?? display.identifier
+            return display.spaces.compactMap { space -> SpaceRecord? in
+                guard space.kind == .desktop || space.kind == .fullscreen else { return nil }
+                return SpaceRecord(
+                    number: space.number,
+                    spaceId: String(space.id),
+                    type: space.kind == .desktop ? "desktop" : "fullscreen",
+                    displayIdentifier: display.identifier,
+                    displayName: name,
+                    isCurrent: display.currentSpaceID == space.id,
+                    canReceiveWindows: space.kind == .desktop
+                )
+            }
+        }.sorted { $0.number < $1.number }
+        return try encodeJSON(spaces)
+    }
+
     static func getActiveWindow() throws -> String {
         guard let window = getActiveWindowInfo() else {
             throw CommandError.noActiveWindow
@@ -363,6 +392,9 @@ enum DockDoorCommands {
         lines.append("  minimize window \"active\"")
         lines.append("  position window \"active\" to \"left\"")
         lines.append("  position window \"12345\" to \"top-right\"")
+        lines.append("  list spaces")
+        lines.append("  move window \"12345\" to space 3")
+        lines.append("  move window \"active\" to space 3 with switching")
         lines.append("")
         lines.append("  -- App lookup by name (default)")
         lines.append("  show preview \"Safari\"")
@@ -495,6 +527,91 @@ class ListAppsCommand: NSScriptCommand {
             return try DockDoorCommands.listApps()
         } catch {
             return "error: \(error.localizedDescription)"
+        }
+    }
+}
+
+@objc(ListSpacesCommand)
+class ListSpacesCommand: NSScriptCommand {
+    override func performDefaultImplementation() -> Any? {
+        do {
+            return try DockDoorCommands.listSpaces()
+        } catch {
+            return "error: \(error.localizedDescription)"
+        }
+    }
+}
+
+@objc(MoveWindowCommand)
+class MoveWindowCommand: NSScriptCommand {
+    @MainActor private var hasReplied = false
+    @MainActor private var deadlineTask: Task<Void, Never>?
+
+    override func performDefaultImplementation() -> Any? {
+        guard let windowID = directParameter as? String else {
+            return "error: Window ID required"
+        }
+        guard let spaceNumber = evaluatedArguments?["spaceNumber"] as? Int, spaceNumber > 0 else {
+            return "error: Space number must be a positive integer"
+        }
+        let switching = evaluatedArguments?["switching"] as? Bool ?? false
+
+        suspendExecution()
+        // Resume only after this handler returns; the main actor also owns the reply guard.
+        Task { @MainActor in
+            deadlineTask = Task { @MainActor in
+                do {
+                    try await Task.sleep(nanoseconds: 3_000_000_000)
+                } catch { return }
+                finish("error: Space move timed out or was superseded by another request")
+            }
+
+            do {
+                let window = try DockDoorCommands.resolveWindowId(windowID).get().0
+                let displays = WindowSpaces.managedDisplays()
+                guard let destination = WindowSpaces.destination(forSpaceNumber: spaceNumber, in: displays) else {
+                    finish("error: Space \(spaceNumber) does not exist")
+                    return
+                }
+                if let error = WindowSpaces.validateMove(window, to: destination, in: displays) {
+                    finish("error: \(validationMessage(error))")
+                    return
+                }
+                WindowUtil.performConfirmedSpaceMove(
+                    window,
+                    to: destination,
+                    dismissPreviews: {
+                        (NSApp.delegate as? AppDelegate)?.dismissPreviewsForScriptedSpaceMove()
+                    },
+                    switchToDestination: switching,
+                    isRequestActive: { !self.hasReplied },
+                    completion: { success in
+                        self.finish(success ? "ok" : "error: Space move failed or could not be confirmed")
+                    }
+                )
+            } catch {
+                finish("error: \(error.localizedDescription)")
+            }
+        }
+        return nil
+    }
+
+    @MainActor
+    private func finish(_ result: String) {
+        guard !hasReplied else { return }
+        hasReplied = true
+        deadlineTask?.cancel()
+        deadlineTask = nil
+        resumeExecution(withResult: result)
+    }
+
+    private func validationMessage(_ error: ManagedSpaceMoveValidationError) -> String {
+        switch error {
+        case .windowless: "Apps without open windows cannot be moved"
+        case .fullscreen: "Exit Full Screen before moving this window"
+        case .multipleDesktopSpaces: "Windows assigned to multiple Desktops cannot be moved"
+        case .unavailableDestination: "Only desktop Spaces can receive windows"
+        case .alreadyOnDestination: "Window is already on the destination Space"
         }
     }
 }

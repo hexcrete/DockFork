@@ -45,6 +45,11 @@
 
         <!-- Query Commands -->
 
+        <command name="list spaces" code="DKDRlssp" description="List desktop and fullscreen Spaces using DockDoor's global Space numbering.">
+            <cocoa class="ListSpacesCommand"/>
+            <result type="text" description="JSON array ordered by number, with number, spaceId (string), type (desktop or fullscreen), displayIdentifier, displayName, isCurrent, and canReceiveWindows."/>
+        </command>
+
         <command name="list windows" code="DKDRlswn" description="List all windows or windows for a specific application.">
             <cocoa class="ListWindowsCommand"/>
             <direct-parameter type="text" optional="yes" description="Optional application name, bundle ID, or PID to filter by."/>
@@ -65,6 +70,18 @@
         </command>
 
         <!-- Window Action Commands -->
+
+        <command name="move window" code="DKDRmvwn" description="Move a window to a numbered Desktop and wait for confirmation. Returns ok or error: followed by an explanation.">
+            <cocoa class="MoveWindowCommand"/>
+            <direct-parameter type="text" description="Window ID or 'active' for the frontmost window."/>
+            <parameter name="to space" code="spnm" type="integer" description="Positive global Space number from list spaces. Only desktop Spaces can receive windows.">
+                <cocoa key="spaceNumber"/>
+            </parameter>
+            <parameter name="switching" code="swsp" type="boolean" optional="yes" description="Switch to the destination after the move. Defaults to false, independently of DockDoor settings.">
+                <cocoa key="switching"/>
+            </parameter>
+            <result type="text" description="ok after confirmed movement, or error: followed by a validation, move, cancellation, or timeout explanation."/>
+        </command>
 
         <command name="focus window" code="DKDRfcwn" description="Focus and bring a window to front.">
             <cocoa class="WindowActionCommand"/>

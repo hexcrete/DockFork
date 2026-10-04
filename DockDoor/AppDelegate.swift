@@ -176,6 +176,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return false
     }
 
+    @MainActor
+    func dismissPreviewsForScriptedSpaceMove() {
+        if let keybindHelper {
+            keybindHelper.dismissPreviewsForSpaceChange()
+        } else {
+            previewCoordinator?.windowSwitcherCoordinator.deactivateKeybindSession()
+            previewCoordinator?.hideWindow()
+        }
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         wakeRecoveryTask?.cancel()
         WindowUtil.saveWindowOrderFromCache()

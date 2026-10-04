@@ -1295,6 +1295,8 @@ extension WindowUtil {
         _ windowInfo: WindowInfo,
         to destination: ManagedSpaceDestination,
         dismissPreviews: (() -> Void)?,
+        switchToDestination: Bool? = nil,
+        isRequestActive: @escaping () -> Bool = { true },
         completion: ((Bool) -> Void)? = nil
     ) {
         guard WindowSpaces.validateMove(windowInfo, to: destination) == nil else {
@@ -1303,12 +1305,13 @@ extension WindowUtil {
         }
 
         moveWindowConfirmed(windowInfo, toManagedSpace: destination.space.id) { success in
+            guard isRequestActive() else { return }
             guard success else {
                 completion?(false)
                 return
             }
 
-            if Defaults[.switchToDestinationSpaceAfterMoving] {
+            if switchToDestination ?? Defaults[.switchToDestinationSpaceAfterMoving] {
                 dismissPreviews?()
                 var movedWindow = windowInfo
                 if movedWindow.app.isHidden {
