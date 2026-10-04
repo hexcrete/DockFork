@@ -3,6 +3,26 @@ import CoreGraphics
 import Testing
 
 struct TrackpadSwipeReleasePolicyTests {
+    @Test func keyboardInteractionReclaimsSwipeAsPersistent() {
+        let source = WindowSwitcherLaunchSource.trackpad.takingKeyboardOwnership(isSwitcherInvocation: false)
+        #expect(source == .persistent)
+        #expect(!source.dismissesOnModifierRelease)
+        #expect(source.allowsTrackpadTakeover(enabled: true, initializerHeld: true))
+    }
+
+    @Test func onlySwitcherInvocationCreatesHeldModifierOwnership() {
+        for source in [WindowSwitcherLaunchSource.trackpad, .persistent, .keyboard] {
+            let invokedSource = source.takingKeyboardOwnership(isSwitcherInvocation: true)
+            #expect(invokedSource == .keyboard)
+            #expect(invokedSource.dismissesOnModifierRelease)
+        }
+    }
+
+    @Test func ordinaryKeyboardInteractionPreservesExistingSessionOwnership() {
+        #expect(WindowSwitcherLaunchSource.persistent.takingKeyboardOwnership(isSwitcherInvocation: false) == .persistent)
+        #expect(WindowSwitcherLaunchSource.keyboard.takingKeyboardOwnership(isSwitcherInvocation: false) == .keyboard)
+    }
+
     @Test func takeoverCanBeDisabledForPersistentSessions() {
         #expect(WindowSwitcherLaunchSource.persistent.allowsTrackpadTakeover(enabled: true, initializerHeld: false))
         #expect(!WindowSwitcherLaunchSource.persistent.allowsTrackpadTakeover(enabled: false, initializerHeld: false))

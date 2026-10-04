@@ -44,6 +44,11 @@ enum WindowSwitcherLaunchSource: Equatable {
         enabled && (self != .keyboard || !initializerHeld)
     }
 
+    func takingKeyboardOwnership(isSwitcherInvocation: Bool) -> Self {
+        if isSwitcherInvocation { return .keyboard }
+        return self == .trackpad ? .persistent : self
+    }
+
     var dismissesOnModifierRelease: Bool {
         self == .keyboard
     }
@@ -98,10 +103,15 @@ private class WindowSwitchingCoordinator {
         trackpadSessionId == currentSessionId && activeLaunchSource == .trackpad
     }
 
-    func relinquishTrackpadSession(adoptingKeyboard: Bool = false) {
+    func relinquishTrackpadSession() {
         trackpadSessionId = nil
         trackpadTookOverKeepOpenSession = false
-        if adoptingKeyboard, activeLaunchSource == .trackpad { activeLaunchSource = .keyboard }
+    }
+
+    func takeKeyboardOwnership(isSwitcherInvocation: Bool = false) {
+        guard let activeLaunchSource else { return }
+        self.activeLaunchSource = activeLaunchSource.takingKeyboardOwnership(isSwitcherInvocation: isSwitcherInvocation)
+        relinquishTrackpadSession()
     }
 
     private static var lastUpdateAllWindowsTime: Date?
@@ -135,8 +145,8 @@ private class WindowSwitchingCoordinator {
                 trackpadTookOverKeepOpenSession = true
                 previewCoordinator.unfocusSearchWindow()
             }
-            // Keyboard navigation intentionally takes ownership so a swipe can remain open.
-            if launchSource == .keyboard { relinquishTrackpadSession(adoptingKeyboard: true) }
+            // Navigation cancels swipe release without creating a held-modifier session.
+            if launchSource == .keyboard { takeKeyboardOwnership() }
             coordinator.hasMovedSinceOpen = false
             coordinator.initialHoverLocation = nil
 
@@ -938,11 +948,13 @@ class KeybindHelper {
             let shouldTakeOverActiveCmdTab = cmdTabKeybinds().contains {
                 modifierFlagsMatch($0, flags: event.flags)
             }
+            let isModifierPress = pressedModifierKeyCodes.contains(UInt16(event.getIntegerValueField(.keyboardEventKeycode)))
             Task { @MainActor [weak self] in
                 self?.handleModifierEvent(
                     currentSwitcherModifierIsPressed: effectiveSwitcherModifierIsPressed,
                     currentBackwardState: currentBackwardState,
-                    shouldTakeOverActiveCmdTab: shouldTakeOverActiveCmdTab
+                    shouldTakeOverActiveCmdTab: shouldTakeOverActiveCmdTab,
+                    isModifierPress: isModifierPress
                 )
             }
 
@@ -961,6 +973,7 @@ class KeybindHelper {
                 guard modifierSideMatches(routing.keybind) else { return nil }
                 guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0 else { return nil }
                 Task { @MainActor in
+                    self.windowSwitchingCoordinator.takeKeyboardOwnership()
                     PreviewContextMenuController.shared.performShortcut(action, token: routing.token)
                 }
                 return nil
@@ -1507,13 +1520,15 @@ class KeybindHelper {
     private func handleModifierEvent(
         currentSwitcherModifierIsPressed: Bool,
         currentBackwardState: Bool,
-        shouldTakeOverActiveCmdTab: Bool = false
+        shouldTakeOverActiveCmdTab: Bool = false,
+        isModifierPress: Bool = false
     ) {
         // If system Cmd+Tab switcher is active, do not engage DockDoor's own switcher logic
         if DockObserver.isCmdTabSwitcherActive {
             guard shouldTakeOverActiveCmdTab else { return }
             DockObserver.activeInstance?.teardownCmdTabObserver()
         }
+        if isModifierPress { windowSwitchingCoordinator.takeKeyboardOwnership() }
         let oldSwitcherModifierState = isSwitcherModifierKeyPressed
         let oldBackwardState = isBackwardModifierPressed
 
@@ -1755,6 +1770,7 @@ class KeybindHelper {
                 if let action = getActionForPreviewShortcut(keyCode: keyCode) {
                     preventSwitcherHideOnRelease = true
                     return (true, { @MainActor in
+                        self.windowSwitchingCoordinator.takeKeyboardOwnership()
                         let didClosePreviews = self.previewCoordinator.performActionOnCurrentWindow(action: action)
                         if didClosePreviews || self.previewCoordinator.windowSwitcherCoordinator.windows.isEmpty {
                             self.switcherSessionActive = false
@@ -1977,18 +1993,25 @@ class KeybindHelper {
         guard Defaults[.enableWindowSwitcher] else { return }
         lastFocusedActivationTask?.cancel()
         lastFocusedActivationTask = nil
-        windowSwitchingCoordinator.relinquishTrackpadSession(adoptingKeyboard: true)
         hasProcessedModifierRelease = false
         let previousMode = currentInvocationMode
-        let shouldSwitchScope = windowSwitchingCoordinator.isActive(previewCoordinator: previewCoordinator) && previousMode != mode
+        let isExistingSession = windowSwitchingCoordinator.isActive(previewCoordinator: previewCoordinator)
+        let shouldSwitchScope = isExistingSession && previousMode != mode
         currentInvocationMode = mode
         let modifierPressedForActivation = isModifierPressed ?? isSwitcherModifierKeyPressed
+        let takesOverPersistentSession = modifierPressedForActivation &&
+            (windowSwitchingCoordinator.isPersistentSession || windowSwitchingCoordinator.trackpadOpenedCurrentSession)
+        if takesOverPersistentSession {
+            previewCoordinator.unfocusSearchWindow()
+            preventSwitcherHideOnRelease = false
+        }
+        windowSwitchingCoordinator.takeKeyboardOwnership(isSwitcherInvocation: modifierPressedForActivation)
         let backwardPressedForActivation = isBackwardPressed ?? isBackwardModifierPressed
         if modifierPressedForActivation {
             isSwitcherModifierKeyPressed = true
         }
         isBackwardModifierPressed = backwardPressedForActivation
-        if Defaults[.focusSearchOnWindowSwitcherOpen], Defaults[.enableWindowSwitcherSearch] {
+        if !isExistingSession, Defaults[.focusSearchOnWindowSwitcherOpen], Defaults[.enableWindowSwitcherSearch] {
             preventSwitcherHideOnRelease = true
         }
         if shouldSwitchScope {
@@ -2048,6 +2071,7 @@ class KeybindHelper {
 
     @MainActor
     private func handleNumberedSpaceShortcut(_ spaceNumber: Int) {
+        windowSwitchingCoordinator.takeKeyboardOwnership()
         WindowUtil.cancelPendingManagedSpaceSwitch()
 
         let displays = WindowSpaces.managedDisplays()
