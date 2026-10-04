@@ -318,7 +318,8 @@ final class WindowActionMenuBuilder: NSObject {
             let shortcuts = WindowSwitcherShortcutResolver.resolvedPreviewShortcuts(
                 Defaults[.cmdShortcuts],
                 previewKeybind: keybind,
-                mainKeybind: Defaults[.UserKeybind]
+                mainKeybind: SharedPreviewWindowCoordinator.activeInstance?.effectivePreviewShortcutKeybind(forSpaces: true)
+                    ?? Defaults[.UserKeybind]
             )
             for shortcut in shortcuts where shortcutByAction[shortcut.action] == nil {
                 shortcutByAction[shortcut.action] = shortcut
@@ -558,17 +559,8 @@ final class PreviewContextMenuController: NSObject {
     }
 
     private func effectiveShortcutKeybind() -> UserKeyBind {
-        let keybind: UserKeyBind = if DockObserver.isCmdTabSwitcherActive {
-            UserKeyBind(
-                keyCode: UInt16(kVK_Tab),
-                modifierFlags: Int(CGEventFlags.maskCommand.rawValue),
-                modifierSide: .either
-            )
-        } else {
-            SharedPreviewWindowCoordinator.activeInstance?.activePreviewShortcutKeybindSnapshot()
-                ?? Defaults[.UserKeybind]
-        }
-        return WindowSwitcherShortcutResolver.dependentShortcutKeybind(keybind)
+        SharedPreviewWindowCoordinator.activeInstance?.effectivePreviewShortcutKeybind()
+            ?? WindowSwitcherShortcutResolver.dependentShortcutKeybind(Defaults[.UserKeybind])
     }
 }
 

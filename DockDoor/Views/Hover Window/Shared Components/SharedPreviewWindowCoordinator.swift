@@ -1,3 +1,4 @@
+import Carbon
 import Defaults
 import Sparkle
 import SwiftUI
@@ -73,6 +74,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var searchFrame: CGRect?
         var isSearchFocused = false
         var isWindowSwitcherActive = false
+        var isCmdTabPreview = false
         var hasSelection = false
         var isKeybindSessionActive = false
         var mouseIsWithinPreviewWindow = false
@@ -108,6 +110,19 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         shortcutSnapshotLock.lock()
         defer { shortcutSnapshotLock.unlock() }
         return activePreviewShortcutKeybind
+    }
+
+    func effectivePreviewShortcutKeybind(forSpaces: Bool = false) -> UserKeyBind {
+        let snapshot = tapSnapshot
+        if DockObserver.isCmdTabSwitcherActive || (snapshot.isVisible && snapshot.isCmdTabPreview) {
+            return UserKeyBind(
+                keyCode: UInt16(kVK_Tab),
+                modifierFlags: Int(CGEventFlags.maskCommand.rawValue),
+                modifierSide: .either
+            )
+        }
+        let keybind = forSpaces ? Defaults[.UserKeybind] : activePreviewShortcutKeybindSnapshot() ?? Defaults[.UserKeybind]
+        return WindowSwitcherShortcutResolver.dependentShortcutKeybind(keybind)
     }
 
     @discardableResult
@@ -147,6 +162,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             searchFrame: searchWindowFrame,
             isSearchFocused: isSearchWindowFocused,
             isWindowSwitcherActive: windowSwitcherCoordinator.windowSwitcherActive,
+            isCmdTabPreview: !windowSwitcherCoordinator.windowSwitcherActive && currentDockPosition == .cmdTab,
             hasSelection: windowSwitcherCoordinator.currIndex >= 0,
             isKeybindSessionActive: windowSwitcherCoordinator.isKeybindSessionActive,
             mouseIsWithinPreviewWindow: mouseIsWithinPreviewWindow

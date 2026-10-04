@@ -1289,19 +1289,8 @@ class KeybindHelper {
         switcherSessionActive ? activeSessionKeybind : Defaults[.UserKeybind]
     }
 
-    private func previewShortcutKeybind() -> UserKeyBind {
-        WindowSwitcherShortcutResolver.dependentShortcutKeybind(sessionKeybind())
-    }
-
     private func effectivePreviewShortcutKeybind() -> UserKeyBind {
-        if DockObserver.isCmdTabSwitcherActive {
-            return UserKeyBind(
-                keyCode: UInt16(kVK_Tab),
-                modifierFlags: Int(CGEventFlags.maskCommand.rawValue),
-                modifierSide: .either
-            )
-        }
-        return previewShortcutKeybind()
+        previewCoordinator.effectivePreviewShortcutKeybind()
     }
 
     private func beginSwitcherSession(with keybind: UserKeyBind) {
@@ -1645,7 +1634,7 @@ class KeybindHelper {
         }
 
         if previewIsCurrentlyVisible {
-            if modifierFlagsMatch(previewShortcutKeybind(), flags: flags),
+            if modifierFlagsMatch(effectivePreviewShortcutKeybind(), flags: flags),
                snapshot.hasSelection
             {
                 if let action = getActionForPreviewShortcut(keyCode: keyCode) {
@@ -1927,7 +1916,7 @@ class KeybindHelper {
               )
         else { return nil }
 
-        let mainKeybind = WindowSwitcherShortcutResolver.dependentShortcutKeybind(Defaults[.UserKeybind])
+        let mainKeybind = previewCoordinator.effectivePreviewShortcutKeybind(forSpaces: true)
         let eventModifiers = WindowSwitcherShortcutResolver.normalizedModifiers(Int(event.flags.rawValue))
         let mainModifiers = WindowSwitcherShortcutResolver.normalizedModifiers(mainKeybind.modifierFlags)
         guard mainModifiers != 0,
@@ -2018,7 +2007,7 @@ class KeybindHelper {
 
     /// Returns the first active preview action matching the configured key.
     private func getActionForPreviewShortcut(keyCode: Int64) -> WindowAction? {
-        let mainKeybind = Defaults[.UserKeybind]
+        let mainKeybind = previewCoordinator.effectivePreviewShortcutKeybind(forSpaces: true)
         let previewKeybind = effectivePreviewShortcutKeybind()
         return WindowSwitcherShortcutResolver.resolvedPreviewShortcuts(
             Defaults[.cmdShortcuts],

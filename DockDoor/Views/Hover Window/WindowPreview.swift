@@ -234,7 +234,8 @@ final class SpaceMoveMenuController: NSObject {
               (1 ... 10).contains(spaceNumber)
         else { return }
 
-        let keybind = WindowSwitcherShortcutResolver.dependentShortcutKeybind(Defaults[.UserKeybind])
+        let keybind = SharedPreviewWindowCoordinator.activeInstance?.effectivePreviewShortcutKeybind(forSpaces: true)
+            ?? WindowSwitcherShortcutResolver.dependentShortcutKeybind(Defaults[.UserKeybind])
         item.keyEquivalent = spaceNumber == 10 ? "0" : String(spaceNumber)
         item.keyEquivalentModifierMask = WindowSwitcherShortcutResolver.appKitModifierMask(for: keybind)
     }
