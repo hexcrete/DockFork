@@ -86,7 +86,7 @@ struct PreviewFocusFadePolicyTests {
 
     @Test func featureDefaultsAreIndependentPerMode() {
         for mode in PreviewFocusFadeMode.allCases {
-            #expect(mode.enabledKey.defaultValue == (mode == .windowSwitcher))
+            #expect(mode.enabledKey.defaultValue == false)
             #expect(mode.delayKey.defaultValue == 1.5)
             #expect(mode.durationKey.defaultValue == 0.5)
             #expect(mode.opacityKey.defaultValue == 0.2)

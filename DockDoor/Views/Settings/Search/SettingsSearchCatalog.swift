@@ -268,8 +268,8 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "dockPreviews.focusFade",
-            title: String(localized: "Enable Dock previews fade out when resting on a preview"),
-            description: String(localized: "Fade out Dock previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled."),
+            title: String(localized: "Enable Dock previews fade out when resting on a preview (Experimental)"),
+            description: String(localized: "Fade out Dock previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled. Experimental: this feature can intermittently stop mouse-hover highlighting or make preview selection appear unresponsive. The cause has not been resolved. Disabled by default; turn it off if you encounter these issues."),
             keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
             tab: "DockPreviews",
             section: String(localized: "Dock Interaction"),
@@ -526,8 +526,8 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "windowSwitcher.focusFade",
-            title: String(localized: "Enable Window Switcher fade out when resting on a preview"),
-            description: String(localized: "Fade out Window Switcher while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled."),
+            title: String(localized: "Enable Window Switcher fade out when resting on a preview (Experimental)"),
+            description: String(localized: "Fade out Window Switcher while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled. Experimental: this feature can intermittently stop mouse-hover highlighting or make preview selection appear unresponsive. The cause has not been resolved. Disabled by default; turn it off if you encounter these issues."),
             keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
             tab: "WindowSwitcher",
             section: String(localized: "Hover Actions"),
@@ -663,8 +663,8 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "cmdTab.focusFade",
-            title: String(localized: "Enable Cmd+Tab previews fade out when resting on a preview"),
-            description: String(localized: "Fade out Cmd+Tab previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled."),
+            title: String(localized: "Enable Cmd+Tab previews fade out when resting on a preview (Experimental)"),
+            description: String(localized: "Fade out Cmd+Tab previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled. Experimental: this feature can intermittently stop mouse-hover highlighting or make preview selection appear unresponsive. The cause has not been resolved. Disabled by default; turn it off if you encounter these issues."),
             keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
             tab: "CmdTab",
             section: String(localized: "Hover Actions"),

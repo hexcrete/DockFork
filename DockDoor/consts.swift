@@ -713,7 +713,7 @@ extension Defaults.Keys {
     static let inactivityTimeout = Key<CGFloat>("inactivityTimeout", default: 0.2)
     static let previewHoverAction = Key<PreviewHoverAction>("previewHoverAction", default: .none)
     static let switcherPreviewHoverAction = Key<PreviewHoverAction>("switcherPreviewHoverAction", default: .none)
-    static let enableWindowSwitcherFocusFade = Key<Bool>("enableWindowSwitcherFocusFade", default: true)
+    static let enableWindowSwitcherFocusFade = Key<Bool>("enableWindowSwitcherFocusFade", default: false)
     static let windowSwitcherFocusFadeDelay = Key<CGFloat>("windowSwitcherFocusFadeDelay", default: 1.5)
     static let windowSwitcherFocusFadeDuration = Key<CGFloat>("windowSwitcherFocusFadeDuration", default: 0.5)
     static let windowSwitcherFocusFadeOpacity = Key<CGFloat>("windowSwitcherFocusFadeOpacity", default: 0.2)
@@ -1571,17 +1571,17 @@ enum PreviewFocusFadeMode: CaseIterable {
 
     var toggleTitle: String {
         switch self {
-        case .windowSwitcher: String(localized: "Enable Window Switcher fade out when resting on a preview")
-        case .dock: String(localized: "Enable Dock previews fade out when resting on a preview")
-        case .cmdTab: String(localized: "Enable Cmd+Tab previews fade out when resting on a preview")
+        case .windowSwitcher: String(localized: "Enable Window Switcher fade out when resting on a preview (Experimental)")
+        case .dock: String(localized: "Enable Dock previews fade out when resting on a preview (Experimental)")
+        case .cmdTab: String(localized: "Enable Cmd+Tab previews fade out when resting on a preview (Experimental)")
         }
     }
 
     var helperText: String {
         switch self {
-        case .windowSwitcher: String(localized: "Fade out Window Switcher while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled.")
-        case .dock: String(localized: "Fade out Dock previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled.")
-        case .cmdTab: String(localized: "Fade out Cmd+Tab previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled.")
+        case .windowSwitcher: String(localized: "Fade out Window Switcher while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled. Experimental: this feature can intermittently stop mouse-hover highlighting or make preview selection appear unresponsive. The cause has not been resolved. Disabled by default; turn it off if you encounter these issues.")
+        case .dock: String(localized: "Fade out Dock previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled. Experimental: this feature can intermittently stop mouse-hover highlighting or make preview selection appear unresponsive. The cause has not been resolved. Disabled by default; turn it off if you encounter these issues.")
+        case .cmdTab: String(localized: "Fade out Cmd+Tab previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled. Experimental: this feature can intermittently stop mouse-hover highlighting or make preview selection appear unresponsive. The cause has not been resolved. Disabled by default; turn it off if you encounter these issues.")
         }
     }
 
