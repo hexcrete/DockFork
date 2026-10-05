@@ -3,6 +3,16 @@ import Defaults
 @testable import DockDoor
 import Testing
 
+struct PreviewControlAnimationTests {
+    @Test func zeroDurationDisablesControlAnimations() {
+        #expect(PreviewControlAnimation.animation(duration: 0) == nil)
+        #expect(PreviewControlAnimation.animation(duration: -0.01) == nil)
+        #expect(PreviewControlAnimation.animation(duration: 0.15) != nil)
+        #expect(PreviewControlAnimation.animation(duration: 0.5) == PreviewControlAnimation.animation(duration: 0.2))
+        #expect(Defaults.Keys.trafficLightTransitionDuration.defaultValue == 0.1)
+    }
+}
+
 struct MissingWindowImageRecoveryTests {
     @Test func missingScreenshotsAreRetriedRegardlessOfProvider() {
         for hasSCWindow in [false, true] {

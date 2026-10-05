@@ -61,7 +61,7 @@ struct TrafficLightButtons: View {
                 .padding(Self.contentPadding)
                 .simultaneousGesture(TapGesture())
                 .onHover { isHovering in
-                    withAnimation(.snappy(duration: 0.175)) {
+                    withAnimation(PreviewControlAnimation.animation(duration: Defaults[.trafficLightTransitionDuration])) {
                         self.isHovering = isHovering
                     }
                 }

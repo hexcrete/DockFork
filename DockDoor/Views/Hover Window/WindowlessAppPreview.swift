@@ -103,7 +103,7 @@ struct WindowlessAppPreview: View, Equatable {
                 }
             }
         }
-        .animation(nil, value: showTrafficLightButtons)
+        .previewControlVisibilityAnimation(isVisible: shouldShowControls && showTrafficLightButtons, duration: appearance.trafficLightTransitionDuration)
     }
 
     private func titleCluster(showSubtitle: Bool, iconOnRight: Bool, textOnRight: Bool) -> some View {

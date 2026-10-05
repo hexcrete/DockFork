@@ -2,6 +2,18 @@ import AppKit
 import Defaults
 import SwiftUI
 
+enum PreviewControlAnimation {
+    static func animation(duration: Double) -> Animation? {
+        duration > 0 ? .snappy(duration: min(duration, 0.2)) : nil
+    }
+}
+
+extension View {
+    func previewControlVisibilityAnimation(isVisible: Bool, duration: Double) -> some View {
+        animation(PreviewControlAnimation.animation(duration: duration), value: isVisible)
+    }
+}
+
 struct ViewSizeKey: PreferenceKey {
     static var defaultValue: CGSize = .zero
     static func reduce(value: inout CGSize, nextValue: () -> CGSize) {

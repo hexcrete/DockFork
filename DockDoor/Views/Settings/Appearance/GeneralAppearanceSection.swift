@@ -8,6 +8,7 @@ struct GeneralAppearanceSection: View {
     @Default(.trafficLightButtonScale) var trafficLightButtonScale
     @Default(.windowTitleFontSize) var windowTitleFontSize
     @Default(.windowStateIndicatorFontSize) private var windowStateIndicatorFontSize
+    @Default(.trafficLightTransitionDuration) private var trafficLightTransitionDuration
     @Default(.unselectedContentOpacity) var unselectedContentOpacity
     @Default(.titleOverflowStyle) var titleOverflowStyle
     @Default(.dimMinimizedHiddenPreviews) var dimMinimizedHiddenPreviews
@@ -72,6 +73,21 @@ struct GeneralAppearanceSection: View {
                     }
                 }
                 .settingsSearchTarget("appearance.windowStateIndicatorFontSize")
+
+                VStack(alignment: .leading) {
+                    sliderSetting(
+                        title: "Traffic Light Buttons Transition Animation Speed",
+                        value: $trafficLightTransitionDuration,
+                        range: 0 ... 0.2,
+                        step: 0.01,
+                        unit: "seconds",
+                        formatter: NumberFormatter.twoDecimalFormatter
+                    )
+                    .settingsSearchTarget("appearance.trafficLightTransitionDuration")
+                    Text("Controls traffic light button transitions in all preview modes, independently of Reduce Motion. Set to 0 seconds to disable.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                }
 
                 sliderSetting(
                     title: "Unselected Content Opacity",

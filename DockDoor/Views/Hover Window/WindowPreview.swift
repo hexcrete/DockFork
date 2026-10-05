@@ -479,6 +479,7 @@ struct PreviewAppearanceSettings: Equatable {
     let showActiveWindowBorder: Bool
     let activeAppIndicatorColor: Color
     let showAnimations: Bool
+    let trafficLightTransitionDuration: Double
     let globalPaddingMultiplier: CGFloat
     let radii: CardRadius.Resolved
     let windowTitleFontSize: WindowTitleFontSize
@@ -589,7 +590,7 @@ struct PreviewAppearanceSettings: Equatable {
         .tapEquivalentInterval, .switcherTapEquivalentInterval, .cmdTabTapEquivalentInterval,
         .previewHoverAction, .switcherPreviewHoverAction, .cmdTabPreviewHoverAction,
         .keepPreviewOnHoverActivation,
-        .showActiveWindowBorder, .activeAppIndicatorColor, .showAnimations, .globalPaddingMultiplier,
+        .showActiveWindowBorder, .activeAppIndicatorColor, .showAnimations, .trafficLightTransitionDuration, .globalPaddingMultiplier,
         .uniformCardRadius, .previewCornerRadius,
         .windowTitleFontSize, .windowStateIndicatorFontSize, .switcherAppIconSize, .trafficLightButtonScale,
         .previewWidth, .compactModeWidth, .compactModeTitleFormat, .compactModeItemSize, .compactModeHideTrafficLights,
@@ -634,6 +635,7 @@ struct PreviewAppearanceSettings: Equatable {
             showActiveWindowBorder: Defaults[.showActiveWindowBorder],
             activeAppIndicatorColor: Defaults[.activeAppIndicatorColor],
             showAnimations: Defaults[.showAnimations],
+            trafficLightTransitionDuration: Defaults[.trafficLightTransitionDuration],
             globalPaddingMultiplier: Defaults[.globalPaddingMultiplier],
             radii: .current(),
             windowTitleFontSize: Defaults[.windowTitleFontSize],
@@ -1145,6 +1147,10 @@ struct WindowPreview: View, Equatable {
             embeddedWindowSwitcherControls(selected)
         } else {
             embeddedDockPreviewControls(selected)
+                .previewControlVisibilityAnimation(
+                    isVisible: canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: selected || isHoveringOverDockPeekPreview),
+                    duration: appearance.trafficLightTransitionDuration
+                )
         }
     }
 
@@ -1240,7 +1246,6 @@ struct WindowPreview: View, Equatable {
                 .frame(width: showTrafficLights ? nil : 0)
                 .clipped()
                 .embeddedPreviewContrastShadow(appearance.usesEmbeddedTrafficLightContrastShadow)
-                .animation(nil, value: showTrafficLights)
             } else if let stateLabel = visibleWindowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
@@ -1598,7 +1603,7 @@ struct WindowPreview: View, Equatable {
                     Spacer(minLength: 0)
                 }
                 .frame(width: dimensions.size.width)
-                .animation(nil, value: showTrafficLights)
+                .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration)
             )
         } else {
             return AnyView(
@@ -1614,7 +1619,7 @@ struct WindowPreview: View, Equatable {
                     }
                 }
                 .frame(width: dimensions.size.width)
-                .animation(nil, value: showTrafficLights)
+                .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration)
             )
         }
     }
@@ -1729,7 +1734,7 @@ struct WindowPreview: View, Equatable {
                         Spacer(minLength: 0)
                     }
                     .frame(width: dimensions.size.width)
-                    .animation(nil, value: showTrafficLights)
+                    .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration)
                 )
             } else {
                 return AnyView(
@@ -1745,7 +1750,7 @@ struct WindowPreview: View, Equatable {
                         }
                     }
                     .frame(width: dimensions.size.width)
-                    .animation(nil, value: showTrafficLights)
+                    .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration)
                 )
             }
         } else {

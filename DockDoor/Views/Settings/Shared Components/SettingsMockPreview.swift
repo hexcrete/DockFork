@@ -107,6 +107,7 @@ struct SettingsMockPreview: View {
     @Default(.showActiveWindowBorder) private var showActiveWindowBorder
     @Default(.activeAppIndicatorColor) private var activeAppIndicatorColor
     @Default(.showAnimations) private var showAnimations
+    @Default(.trafficLightTransitionDuration) private var trafficLightTransitionDuration
     @Default(.globalPaddingMultiplier) private var globalPaddingMultiplier
     @Default(.uniformCardRadius) private var uniformCardRadius
     @Default(.previewCornerRadius) private var previewCornerRadius
@@ -306,6 +307,7 @@ struct SettingsMockPreview: View {
             showActiveWindowBorder: showActiveWindowBorder,
             activeAppIndicatorColor: activeAppIndicatorColor,
             showAnimations: showAnimations,
+            trafficLightTransitionDuration: trafficLightTransitionDuration,
             globalPaddingMultiplier: globalPaddingMultiplier,
             radii: CardRadius.Resolved(uniform: uniformCardRadius, base: previewCornerRadius, paddingMultiplier: globalPaddingMultiplier),
             windowTitleFontSize: windowTitleFontSize,
