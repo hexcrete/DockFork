@@ -121,6 +121,8 @@ struct CmdTabSettingsView: View {
                 .disabled(cmdTabPreviewHoverAction == .none)
                 .settingsSearchTarget("cmdTab.hoverDelay")
 
+                PreviewFocusFadeSettings(mode: .cmdTab)
+
                 Toggle(isOn: $enableCmdTabEdgeAutoScroll) {
                     Text("Enable edge auto-scroll")
                 }

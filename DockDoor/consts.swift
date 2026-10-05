@@ -713,6 +713,18 @@ extension Defaults.Keys {
     static let inactivityTimeout = Key<CGFloat>("inactivityTimeout", default: 0.2)
     static let previewHoverAction = Key<PreviewHoverAction>("previewHoverAction", default: .none)
     static let switcherPreviewHoverAction = Key<PreviewHoverAction>("switcherPreviewHoverAction", default: .none)
+    static let enableWindowSwitcherFocusFade = Key<Bool>("enableWindowSwitcherFocusFade", default: true)
+    static let windowSwitcherFocusFadeDelay = Key<CGFloat>("windowSwitcherFocusFadeDelay", default: 1.5)
+    static let windowSwitcherFocusFadeDuration = Key<CGFloat>("windowSwitcherFocusFadeDuration", default: 0.5)
+    static let windowSwitcherFocusFadeOpacity = Key<CGFloat>("windowSwitcherFocusFadeOpacity", default: 0.2)
+    static let enableDockPreviewFocusFade = Key<Bool>("enableDockPreviewFocusFade", default: false)
+    static let dockPreviewFocusFadeDelay = Key<CGFloat>("dockPreviewFocusFadeDelay", default: 1.5)
+    static let dockPreviewFocusFadeDuration = Key<CGFloat>("dockPreviewFocusFadeDuration", default: 0.5)
+    static let dockPreviewFocusFadeOpacity = Key<CGFloat>("dockPreviewFocusFadeOpacity", default: 0.2)
+    static let enableCmdTabFocusFade = Key<Bool>("enableCmdTabFocusFade", default: false)
+    static let cmdTabFocusFadeDelay = Key<CGFloat>("cmdTabFocusFadeDelay", default: 1.5)
+    static let cmdTabFocusFadeDuration = Key<CGFloat>("cmdTabFocusFadeDuration", default: 0.5)
+    static let cmdTabFocusFadeOpacity = Key<CGFloat>("cmdTabFocusFadeOpacity", default: 0.2)
     static let cmdTabPreviewHoverAction = Key<PreviewHoverAction>("cmdTabPreviewHoverAction", default: .none)
     static let keepPreviewOnHoverActivation = Key<Bool>("keepPreviewOnHoverActivation", default: false)
     static let aeroShakeAction = Key<AeroShakeAction>("aeroShakeAction", default: .none)
@@ -1504,6 +1516,82 @@ enum WindowSwitcherControlPosition: String, CaseIterable, Defaults.Serializable 
 }
 
 // MARK: Action Configurations
+
+enum PreviewFocusFadeMode: CaseIterable {
+    case windowSwitcher, dock, cmdTab
+
+    var enabledKey: Defaults.Key<Bool> {
+        switch self {
+        case .windowSwitcher: .enableWindowSwitcherFocusFade
+        case .dock: .enableDockPreviewFocusFade
+        case .cmdTab: .enableCmdTabFocusFade
+        }
+    }
+
+    var delayKey: Defaults.Key<CGFloat> {
+        switch self {
+        case .windowSwitcher: .windowSwitcherFocusFadeDelay
+        case .dock: .dockPreviewFocusFadeDelay
+        case .cmdTab: .cmdTabFocusFadeDelay
+        }
+    }
+
+    var durationKey: Defaults.Key<CGFloat> {
+        switch self {
+        case .windowSwitcher: .windowSwitcherFocusFadeDuration
+        case .dock: .dockPreviewFocusFadeDuration
+        case .cmdTab: .cmdTabFocusFadeDuration
+        }
+    }
+
+    var opacityKey: Defaults.Key<CGFloat> {
+        switch self {
+        case .windowSwitcher: .windowSwitcherFocusFadeOpacity
+        case .dock: .dockPreviewFocusFadeOpacity
+        case .cmdTab: .cmdTabFocusFadeOpacity
+        }
+    }
+
+    var hoverActionKey: Defaults.Key<PreviewHoverAction> {
+        switch self {
+        case .windowSwitcher: .switcherPreviewHoverAction
+        case .dock: .previewHoverAction
+        case .cmdTab: .cmdTabPreviewHoverAction
+        }
+    }
+
+    var searchPrefix: String {
+        switch self {
+        case .windowSwitcher: "windowSwitcher"
+        case .dock: "dockPreviews"
+        case .cmdTab: "cmdTab"
+        }
+    }
+
+    var toggleTitle: String {
+        switch self {
+        case .windowSwitcher: String(localized: "Enable Window Switcher fade out when resting on a preview")
+        case .dock: String(localized: "Enable Dock previews fade out when resting on a preview")
+        case .cmdTab: String(localized: "Enable Cmd+Tab previews fade out when resting on a preview")
+        }
+    }
+
+    var helperText: String {
+        switch self {
+        case .windowSwitcher: String(localized: "Fade out Window Switcher while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled.")
+        case .dock: String(localized: "Fade out Dock previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled.")
+        case .cmdTab: String(localized: "Fade out Cmd+Tab previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled.")
+        }
+    }
+
+    var delayTitle: String {
+        switch self {
+        case .windowSwitcher: String(localized: "Window Switcher Fade Out Delay")
+        case .dock: String(localized: "Dock Preview Fade Out Delay")
+        case .cmdTab: String(localized: "Cmd+Tab Fade Out Delay")
+        }
+    }
+}
 
 enum PreviewHoverAction: String, CaseIterable, Defaults.Serializable {
     case none

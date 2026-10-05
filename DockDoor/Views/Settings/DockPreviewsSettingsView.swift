@@ -232,6 +232,8 @@ struct DockPreviewsSettingsView: View {
                     .disabled(previewHoverAction == .none)
                     .settingsSearchTarget("dockPreviews.hoverDelay")
 
+                PreviewFocusFadeSettings(mode: .dock)
+
                 Toggle(isOn: $enableDockPreviewEdgeAutoScroll) {
                     Text("Enable edge auto-scroll")
                 }

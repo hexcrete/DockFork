@@ -1,6 +1,43 @@
 import Cocoa
+import Defaults
 @testable import DockDoor
 import Testing
+
+struct PreviewFocusFadePolicyTests {
+    @Test func fadingRequiresAnEnabledVisibleFullSizePreview() {
+        #expect(PreviewFocusFadePolicy.canFade(enabled: true, hoverAction: .previewFullSize, containerVisible: true,
+                                               fullPreviewVisible: true, hasSelection: true, menuTracking: false))
+        for condition in 0 ..< 6 {
+            #expect(!PreviewFocusFadePolicy.canFade(
+                enabled: condition != 0, hoverAction: condition == 1 ? .tap : .previewFullSize,
+                containerVisible: condition != 2, fullPreviewVisible: condition != 3,
+                hasSelection: condition != 4, menuTracking: condition == 5
+            ))
+        }
+    }
+
+    @Test func timingAndOpacityStayWithinSupportedRanges() {
+        #expect(PreviewFocusFadePolicy.bounded(0, fallback: 2, range: 0 ... 5) == 0)
+        #expect(PreviewFocusFadePolicy.bounded(-1, fallback: 2, range: 0 ... 5) == 0)
+        #expect(PreviewFocusFadePolicy.bounded(9, fallback: 1, range: 0 ... 5) == 5)
+        #expect(PreviewFocusFadePolicy.bounded(.nan, fallback: 2, range: 0 ... 5) == 2)
+        #expect(PreviewFocusFadePolicy.bounded(.infinity, fallback: 0.25, range: 0 ... 0.5) == 0.25)
+        #expect(PreviewFocusFadePolicy.bounded(1, fallback: 0.25, range: 0 ... 0.5) == 0.5)
+    }
+
+    @Test func featureDefaultsAreIndependentPerMode() {
+        for mode in PreviewFocusFadeMode.allCases {
+            #expect(mode.enabledKey.defaultValue == (mode == .windowSwitcher))
+            #expect(mode.delayKey.defaultValue == 1.5)
+            #expect(mode.durationKey.defaultValue == 0.5)
+            #expect(mode.opacityKey.defaultValue == 0.2)
+        }
+        #expect(Set(PreviewFocusFadeMode.allCases.map(\.enabledKey.name)).count == 3)
+        #expect(Set(PreviewFocusFadeMode.allCases.map(\.delayKey.name)).count == 3)
+        #expect(Set(PreviewFocusFadeMode.allCases.map(\.durationKey.name)).count == 3)
+        #expect(Set(PreviewFocusFadeMode.allCases.map(\.opacityKey.name)).count == 3)
+    }
+}
 
 struct AppIconBadgeLayoutTests {
     @Test func badgeSettingsParticipateInLiveAppearanceUpdates() {

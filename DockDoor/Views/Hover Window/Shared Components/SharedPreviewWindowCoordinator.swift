@@ -13,6 +13,18 @@ enum EmbeddedContentType: Equatable {
     case none
 }
 
+enum PreviewFocusFadePolicy {
+    static func canFade(enabled: Bool, hoverAction: PreviewHoverAction, containerVisible: Bool,
+                        fullPreviewVisible: Bool, hasSelection: Bool, menuTracking: Bool) -> Bool
+    {
+        enabled && hoverAction == .previewFullSize && containerVisible && fullPreviewVisible && hasSelection && !menuTracking
+    }
+
+    static func bounded(_ value: CGFloat, fallback: CGFloat, range: ClosedRange<CGFloat>) -> CGFloat {
+        value.isFinite ? min(range.upperBound, max(range.lowerBound, value)) : fallback
+    }
+}
+
 final class SharedPreviewWindowCoordinator: NSPanel {
     weak static var activeInstance: SharedPreviewWindowCoordinator?
 
@@ -34,6 +46,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private var fullPreviewWindow: NSPanel?
     private var fullPreviewFadeOutToken: UUID?
     private var activeFullPreviewHoverID: UUID?
+    private var focusFadeTimer: Timer?
+    private var focusFadeLocalMonitor: Any?
+    private var focusFadeGlobalMonitor: Any?
+    private var focusFadeSettingsObserver: Defaults.Observation?
+    private var focusFadeMode: PreviewFocusFadeMode?
+    private var focusFadeSelection: Int?
+    private var isPreviewFocusFaded = false
+    private var trackingMenus = Set<ObjectIdentifier>()
+    private static let focusFadeAnimationKey = "previewFocusFade"
     private var pendingShowWorkItem: DispatchWorkItem?
     private struct DeferredActionWatcher {
         let token: UUID
@@ -79,6 +100,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var hasSelection = false
         var isKeybindSessionActive = false
         var mouseIsWithinPreviewWindow = false
+        var isPreviewFocusFadeMonitoring = false
     }
 
     private let tapSnapshotLock = NSLock()
@@ -156,6 +178,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @objc private func publishTapSnapshot() {
+        updatePreviewFocusFade()
         let snapshot = TapSnapshot(
             isVisible: isVisible,
             frame: frame,
@@ -166,7 +189,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             isCmdTabPreview: !windowSwitcherCoordinator.windowSwitcherActive && currentDockPosition == .cmdTab,
             hasSelection: windowSwitcherCoordinator.currIndex >= 0,
             isKeybindSessionActive: windowSwitcherCoordinator.isKeybindSessionActive,
-            mouseIsWithinPreviewWindow: mouseIsWithinPreviewWindow
+            mouseIsWithinPreviewWindow: mouseIsWithinPreviewWindow,
+            isPreviewFocusFadeMonitoring: focusFadeLocalMonitor != nil
         )
         tapSnapshotLock.lock()
         currentTapSnapshot = snapshot
@@ -187,13 +211,164 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             NotificationCenter.default.addObserver(self, selector: #selector(publishTapSnapshot), name: name, object: nil)
         }
         NotificationCenter.default.addObserver(self, selector: #selector(panelDidResize), name: NSWindow.didResizeNotification, object: self)
+        NotificationCenter.default.addObserver(self, selector: #selector(focusFadeMenuOpened), name: NSMenu.didBeginTrackingNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(focusFadeMenuClosed), name: NSMenu.didEndTrackingNotification, object: nil)
+        focusFadeSettingsObserver = Defaults.observe(
+            keys: .enableWindowSwitcherFocusFade, .windowSwitcherFocusFadeDelay,
+            .windowSwitcherFocusFadeDuration, .windowSwitcherFocusFadeOpacity, .switcherPreviewHoverAction,
+            .enableDockPreviewFocusFade, .dockPreviewFocusFadeDelay, .dockPreviewFocusFadeDuration, .dockPreviewFocusFadeOpacity, .previewHoverAction,
+            .enableCmdTabFocusFade, .cmdTabFocusFadeDelay, .cmdTabFocusFadeDuration, .cmdTabFocusFadeOpacity, .cmdTabPreviewHoverAction
+        ) { [weak self] in
+            DispatchQueue.main.async {
+                self?.stopPreviewFocusFade()
+                self?.publishTapSnapshot()
+            }
+        }
     }
 
     deinit {
+        focusFadeTimer?.invalidate()
+        if let focusFadeLocalMonitor { NSEvent.removeMonitor(focusFadeLocalMonitor) }
+        if let focusFadeGlobalMonitor { NSEvent.removeMonitor(focusFadeGlobalMonitor) }
+        focusFadeSettingsObserver?.invalidate()
+        NotificationCenter.default.removeObserver(self)
         if SharedPreviewWindowCoordinator.activeInstance === self {
             SharedPreviewWindowCoordinator.activeInstance = nil
         }
         dockManager.cleanup()
+    }
+
+    private var previewFocusFadeMode: PreviewFocusFadeMode {
+        if windowSwitcherCoordinator.windowSwitcherActive { return .windowSwitcher }
+        return currentDockPosition == .cmdTab ? .cmdTab : .dock
+    }
+
+    private var canRunPreviewFocusFade: Bool {
+        guard Defaults[previewFocusFadeMode.enabledKey] else { return false }
+        return PreviewFocusFadePolicy.canFade(
+            enabled: true,
+            hoverAction: Defaults[previewFocusFadeMode.hoverActionKey],
+            containerVisible: isVisible,
+            fullPreviewVisible: windowSwitcherCoordinator.fullWindowPreviewActive && fullPreviewWindow?.isVisible == true && fullPreviewFadeOutToken == nil,
+            hasSelection: windowSwitcherCoordinator.currIndex >= 0,
+            menuTracking: false
+        )
+    }
+
+    private func updatePreviewFocusFade() {
+        if focusFadeMode != previewFocusFadeMode { stopPreviewFocusFade() }
+        guard canRunPreviewFocusFade else {
+            stopPreviewFocusFade()
+            return
+        }
+        if focusFadeLocalMonitor == nil {
+            focusFadeMode = previewFocusFadeMode
+            let mask: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged,
+                                               .scrollWheel,
+                                               .leftMouseDown, .rightMouseDown, .otherMouseDown]
+            focusFadeLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
+                self?.registerPreviewFocusActivity()
+                return event
+            }
+            focusFadeGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
+                self?.registerPreviewFocusActivity()
+            }
+            focusFadeSelection = windowSwitcherCoordinator.currIndex
+            schedulePreviewFocusFade()
+        } else if focusFadeSelection != windowSwitcherCoordinator.currIndex {
+            focusFadeSelection = windowSwitcherCoordinator.currIndex
+            registerPreviewFocusActivity()
+        }
+        if isPreviewFocusFaded {
+            setPreviewFocusOpacity(Float(PreviewFocusFadePolicy.bounded(Defaults[previewFocusFadeMode.opacityKey], fallback: 0.2, range: 0 ... 0.5)), duration: 0, onlyNewContent: true)
+        }
+    }
+
+    func registerPreviewFocusActivity() {
+        restorePreviewFocusOpacity()
+        guard canRunPreviewFocusFade else {
+            stopPreviewFocusFade()
+            return
+        }
+        schedulePreviewFocusFade()
+    }
+
+    private func schedulePreviewFocusFade() {
+        guard trackingMenus.isEmpty else { return }
+        let delay = PreviewFocusFadePolicy.bounded(Defaults[previewFocusFadeMode.delayKey], fallback: 1.5, range: 0 ... 5)
+        let deadline = Date().addingTimeInterval(delay)
+        if let focusFadeTimer {
+            focusFadeTimer.fireDate = deadline
+            return
+        }
+        let timer = Timer(fire: deadline, interval: 0, repeats: false) { [weak self] timer in
+            guard let self, focusFadeTimer === timer else { return }
+            focusFadeTimer = nil
+            guard canRunPreviewFocusFade, trackingMenus.isEmpty else { return }
+            isPreviewFocusFaded = true
+            let opacity = PreviewFocusFadePolicy.bounded(Defaults[previewFocusFadeMode.opacityKey], fallback: 0.2, range: 0 ... 0.5)
+            let duration = Defaults[.showAnimations]
+                ? PreviewFocusFadePolicy.bounded(Defaults[previewFocusFadeMode.durationKey], fallback: 0.5, range: 0 ... 5)
+                : 0
+            setPreviewFocusOpacity(Float(opacity), duration: duration)
+        }
+        focusFadeTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func setPreviewFocusOpacity(_ opacity: Float, duration: TimeInterval, onlyNewContent: Bool = false) {
+        // Keep the panels interactive even at 0% opacity; only their rendered contents fade.
+        for view in [contentView, searchWindow?.contentView].compactMap({ $0 }) {
+            view.wantsLayer = true
+            guard let layer = view.layer else { continue }
+            if onlyNewContent, layer.opacity == opacity { continue }
+            let currentOpacity = layer.presentation()?.opacity ?? layer.opacity
+            layer.removeAnimation(forKey: Self.focusFadeAnimationKey)
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            layer.opacity = opacity
+            CATransaction.commit()
+            if duration > 0 {
+                let animation = CABasicAnimation(keyPath: "opacity")
+                animation.fromValue = currentOpacity
+                animation.toValue = opacity
+                animation.duration = duration
+                animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                layer.add(animation, forKey: Self.focusFadeAnimationKey)
+            }
+        }
+    }
+
+    private func restorePreviewFocusOpacity() {
+        guard isPreviewFocusFaded else { return }
+        isPreviewFocusFaded = false
+        setPreviewFocusOpacity(1, duration: 0)
+    }
+
+    private func stopPreviewFocusFade() {
+        focusFadeTimer?.invalidate()
+        focusFadeTimer = nil
+        if let focusFadeLocalMonitor { NSEvent.removeMonitor(focusFadeLocalMonitor) }
+        if let focusFadeGlobalMonitor { NSEvent.removeMonitor(focusFadeGlobalMonitor) }
+        focusFadeLocalMonitor = nil
+        focusFadeGlobalMonitor = nil
+        focusFadeSelection = nil
+        focusFadeMode = nil
+        restorePreviewFocusOpacity()
+    }
+
+    @objc private func focusFadeMenuOpened(_ notification: Notification) {
+        guard let menu = notification.object as? NSMenu else { return }
+        trackingMenus.insert(ObjectIdentifier(menu))
+        focusFadeTimer?.invalidate()
+        focusFadeTimer = nil
+        restorePreviewFocusOpacity()
+    }
+
+    @objc private func focusFadeMenuClosed(_ notification: Notification) {
+        guard let menu = notification.object as? NSMenu else { return }
+        trackingMenus.remove(ObjectIdentifier(menu))
+        if trackingMenus.isEmpty, canRunPreviewFocusFade { registerPreviewFocusActivity() }
     }
 
     private func setupWindow() {
@@ -297,6 +472,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     func hideWindow(cancelPendingShow shouldCancelPendingShow: Bool = true) {
+        stopPreviewFocusFade()
         AppIconBadgeStore.shared.stop()
         if shouldCancelPendingShow {
             cancelPendingShow()
@@ -755,6 +931,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     func hideFullPreviewWindow() {
+        stopPreviewFocusFade()
         windowSwitcherCoordinator.setShowing(.fullWindowPreview, toState: false)
         activeFullPreviewHoverID = nil
         guard let fullPreviewWindow else {

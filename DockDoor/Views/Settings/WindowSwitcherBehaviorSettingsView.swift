@@ -253,6 +253,8 @@ struct WindowSwitcherBehaviorSettingsView: View {
                 }
                 .disabled(switcherPreviewHoverAction == .none)
                 .settingsSearchTarget("windowSwitcher.hoverDelay")
+
+                PreviewFocusFadeSettings(mode: .windowSwitcher)
             }
         }
     }

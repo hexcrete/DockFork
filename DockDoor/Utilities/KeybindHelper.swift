@@ -894,6 +894,14 @@ class KeybindHelper {
             return passthrough
         }
 
+        if type == .keyDown || type == .keyUp || type == .flagsChanged,
+           previewCoordinator.tapSnapshot.isPreviewFocusFadeMonitoring
+        {
+            Task { @MainActor [weak self] in
+                self?.previewCoordinator.registerPreviewFocusActivity()
+            }
+        }
+
         switch type {
         case .flagsChanged:
             updatePressedModifierKeyCodes(event: event)

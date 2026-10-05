@@ -267,6 +267,39 @@ enum SettingsSearchCatalog {
             icon: "timer"
         ),
         SettingsSearchItem(
+            id: "dockPreviews.focusFade",
+            title: String(localized: "Enable Dock previews fade out when resting on a preview"),
+            description: String(localized: "Fade out Dock previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled."),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "rectangle.dashed"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.focusFadeDelay",
+            title: String(localized: "Dock Preview Fade Out Delay"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.focusFadeDuration",
+            title: String(localized: "Fade Out Duration"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.focusFadeOpacity",
+            title: String(localized: "Target Minimum Opacity"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "circle.lefthalf.filled"
+        ),
+        SettingsSearchItem(
             id: "dockPreviews.edgeAutoScroll",
             title: String(localized: "Enable edge auto-scroll"),
             keywords: ["edge", "hover", "scroll", "automatic", "mouse"],
@@ -492,6 +525,39 @@ enum SettingsSearchCatalog {
             icon: "timer"
         ),
         SettingsSearchItem(
+            id: "windowSwitcher.focusFade",
+            title: String(localized: "Enable Window Switcher fade out when resting on a preview"),
+            description: String(localized: "Fade out Window Switcher while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled."),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "rectangle.dashed"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.focusFadeDelay",
+            title: String(localized: "Window Switcher Fade Out Delay"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.focusFadeDuration",
+            title: String(localized: "Fade Out Duration"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.focusFadeOpacity",
+            title: String(localized: "Target Minimum Opacity"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "circle.lefthalf.filled"
+        ),
+        SettingsSearchItem(
             id: "windowSwitcher.sortOrder",
             title: String(localized: "Window sort order"),
             keywords: ["sort", "order", "arrange"],
@@ -594,6 +660,39 @@ enum SettingsSearchCatalog {
             tab: "CmdTab",
             section: String(localized: "Hover Actions"),
             icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.focusFade",
+            title: String(localized: "Enable Cmd+Tab previews fade out when resting on a preview"),
+            description: String(localized: "Fade out Cmd+Tab previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled."),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "rectangle.dashed"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.focusFadeDelay",
+            title: String(localized: "Cmd+Tab Fade Out Delay"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.focusFadeDuration",
+            title: String(localized: "Fade Out Duration"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.focusFadeOpacity",
+            title: String(localized: "Target Minimum Opacity"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "circle.lefthalf.filled"
         ),
         SettingsSearchItem(
             id: "cmdTab.edgeAutoScroll",

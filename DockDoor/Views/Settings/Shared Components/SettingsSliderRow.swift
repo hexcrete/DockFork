@@ -1,3 +1,4 @@
+import Defaults
 import SwiftUI
 
 struct SettingsSliderRow<T: BinaryFloatingPoint>: View where T.Stride: BinaryFloatingPoint {
@@ -57,5 +58,42 @@ struct SettingsSliderRow<T: BinaryFloatingPoint>: View where T.Stride: BinaryFlo
         }
         .padding(.vertical, 6)
         .padding(.leading, 40)
+    }
+}
+
+struct PreviewFocusFadeSettings: View {
+    let mode: PreviewFocusFadeMode
+    @Default private var enabled: Bool
+    @Default private var delay: CGFloat
+    @Default private var duration: CGFloat
+    @Default private var opacity: CGFloat
+    @Default private var hoverAction: PreviewHoverAction
+
+    init(mode: PreviewFocusFadeMode) {
+        self.mode = mode
+        _enabled = Default(mode.enabledKey)
+        _delay = Default(mode.delayKey)
+        _duration = Default(mode.durationKey)
+        _opacity = Default(mode.opacityKey)
+        _hoverAction = Default(mode.hoverActionKey)
+    }
+
+    var body: some View {
+        if hoverAction == .previewFullSize {
+            Toggle(mode.toggleTitle, isOn: $enabled)
+                .settingsSearchTarget(mode.searchPrefix + ".focusFade")
+            Text(mode.helperText)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
+            if enabled {
+                sliderSetting(title: LocalizedStringKey(mode.delayTitle), value: $delay, range: 0 ... 5, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
+                    .settingsSearchTarget(mode.searchPrefix + ".focusFadeDelay")
+                sliderSetting(title: "Fade Out Duration", value: $duration, range: 0 ... 5, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
+                    .settingsSearchTarget(mode.searchPrefix + ".focusFadeDuration")
+                sliderSetting(title: "Target Minimum Opacity", value: $opacity, range: 0 ... 0.5, step: 0.05, unit: "", formatter: NumberFormatter.percentFormatter)
+                    .settingsSearchTarget(mode.searchPrefix + ".focusFadeOpacity")
+            }
+        }
     }
 }
