@@ -283,7 +283,15 @@ struct WindowlessAppPreview: View, Equatable {
 
     @ViewBuilder
     private var iconContent: some View {
-        if let appIcon = windowInfo.app.icon {
+        PreviewPlaceholderImage(appIcon: windowInfo.app.icon)
+    }
+}
+
+struct PreviewPlaceholderImage: View {
+    let appIcon: NSImage?
+
+    var body: some View {
+        if let appIcon {
             Image(nsImage: appIcon)
                 .resizable()
                 .scaledToFit()

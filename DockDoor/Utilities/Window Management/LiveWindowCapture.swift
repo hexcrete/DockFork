@@ -14,14 +14,15 @@ struct LivePreviewImage: View {
     let fallbackImage: CGImage?
     let quality: LivePreviewQuality
     let frameRate: LivePreviewFrameRate
+    var placeholderIcon: NSImage? = nil
 
     var body: some View {
         let keepAlive = Defaults[.livePreviewStreamKeepAlive]
 
         if keepAlive != 0 {
-            LivePreviewImageCached(windowID: windowID, fallbackImage: fallbackImage, quality: quality, frameRate: frameRate)
+            LivePreviewImageCached(windowID: windowID, fallbackImage: fallbackImage, quality: quality, frameRate: frameRate, placeholderIcon: placeholderIcon)
         } else {
-            LivePreviewImageFresh(windowID: windowID, fallbackImage: fallbackImage, quality: quality, frameRate: frameRate)
+            LivePreviewImageFresh(windowID: windowID, fallbackImage: fallbackImage, quality: quality, frameRate: frameRate, placeholderIcon: placeholderIcon)
         }
     }
 }
@@ -31,14 +32,16 @@ private struct LivePreviewImageCached: View {
     let fallbackImage: CGImage?
     let quality: LivePreviewQuality
     let frameRate: LivePreviewFrameRate
+    let placeholderIcon: NSImage?
 
     @ObservedObject private var capture: WindowLiveCapture
 
-    init(windowID: CGWindowID, fallbackImage: CGImage?, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate) {
+    init(windowID: CGWindowID, fallbackImage: CGImage?, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate, placeholderIcon: NSImage?) {
         self.windowID = windowID
         self.fallbackImage = fallbackImage
         self.quality = quality
         self.frameRate = frameRate
+        self.placeholderIcon = placeholderIcon
         capture = LiveCaptureManager.shared.getCapture(windowID: windowID, quality: quality, frameRate: frameRate)
     }
 
@@ -48,6 +51,8 @@ private struct LivePreviewImageCached: View {
                 Image(decorative: image, scale: 1.0)
                     .resizable()
                     .scaledToFit()
+            } else if let placeholderIcon {
+                PreviewPlaceholderImage(appIcon: placeholderIcon)
             }
         }
         .task {
@@ -61,14 +66,16 @@ private struct LivePreviewImageFresh: View {
     let fallbackImage: CGImage?
     let quality: LivePreviewQuality
     let frameRate: LivePreviewFrameRate
+    let placeholderIcon: NSImage?
 
     @StateObject private var capture: WindowLiveCapture
 
-    init(windowID: CGWindowID, fallbackImage: CGImage?, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate) {
+    init(windowID: CGWindowID, fallbackImage: CGImage?, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate, placeholderIcon: NSImage?) {
         self.windowID = windowID
         self.fallbackImage = fallbackImage
         self.quality = quality
         self.frameRate = frameRate
+        self.placeholderIcon = placeholderIcon
         _capture = StateObject(wrappedValue: WindowLiveCapture(windowID: windowID, quality: quality, frameRate: frameRate))
     }
 
@@ -78,6 +85,8 @@ private struct LivePreviewImageFresh: View {
                 Image(decorative: image, scale: 1.0)
                     .resizable()
                     .scaledToFit()
+            } else if let placeholderIcon {
+                PreviewPlaceholderImage(appIcon: placeholderIcon)
             }
         }
         .task {

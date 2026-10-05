@@ -1091,11 +1091,13 @@ struct WindowPreview: View, Equatable {
             if skeletonMode {
                 Color.clear
             } else if useLivePreview {
-                LivePreviewImage(windowID: windowInfo.id, fallbackImage: windowInfo.image, quality: quality, frameRate: frameRate)
+                LivePreviewImage(windowID: windowInfo.id, fallbackImage: windowInfo.image, quality: quality, frameRate: frameRate, placeholderIcon: windowInfo.image == nil ? windowInfo.app.icon : nil)
             } else if let cgImage = windowInfo.image {
                 Image(decorative: cgImage, scale: 1.0)
                     .resizable()
                     .scaledToFit()
+            } else {
+                PreviewPlaceholderImage(appIcon: windowInfo.app.icon)
             }
         }
         .markHidden(isHidden: inactive || (windowSwitcherActive && !isSelected))
@@ -1121,7 +1123,7 @@ struct WindowPreview: View, Equatable {
             }
         }
         .dynamicWindowFrame(
-            allowDynamicSizing: appearance.allowDynamicImageSizing,
+            allowDynamicSizing: appearance.allowDynamicImageSizing && windowInfo.image != nil,
             dimensions: dimensions,
             dockPosition: dockPosition,
             windowSwitcherActive: windowSwitcherActive

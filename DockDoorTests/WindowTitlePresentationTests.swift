@@ -14,6 +14,36 @@ struct PreviewControlAnimationTests {
 }
 
 struct MissingWindowImageRecoveryTests {
+    @Test func realWindowsUseFullCardsOutsideCompactMode() {
+        for dockPosition: DockPosition in [.bottom, .left, .right, .cmdTab] {
+            for windowSwitcherActive in [false, true] {
+                #expect(WindowPreviewHoverContainer.PreviewCardPresentation.resolve(
+                    isWindowlessApp: false,
+                    containerUsesCompactRows: false,
+                    windowSwitcherActive: windowSwitcherActive,
+                    dockPosition: dockPosition,
+                    compactWidth: 400,
+                    previewWidth: 300
+                ) == .regular)
+                #expect(WindowPreviewHoverContainer.PreviewCardPresentation.resolve(
+                    isWindowlessApp: false,
+                    containerUsesCompactRows: true,
+                    windowSwitcherActive: windowSwitcherActive,
+                    dockPosition: dockPosition,
+                    compactWidth: 400,
+                    previewWidth: 300
+                ) == .compact(width: 400))
+            }
+        }
+    }
+
+    @Test func placeholderDimensionsKeepDefaultHeightAndAspectRatio() {
+        let size = CGSize(width: 300, height: 200)
+        let dimensions = WindowPreviewHoverContainer.placeholderDimensions(previewSize: size)
+        #expect(dimensions.size == size)
+        #expect(dimensions.maxDimensions == size)
+    }
+
     @Test func missingScreenshotsAreRetriedRegardlessOfProvider() {
         for hasSCWindow in [false, true] {
             for missingOnly in [false, true] {

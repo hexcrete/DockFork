@@ -2255,14 +2255,12 @@ struct WindowPreviewHoverContainer: View {
 
             let isSelected = index == currIndex
             let presentation = PreviewCardPresentation.resolve(
-                window: windowInfo,
+                isWindowlessApp: windowInfo.isWindowlessApp,
                 containerUsesCompactRows: usesCompactRows,
                 windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
                 dockPosition: dockPosition,
-                livePreviewEnabled: useLivePreview,
                 compactWidth: appearance.compactModeWidth,
-                previewWidth: appearance.previewWidth,
-                fallbackWidth: resolvedDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews).size.width
+                previewWidth: appearance.previewWidth
             )
 
             switch presentation {

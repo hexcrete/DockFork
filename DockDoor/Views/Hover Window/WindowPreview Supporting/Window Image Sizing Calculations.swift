@@ -38,26 +38,24 @@ extension WindowPreviewHoverContainer {
         }
     }
 
-    enum PreviewCardPresentation {
+    enum PreviewCardPresentation: Equatable {
         case regular
         case compact(width: CGFloat)
         case windowless
 
         static func resolve(
-            window: WindowInfo,
+            isWindowlessApp: Bool,
             containerUsesCompactRows: Bool,
             windowSwitcherActive: Bool,
             dockPosition: DockPosition,
-            livePreviewEnabled: Bool,
             compactWidth: CGFloat,
-            previewWidth: CGFloat,
-            fallbackWidth: CGFloat
+            previewWidth: CGFloat
         ) -> Self {
-            let usesWindowlessCompactRow = window.isWindowlessApp &&
+            let usesWindowlessCompactRow = isWindowlessApp &&
                 (!windowSwitcherActive || dockPosition == .cmdTab) &&
                 !containerUsesCompactRows
 
-            if window.isWindowlessApp, !containerUsesCompactRows, !usesWindowlessCompactRow {
+            if isWindowlessApp, !containerUsesCompactRows, !usesWindowlessCompactRow {
                 return .windowless
             }
             if containerUsesCompactRows {
@@ -65,9 +63,6 @@ extension WindowPreviewHoverContainer {
             }
             if usesWindowlessCompactRow {
                 return .compact(width: previewWidth)
-            }
-            if window.image == nil, !livePreviewEnabled {
-                return .compact(width: fallbackWidth)
             }
             return .regular
         }
@@ -120,6 +115,11 @@ extension WindowPreviewHoverContainer {
         let maxDimensions: CGSize
     }
 
+    static func placeholderDimensions(previewSize: CGSize) -> WindowDimensions {
+        let size = CGSize(width: max(1, previewSize.width), height: max(1, previewSize.height))
+        return WindowDimensions(size: size, maxDimensions: size)
+    }
+
     static let dynamicMaxAspectRatio: CGFloat = 1.5
     static let dynamicSwitcherMinimumImageWidth: CGFloat = 50
     static let dynamicSwitcherMinimumCardWidth: CGFloat = 240
@@ -140,7 +140,7 @@ extension WindowPreviewHoverContainer {
 
                 var widestWindow = minImageWidth
                 for window in windows {
-                    if window.isWindowlessApp {
+                    if window.image == nil {
                         widestWindow = maxWidth
                         continue
                     }
@@ -298,15 +298,8 @@ extension WindowPreviewHoverContainer {
                                 size: CGSize(width: width, height: lineItemHeight),
                                 maxDimensions: maxDims
                             )
-                        } else if windows[index].isWindowlessApp {
-                            dimensionsMap[index] = WindowDimensions(
-                                size: defaultPreviewSize,
-                                maxDimensions: defaultPreviewSize
-                            )
                         } else {
-                            let compactRowHeight: CGFloat = 36
-                            let fallbackSize = CGSize(width: min(300, maxDims.width), height: compactRowHeight)
-                            dimensionsMap[index] = WindowDimensions(size: fallbackSize, maxDimensions: maxDims)
+                            dimensionsMap[index] = placeholderDimensions(previewSize: defaultPreviewSize)
                         }
                     }
                 }
@@ -330,9 +323,9 @@ extension WindowPreviewHoverContainer {
                     }
                     dimensionsMap[index] = WindowDimensions(size: windowSize, maxDimensions: maxDims)
                 } else {
-                    let compactRowHeight: CGFloat = 36
-                    let fallbackSize = CGSize(width: min(300, maxDims.width), height: compactRowHeight)
-                    dimensionsMap[index] = WindowDimensions(size: fallbackSize, maxDimensions: maxDims)
+                    dimensionsMap[index] = placeholderDimensions(previewSize: CGSize(
+                        width: Defaults[.previewWidth], height: Defaults[.previewHeight]
+                    ))
                 }
             }
         } else {
