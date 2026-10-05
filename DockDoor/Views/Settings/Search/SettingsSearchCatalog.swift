@@ -1274,6 +1274,30 @@ enum SettingsSearchCatalog {
             icon: "app"
         ),
         SettingsSearchItem(
+            id: "appearance.switcherShowAppIconBadges",
+            title: String(localized: "Show App Icon Badges"),
+            keywords: ["badge", "notification", "count", "app", "icon", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
+            icon: "app.badge"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherShowCompactAppIconBadges",
+            title: String(localized: "Show App Icon Badges in Compact Mode"),
+            keywords: ["badge", "notification", "count", "app", "icon", "compact", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
+            icon: "app.badge"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherAppIconBadgeSize",
+            title: String(localized: "Badge Size"),
+            keywords: ["badge", "notification", "size", "scale", "app", "icon", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
+            icon: "app.badge"
+        ),
+        SettingsSearchItem(
             id: "appearance.switcherControlPosition",
             title: String(localized: "Position Window Controls"),
             description: String(localized: "Position of window controls in the switcher."),

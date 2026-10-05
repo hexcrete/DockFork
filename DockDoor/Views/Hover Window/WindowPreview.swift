@@ -458,6 +458,9 @@ struct PreviewAppearanceSettings: Equatable {
     let enabledTrafficLightButtons: Set<WindowAction>
     let useMonochromeTrafficLights: Bool
     let showAppHeader: Bool
+    let showAppIconBadges: Bool
+    let showCompactAppIconBadges: Bool
+    let appIconBadgeScale: CGFloat
     let showWindowTitle: Bool
     let windowTitleVisibility: WindowTitleVisibility
     let controlPosition: WindowSwitcherControlPosition
@@ -565,6 +568,7 @@ struct PreviewAppearanceSettings: Equatable {
         .enabledTrafficLightButtons, .switcherEnabledTrafficLightButtons, .cmdTabEnabledTrafficLightButtons,
         .useMonochromeTrafficLights, .switcherUseMonochromeTrafficLights, .cmdTabUseMonochromeTrafficLights,
         .switcherShowAppHeader,
+        .switcherShowAppIconBadges, .switcherShowCompactAppIconBadges, .switcherAppIconBadgeScale,
         .showWindowTitle, .switcherShowWindowTitle, .cmdTabShowWindowTitle,
         .windowTitleVisibility, .switcherWindowTitleVisibility, .cmdTabWindowTitleVisibility,
         .dockPreviewControlPosition, .windowSwitcherControlPosition, .cmdTabControlPosition,
@@ -609,6 +613,9 @@ struct PreviewAppearanceSettings: Equatable {
             enabledTrafficLightButtons: pick(.enabledTrafficLightButtons, switcher: .switcherEnabledTrafficLightButtons, cmdTab: .cmdTabEnabledTrafficLightButtons),
             useMonochromeTrafficLights: pick(.useMonochromeTrafficLights, switcher: .switcherUseMonochromeTrafficLights, cmdTab: .cmdTabUseMonochromeTrafficLights),
             showAppHeader: windowSwitcherActive ? Defaults[.switcherShowAppHeader] : true,
+            showAppIconBadges: windowSwitcherActive && Defaults[.switcherShowAppIconBadges],
+            showCompactAppIconBadges: windowSwitcherActive && Defaults[.switcherShowCompactAppIconBadges],
+            appIconBadgeScale: Defaults[.switcherAppIconBadgeScale],
             showWindowTitle: pick(.showWindowTitle, switcher: .switcherShowWindowTitle, cmdTab: .cmdTabShowWindowTitle),
             windowTitleVisibility: pick(.windowTitleVisibility, switcher: .switcherWindowTitleVisibility, cmdTab: .cmdTabWindowTitleVisibility),
             controlPosition: pick(.dockPreviewControlPosition, switcher: .windowSwitcherControlPosition, cmdTab: .cmdTabControlPosition),
@@ -1513,10 +1520,14 @@ struct WindowPreview: View, Equatable {
 
         let appIconContent = Group {
             if let appIcon = windowInfo.app.icon {
-                Image(nsImage: appIcon)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: appIconSize, height: appIconSize)
+                PreviewAppIcon(
+                    icon: appIcon,
+                    bundleURL: windowInfo.app.bundleURL,
+                    size: appIconSize,
+                    showBadge: windowSwitcherActive && appearance.showAppIconBadges,
+                    badgeScale: appearance.appIconBadgeScale,
+                    mockPreviewActive: mockPreviewActive
+                )
             }
         }
 

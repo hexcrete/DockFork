@@ -2,6 +2,45 @@ import Cocoa
 @testable import DockDoor
 import Testing
 
+struct AppIconBadgeLayoutTests {
+    @Test func badgeSettingsParticipateInLiveAppearanceUpdates() {
+        let observedNames = Set(PreviewAppearanceSettings.observedKeys.map(\.name))
+        for name in ["switcherShowAppIconBadges", "switcherShowCompactAppIconBadges", "switcherAppIconBadgeScale"] {
+            #expect(observedNames.contains(name))
+        }
+    }
+
+    @Test func emptyDockLabelsDoNotProduceBadges() {
+        #expect(AppIconBadgeLayout.normalizedLabel(nil) == nil)
+        #expect(AppIconBadgeLayout.normalizedLabel(" \n ") == nil)
+        #expect(AppIconBadgeLayout.normalizedLabel(" 12 ") == "12")
+        #expect(AppIconBadgeLayout.normalizedLabel("•") == "•")
+    }
+
+    @Test func badgesStayInsideEverySupportedIconSize() {
+        for size: CGFloat in [16, 24, 28, 35, 48, 64] {
+            for scale: CGFloat in [0.75, 1, 1.5] {
+                for label in ["1", "12", "999+", "Very long badge label"] {
+                    let layout = AppIconBadgeLayout(iconSize: size, scale: scale, label: label)
+                    #expect(layout.width <= size)
+                    #expect(layout.height <= size)
+                    #expect(layout.width >= layout.height)
+                    #expect(layout.height > 0)
+                }
+            }
+        }
+    }
+
+    @Test func sizeSettingScalesBadgesAndClampsInvalidPreferences() {
+        let small = AppIconBadgeLayout(iconSize: 35, scale: 0.75, label: "3")
+        let large = AppIconBadgeLayout(iconSize: 35, scale: 1.5, label: "3")
+        #expect(large.height == small.height * 2)
+        #expect(AppIconBadgeLayout(iconSize: 35, scale: .nan, label: "3").height.isFinite)
+        #expect(AppIconBadgeLayout(iconSize: 35, scale: 100, label: "3").height <= 35)
+        #expect(AppIconBadgeLayout(iconSize: .infinity, scale: 1, label: "3").width == 0)
+    }
+}
+
 struct TrafficLightButtonsVisibilityTests {
     @Test func hoverOnlyButtonsFollowTheCardHighlight() {
         for visibility in [TrafficLightButtonsVisibility.dimmedOnPreviewHover, .fullOpacityOnPreviewHover] {

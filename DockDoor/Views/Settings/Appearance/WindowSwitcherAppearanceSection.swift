@@ -7,6 +7,9 @@ struct WindowSwitcherAppearanceSection: View {
     @Default(.switcherShowWindowTitle) var switcherShowWindowTitle
     @Default(.switcherWindowTitleVisibility) var switcherWindowTitleVisibility
     @Default(.switcherAppIconSize) var switcherAppIconSize
+    @Default(.switcherShowAppIconBadges) private var switcherShowAppIconBadges
+    @Default(.switcherShowCompactAppIconBadges) private var switcherShowCompactAppIconBadges
+    @Default(.switcherAppIconBadgeScale) private var switcherAppIconBadgeScale
     @Default(.switcherTrafficLightButtonsVisibility) var switcherTrafficLightButtonsVisibility
     @Default(.switcherEnabledTrafficLightButtons) var switcherEnabledTrafficLightButtons
     @Default(.switcherUseMonochromeTrafficLights) var switcherUseMonochromeTrafficLights
@@ -68,6 +71,25 @@ struct WindowSwitcherAppearanceSection: View {
                     }
                 }
                 .settingsSearchTarget("appearance.switcherAppIconSize")
+            }
+
+            Toggle("Show App Icon Badges", isOn: $switcherShowAppIconBadges)
+                .disabled(!switcherShowAppHeader)
+                .settingsSearchTarget("appearance.switcherShowAppIconBadges")
+
+            Toggle("Show App Icon Badges in Compact Mode", isOn: $switcherShowCompactAppIconBadges)
+                .settingsSearchTarget("appearance.switcherShowCompactAppIconBadges")
+
+            if (switcherShowAppHeader && switcherShowAppIconBadges) || switcherShowCompactAppIconBadges {
+                sliderSetting(
+                    title: "Badge Size",
+                    value: $switcherAppIconBadgeScale,
+                    range: 0.75 ... 1.5,
+                    step: 0.05,
+                    unit: "",
+                    formatter: NumberFormatter.percentFormatter
+                )
+                .settingsSearchTarget("appearance.switcherAppIconBadgeSize")
             }
 
             Divider().padding(.vertical, 2)

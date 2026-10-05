@@ -138,10 +138,14 @@ struct WindowlessAppPreview: View, Equatable {
         let appIconSize = switcherAppIconSize(hasSecondaryLabel: hasSecondaryLabel)
 
         if let appIcon = windowInfo.app.icon {
-            Image(nsImage: appIcon)
-                .resizable()
-                .scaledToFit()
-                .frame(width: appIconSize, height: appIconSize)
+            PreviewAppIcon(
+                icon: appIcon,
+                bundleURL: windowInfo.app.bundleURL,
+                size: appIconSize,
+                showBadge: windowSwitcherActive && appearance.showAppIconBadges,
+                badgeScale: appearance.appIconBadgeScale,
+                mockPreviewActive: mockPreviewActive
+            )
         }
     }
 

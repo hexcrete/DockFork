@@ -53,6 +53,9 @@ struct SettingsMockPreview: View {
     @Default(.switcherEnabledTrafficLightButtons) private var switcherEnabledTrafficLightButtons
     @Default(.switcherUseMonochromeTrafficLights) private var switcherUseMonochrome
     @Default(.switcherShowAppHeader) private var switcherShowAppHeader
+    @Default(.switcherShowAppIconBadges) private var switcherShowAppIconBadges
+    @Default(.switcherShowCompactAppIconBadges) private var switcherShowCompactAppIconBadges
+    @Default(.switcherAppIconBadgeScale) private var switcherAppIconBadgeScale
     @Default(.switcherShowWindowTitle) private var switcherShowWindowTitle
     @Default(.switcherWindowTitleVisibility) private var switcherWindowTitleVisibility
     @Default(.switcherAppIconSize) private var switcherAppIconSize
@@ -282,6 +285,9 @@ struct SettingsMockPreview: View {
             enabledTrafficLightButtons: enabledButtons,
             useMonochromeTrafficLights: monochrome,
             showAppHeader: isWindowSwitcher ? switcherShowAppHeader : true,
+            showAppIconBadges: isWindowSwitcher && switcherShowAppIconBadges,
+            showCompactAppIconBadges: isWindowSwitcher && switcherShowCompactAppIconBadges,
+            appIconBadgeScale: switcherAppIconBadgeScale,
             showWindowTitle: showTitle,
             windowTitleVisibility: titleVisibility,
             controlPosition: controlPos,

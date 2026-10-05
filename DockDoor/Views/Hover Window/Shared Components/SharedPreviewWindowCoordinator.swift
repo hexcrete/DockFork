@@ -297,6 +297,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     func hideWindow(cancelPendingShow shouldCancelPendingShow: Bool = true) {
+        AppIconBadgeStore.shared.stop()
         if shouldCancelPendingShow {
             cancelPendingShow()
         }

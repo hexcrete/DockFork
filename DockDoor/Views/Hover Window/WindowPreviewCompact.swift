@@ -191,19 +191,14 @@ struct WindowPreviewCompact: View, Equatable {
         }
 
         HStack(spacing: 10) {
-            // App icon
-            if let appIcon = windowInfo.app.icon {
-                Image(nsImage: appIcon)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: appearance.compactModeItemSize.iconSize, height: appearance.compactModeItemSize.iconSize)
-            } else {
-                Image(systemName: "app.fill")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: appearance.compactModeItemSize.iconSize, height: appearance.compactModeItemSize.iconSize)
-                    .foregroundStyle(.secondary)
-            }
+            PreviewAppIcon(
+                icon: windowInfo.app.icon,
+                bundleURL: windowInfo.app.bundleURL,
+                size: appearance.compactModeItemSize.iconSize,
+                showBadge: windowSwitcherActive && appearance.showCompactAppIconBadges,
+                badgeScale: appearance.appIconBadgeScale,
+                mockPreviewActive: mockPreviewActive
+            )
 
             if appearance.showAppHeader {
                 // Title content based on format
