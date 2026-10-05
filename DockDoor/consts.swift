@@ -856,6 +856,7 @@ extension Defaults.Keys {
     static let windowTitlePosition = Key<WindowTitlePosition>("windowTitlePosition", default: .bottomLeft)
     static let titleOverflowStyle = Key<TitleOverflowStyle>("titleOverflowStyle", default: .truncateMiddle)
     static let windowTitleFontSize = Key<WindowTitleFontSize>("windowTitleFontSize", default: .system)
+    static let windowStateIndicatorFontSize = Key<WindowTitleFontSize>("windowStateIndicatorFontSize", default: .system)
     static let trafficLightButtonsVisibility = Key<TrafficLightButtonsVisibility>("trafficLightButtonsVisibility", default: .dimmedOnPreviewHover)
     static let trafficLightButtonsPosition = Key<TrafficLightButtonsPosition>("trafficLightButtonsPosition", default: .topLeft)
     static let enabledTrafficLightButtons = Key<Set<WindowAction>>("enabledTrafficLightButtons", default: [.quit, .close, .minimize, .toggleFullScreen])

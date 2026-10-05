@@ -108,6 +108,7 @@ struct SettingsMockPreview: View {
     @Default(.uniformCardRadius) private var uniformCardRadius
     @Default(.previewCornerRadius) private var previewCornerRadius
     @Default(.windowTitleFontSize) private var windowTitleFontSize
+    @Default(.windowStateIndicatorFontSize) private var windowStateIndicatorFontSize
     @Default(.trafficLightButtonScale) private var trafficLightButtonScale
 
     // MARK: - Compact mode settings
@@ -302,6 +303,7 @@ struct SettingsMockPreview: View {
             globalPaddingMultiplier: globalPaddingMultiplier,
             radii: CardRadius.Resolved(uniform: uniformCardRadius, base: previewCornerRadius, paddingMultiplier: globalPaddingMultiplier),
             windowTitleFontSize: windowTitleFontSize,
+            windowStateIndicatorFontSize: windowStateIndicatorFontSize,
             switcherAppIconSize: isWindowSwitcher ? switcherAppIconSize : 0,
             trafficLightButtonScale: trafficLightButtonScale,
             livePreviewQuality: quality,

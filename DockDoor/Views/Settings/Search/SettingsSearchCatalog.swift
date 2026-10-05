@@ -959,6 +959,14 @@ enum SettingsSearchCatalog {
             icon: "textformat.size"
         ),
         SettingsSearchItem(
+            id: "appearance.windowStateIndicatorFontSize",
+            title: String(localized: "Window State / Space Number Indicator Font Size"),
+            keywords: ["font", "size", "state", "status", "space", "number", "indicator", "dock", "switcher", "cmd tab"],
+            tab: "Appearance",
+            section: String(localized: "General Appearance"),
+            icon: "textformat.size"
+        ),
+        SettingsSearchItem(
             id: "appearance.unselectedOpacity",
             title: String(localized: "Unselected Content Opacity"),
             keywords: ["opacity", "unselected", "dim", "fade"],

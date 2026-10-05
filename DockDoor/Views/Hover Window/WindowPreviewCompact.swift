@@ -141,6 +141,7 @@ struct WindowPreviewCompact: View, Equatable {
                     number: spaceNumber,
                     stateSymbols: indicatorStateSymbols,
                     disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
+                    fontSize: appearance.windowStateIndicatorFontSize,
                     backgroundAppearance: backgroundAppearance,
                     highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator &&
                         spaceNumber.map(currentSpaceNumbers.contains) == true,
@@ -264,7 +265,7 @@ struct WindowPreviewCompact: View, Equatable {
         }
         .animation(nil, value: showTrafficLightButtons)
         .padding(.vertical, 8)
-        .frame(width: rowWidth, height: appearance.compactModeItemSize.rowHeight, alignment: .leading)
+        .frame(width: rowWidth, height: appearance.compactRowHeight(hasWindowStateIndicator: hasWindowStateIndicator), alignment: .leading)
         .clipShape(CompactRowContentClip(trailingOverflow: max(0, -controlsTrailingInset)))
         .previewCardChrome(
             uniformCardRadius: uniformCardRadius,

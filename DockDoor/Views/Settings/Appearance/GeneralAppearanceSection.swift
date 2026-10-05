@@ -7,6 +7,7 @@ struct GeneralAppearanceSection: View {
     @Default(.globalPaddingMultiplier) var globalPaddingMultiplier
     @Default(.trafficLightButtonScale) var trafficLightButtonScale
     @Default(.windowTitleFontSize) var windowTitleFontSize
+    @Default(.windowStateIndicatorFontSize) private var windowStateIndicatorFontSize
     @Default(.unselectedContentOpacity) var unselectedContentOpacity
     @Default(.titleOverflowStyle) var titleOverflowStyle
     @Default(.dimMinimizedHiddenPreviews) var dimMinimizedHiddenPreviews
@@ -64,6 +65,13 @@ struct GeneralAppearanceSection: View {
                     }
                 }
                 .settingsSearchTarget("appearance.windowTitleFontSize")
+
+                Picker(String(localized: "Window State / Space Number Indicator Font Size"), selection: $windowStateIndicatorFontSize) {
+                    ForEach(WindowTitleFontSize.allCases) { size in
+                        Text(size.localizedName).tag(size)
+                    }
+                }
+                .settingsSearchTarget("appearance.windowStateIndicatorFontSize")
 
                 sliderSetting(
                     title: "Unselected Content Opacity",

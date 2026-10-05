@@ -19,6 +19,23 @@ struct TrafficLightButtonsVisibilityTests {
     }
 }
 
+struct WindowStateIndicatorFontSizeTests {
+    @Test func defaultFontPreservesExistingIndicatorHeights() {
+        #expect(WindowStateIndicator.controlHeight(disableDockStyling: true, fontSize: .system) == 24)
+        #expect(WindowStateIndicator.controlHeight(disableDockStyling: false, fontSize: .system) == 22 + 2 * MaterialPillStyle.verticalPadding)
+    }
+
+    @Test func largerFontsExpandBothIndicatorStyles() {
+        for unstyled in [false, true] {
+            let defaultHeight = WindowStateIndicator.controlHeight(disableDockStyling: unstyled, fontSize: .system)
+            for size in WindowTitleFontSize.allCases {
+                #expect(WindowStateIndicator.controlHeight(disableDockStyling: unstyled, fontSize: size) >= defaultHeight)
+            }
+            #expect(WindowStateIndicator.controlHeight(disableDockStyling: unstyled, fontSize: .title) > defaultHeight)
+        }
+    }
+}
+
 struct WindowTitlePresentationTests {
     @Test func hoveringTitleReservesSpaceBeforeTheCardIsHighlighted() {
         let presentation = WindowTitlePresentation.resolve(

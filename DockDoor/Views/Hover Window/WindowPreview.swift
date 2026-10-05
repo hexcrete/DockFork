@@ -356,30 +356,50 @@ extension View {
 
 struct WindowStateIndicator: View {
     static let unstyledControlLineHeight: CGFloat = 24
-    private static let styledBadgeMinimumSize = CGSize(width: 14, height: 14)
+    private static let styledBadgeMinimumSize: CGFloat = 14
     private static let styledContentPadding: CGFloat = 4
 
-    static func controlHeight(disableDockStyling: Bool) -> CGFloat {
+    private struct FontMetrics {
+        let pointSize: CGFloat
+        let lineHeight: CGFloat
+
+        var circleSize: CGFloat { max(18, lineHeight + 4) }
+        var styledMinimumSize: CGFloat { max(styledBadgeMinimumSize, lineHeight) }
+        var unstyledHeight: CGFloat { max(unstyledControlLineHeight, circleSize + 6) }
+    }
+
+    private static let fontMetrics = Dictionary(uniqueKeysWithValues: WindowTitleFontSize.allCases.map { size in
+        let pointSize: CGFloat = size == .system ? 10 : NSFont.preferredFont(forTextStyle: size.appKitTextStyle, options: [:]).pointSize
+        let font = NSFont.systemFont(ofSize: pointSize, weight: .semibold)
+        return (size, FontMetrics(pointSize: pointSize, lineHeight: ceil(font.ascender - font.descender + font.leading)))
+    })
+
+    static func controlHeight(disableDockStyling: Bool, fontSize: WindowTitleFontSize) -> CGFloat {
+        let metrics = fontMetrics[fontSize]!
         if disableDockStyling {
-            return unstyledControlLineHeight
+            return metrics.unstyledHeight
         }
-        return styledBadgeMinimumSize.height + 2 * styledContentPadding + 2 * MaterialPillStyle.verticalPadding
+        return metrics.styledMinimumSize + 2 * styledContentPadding + 2 * MaterialPillStyle.verticalPadding
     }
 
     let number: Int?
     let stateSymbols: [String]
     let disableDockStyling: Bool
+    let fontSize: WindowTitleFontSize
     let backgroundAppearance: BackgroundAppearance
     let highlightsCurrentSpace: Bool
     let highlightColor: Color
     let highlightOpacity: Double
     let activeBorderColor: Color
 
+    private var metrics: FontMetrics { Self.fontMetrics[fontSize]! }
+    private var indicatorFont: Font { .system(size: metrics.pointSize, weight: .semibold, design: .rounded) }
+
     @ViewBuilder
     private func badgeContent(minimumWidth: CGFloat?, minimumHeight: CGFloat) -> some View {
         if let number {
             Text("\(number)")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .font(indicatorFont)
                 .monospacedDigit()
                 .foregroundStyle(.primary)
                 .frame(minWidth: minimumWidth, minHeight: minimumHeight)
@@ -391,7 +411,7 @@ struct WindowStateIndicator: View {
     private func stateIcons() -> some View {
         ForEach(stateSymbols, id: \.self) { symbol in
             Image(systemName: symbol)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .font(indicatorFont)
                 .foregroundStyle(.primary)
         }
     }
@@ -401,7 +421,7 @@ struct WindowStateIndicator: View {
             if disableDockStyling {
                 HStack(spacing: 4) {
                     if number != nil {
-                        badgeContent(minimumWidth: 18, minimumHeight: 18)
+                        badgeContent(minimumWidth: metrics.circleSize, minimumHeight: metrics.circleSize)
                             .overlay {
                                 Capsule().strokeBorder(
                                     highlightsCurrentSpace ? activeBorderColor : .secondary,
@@ -411,15 +431,15 @@ struct WindowStateIndicator: View {
                     }
                     stateIcons()
                 }
-                .frame(height: Self.unstyledControlLineHeight)
+                .frame(height: metrics.unstyledHeight)
             } else {
                 HStack(spacing: 4) {
                     badgeContent(minimumWidth: nil, minimumHeight: 0)
                     stateIcons()
                 }
                 .frame(
-                    minWidth: Self.styledBadgeMinimumSize.width,
-                    minHeight: Self.styledBadgeMinimumSize.height
+                    minWidth: metrics.styledMinimumSize,
+                    minHeight: metrics.styledMinimumSize
                 )
                 .padding(Self.styledContentPadding)
                 .materialPill(
@@ -459,6 +479,7 @@ struct PreviewAppearanceSettings: Equatable {
     let globalPaddingMultiplier: CGFloat
     let radii: CardRadius.Resolved
     let windowTitleFontSize: WindowTitleFontSize
+    let windowStateIndicatorFontSize: WindowTitleFontSize
     let switcherAppIconSize: CGFloat
     let trafficLightButtonScale: CGFloat
     let livePreviewQuality: LivePreviewQuality
@@ -500,20 +521,28 @@ struct PreviewAppearanceSettings: Equatable {
         useEmbeddedElements && disableDockStyleWindowStateIndicator
     }
 
+    var windowStateIndicatorControlHeight: CGFloat {
+        WindowStateIndicator.controlHeight(disableDockStyling: disableDockStyleWindowStateIndicator, fontSize: windowStateIndicatorFontSize)
+    }
+
+    func compactRowHeight(hasWindowStateIndicator: Bool) -> CGFloat {
+        max(compactModeItemSize.rowHeight, hasWindowStateIndicator ? windowStateIndicatorControlHeight + 2 : 0)
+    }
+
     func compactControlAlignmentEdgeInset(
         hasWindowStateIndicator: Bool,
         hasTrafficLightButtons: Bool,
         windowStateIndicatorIsOutermost: Bool
     ) -> CGFloat {
         let outerControlHeight: CGFloat? = if windowStateIndicatorIsOutermost {
-            WindowStateIndicator.controlHeight(disableDockStyling: disableDockStyleWindowStateIndicator)
+            windowStateIndicatorControlHeight
         } else if hasTrafficLightButtons {
             TrafficLightButtons.controlHeight(
                 buttonScale: trafficLightButtonScale,
                 pillStyling: !disableDockStyleTrafficLights
             )
         } else if hasWindowStateIndicator {
-            WindowStateIndicator.controlHeight(disableDockStyling: disableDockStyleWindowStateIndicator)
+            windowStateIndicatorControlHeight
         } else {
             nil
         }
@@ -526,7 +555,7 @@ struct PreviewAppearanceSettings: Equatable {
         let pillInsetReduction: CGFloat = outerControlUsesPill ? 1 : 0
         let edgeInset = max(
             0,
-            (compactModeItemSize.rowHeight - outerControlHeight) / 2 - pillInsetReduction + opticalInset
+            (compactRowHeight(hasWindowStateIndicator: hasWindowStateIndicator) - outerControlHeight) / 2 - pillInsetReduction + opticalInset
         )
         return max(-CGFloat(CardRadius.innerPadding), edgeInset - CGFloat(CardRadius.innerPadding))
     }
@@ -558,7 +587,7 @@ struct PreviewAppearanceSettings: Equatable {
         .keepPreviewOnHoverActivation,
         .showActiveWindowBorder, .activeAppIndicatorColor, .showAnimations, .globalPaddingMultiplier,
         .uniformCardRadius, .previewCornerRadius,
-        .windowTitleFontSize, .switcherAppIconSize, .trafficLightButtonScale,
+        .windowTitleFontSize, .windowStateIndicatorFontSize, .switcherAppIconSize, .trafficLightButtonScale,
         .previewWidth, .compactModeWidth, .compactModeTitleFormat, .compactModeItemSize, .compactModeHideTrafficLights,
         .showWindowlessAppQuitButton, .titleOverflowStyle,
     ]
@@ -601,6 +630,7 @@ struct PreviewAppearanceSettings: Equatable {
             globalPaddingMultiplier: Defaults[.globalPaddingMultiplier],
             radii: .current(),
             windowTitleFontSize: Defaults[.windowTitleFontSize],
+            windowStateIndicatorFontSize: Defaults[.windowStateIndicatorFontSize],
             switcherAppIconSize: Defaults[.switcherAppIconSize],
             trafficLightButtonScale: Defaults[.trafficLightButtonScale],
             livePreviewQuality: pick(.dockLivePreviewQuality, switcher: .windowSwitcherLivePreviewQuality),
@@ -708,7 +738,7 @@ private extension WindowTitleFontSize {
         Self.measuredLineHeights[self] ?? Self.bodyLineHeight
     }
 
-    private var appKitTextStyle: NSFont.TextStyle {
+    var appKitTextStyle: NSFont.TextStyle {
         switch self {
         case .system, .subheadline: .subheadline
         case .caption2: .caption2
@@ -854,6 +884,7 @@ struct WindowPreview: View, Equatable {
                     number: spaceNumber,
                     stateSymbols: stateSymbols,
                     disableDockStyling: appearance.disableDockStyleWindowStateIndicator,
+                    fontSize: appearance.windowStateIndicatorFontSize,
                     backgroundAppearance: backgroundAppearance,
                     highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator &&
                         spaceNumber.map(currentSpaceNumbers.contains) == true,
@@ -882,7 +913,7 @@ struct WindowPreview: View, Equatable {
             (!hasAdjacentControl || controlsAreLeading != controlsComeFirst)
         let opticalEdgeInset: CGFloat = stateIndicatorIsOutermost && appearance.disableDockStyleWindowStateIndicator ? 2 : 0
         let stateIndicatorHeight = hasWindowStateIndicator
-            ? WindowStateIndicator.controlHeight(disableDockStyling: appearance.disableDockStyleWindowStateIndicator)
+            ? appearance.windowStateIndicatorControlHeight
             : nil
         let clusterHeight = max(stateIndicatorHeight ?? 0, adjacentControlHeight ?? 0)
         let outerControlHeight = stateIndicatorIsOutermost ? stateIndicatorHeight : adjacentControlHeight
@@ -911,7 +942,7 @@ struct WindowPreview: View, Equatable {
 
     private func controlClusterHeight(adjacentControlHeight: CGFloat?) -> CGFloat? {
         let stateIndicatorHeight = hasWindowStateIndicator
-            ? WindowStateIndicator.controlHeight(disableDockStyling: appearance.disableDockStyleWindowStateIndicator)
+            ? appearance.windowStateIndicatorControlHeight
             : nil
         guard stateIndicatorHeight != nil || adjacentControlHeight != nil else { return nil }
         return max(stateIndicatorHeight ?? 0, adjacentControlHeight ?? 0)
