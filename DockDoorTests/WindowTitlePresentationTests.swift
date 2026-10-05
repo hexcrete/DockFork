@@ -3,6 +3,25 @@ import Defaults
 @testable import DockDoor
 import Testing
 
+struct MissingWindowImageRecoveryTests {
+    @Test func missingScreenshotsAreRetriedRegardlessOfProvider() {
+        for hasSCWindow in [false, true] {
+            for missingOnly in [false, true] {
+                #expect(WindowUtil.shouldRefreshCachedWindowImage(hasImage: false, hasSCWindow: hasSCWindow, isFresh: false, missingOnly: missingOnly))
+            }
+        }
+    }
+
+    @Test func targetedRecoveryLeavesExistingScreenshotsAlone() {
+        for hasSCWindow in [false, true] {
+            #expect(!WindowUtil.shouldRefreshCachedWindowImage(hasImage: true, hasSCWindow: hasSCWindow, isFresh: false, missingOnly: true))
+            #expect(!WindowUtil.shouldRefreshCachedWindowImage(hasImage: true, hasSCWindow: hasSCWindow, isFresh: true, missingOnly: false))
+        }
+        #expect(WindowUtil.shouldRefreshCachedWindowImage(hasImage: true, hasSCWindow: false, isFresh: false, missingOnly: false))
+        #expect(!WindowUtil.shouldRefreshCachedWindowImage(hasImage: true, hasSCWindow: true, isFresh: false, missingOnly: false))
+    }
+}
+
 struct PreviewFocusFadePolicyTests {
     @Test func fadingRequiresAnEnabledVisibleFullSizePreview() {
         #expect(PreviewFocusFadePolicy.canFade(enabled: true, hoverAction: .previewFullSize, containerVisible: true,

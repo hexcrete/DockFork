@@ -701,6 +701,10 @@ enum WindowUtil {
         })
     }
 
+    static func shouldRefreshCachedWindowImage(hasImage: Bool, hasSCWindow: Bool, isFresh: Bool, missingOnly: Bool) -> Bool {
+        !isFresh && (!hasImage || (!missingOnly && !hasSCWindow))
+    }
+
     // Track windows explicitly updated by bringWindowToFront to prevent observer duplication
     private static var timestampUpdates: [AXUIElement: Date] = [:]
     private static let updateTimestampLock = NSLock()
@@ -2252,6 +2256,8 @@ extension WindowUtil {
         // Discover windows via AX (minimized, hidden, other spaces, SCK-missed, or all when compact mode)
         await discoverNonSCKWindowsViaAX(app: app, sckWindowIDs: sckWindowIDs)
 
+        await refreshFallbackOrMissingWindowImages(for: app.processIdentifier, missingOnly: true)
+
         // Purify cache and return
         if let finalWindows = await WindowUtil.purifyAppCache(with: app.processIdentifier, removeAll: false) {
             guard ignoreSingleWindowFilter || !context.shouldIgnoreAppsWithSingleWindow || finalWindows.count > 1 else { return [] }
@@ -2350,7 +2356,7 @@ extension WindowUtil {
 
         // AX fallback
         _ = await discoverWindowsViaAX(app: app, restorePersistedOrder: restorePersistedOrder)
-        await refreshAXFallbackWindowImages(for: app.processIdentifier)
+        await refreshFallbackOrMissingWindowImages(for: app.processIdentifier)
     }
 
     static func removeNoninteractiveUntitledDialogs(
@@ -2443,12 +2449,11 @@ extension WindowUtil {
         // Purify cache and refresh images
         for pid in processedPIDs {
             _ = await purifyAppCache(with: pid, removeAll: false)
-            await refreshAXFallbackWindowImages(for: pid)
+            await refreshFallbackOrMissingWindowImages(for: pid)
         }
     }
 
-    /// Refresh images for windows discovered via AX fallback (no SCWindow available)
-    private static func refreshAXFallbackWindowImages(for pid: pid_t) async {
+    private static func refreshFallbackOrMissingWindowImages(for pid: pid_t, missingOnly: Bool = false) async {
         let windows = desktopSpaceWindowCacheManager.readCache(pid: pid)
         guard !windows.isEmpty else { return }
         guard shouldCaptureWindowImages() else { return }
@@ -2456,12 +2461,14 @@ extension WindowUtil {
         // Pre-compute fresh cached IDs to skip - use already-fetched windows
         let freshCachedIDs = freshCachedWindowIDs(for: pid, from: windows)
 
-        // Filter to AX-only windows with valid elements, removing invalid ones from cache
-        let axOnlyWindows = windows.filter { $0.scWindow == nil }
         var validWindows: [WindowInfo] = []
-        for window in axOnlyWindows {
-            // Skip windows with fresh cache
-            if freshCachedIDs.contains(window.id) { continue }
+        for window in windows where !window.isWindowlessApp {
+            guard shouldRefreshCachedWindowImage(
+                hasImage: window.image != nil,
+                hasSCWindow: window.scWindow != nil,
+                isFresh: freshCachedIDs.contains(window.id),
+                missingOnly: missingOnly
+            ) else { continue }
             if !isValidElement(window.axElement) {
                 desktopSpaceWindowCacheManager.removeFromCache(pid: pid, windowId: window.id)
             } else {
@@ -2472,10 +2479,19 @@ extension WindowUtil {
         // Process valid windows with limited concurrency
         await LimitedConcurrency.forEachNonThrowing(validWindows, maxConcurrent: 4, timeout: 10) { window in
             let image = try await captureWindowImage(windowID: window.id, pid: pid, windowTitle: window.windowName, forceRefresh: true)
-            var updated = window
-            updated.image = image
-            updated.spaceID = window.id.cgsSpaces().first.map { Int($0) } ?? updated.spaceID
-            updateDesktopSpaceWindowCache(with: updated)
+            guard !shouldRejectCapturedImage(image, for: window) else { return }
+            let capturedAt = Date()
+            // Update only the image; a capture must not restore stale window metadata or a removed row.
+            desktopSpaceWindowCacheManager.updateCache(pid: pid) { windowSet in
+                guard let cached = windowSet.first(where: { $0.id == window.id }),
+                      !missingOnly || cached.image == nil
+                else { return }
+                var updated = cached
+                updated.image = image
+                updated.imageCapturedTime = capturedAt
+                windowSet.remove(cached)
+                windowSet.insert(updated)
+            }
         }
     }
 
