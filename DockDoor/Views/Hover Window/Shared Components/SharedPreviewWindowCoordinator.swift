@@ -101,6 +101,13 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var isKeybindSessionActive = false
         var mouseIsWithinPreviewWindow = false
         var isPreviewFocusFadeMonitoring = false
+        var isNativeMenuTracking = false
+
+        func shouldDismissForOutsideClick(at location: CGPoint) -> Bool {
+            isVisible && !isNativeMenuTracking &&
+                !frame.insetBy(dx: HoverContainerPadding.container, dy: HoverContainerPadding.container).contains(location) &&
+                !(searchFrame?.contains(location) ?? false)
+        }
     }
 
     private let tapSnapshotLock = NSLock()
@@ -190,7 +197,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             hasSelection: windowSwitcherCoordinator.currIndex >= 0,
             isKeybindSessionActive: windowSwitcherCoordinator.isKeybindSessionActive,
             mouseIsWithinPreviewWindow: mouseIsWithinPreviewWindow,
-            isPreviewFocusFadeMonitoring: focusFadeLocalMonitor != nil
+            isPreviewFocusFadeMonitoring: focusFadeLocalMonitor != nil,
+            isNativeMenuTracking: !trackingMenus.isEmpty
         )
         tapSnapshotLock.lock()
         currentTapSnapshot = snapshot
@@ -360,6 +368,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     @objc private func focusFadeMenuOpened(_ notification: Notification) {
         guard let menu = notification.object as? NSMenu else { return }
         trackingMenus.insert(ObjectIdentifier(menu))
+        publishTapSnapshot()
         focusFadeTimer?.invalidate()
         focusFadeTimer = nil
         restorePreviewFocusOpacity()
@@ -368,6 +377,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     @objc private func focusFadeMenuClosed(_ notification: Notification) {
         guard let menu = notification.object as? NSMenu else { return }
         trackingMenus.remove(ObjectIdentifier(menu))
+        publishTapSnapshot()
         if trackingMenus.isEmpty, canRunPreviewFocusFade { registerPreviewFocusActivity() }
     }
 

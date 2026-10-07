@@ -13,6 +13,32 @@ struct PreviewControlAnimationTests {
     }
 }
 
+struct PreviewOutsideClickTests {
+    @Test func nativeMenuOwnsClicksOutsidePreviewUntilTrackingEnds() {
+        var snapshot = SharedPreviewWindowCoordinator.TapSnapshot()
+        snapshot.isVisible = true
+        snapshot.frame = CGRect(x: 100, y: 100, width: 400, height: 300)
+        let menuLocation = CGPoint(x: 600, y: 200)
+        #expect(snapshot.shouldDismissForOutsideClick(at: menuLocation))
+        snapshot.isNativeMenuTracking = true
+        #expect(!snapshot.shouldDismissForOutsideClick(at: menuLocation))
+        snapshot.isNativeMenuTracking = false
+        #expect(snapshot.shouldDismissForOutsideClick(at: menuLocation))
+    }
+
+    @Test func previewAndSearchClicksDoNotDismiss() {
+        var snapshot = SharedPreviewWindowCoordinator.TapSnapshot()
+        snapshot.isVisible = true
+        snapshot.frame = CGRect(x: 100, y: 100, width: 400, height: 300)
+        snapshot.searchFrame = CGRect(x: 100, y: 420, width: 400, height: 40)
+        #expect(!snapshot.shouldDismissForOutsideClick(at: CGPoint(x: 200, y: 200)))
+        #expect(!snapshot.shouldDismissForOutsideClick(at: CGPoint(x: 200, y: 440)))
+        #expect(snapshot.shouldDismissForOutsideClick(at: .zero))
+        snapshot.isVisible = false
+        #expect(!snapshot.shouldDismissForOutsideClick(at: .zero))
+    }
+}
+
 struct MissingWindowImageRecoveryTests {
     @Test func realWindowsUseFullCardsOutsideCompactMode() {
         for dockPosition: DockPosition in [.bottom, .left, .right, .cmdTab] {

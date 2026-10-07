@@ -1172,15 +1172,13 @@ class KeybindHelper {
             let isCmdTabActive = DockObserver.isCmdTabSwitcherActive
 
             let snapshot = previewCoordinator.tapSnapshot
+            if snapshot.isNativeMenuTracking {
+                return Unmanaged.passUnretained(event)
+            }
             let isWindowSwitcherActive = snapshot.isWindowSwitcherActive
             if snapshot.isVisible, isWindowSwitcherActive || isCmdTabActive {
                 let clickLocation = NSEvent.mouseLocation
-                let interactiveWindowFrame = snapshot.frame.insetBy(
-                    dx: HoverContainerPadding.container,
-                    dy: HoverContainerPadding.container
-                )
-                let isInSearchWindow = snapshot.searchFrame?.contains(clickLocation) ?? false
-                if interactiveWindowFrame.contains(clickLocation) || isInSearchWindow {
+                if !snapshot.shouldDismissForOutsideClick(at: clickLocation) {
                     let flags = event.flags
                     if flags.contains(.maskControl) {
                         var newFlags = flags
@@ -1193,6 +1191,7 @@ class KeybindHelper {
                         Defaults[.menuBarIconWindowSwitcherClick] == .leftClick
                     let dismissalDelay = waitsForMenuBarToggle ? 0.05 : 0
                     DispatchQueue.main.asyncAfter(deadline: .now() + dismissalDelay) {
+                        guard self.previewCoordinator.tapSnapshot.shouldDismissForOutsideClick(at: clickLocation) else { return }
                         if waitsForMenuBarToggle,
                            self.menuBarWindowSwitcherMouseDownTimestamp == clickTimestamp
                         {
