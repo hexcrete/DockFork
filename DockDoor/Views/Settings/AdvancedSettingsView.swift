@@ -339,9 +339,6 @@ struct AdvancedSettingsView: View {
                             .onSubmit {
                                 commitKeepAliveDurationText()
                             }
-                            .onChange(of: keepAliveDurationText) { _ in
-                                updateKeepAliveDurationFromText()
-                            }
                             .onChange(of: isKeepAliveFieldFocused) { focused in
                                 if focused {
                                     selectKeepAliveDuration()
@@ -349,16 +346,16 @@ struct AdvancedSettingsView: View {
                                     commitKeepAliveDurationText()
                                 }
                             }
-                        Text("seconds")
-                            .foregroundColor(livePreviewStreamKeepAlive > 0 ? .white : .primary)
+                        Button(action: { isKeepAliveFieldFocused = true }) {
+                            Text("seconds")
+                                .foregroundColor(livePreviewStreamKeepAlive > 0 ? .white : .primary)
+                        }
+                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 8)
                     .padding(.vertical, 3)
                     .background(livePreviewStreamKeepAlive > 0 ? Color.accentColor : Color.secondary.opacity(0.15))
                     .contentShape(Rectangle())
-                    .onTapGesture {
-                        selectKeepAliveDuration()
-                    }
 
                     Button(action: {
                         setKeepAliveMode(-1)
@@ -381,7 +378,9 @@ struct AdvancedSettingsView: View {
                 .onChange(of: livePreviewStreamKeepAlive) { newValue in
                     if newValue > 0 {
                         lastKeepAliveDuration = newValue
-                        keepAliveDurationText = "\(newValue)"
+                        if !isKeepAliveFieldFocused {
+                            keepAliveDurationText = "\(newValue)"
+                        }
                     }
                     if newValue == 0 {
                         Task { await LiveCaptureManager.stopAllIfInitialized() }
@@ -410,17 +409,8 @@ struct AdvancedSettingsView: View {
 
     private func selectKeepAliveDuration() {
         let duration = positiveKeepAliveDuration() ?? lastKeepAliveDuration
-        setKeepAliveMode(duration)
-    }
-
-    private func updateKeepAliveDurationFromText() {
-        guard let duration = positiveKeepAliveDuration() else { return }
-
         lastKeepAliveDuration = duration
-
-        if livePreviewStreamKeepAlive > 0 {
-            livePreviewStreamKeepAlive = duration
-        }
+        livePreviewStreamKeepAlive = duration
     }
 
     private func commitKeepAliveDurationText() {
