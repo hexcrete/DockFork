@@ -49,7 +49,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        migrateWindowStateIndicatorPlacement()
         applyAppearanceMode(Defaults[.appAppearanceMode])
         WindowUtil.setResizeRefreshDebounceDelays(
             programmaticMilliseconds: Self.resizeRefreshDelayMilliseconds(from: Defaults[.programmaticResizePreviewRefreshDelay]),
@@ -158,17 +157,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if hasPermission, !hadPermission, Defaults[.disableImagePreview] {
             Defaults[.disableImagePreview] = false
         }
-    }
-
-    private func migrateWindowStateIndicatorPlacement() {
-        guard !Defaults[.didMigrateWindowStateIndicatorPlacement] else { return }
-
-        if !Defaults[.dimMinimizedHiddenPreviews] {
-            Defaults[.dockPreviewWindowStateIndicatorPlacement] = .off
-            Defaults[.switcherWindowStateIndicatorPlacement] = .off
-            Defaults[.cmdTabWindowStateIndicatorPlacement] = .off
-        }
-        Defaults[.didMigrateWindowStateIndicatorPlacement] = true
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

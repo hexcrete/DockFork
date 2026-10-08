@@ -876,7 +876,6 @@ extension Defaults.Keys {
     static let useMonochromeTrafficLights = Key<Bool>("useMonochromeTrafficLights", default: false)
     static let trafficLightButtonScale = Key<CGFloat>("trafficLightButtonScale", default: 1.0)
     static let dimMinimizedHiddenPreviews = Key<Bool>("showMinimizedHiddenLabels", default: true)
-    static let didMigrateWindowStateIndicatorPlacement = Key<Bool>("didMigrateWindowStateIndicatorPlacement", default: false)
     static let showDockPreviewSpaceNumberIndicator = Key<Bool>("showDockPreviewSpaceNumberIndicator", default: true)
     static let highlightDockPreviewCurrentSpaceIndicator = Key<Bool>("highlightDockPreviewCurrentSpaceIndicator", default: false)
     static let dockPreviewWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("dockPreviewWindowStateIndicatorPlacement", default: .onWindowPreviews)
