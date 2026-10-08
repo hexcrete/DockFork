@@ -1,3 +1,16 @@
+## DockFork: A DockDoor Fork
+
+Based on **[DockDoor by ejbills](https://github.com/ejbills/DockDoor)**, with additional window-management features and reliability/UI fixes. Original attribution, licensing, and Git history are preserved.
+
+- **[DockFork Changes & Showcase](docs/fork/CHANGES_AND_SHOWCASE.md)**
+- [Complete fork commit ledger](docs/fork/COMMIT_LEDGER.md)
+- [Showcase capture checklist](docs/fork/SHOWCASE_CHECKLIST.md)
+- [Roadmap](docs/fork/ROADMAP.md)
+
+**Publication preparation:** a DockFork build script and release downloads are still being prepared. The original README below describes DockDoor; its downloads, update links, commercial app, and support links belong to upstream, not DockFork.
+
+---
+
 <a id="readme-top"></a>
 
 <div align="center">
