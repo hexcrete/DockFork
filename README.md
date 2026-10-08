@@ -40,6 +40,7 @@ Live window previews, Alt+Tab switching and keyboard controls for the Dock you a
     <li><a href="#features">Features</a></li>
     <li><a href="#privacy">Privacy</a></li>
     <li><a href="#dockdoor-pro">DockDoor Pro</a></li>
+    <li><a href="#works-with-dockdoor">Works with DockDoor</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
   </ol>
@@ -142,10 +143,23 @@ $20 one-time for 3 Macs. No subscription, 14-day money-back guarantee. If you us
 
 <p align="right"><a href="#readme-top">Back to top ⬆️</a></p>
 
+## Works with DockDoor
+
+<a href="https://parall.app"><img src="resources/web/parall-icon.webp" alt="Parall" width="64" align="left"/></a>
+
+**[Parall](https://parall.app)** runs multiple independent instances of the same Mac app, each with its own name and Dock icon. DockDoor and DockDoor Pro recognize apps opened through Parall, so each instance gets its own previews. DockDoor is listed as developer-supported on [Parall's compatibility list](https://parall.app/compatibility/).
+
+<br clear="left"/>
+
+More at [dockdoor.net/works-with](https://dockdoor.net/works-with).
+
+<p align="right"><a href="#readme-top">Back to top ⬆️</a></p>
+
 ## Contributing
 
 DockDoor is written almost entirely by one developer, with fixes, features and translations from the open-source community.
 
+- 📖 Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request
 - ⭐ [Star it on GitHub](https://github.com/ejbills/DockDoor) to help other people find it
 - 🐛 [Report a bug or ask for a feature](https://github.com/ejbills/DockDoor/issues)
 - 🌍 [Translate it on Crowdin](https://crowdin.com/project/dockdoor)
