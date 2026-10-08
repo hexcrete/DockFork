@@ -1367,7 +1367,11 @@ class KeybindHelper {
             }
             guard !Task.isCancelled else { return }
             lastFocusedActivationTask = nil
-            if !activated { NSSound.beep() }
+            if activated {
+                targetWindow.warpMouseToCenterIfNeeded()
+            } else {
+                NSSound.beep()
+            }
         }
     }
 
