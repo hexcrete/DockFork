@@ -2,10 +2,11 @@
 
 Based on **[DockDoor by ejbills](https://github.com/ejbills/DockDoor)**, with additional window-management features and reliability/UI fixes. Original attribution, licensing, and Git history are preserved.
 
-- **[DockFork Changes & Showcase](docs/fork/CHANGES_AND_SHOWCASE.md)**
-- [Complete fork commit ledger](docs/fork/COMMIT_LEDGER.md)
-- [Showcase capture checklist](docs/fork/SHOWCASE_CHECKLIST.md)
-- [Roadmap](docs/fork/ROADMAP.md)
+- **[DockFork Changes & Showcase](fork/docs/CHANGES_AND_SHOWCASE.md)**
+- [Complete fork commit ledger](fork/docs/COMMIT_LEDGER.md)
+- [Showcase capture checklist](fork/docs/SHOWCASE_CHECKLIST.md)
+- [Roadmap](fork/docs/ROADMAP.md)
+- [Optional showcase preferences and fork-only assets](fork/README.md)
 
 **Publication preparation:** a DockFork build script and release downloads are still being prepared. The original README below describes DockDoor; its downloads, update links, commercial app, and support links belong to upstream, not DockFork.
 

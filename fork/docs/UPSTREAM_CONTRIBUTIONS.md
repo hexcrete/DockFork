@@ -7,7 +7,7 @@ Publishing DockFork and submitting changes to DockDoor are separate activities. 
 ## Scope and Compatibility Gates
 
 - Discuss one proposed feature with the maintainer in an issue before preparing its contribution. Our existing implementation is a prototype for that discussion, not evidence of prior scope approval. Bug reports use the issue template too.
-- Prepare a focused branch against current upstream for each agreed issue or feature. Keep bug fixes, refactors, and features separate; omit fork branding, packaging, unrelated settings, and publication documentation.
+- Prepare a focused branch against current upstream for each agreed issue or feature. Keep bug fixes, refactors, and features separate; omit `fork/`, the fork-specific README introduction, unrelated settings, and publication material.
 - Retain every existing Defaults key and existing default. Introduce new keys when necessary; do not add migration code. Replacement of singular alternate-shortcut preferences and other preference-model changes need adaptation before submission. The main shortcut and traffic-light scale retain upstream defaults.
 - New settings default to the existing behavior. Verify that disabled features do not construct their own observers, event taps, timers, or singletons. Do not claim this property without reviewing the selected patch.
 - Reuse the existing event tap, manipulation observers, WindowUtil, cache, screen/coordinate helpers, and private-API bridges. Avoid duplicate infrastructure, unnecessary polling/global mouse monitors, and reading other apps' private files or databases.

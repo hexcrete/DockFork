@@ -9,6 +9,7 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Complete commit ledger](COMMIT_LEDGER.md): every branch-only commit in the audited history, grouped by category.
 - [Showcase capture checklist](SHOWCASE_CHECKLIST.md): choose which screenshots and recordings to publish.
 - [Roadmap](ROADMAP.md): future ideas, not shipped capabilities.
+- [Optional showcase preset](../README.md): privacy-reviewed preferences and import precautions.
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 

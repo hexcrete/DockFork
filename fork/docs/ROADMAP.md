@@ -8,6 +8,7 @@ These are future ideas, not shipped features or delivery promises. The [current 
 - Build DockFork with a distinct identity through a reproducible repository script; retain internal DockDoor naming.
 - Initially offer source and an ad-hoc-signed Apple Silicon build, with manual downloads rather than upstream auto-updates.
 - Export/import settings explicitly and document fresh permissions. Do not silently share DockDoor's preferences.
+- Offer `fork/presets/DockFork-Showcase.json` as an optional, separately downloaded release asset, never an automatically applied configuration.
 - Prepare small, dependency-aware upstream proposals only after discussing scope with the maintainer. Follow upstream's contribution and AI-disclosure rules; the human author reviews and writes submission text.
 - Apply the [upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md) to each proposed PR. Preserve upstream preferences/defaults, validate in Xcode, and require human-authored submission text; the complete fork is not a single upstream contribution.
 
