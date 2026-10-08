@@ -22,7 +22,18 @@ struct AppIconBadgeLayout {
 
 @MainActor
 final class AppIconBadgeStore: ObservableObject {
-    static let shared = AppIconBadgeStore()
+    private static var instance: AppIconBadgeStore?
+
+    static var shared: AppIconBadgeStore {
+        if let instance { return instance }
+        let store = AppIconBadgeStore()
+        instance = store
+        return store
+    }
+
+    static func stopIfInitialized() {
+        instance?.stop()
+    }
 
     @Published private(set) var labels: [URL: String] = [:]
     private var consumers: [UUID: URL] = [:]
