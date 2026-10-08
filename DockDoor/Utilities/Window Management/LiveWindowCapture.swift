@@ -9,20 +9,31 @@ private func keepAliveNanoseconds(for seconds: Int) -> UInt64 {
     return overflow ? .max : nanoseconds
 }
 
+enum LivePreviewContext: Hashable {
+    case dock
+    case windowSwitcher
+
+    var isEnabled: Bool {
+        guard Defaults[.enableLivePreview] else { return false }
+        return self == .dock ? Defaults[.enableLivePreviewForDock] : Defaults[.enableLivePreviewForWindowSwitcher]
+    }
+}
+
 struct LivePreviewImage: View {
     let windowID: CGWindowID
     let fallbackImage: CGImage?
     let quality: LivePreviewQuality
     let frameRate: LivePreviewFrameRate
+    let context: LivePreviewContext
     var placeholderIcon: NSImage? = nil
 
     var body: some View {
         let keepAlive = Defaults[.livePreviewStreamKeepAlive]
 
         if keepAlive != 0 {
-            LivePreviewImageCached(windowID: windowID, fallbackImage: fallbackImage, quality: quality, frameRate: frameRate, placeholderIcon: placeholderIcon)
+            LivePreviewImageCached(windowID: windowID, fallbackImage: fallbackImage, quality: quality, frameRate: frameRate, context: context, placeholderIcon: placeholderIcon)
         } else {
-            LivePreviewImageFresh(windowID: windowID, fallbackImage: fallbackImage, quality: quality, frameRate: frameRate, placeholderIcon: placeholderIcon)
+            LivePreviewImageFresh(windowID: windowID, fallbackImage: fallbackImage, quality: quality, frameRate: frameRate, context: context, placeholderIcon: placeholderIcon)
         }
     }
 }
@@ -36,13 +47,13 @@ private struct LivePreviewImageCached: View {
 
     @ObservedObject private var capture: WindowLiveCapture
 
-    init(windowID: CGWindowID, fallbackImage: CGImage?, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate, placeholderIcon: NSImage?) {
+    init(windowID: CGWindowID, fallbackImage: CGImage?, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate, context: LivePreviewContext, placeholderIcon: NSImage?) {
         self.windowID = windowID
         self.fallbackImage = fallbackImage
         self.quality = quality
         self.frameRate = frameRate
         self.placeholderIcon = placeholderIcon
-        capture = LiveCaptureManager.shared.getCapture(windowID: windowID, quality: quality, frameRate: frameRate)
+        capture = LiveCaptureManager.shared.getCapture(windowID: windowID, quality: quality, frameRate: frameRate, context: context)
     }
 
     var body: some View {
@@ -70,13 +81,13 @@ private struct LivePreviewImageFresh: View {
 
     @StateObject private var capture: WindowLiveCapture
 
-    init(windowID: CGWindowID, fallbackImage: CGImage?, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate, placeholderIcon: NSImage?) {
+    init(windowID: CGWindowID, fallbackImage: CGImage?, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate, context: LivePreviewContext, placeholderIcon: NSImage?) {
         self.windowID = windowID
         self.fallbackImage = fallbackImage
         self.quality = quality
         self.frameRate = frameRate
         self.placeholderIcon = placeholderIcon
-        _capture = StateObject(wrappedValue: WindowLiveCapture(windowID: windowID, quality: quality, frameRate: frameRate))
+        _capture = StateObject(wrappedValue: WindowLiveCapture(windowID: windowID, quality: quality, frameRate: frameRate, context: context))
     }
 
     var body: some View {
@@ -100,11 +111,46 @@ private struct LivePreviewImageFresh: View {
 
 @MainActor
 final class LiveCaptureManager {
-    static let shared = LiveCaptureManager()
+    private static var instance: LiveCaptureManager?
+
+    static var shared: LiveCaptureManager {
+        if let instance { return instance }
+        let manager = LiveCaptureManager()
+        instance = manager
+        return manager
+    }
+
+    static func stopAllIfInitialized() async {
+        await instance?.stopAllStreams()
+    }
+
+    static func removeIfInitialized(windowID: CGWindowID, capture: WindowLiveCapture) {
+        instance?.remove(windowID: windowID, capture: capture)
+    }
+
     private var captures: [CGWindowID: WindowLiveCapture] = [:]
     private var stopGeneration = 0
+    private var settingsObserver: Defaults.Observation?
 
     private init() {}
+
+    private func observeSettingsIfNeeded() {
+        guard settingsObserver == nil else { return }
+        settingsObserver = Defaults.observe(keys: .enableLivePreview, .enableLivePreviewForDock, .enableLivePreviewForWindowSwitcher, options: []) { [weak self] in
+            Task { @MainActor [weak self] in
+                await self?.stopDisabledStreams()
+            }
+        }
+    }
+
+    private func stopDisabledStreams() async {
+        let disabled = captures.values.filter { !$0.isEnabled }
+        // Invalidate every pending start before the first asynchronous stop.
+        let streams = disabled.compactMap { $0.prepareForCleanup() }
+        for stream in streams {
+            try? await stream.stopCapture()
+        }
+    }
 
     func panelOpened() {
         stopGeneration += 1
@@ -127,17 +173,20 @@ final class LiveCaptureManager {
 
         try? await Task.sleep(nanoseconds: keepAliveNanoseconds(for: keepAlive))
 
-        guard stopGeneration == generationAtClose else { return }
+        guard !Task.isCancelled, stopGeneration == generationAtClose else { return }
 
         await stopAllStreams()
     }
 
-    func getCapture(windowID: CGWindowID, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate) -> WindowLiveCapture {
+    func getCapture(windowID: CGWindowID, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate, context: LivePreviewContext) -> WindowLiveCapture {
+        stopGeneration += 1
+        observeSettingsIfNeeded()
         if let existing = captures[windowID] {
+            existing.addContext(context)
             return existing
         }
 
-        let capture = WindowLiveCapture(windowID: windowID, quality: quality, frameRate: frameRate)
+        let capture = WindowLiveCapture(windowID: windowID, quality: quality, frameRate: frameRate, context: context)
         captures[windowID] = capture
         return capture
     }
@@ -147,15 +196,25 @@ final class LiveCaptureManager {
         await capture.requestStop()
     }
 
-    func remove(windowID: CGWindowID) {
+    private func remove(windowID: CGWindowID, capture: WindowLiveCapture) {
+        guard captures[windowID] === capture else { return }
         captures.removeValue(forKey: windowID)
+        if captures.isEmpty {
+            settingsObserver?.invalidate()
+            settingsObserver = nil
+        }
     }
 
     func stopAllStreams() async {
-        for capture in captures.values {
-            await capture.stopAndCleanup()
-        }
+        stopGeneration += 1
+        let previousCaptures = Array(captures.values)
         captures.removeAll()
+        settingsObserver?.invalidate()
+        settingsObserver = nil
+        let streams = previousCaptures.compactMap { $0.prepareForCleanup() }
+        for stream in streams {
+            try? await stream.stopCapture()
+        }
     }
 }
 
@@ -163,38 +222,52 @@ final class LiveCaptureManager {
 final class WindowLiveCapture: ObservableObject {
     @Published var capturedImage: CGImage?
 
-    private let windowID: CGWindowID
+    let windowID: CGWindowID
     private let quality: LivePreviewQuality
     private let frameRate: LivePreviewFrameRate
     private var stream: SCStream?
     private var streamOutput: StreamOutput?
     private var stopGeneration = 0
+    private var captureGeneration = 0
+    private var contexts: Set<LivePreviewContext>
     private(set) var lastFrame: CGImage?
 
-    init(windowID: CGWindowID, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate) {
+    init(windowID: CGWindowID, quality: LivePreviewQuality, frameRate: LivePreviewFrameRate, context: LivePreviewContext) {
         self.windowID = windowID
         self.quality = quality
         self.frameRate = frameRate
+        contexts = [context]
+    }
+
+    var isEnabled: Bool {
+        contexts.contains { $0.isEnabled }
+    }
+
+    func addContext(_ context: LivePreviewContext) {
+        contexts.insert(context)
     }
 
     func startCapture() async {
         stopGeneration += 1
-        guard stream == nil else { return }
+        guard stream == nil, isEnabled, !Task.isCancelled else { return }
         guard WindowUtil.shouldCaptureWindowImages() else { return }
+        captureGeneration += 1
+        let generation = captureGeneration
 
         guard let content = await WindowUtil.getShareableContent(onScreenWindowsOnly: false),
               let scWindow = content.windows.first(where: { $0.windowID == windowID })
         else { return }
+        guard generation == captureGeneration, isEnabled, !Task.isCancelled else { return }
         guard WindowCandidateDiscriminator.hasUsableSize(scWindow.frame.size) else { return }
         guard !WindowCandidateDiscriminator.isLiveCaptureControlProxy(
             title: scWindow.title,
             size: scWindow.frame.size,
             level: Int32(scWindow.windowLayer)
         ) else { return }
-        await startStream(for: scWindow)
+        await startStream(for: scWindow, generation: generation)
     }
 
-    private func startStream(for window: SCWindow) async {
+    private func startStream(for window: SCWindow, generation: Int) async {
         let filter = SCContentFilter(desktopIndependentWindow: window)
 
         let config = SCStreamConfiguration()
@@ -254,14 +327,19 @@ final class WindowLiveCapture: ObservableObject {
 
             let output = StreamOutput { [weak self] image in
                 Task { @MainActor in
-                    self?.lastFrame = image
-                    self?.capturedImage = image
+                    guard let self, self.captureGeneration == generation else { return }
+                    self.lastFrame = image
+                    self.capturedImage = image
                 }
             }
 
             try newStream.addStreamOutput(output, type: .screen, sampleHandlerQueue: .global(qos: .userInteractive))
             try await newStream.startCapture()
 
+            guard captureGeneration == generation, isEnabled, !Task.isCancelled else {
+                try? await newStream.stopCapture()
+                return
+            }
             stream = newStream
             streamOutput = output
         } catch {
@@ -286,30 +364,41 @@ final class WindowLiveCapture: ObservableObject {
 
         try? await Task.sleep(nanoseconds: keepAliveNanoseconds(for: keepAlive))
 
-        guard stopGeneration == generationAtStop else { return }
+        guard !Task.isCancelled, stopGeneration == generationAtStop else { return }
 
         await stopAndCleanup()
     }
 
     func stopCapture() async {
-        guard let stream else { return }
-        try? await stream.stopCapture()
+        captureGeneration += 1
+        stopGeneration += 1
+        let stream = stream
         self.stream = nil
         streamOutput = nil
         capturedImage = nil
+        try? await stream?.stopCapture()
     }
 
     func stopAndCleanup() async {
-        guard let stream else { return }
+        let stream = prepareForCleanup()
+        try? await stream?.stopCapture()
+    }
+
+    fileprivate func prepareForCleanup() -> SCStream? {
+        captureGeneration += 1
+        stopGeneration += 1
+        let stream = stream
         streamOutput = nil
         self.stream = nil
         capturedImage = nil
         lastFrame = nil
-        try? await stream.stopCapture()
-        LiveCaptureManager.shared.remove(windowID: windowID)
+        LiveCaptureManager.removeIfInitialized(windowID: windowID, capture: self)
+        return stream
     }
 
     func forceStopNonBlocking() {
+        captureGeneration += 1
+        stopGeneration += 1
         guard let stream else { return }
         let streamToStop = stream
         self.stream = nil

@@ -223,11 +223,6 @@ struct AdvancedSettingsView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle(isOn: $enableLivePreview) { Text("Enable Live Preview (Video)") }
                     .settingsSearchTarget("advanced.livePreview")
-                    .onChange(of: enableLivePreview) { newValue in
-                        if !newValue {
-                            Task { await LiveCaptureManager.shared.stopAllStreams() }
-                        }
-                    }
                 Text("Window previews show live video instead of static screenshots. Uses ScreenCaptureKit for real-time capture.")
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -389,7 +384,7 @@ struct AdvancedSettingsView: View {
                         keepAliveDurationText = "\(newValue)"
                     }
                     if newValue == 0 {
-                        Task { await LiveCaptureManager.shared.stopAllStreams() }
+                        Task { await LiveCaptureManager.stopAllIfInitialized() }
                     }
                 }
 

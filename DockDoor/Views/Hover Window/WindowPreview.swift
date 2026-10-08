@@ -1091,7 +1091,7 @@ struct WindowPreview: View, Equatable {
             if skeletonMode {
                 Color.clear
             } else if useLivePreview {
-                LivePreviewImage(windowID: windowInfo.id, fallbackImage: windowInfo.image, quality: quality, frameRate: frameRate, placeholderIcon: windowInfo.image == nil ? windowInfo.app.icon : nil)
+                LivePreviewImage(windowID: windowInfo.id, fallbackImage: windowInfo.image, quality: quality, frameRate: frameRate, context: windowSwitcherActive ? .windowSwitcher : .dock, placeholderIcon: windowInfo.image == nil ? windowInfo.app.icon : nil)
             } else if let cgImage = windowInfo.image {
                 Image(decorative: cgImage, scale: 1.0)
                     .resizable()

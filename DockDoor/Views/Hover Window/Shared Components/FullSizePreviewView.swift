@@ -44,7 +44,7 @@ struct FullSizePreviewView: View {
             if fullSizePreviewOpacity > 0 {
                 Group {
                     if useLivePreview {
-                        LivePreviewImage(windowID: windowInfo.id, fallbackImage: windowInfo.image, quality: dockLivePreviewQuality, frameRate: dockLivePreviewFrameRate)
+                        LivePreviewImage(windowID: windowInfo.id, fallbackImage: windowInfo.image, quality: dockLivePreviewQuality, frameRate: dockLivePreviewFrameRate, context: .dock)
                             .aspectRatio(windowSize, contentMode: .fit)
                     } else if let image = windowInfo.image {
                         Image(decorative: image, scale: 1.0)
