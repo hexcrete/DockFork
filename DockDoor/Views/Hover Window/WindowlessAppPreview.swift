@@ -48,14 +48,6 @@ struct WindowlessAppPreview: View, Equatable {
         )
     }
 
-    private func switcherAppIconSize(hasSecondaryLabel: Bool) -> CGFloat {
-        if appearance.switcherAppIconSize > 0 {
-            return min(max(appearance.switcherAppIconSize, 16), 64)
-        }
-
-        return hasSecondaryLabel ? 35 : 20
-    }
-
     private func toolbarContent(isLeadingControls: Bool, showTitleContent: Bool, showControlsContent: Bool) -> some View {
         let shouldShowSubtitle = appearance.showWindowTitle &&
             (appearance.windowTitleVisibility == .alwaysVisible || isSelected || isHovering)
@@ -108,7 +100,7 @@ struct WindowlessAppPreview: View, Equatable {
 
     private func titleCluster(showSubtitle: Bool, iconOnRight: Bool, textOnRight: Bool) -> some View {
         PreviewTitleCluster(iconOnRight: iconOnRight) {
-            appIcon(hasSecondaryLabel: showSubtitle)
+            appIcon(windowTitleIsVisible: showSubtitle)
         } labels: {
             titleContent(
                 showSubtitle: showSubtitle,
@@ -134,8 +126,8 @@ struct WindowlessAppPreview: View, Equatable {
     }
 
     @ViewBuilder
-    private func appIcon(hasSecondaryLabel: Bool) -> some View {
-        let appIconSize = switcherAppIconSize(hasSecondaryLabel: hasSecondaryLabel)
+    private func appIcon(windowTitleIsVisible: Bool) -> some View {
+        let appIconSize = appearance.resolvedSwitcherAppIconSize(windowTitleIsVisible: windowTitleIsVisible)
 
         if let appIcon = windowInfo.app.icon {
             PreviewAppIcon(

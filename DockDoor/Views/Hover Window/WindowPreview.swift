@@ -504,6 +504,13 @@ struct PreviewAppearanceSettings: Equatable {
     let showWindowlessAppQuitButton: Bool
     let titleOverflowStyle: TitleOverflowStyle
 
+    func resolvedSwitcherAppIconSize(windowTitleIsVisible: Bool) -> CGFloat {
+        if switcherAppIconSize > 0 {
+            return min(max(switcherAppIconSize, 16), 64)
+        }
+        return windowTitleIsVisible ? 35 : 20
+    }
+
     var isDiagonalPosition: Bool {
         switch controlPosition {
         case .diagonalTopLeftBottomRight, .diagonalTopRightBottomLeft,
@@ -1043,14 +1050,6 @@ struct WindowPreview: View, Equatable {
             hasWindowStateIndicator
     }
 
-    private func switcherAppIconSize(hasSecondaryLabel: Bool) -> CGFloat {
-        if appearance.switcherAppIconSize > 0 {
-            return min(max(appearance.switcherAppIconSize, 16), 64)
-        }
-
-        return hasSecondaryLabel ? 35 : 20
-    }
-
     @ViewBuilder
     private func titleLabel(_ text: String, adaptsToAvailableWidth: Bool = false, scrolls: Bool = true) -> some View {
         switch appearance.titleOverflowStyle {
@@ -1491,7 +1490,7 @@ struct WindowPreview: View, Equatable {
         let hasWindowTitleLabel = shouldShowWindowTitle &&
             windowTitle?.isEmpty == false &&
             windowTitle != windowInfo.app.localizedName
-        let appIconSize = switcherAppIconSize(hasSecondaryLabel: hasWindowTitleLabel)
+        let appIconSize = appearance.resolvedSwitcherAppIconSize(windowTitleIsVisible: shouldShowWindowTitle)
         let configuredWindowTitle = appearance.showWindowTitle &&
             windowTitle?.isEmpty == false &&
             windowTitle != windowInfo.app.localizedName
