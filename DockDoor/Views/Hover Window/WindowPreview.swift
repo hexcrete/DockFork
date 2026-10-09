@@ -286,6 +286,7 @@ struct SpaceMoveIndicatorControl<Label: View>: View {
                 SpaceMoveMenuController.shared.present(for: window, dismissPreviews: dismissPreviews)
             } label: {
                 label
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .simultaneousGesture(TapGesture())
