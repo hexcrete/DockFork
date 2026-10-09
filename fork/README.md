@@ -38,6 +38,24 @@ The application's preference declarations supply these defaults for the added fe
 
 These are fallbacks for unset preferences, not a migration or forced configuration. Saved or imported choices take precedence; resetting the corresponding settings restores these defaults. The packaging overlay does not override them.
 
+### Stable Local Development Build
+
+```sh
+./fork/package.sh --dev
+# If multiple Apple Development certificates are available:
+./fork/package.sh --dev --signing-identity CERTIFICATE_SHA1
+```
+
+This local-only mode builds Debug with tracked working-tree source changes and uses your installed Apple Development certificate. With exactly one valid development identity, selection is automatic; otherwise select its SHA-1 from `security find-identity -v -p codesigning`. No account name or certificate fingerprint is stored in tracked files, and no certificates or private keys are exported. macOS may request access to the signing key.
+
+After successful build and signature verification, the script gracefully quits any running DockFork instance, replaces `fork/dist/dev/DockFork.app`, and launches that fixed app path. It does not quit DockDoor, clear preferences, or modify the source project. The whole `fork/dist/` directory is gitignored. Quit DockDoor yourself if it is running, to avoid competing shortcuts.
+
+Changing from ad-hoc signing may require granting permissions once again. Later builds should retain them while the signing certificate, designated requirement, bundle ID, and installed path remain compatible. Replacing or expiring the certificate, changing identity, or returning to an ad-hoc package can require approval again. A development certificate is not Developer ID distribution signing or notarization.
+
+Development mode creates no release ZIP and must not be distributed; its signature identifies your development account. Run the ordinary packaging command separately for the initial ad-hoc release workflow.
+
+The local Debug build, nested certificate-signature checks, fixed-path replacement, and launch have passed. Its designated requirement is certificate-based, not tied to a binary hash. Permission retention across subsequent builds still needs verification after granting access to this signed build.
+
 ### Release Assets and Validation
 
 Publish these together after testing the package:

@@ -6,27 +6,39 @@ output="$root/fork/dist"
 version=""
 prepare_only=false
 include_working_tree=false
+development=false
+signing_identity="-"
+configuration=Release
 
 usage() {
     cat <<'EOF'
 Usage: ./fork/package.sh [--output DIRECTORY] [--version X.Y.Z] [--prepare-only] [--include-working-tree]
+       ./fork/package.sh --dev [--signing-identity CERTIFICATE_SHA1]
 
 Build committed HEAD as an Apple Silicon, ad-hoc-signed DockFork release.
 Release mode performs no account, provisioning, installation, launch or publication operations.
 --prepare-only creates the patched source snapshot without building it.
 --include-working-tree includes tracked app/source changes for local testing only.
+--dev builds Debug with tracked source changes, certificate-signs, replaces and
+      launches the fixed local app at fork/dist/dev/DockFork.app. No release ZIP.
+--signing-identity selects a local Apple Development certificate for --dev.
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --output|--version)
+        --output|--version|--signing-identity)
             [[ $# -ge 2 && -n "$2" ]] || { usage >&2; exit 2; }
-            if [[ "$1" == --output ]]; then output="$2"; else version="$2"; fi
+            case "$1" in
+                --output) output="$2" ;;
+                --version) version="$2" ;;
+                --signing-identity) signing_identity="$2" ;;
+            esac
             shift 2
             ;;
         --prepare-only) prepare_only=true; shift ;;
         --include-working-tree) include_working_tree=true; shift ;;
+        --dev) development=true; shift ;;
         --help|-h) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
     esac
@@ -37,6 +49,28 @@ if [[ -n "$version" && ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     echo 'Version must be X.Y.Z.' >&2
     exit 2
 fi
+if $development; then
+    configuration=Debug
+    include_working_tree=true
+    identities=$(security find-identity -v -p codesigning | awk '/"Apple Development:/ {print $2}')
+    if [[ "$signing_identity" == - ]]; then
+        count=$(printf '%s\n' "$identities" | awk 'NF {count++} END {print count+0}')
+        [[ "$count" == 1 ]] || {
+            echo 'Choose one valid Apple Development certificate with --signing-identity SHA1.' >&2
+            exit 1
+        }
+        signing_identity="$identities"
+    fi
+    if [[ ! "$signing_identity" =~ ^[A-Fa-f0-9]{40}$ ]] || \
+        ! printf '%s\n' "$identities" | grep -Fxiq "$signing_identity"; then
+        echo 'The selected Apple Development signing identity is not available.' >&2
+        exit 1
+    fi
+elif [[ "$signing_identity" != - ]]; then
+    echo '--signing-identity is only supported with --dev; release signing remains ad-hoc.' >&2
+    exit 2
+fi
+
 commit=$(git -C "$root" rev-parse HEAD)
 short_commit=${commit:0:7}
 label="$short_commit"
@@ -45,7 +79,16 @@ mkdir -p "$output"
 output=$(cd "$output" && pwd)
 destination=$(mktemp -d "$output/DockFork-${label}-XXXXXX")
 work=$(mktemp -d "${TMPDIR:-/tmp}/DockFork-package-XXXXXX")
-trap 'rm -rf "$work"' EXIT
+cleanup() {
+    if [[ -n "${installation:-}" ]]; then
+        if [[ -d "$installation/previous.app" && ! -e "$dev_app" ]]; then
+            mv "$installation/previous.app" "$dev_app"
+        fi
+        rm -rf "$installation"
+    fi
+    rm -rf "$work"
+}
+trap cleanup EXIT
 source_dir="$work/source"
 mkdir -p "$source_dir"
 
@@ -122,19 +165,19 @@ xcode_major=$(xcodebuild -version | awk '/^Xcode / {split($2, v, "."); print v[1
 
 build_args=(
     -project "$source_dir/DockDoor.xcodeproj" -scheme DockDoor
-    -configuration Release -derivedDataPath "$work/DerivedData"
+    -configuration "$configuration" -derivedDataPath "$work/DerivedData"
     -destination 'generic/platform=macOS' ARCHS=arm64 ONLY_ACTIVE_ARCH=NO
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO DEVELOPMENT_TEAM=
     ENABLE_HARDENED_RUNTIME=NO
 )
-printf 'Building Release source %s; log: %s\n' "$label" "$destination/build.log"
+printf 'Building %s source %s; log: %s\n' "$configuration" "$label" "$destination/build.log"
 if ! xcodebuild "${build_args[@]}" build > "$destination/build.log" 2>&1; then
     tail -n 50 "$destination/build.log" >&2
     exit 1
 fi
 
 app="$destination/DockFork.app"
-ditto "$work/DerivedData/Build/Products/Release/DockFork.app" "$app"
+ditto "$work/DerivedData/Build/Products/$configuration/DockFork.app" "$app"
 app_plist="$app/Contents/Info.plist"
 [[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_plist") == io.github.hexcrete.DockFork ]]
 [[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app_plist") == DockFork ]]
@@ -148,15 +191,66 @@ fi
 # Sign nested code inside-out, including Sparkle's bundled helpers.
 while IFS= read -r -d '' file; do
     if /usr/bin/file -b "$file" | grep -q 'Mach-O'; then
-        codesign --force --sign - --timestamp=none --options 0 "$file"
+        codesign --force --sign "$signing_identity" --timestamp=none --options 0 "$file"
     fi
 done < <(find "$app/Contents" -type f -print0)
 while IFS= read -r -d '' bundle; do
-    codesign --force --sign - --timestamp=none --options 0 "$bundle"
+    codesign --force --sign "$signing_identity" --timestamp=none --options 0 "$bundle"
 done < <(find "$app/Contents" -depth -type d \( -name '*.app' -o -name '*.xpc' -o -name '*.framework' \) -print0)
-codesign --force --sign - --timestamp=none --options 0 \
+codesign --force --sign "$signing_identity" --timestamp=none --options 0 \
     --entitlements "$root/fork/packaging/DockFork.entitlements" "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
+
+if $development; then
+    dev_directory="$output/dev"
+    dev_app="$dev_directory/DockFork.app"
+    mkdir -p "$dev_directory"
+    [[ ! -L "$dev_app" ]] || { echo 'Refusing to replace a symlinked development app.' >&2; exit 1; }
+    if [[ -e "$dev_app" ]]; then
+        [[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$dev_app/Contents/Info.plist") == io.github.hexcrete.DockFork ]] || {
+            echo 'Refusing to replace a different application at the development path.' >&2
+            exit 1
+        }
+    fi
+    installation=$(mktemp -d "$dev_directory/.DockFork-install-XXXXXX")
+    ditto "$app" "$installation/DockFork.app"
+    codesign --verify --deep --strict "$installation/DockFork.app"
+    # Replace only after a successful build and signature verification.
+    osascript -l JavaScript <<'JXA'
+ObjC.import('AppKit');
+var apps = $.NSWorkspace.sharedWorkspace.runningApplications;
+for (var i = 0; i < apps.count; i++) {
+    var app = apps.objectAtIndex(i);
+    if (ObjC.unwrap(app.bundleIdentifier) === 'io.github.hexcrete.DockFork') {
+        if (!app.terminate) throw new Error('DockFork refused termination');
+    }
+}
+JXA
+    still_running=true
+    for ((attempt=0; attempt<5; attempt++)); do
+        if pgrep -f '/Contents/MacOS/DockFork( |$)' >/dev/null; then
+            sleep 1
+            continue
+        else
+            status=$?
+            [[ "$status" == 1 ]] || {
+                echo 'Cannot verify that DockFork has exited; leaving the installed app unchanged.' >&2
+                exit 1
+            }
+            still_running=false
+            break
+        fi
+    done
+    if $still_running; then
+        echo 'DockFork is still running; quit it before replacing the development app.' >&2
+        exit 1
+    fi
+    if [[ -e "$dev_app" ]]; then mv "$dev_app" "$installation/previous.app"; fi
+    mv "$installation/DockFork.app" "$dev_app"
+    open "$dev_app"
+    printf 'Local certificate-signed development app launched: %s\n' "$dev_app"
+    exit 0
+fi
 
 app_version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_plist")
 archive="DockFork-${app_version}-${label}-arm64.zip"
