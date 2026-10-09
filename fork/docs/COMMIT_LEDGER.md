@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-This frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. It excludes later publication-documentation commits. Category totals and one-row-per-commit coverage are validated during generation.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers seven later commits through `09a2cc2ffbf9e9405d4a7ebcb24de94c26315a7f`: **199 total, 196 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Subsequent documentation edits are not yet included in these totals.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -337,6 +337,20 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 | [`4781d80`](https://github.com/hexcrete/DockFork/commit/4781d80f09ad28ad396e0f0a2ac685b769bf143d) | Merge origin/main into better_dd_merged | Integration | 155 |
 | [`57f7f45`](https://github.com/hexcrete/DockFork/commit/57f7f450d325a7e72cfd6904fbb98068b15ef44d) | merge: update better_dd_merged with upstream main | Integration | 18 |
 
+## Post-Audit Continuation
+
+Coverage: `9efa1cc..09a2cc2`, reviewed October 9, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+
+| Commit | Category / purpose | Role | Changed files |
+|---|---|---|---:|
+| [`50a9595`](https://github.com/hexcrete/DockFork/commit/50a9595b117511dccc012bf2a4f17010bd6d0ad5) | Publication: document fork changes, commit history, showcase candidates, roadmap, and contribution/resource review. | Documentation | 7 |
+| [`287c38f`](https://github.com/hexcrete/DockFork/commit/287c38f05e612ceaa2cbed2413120b701fea22dc) | Publication: group fork assets and add the privacy-reviewed optional showcase preset. | Documentation / Preset | 9 |
+| [`0127698`](https://github.com/hexcrete/DockFork/commit/0127698e0bd5ed1c8b128cc927b735e7b3f229c0) | Appearance defaults: enable state-pill styling and compact-only swapping per mode; show Current badge and unavailable Spaces by default. Saved preferences retain precedence. | Defaults | 2 |
+| [`ac90770`](https://github.com/hexcrete/DockFork/commit/ac907708f9dc4e8306141f89208e2a5344b3f0e0) | Packaging: isolated DockFork identity, manual updates, ad-hoc Release build, source/checksum assets, and installation guidance. | Build | 10 |
+| [`c8e06ee`](https://github.com/hexcrete/DockFork/commit/c8e06ee59f49a44d9c065f8db2401425014c77ba) | Packaging: certificate-signed Debug builds with tracked-source changes, graceful fixed-path replacement, and relaunch. Not for distribution. | Build | 3 |
+| [`b157744`](https://github.com/hexcrete/DockFork/commit/b1577442f1ebf3a2ae05b54cff87fbdddfeaddc7) | Contribution workflow: fork build instructions and explicit final-diff/exclusion gates for focused upstream proposals. | Documentation | 3 |
+| [`09a2cc2`](https://github.com/hexcrete/DockFork/commit/09a2cc2ffbf9e9405d4a7ebcb24de94c26315a7f) | Control spacing: remove the empty-slot gap beside hover-hidden traffic lights; retain visible-control spacing and height-based alignment across regular preview modes. Debug build/relaunch and user verification passed. | Fix | 1 |
+
 ## Upstream Attribution and Contribution Boundaries
 
 The three merge entries integrate upstream capabilities and fix merge interactions; they are not ownership claims over upstream's contributions. In particular, the base swipe launcher and latest JSON backup/import support came from upstream. Attribution in the guide distinguishes those from fork refinements.
@@ -345,4 +359,4 @@ Preserve this history in the public fork. When proposing upstream contributions,
 
 ## Regenerating the Inventory
 
-Use the exact baseline and tip above, not a moving `origin/main..HEAD` range after publication documentation is committed. Read `git log --reverse`, each patch and changed-file list, and compare final code/settings with the baseline. Require exactly one primary category per commit, no omissions, and no duplicate entries. Update the snapshot explicitly when auditing later development.
+Use the exact baseline and explicit coverage tip above, not a moving `origin/main..HEAD` range. Read `git log --reverse`, each patch and changed-file list, and compare final code/settings with the baseline. Require exactly one primary category per commit, no omissions, and no duplicate entries. Preserve the frozen inventory and extend the continuation for later development; update its tip and totals explicitly. Record the ledger-maintenance commit itself in the next update, since it cannot contain its own final hash.

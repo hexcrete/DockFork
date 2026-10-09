@@ -2,7 +2,7 @@
 
 This is a menu of possible captures, not a requirement to record everything. Select rows, then attach the chosen media to [Changes and Showcase](CHANGES_AND_SHOWCASE.md). The commit ledger groups the complete implementation history for each topic.
 
-Snapshot: `57f7f45` against upstream `0bd2e46`, October 7, 2026. All capture selections below are initially undecided. No media has been captured or approved by this checklist.
+Feature audit: `9efa1cc` against upstream `0bd2e46`, October 8, 2026; publication/defaults/control-spacing additions reviewed through `09a2cc2` on October 9. All capture selections below remain undecided. No media has been captured or approved by this checklist.
 
 ## Capture Conventions
 
@@ -28,7 +28,7 @@ Snapshot: `57f7f45` against upstream `0bd2e46`, October 7, 2026. All capture sel
 |---|---|---|---|---|
 | [ ] | I01 | Screenshot: state indicator variants | Show Space plus state, state without number, and pill/unstyled variants. Use one Desktop to exercise state-only presentation. | `411618f`, `20d3b2f`, `356af10` |
 | [ ] | I02 | Screenshot: current-Space highlight | Put windows on two Spaces; highlight the current one in pill and circle modes. | `6248aab` |
-| [ ] | I03 | Screenshot matrix: control ordering | Swap traffic/state controls, including compact-only restriction; mix styled and unstyled controls with embedding on/off. | `b435c0a`, `f7b64c9`, `9ce4a89`, `ba71716` |
+| [ ] | I03 | Screenshot matrix: control ordering | Swap traffic/state controls, including compact-only restriction; mix styled and unstyled controls with embedding on/off. Compare hover-hidden and permanently hidden traffic lights beside an unstyled, non-embedded indicator: no empty-slot gap. | `b435c0a`, `f7b64c9`, `9ce4a89`, `ba71716`, `09a2cc2` |
 | [ ] | I04 | Screenshot: font and small rows | Compare indicator font sizes and small compact rows without clipped rings or pills. | `f933cd0` |
 
 ## Spaces
@@ -114,7 +114,16 @@ Snapshot: `57f7f45` against upstream `0bd2e46`, October 7, 2026. All capture sel
 | [ ] | V03 | Video: traffic-light visibility animation | Compare duration zero/animated and hidden/dimmed modes; avoid presenting mock hover behavior as a live-window bug. | `b4ce12a`, `1aebbc5`, `1f7ce92` |
 | [ ] | V04 | Screenshot pair: mirrored title cluster | Compare left/right title controls in non-compact Window Switcher; app icon mirrors with the title. Other modes do not gain nonexistent header icons. | `82a8449` |
 | [ ] | T01 | Example/video: scripted Spaces | List Spaces, move a disposable window with/without following, then switch by number or returned ID. Redact identifiers if desired. | `92908e2`, `da9f3f3` |
-| [ ] | T02 | Example/video: scripted switcher | Invoke the shared persistent switcher, including configured windowless apps and normal filters. Update app-addressing examples when DockFork identity packaging is ready. | `4d38e51` |
+| [ ] | T02 | Example/video: scripted switcher | Address the packaged app with `tell application "DockFork"`; invoke the shared persistent switcher, including configured windowless apps and normal filters. | `4d38e51`, `ac90770` |
+
+## Fork Setup and Defaults
+
+| Pick | ID | Capture | Setup and visible result | Commits |
+|---|---|---|---|---|
+| [ ] | Q01 | Screenshot pair: added-feature defaults | Use an unset test preference domain, not a reset of live preferences. Show styled state/Space pills and compact-only swapping; include the Current badge and unavailable Spaces. Existing saved choices may differ. | `0127698` |
+| [ ] | Q02 | Optional video: showcase preset | Export the test configuration first, import the reviewed preset into DockFork, restart, and show selected appearance/shortcut choices. Disclose that import replaces settings and the preset is optional, not app defaults. Redact permission/account details. | `287c38f` |
+
+Packaging, signing, and contribution-boundary changes do not need screenshots. Record build/install validation separately in the packaging guide; media cannot establish signature trust, permission retention, or upstream readiness.
 
 ## No Required Screenshot
 

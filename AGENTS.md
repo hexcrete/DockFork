@@ -41,6 +41,17 @@ For release packaging, use `./fork/package.sh` separately. Release mode builds c
 
 Upstream contributions still require the upstream Xcode validation workflow. Exclude these fork-specific build instructions from upstream PRs and follow [fork/docs/UPSTREAM_CONTRIBUTIONS.md](fork/docs/UPSTREAM_CONTRIBUTIONS.md).
 
+## Fork Documentation Maintenance (Required)
+
+Before completing a feature, fix, merge, packaging, or documentation change, review the related publication records. Keep this maintenance fork-only and out of upstream PRs.
+
+- Update `fork/docs/COMMIT_LEDGER.md` for every completed commit, including fork-only documentation and packaging. Record its exact hash once available, category, purpose, and changed-file count; cover each commit exactly once. Preserve the original audited snapshot and extend the continuation through an explicit tip. Verify coverage against Git, not memory. A documentation commit cannot contain its own final hash: include it in the next ledger update, and disclose the current coverage boundary rather than claiming coverage through HEAD.
+- Update `fork/docs/CHANGES_AND_SHOWCASE.md` for changes to shipped behavior, defaults, naming, build identity, and release status. Distinguish upstream capabilities, fork additions, evolved implementations, and future ideas.
+- Update `fork/docs/SHOWCASE_CHECKLIST.md` for relevant screenshot/video candidates and their setup/commit references. Keep existing capture IDs stable; do not mark media captured or approved without evidence.
+- Review `fork/docs/ROADMAP.md`, `fork/docs/RESOURCE_LIFECYCLE_AUDIT.md`, and `fork/docs/UPSTREAM_CONTRIBUTIONS.md` when scope, resource lifetime, or contribution boundaries change. Update only relevant claims; retain dates for audits not rerun.
+- Keep `fork/README.md` and `fork/packaging/INSTALL.md` consistent with packaging and testing status. Review preset privacy again before changing or publishing `fork/presets/DockFork-Showcase.json`; never auto-import it or silently overwrite the curated preset with a fresh export.
+- Separate verified builds, signatures, launches, manual tests, downloaded installation tests, and publication. Never infer unperformed validation from a successful build. In the completion report, identify records updated and any deliberate coverage/testing gaps.
+
 ## Adding Files to the Project
 
 Every new `.swift` file must be registered in `DockDoor.xcodeproj/project.pbxproj`:

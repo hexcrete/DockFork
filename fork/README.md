@@ -9,6 +9,10 @@ Keep publication-only material here so it can be excluded from upstream contribu
 
 Application features stay in the existing DockDoor source locations. **Upstream PRs exclude this directory and fork-specific root `AGENTS.md`/`README.md` changes.** Follow the [required upstream contribution checklist](docs/UPSTREAM_CONTRIBUTIONS.md#fork-only-exclusions), including mixed-commit extraction and final-diff review. File exclusions alone do not make a feature upstream-ready.
 
+## Maintaining Publication Records
+
+Follow the [required documentation maintenance instructions](../AGENTS.md#fork-documentation-maintenance-required) after changes. The ledger has an explicit coverage tip, including fork-only commits; the showcase guide describes current behavior, while the capture checklist tracks candidates without implying media or tests were completed. Keep roadmap, resource audits, contribution gates, packaging guidance, and preset privacy notes current when affected. Ledger maintenance commits receive their exact hash in the next update; do not claim coverage through an unrecorded commit.
+
 ## Build a DockFork Package
 
 The packaging script is a fork-only CLI distribution workflow, not a replacement for upstream's Xcode development instructions. Building requires macOS 27 and Xcode 27 or later, with Xcode selected as the active developer directory. Initial dependency resolution requires network access. No Apple account is required for this ad-hoc-signing workflow.

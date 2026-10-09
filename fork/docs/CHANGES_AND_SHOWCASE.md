@@ -2,7 +2,7 @@
 
 DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor). DockDoor supplies the original application, Dock previews, Window Switcher, Cmd+Tab integration, widgets, and many settings. This guide describes the fork's additions and changes, not the origin of those existing capabilities.
 
-**Publication preparation:** the [DockFork packaging script](../README.md#build-a-dockfork-package) prepares a separately identified distribution build; package validation and release publication are still pending. The current development application retains its local test identity.
+**Publication preparation:** the [DockFork packaging script](../README.md#build-a-dockfork-package) prepares a separately identified distribution build. Release build/signature/checksum checks and local launch have passed; manual feature and downloaded/quarantined installation validation remain pending. Local development now uses certificate-signed DockFork at the fixed, gitignored `fork/dist/dev/DockFork.app` path. No release has been published.
 
 ## Reading This Guide
 
@@ -13,7 +13,7 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 
-Audit snapshot: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger covers 189 non-merge commits and three upstream-integration commits. The guide describes the final behavior at that snapshot; intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes seven documentation/defaults/packaging/control-spacing follow-ups through `09a2cc2`, for 196 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -28,6 +28,8 @@ Non-compact Window Switcher placeholders follow embedded-control formatting, tra
 Each preview mode has controls for the Space number and window-state presentation. Minimized, Hidden, and Full Screen states use distinct presentation, including `minus.circle` for minimized windows. State indicators can remain visible when there is no Space number to show.
 
 Options include pill versus unstyled appearance, current-Space highlighting, indicator font size, swapping state/Space controls with traffic lights, and limiting that swap to Compact Mode. Embedded unstyled controls receive contrast shadows; non-embedded controls do not need those shadows.
+
+Unstyled, non-embedded indicators do not reserve a horizontal gap for hover-hidden traffic lights. The shared control layout retains its height-based alignment while removing spacing for an invisible, zero-width neighbor. Fixed in `09a2cc2`; Debug build/relaunch and user verification passed.
 
 **Showcase:** I01-I04. Entry points: each mode's Window State Indicator settings and Appearance > General. Representative commits: `411618f`, `20d3b2f`, `356af10`, `6248aab`, `b435c0a`, `f7b64c9`, `f933cd0`.
 
@@ -133,7 +135,7 @@ Shared appearance controls, mirrored title clusters, compact widget alignment, e
 
 The fork preserves many existing behaviors, but it does not preserve every upstream default. The main shortcut defaults to Either-side Option + Tab, and traffic-light scale defaults to 1.0, matching upstream behavior. Custom spring-loading remains at 1.2 seconds rather than system speed, and full-size preview fades default to zero duration. Resting fade remains off, while both normal and compact Window Switcher app badges default on. See the [follow-up resource audit](RESOURCE_LIFECYCLE_AUDIT.md).
 
-These are defaults for unset preferences, not instructions to reset an existing configuration. Publication packaging will use a separate preference identity; explicitly import a reviewed settings export if you want your existing configuration.
+These are defaults for unset preferences, not instructions to reset an existing configuration. DockFork packaging uses a separate preference identity; explicitly import a reviewed settings export if you want your existing configuration.
 
 Window state/Space indicators default to dock styling enabled in all three modes, with swapping enabled only in Compact Mode. The Spaces dropdown defaults to showing the Current badge and unavailable Spaces. These defaults are declared in the app, not overridden by packaging; existing saved choices remain unchanged.
 
