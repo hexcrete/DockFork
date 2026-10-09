@@ -135,6 +135,8 @@ The fork preserves many existing behaviors, but it does not preserve every upstr
 
 These are defaults for unset preferences, not instructions to reset an existing configuration. Publication packaging will use a separate preference identity; explicitly import a reviewed settings export if you want your existing configuration.
 
+Window state/Space indicators default to dock styling enabled in all three modes, with swapping enabled only in Compact Mode. The Spaces dropdown defaults to showing the Current badge and unavailable Spaces. These defaults are declared in the app, not overridden by packaging; existing saved choices remain unchanged.
+
 ## Publication Boundaries
 
 The original GPL-3.0 license and upstream attribution are retained. This fork does not imply affiliation, endorsement, or ownership of DockDoor Pro. Upstream settings backup/import, the base trackpad launcher, and existing widgets should remain attributed to upstream.

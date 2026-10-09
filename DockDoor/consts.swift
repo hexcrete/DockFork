@@ -879,9 +879,9 @@ extension Defaults.Keys {
     static let showDockPreviewSpaceNumberIndicator = Key<Bool>("showDockPreviewSpaceNumberIndicator", default: true)
     static let highlightDockPreviewCurrentSpaceIndicator = Key<Bool>("highlightDockPreviewCurrentSpaceIndicator", default: false)
     static let dockPreviewWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("dockPreviewWindowStateIndicatorPlacement", default: .onWindowPreviews)
-    static let disableDockStyleWindowStateIndicator = Key<Bool>("disableDockStyleSpaceNumberIndicator", default: true)
-    static let swapDockPreviewTrafficLightsAndWindowStateIndicator = Key<Bool>("swapDockPreviewTrafficLightsAndWindowStateIndicator", default: false)
-    static let limitDockPreviewIndicatorSwapToCompactMode = Key<Bool>("limitDockPreviewIndicatorSwapToCompactMode", default: false)
+    static let disableDockStyleWindowStateIndicator = Key<Bool>("disableDockStyleSpaceNumberIndicator", default: false)
+    static let swapDockPreviewTrafficLightsAndWindowStateIndicator = Key<Bool>("swapDockPreviewTrafficLightsAndWindowStateIndicator", default: true)
+    static let limitDockPreviewIndicatorSwapToCompactMode = Key<Bool>("limitDockPreviewIndicatorSwapToCompactMode", default: true)
     static let showSpaceNumber = Key<Bool>("showSpaceNumber", default: false)
 
     // MARK: - Window Switcher Appearance Settings
@@ -901,9 +901,9 @@ extension Defaults.Keys {
     static let showSwitcherSpaceNumberIndicator = Key<Bool>("showSwitcherSpaceNumberIndicator", default: true)
     static let highlightSwitcherCurrentSpaceIndicator = Key<Bool>("highlightSwitcherCurrentSpaceIndicator", default: false)
     static let switcherWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("switcherWindowStateIndicatorPlacement", default: .onWindowPreviews)
-    static let switcherDisableDockStyleWindowStateIndicator = Key<Bool>("switcherDisableDockStyleSpaceNumberIndicator", default: true)
-    static let swapSwitcherTrafficLightsAndWindowStateIndicator = Key<Bool>("swapSwitcherTrafficLightsAndWindowStateIndicator", default: false)
-    static let limitSwitcherIndicatorSwapToCompactMode = Key<Bool>("limitSwitcherIndicatorSwapToCompactMode", default: false)
+    static let switcherDisableDockStyleWindowStateIndicator = Key<Bool>("switcherDisableDockStyleSpaceNumberIndicator", default: false)
+    static let swapSwitcherTrafficLightsAndWindowStateIndicator = Key<Bool>("swapSwitcherTrafficLightsAndWindowStateIndicator", default: true)
+    static let limitSwitcherIndicatorSwapToCompactMode = Key<Bool>("limitSwitcherIndicatorSwapToCompactMode", default: true)
 
     // MARK: - Cmd+Tab Appearance Settings
 
@@ -924,9 +924,9 @@ extension Defaults.Keys {
     static let showCmdTabSpaceNumberIndicator = Key<Bool>("showCmdTabSpaceNumberIndicator", default: true)
     static let highlightCmdTabCurrentSpaceIndicator = Key<Bool>("highlightCmdTabCurrentSpaceIndicator", default: false)
     static let cmdTabWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("cmdTabWindowStateIndicatorPlacement", default: .onWindowPreviews)
-    static let cmdTabDisableDockStyleWindowStateIndicator = Key<Bool>("cmdTabDisableDockStyleSpaceNumberIndicator", default: true)
-    static let swapCmdTabTrafficLightsAndWindowStateIndicator = Key<Bool>("swapCmdTabTrafficLightsAndWindowStateIndicator", default: false)
-    static let limitCmdTabIndicatorSwapToCompactMode = Key<Bool>("limitCmdTabIndicatorSwapToCompactMode", default: false)
+    static let cmdTabDisableDockStyleWindowStateIndicator = Key<Bool>("cmdTabDisableDockStyleSpaceNumberIndicator", default: false)
+    static let swapCmdTabTrafficLightsAndWindowStateIndicator = Key<Bool>("swapCmdTabTrafficLightsAndWindowStateIndicator", default: true)
+    static let limitCmdTabIndicatorSwapToCompactMode = Key<Bool>("limitCmdTabIndicatorSwapToCompactMode", default: true)
 
     static let previewMaxColumns = Key<Int>("previewMaxColumns", default: 2) // For left/right dock
     static let previewMaxRows = Key<Int>("previewMaxRows", default: 1) // For bottom dock only
@@ -1011,8 +1011,8 @@ extension Defaults.Keys {
     static let enableSpaceIndicatorWindowMoving = Key<Bool>("enableSpaceIndicatorWindowMoving", default: true)
     static let spaceMenuDisplayMode = Key<SpaceMenuDisplayMode>("spaceMenuDisplayMode", default: .numberOnly)
     static let switchToDestinationSpaceAfterMoving = Key<Bool>("switchToDestinationSpaceAfterMoving", default: false)
-    static let showUnavailableSpacesInMenu = Key<Bool>("showUnavailableSpacesInMenu", default: false)
-    static let showCurrentSpaceBadgeInMenu = Key<Bool>("showCurrentSpaceBadgeInMenu", default: false)
+    static let showUnavailableSpacesInMenu = Key<Bool>("showUnavailableSpacesInMenu", default: true)
+    static let showCurrentSpaceBadgeInMenu = Key<Bool>("showCurrentSpaceBadgeInMenu", default: true)
     static let enableSpacesShortcuts = Key<Bool>("enableSpacesShortcuts", default: false)
 
     // MARK: - Window Preview Keyboard Shortcuts
