@@ -567,7 +567,7 @@ class SwitchToSpaceCommand: NSScriptCommand {
                 finish("error: Space switching timed out or was superseded by another request")
             }
             WindowUtil.cancelPendingManagedSpaceSwitch()
-            (NSApp.delegate as? AppDelegate)?.dismissPreviewsForScriptedSpaceMove()
+            (NSApp.delegate as? AppDelegate)?.dismissPreviews()
             cancelSpaceRequest = WindowUtil.switchToManagedSpace(destination) { success in
                 guard !self.hasReplied else { return }
                 guard success else {
@@ -648,7 +648,7 @@ class MoveWindowCommand: NSScriptCommand {
                     window,
                     to: destination,
                     dismissPreviews: {
-                        (NSApp.delegate as? AppDelegate)?.dismissPreviewsForScriptedSpaceMove()
+                        (NSApp.delegate as? AppDelegate)?.dismissPreviews()
                     },
                     switchToDestination: switching,
                     isRequestActive: { !self.hasReplied },

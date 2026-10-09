@@ -273,6 +273,7 @@ private class WindowSwitchingCoordinator {
         mode: SwitcherInvocationMode = .allWindows,
         launchSource: WindowSwitcherLaunchSource
     ) async -> Bool {
+        guard previewCoordinator.canPresentPreviews else { return false }
         HangDiagnostics.record("switcher initialization started mode=\(mode.rawValue)")
         activeLaunchSource = nil
         // Reset the immediate-select flag at start of initialization
@@ -741,7 +742,7 @@ class KeybindHelper {
         mode: SwitcherInvocationMode,
         togglesCurrentScope: Bool = true
     ) async {
-        guard Defaults[.enableWindowSwitcher] else { return }
+        guard Defaults[.enableWindowSwitcher], previewCoordinator.canPresentPreviews else { return }
         lastFocusedActivationTask?.cancel()
         lastFocusedActivationTask = nil
         windowSwitchingCoordinator.relinquishTrackpadSession()
@@ -892,6 +893,14 @@ class KeybindHelper {
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if let passthrough = reEnableIfNeeded(tap: eventTap, type: type, event: event) {
             return passthrough
+        }
+
+        if previewCoordinator.tapSnapshot.isPresentationSuspended {
+            if type == .flagsChanged {
+                updatePressedModifierKeyCodes(event: event)
+            }
+            modifierDoubleTapState = ModifierDoubleTapState()
+            return Unmanaged.passUnretained(event)
         }
 
         if type == .keyDown || type == .keyUp || type == .flagsChanged,
@@ -1641,7 +1650,7 @@ class KeybindHelper {
     @MainActor
     private func handleTrackpadSwipe(_ event: TrackpadSwipeEvent) {
         Task { @MainActor [weak self] in
-            guard let self else { return }
+            guard let self, previewCoordinator.canPresentPreviews else { return }
             let event = event.reversingSelection(if: Defaults[.reverseTrackpadSwipeSelectionDirection])
             switch event {
             case .open, .cycleForward, .cycleBackward:
@@ -2001,7 +2010,7 @@ class KeybindHelper {
         rollbackKeybind: UserKeyBind? = nil,
         rollbackSessionActive: Bool? = nil
     ) async {
-        guard Defaults[.enableWindowSwitcher] else { return }
+        guard Defaults[.enableWindowSwitcher], previewCoordinator.canPresentPreviews else { return }
         lastFocusedActivationTask?.cancel()
         lastFocusedActivationTask = nil
         hasProcessedModifierRelease = false

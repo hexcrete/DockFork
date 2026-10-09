@@ -411,6 +411,7 @@ final class DockObserver {
 
     @MainActor
     private func showPreviewForHoveredDockApp(mouseLocation currentMouseLocation: CGPoint, overrideDelay: Bool, refreshLogContext: String) {
+        guard previewCoordinator.canPresentPreviews else { return }
         let previousDiscoveryTask = cancelDockPreviewDiscovery()
         let discoveryGeneration = dockPreviewDiscoveryGeneration
         let appUnderMouseElement = DebugLogger.measureSlow("getDockItemAppStatusUnderMouse", thresholdMs: 100) {

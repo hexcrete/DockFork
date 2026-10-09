@@ -34,7 +34,10 @@ enum SettingsBackupManager {
 
     // MARK: - UI entry points
 
+    @MainActor
     static func exportSettings() {
+        let coordinator = suspendPreviews()
+        defer { coordinator?.setPresentationSuspended(false) }
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
         panel.canCreateDirectories = true
@@ -51,7 +54,10 @@ enum SettingsBackupManager {
         }
     }
 
+    @MainActor
     static func importSettings() {
+        let coordinator = suspendPreviews()
+        defer { coordinator?.setPresentationSuspended(false) }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
@@ -78,6 +84,19 @@ enum SettingsBackupManager {
             apply(backup.settings)
             askUserToRestartApplication()
         }
+    }
+
+    @MainActor
+    private static func suspendPreviews() -> SharedPreviewWindowCoordinator? {
+        let coordinator = SharedPreviewWindowCoordinator.activeInstance
+        coordinator?.setPresentationSuspended(true)
+        if let delegate = NSApp.delegate as? AppDelegate {
+            delegate.dismissPreviews()
+        } else {
+            coordinator?.windowSwitcherCoordinator.deactivateKeybindSession()
+            coordinator?.hideWindow()
+        }
+        return coordinator
     }
 
     // MARK: - Encoding

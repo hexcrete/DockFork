@@ -174,7 +174,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
-    func dismissPreviewsForScriptedSpaceMove() {
+    func dismissPreviews() {
         if let keybindHelper {
             keybindHelper.dismissPreviewsForSpaceChange()
         } else {

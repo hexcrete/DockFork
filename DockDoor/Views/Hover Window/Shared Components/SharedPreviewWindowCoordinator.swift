@@ -28,6 +28,17 @@ enum PreviewFocusFadePolicy {
 final class SharedPreviewWindowCoordinator: NSPanel {
     weak static var activeInstance: SharedPreviewWindowCoordinator?
 
+    private var isPresentationSuspended = false
+
+    var canPresentPreviews: Bool {
+        !isPresentationSuspended && NSApp.modalWindow == nil
+    }
+
+    func setPresentationSuspended(_ suspended: Bool) {
+        isPresentationSuspended = suspended
+        publishTapSnapshot()
+    }
+
     let windowSwitcherCoordinator = PreviewStateCoordinator()
     private let dockManager = DockAutoHideManager()
     private var searchWindow: SearchWindow?
@@ -102,6 +113,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var mouseIsWithinPreviewWindow = false
         var isPreviewFocusFadeMonitoring = false
         var isNativeMenuTracking = false
+        var isPresentationSuspended = false
 
         func shouldDismissForOutsideClick(at location: CGPoint) -> Bool {
             isVisible && !isNativeMenuTracking &&
@@ -198,7 +210,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             isKeybindSessionActive: windowSwitcherCoordinator.isKeybindSessionActive,
             mouseIsWithinPreviewWindow: mouseIsWithinPreviewWindow,
             isPreviewFocusFadeMonitoring: focusFadeLocalMonitor != nil,
-            isNativeMenuTracking: !trackingMenus.isEmpty
+            isNativeMenuTracking: !trackingMenus.isEmpty,
+            isPresentationSuspended: isPresentationSuspended
         )
         tapSnapshotLock.lock()
         currentTapSnapshot = snapshot
@@ -707,6 +720,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                                  dockPositionOverride: DockPosition? = nil,
                                  dockItemFrameOverride: CGRect? = nil)
     {
+        guard canPresentPreviews else { return }
         currentDockPosition = dockPositionOverride ?? DockUtils.getDockPosition()
         let hostingView = NSHostingView(rootView: view)
 
@@ -883,6 +897,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     private func showFullPreviewWindow(for windowInfo: WindowInfo, on screen: NSScreen) {
+        guard canPresentPreviews else { return }
         windowSwitcherCoordinator.setShowing(.fullWindowPreview, toState: true)
 
         let wasFadingOut = fullPreviewFadeOutToken != nil
@@ -2091,6 +2106,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         mouseScreen: NSScreen? = nil,
         dockItemElement: AXUIElement?
     ) {
+        guard canPresentPreviews else { return }
         let shouldSkipDelay = Defaults[.useDelayOnlyForInitialOpen] && isVisible
         let delay = shouldSkipDelay ? 0 : Defaults[.hoverWindowOpenDelay]
 
@@ -2167,6 +2183,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                     dockPositionOverride: DockPosition? = nil, initialIndex: Int? = nil,
                     dockItemFrameOverride: CGRect? = nil, fullPreviewHoverID: UUID? = nil)
     {
+        guard canPresentPreviews else { return }
         let renderStartTime = CFAbsoluteTimeGetCurrent()
         DebugLogger.log("PreviewRender", details: "showWindow called: \(windows.count) windows for \(appName)")
 
