@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers seven later commits through `09a2cc2ffbf9e9405d4a7ebcb24de94c26315a7f`: **199 total, 196 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Subsequent documentation edits are not yet included in these totals.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers nine later commits through `6a5599d4eea15c0cd977434c2426652e2db4fa73`: **201 total, 198 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Subsequent documentation edits are not yet included in these totals.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..09a2cc2`, reviewed October 9, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..6a5599d`, reviewed October 9, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -350,6 +350,8 @@ Coverage: `9efa1cc..09a2cc2`, reviewed October 9, 2026. These commits are record
 | [`c8e06ee`](https://github.com/hexcrete/DockFork/commit/c8e06ee59f49a44d9c065f8db2401425014c77ba) | Packaging: certificate-signed Debug builds with tracked-source changes, graceful fixed-path replacement, and relaunch. Not for distribution. | Build | 3 |
 | [`b157744`](https://github.com/hexcrete/DockFork/commit/b1577442f1ebf3a2ae05b54cff87fbdddfeaddc7) | Contribution workflow: fork build instructions and explicit final-diff/exclusion gates for focused upstream proposals. | Documentation | 3 |
 | [`09a2cc2`](https://github.com/hexcrete/DockFork/commit/09a2cc2ffbf9e9405d4a7ebcb24de94c26315a7f) | Control spacing: remove the empty-slot gap beside hover-hidden traffic lights; retain visible-control spacing and height-based alignment across regular preview modes. Debug build/relaunch and user verification passed. | Fix | 1 |
+| [`7e608d1`](https://github.com/hexcrete/DockFork/commit/7e608d1d49116905d06f55185613e08c4b77529b) | Publication maintenance: require ledger/showcase updates, account for post-audit commits, and refresh packaging/defaults/capture documentation. | Documentation | 5 |
+| [`6a5599d`](https://github.com/hexcrete/DockFork/commit/6a5599d4eea15c0cd977434c2426652e2db4fa73) | Indicator interaction: give the shared Space picker button a full-label hit shape without changing layout, spacing, or enablement. Debug build/relaunch and user verification passed. | Fix | 1 |
 
 ## Upstream Attribution and Contribution Boundaries
 

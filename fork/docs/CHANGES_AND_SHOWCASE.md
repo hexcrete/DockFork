@@ -13,7 +13,7 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 
-Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes seven documentation/defaults/packaging/control-spacing follow-ups through `09a2cc2`, for 196 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes nine documentation/defaults/packaging/indicator follow-ups through `6a5599d`, for 198 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -30,6 +30,8 @@ Each preview mode has controls for the Space number and window-state presentatio
 Options include pill versus unstyled appearance, current-Space highlighting, indicator font size, swapping state/Space controls with traffic lights, and limiting that swap to Compact Mode. Embedded unstyled controls receive contrast shadows; non-embedded controls do not need those shadows.
 
 Unstyled, non-embedded indicators do not reserve a horizontal gap for hover-hidden traffic lights. The shared control layout retains its height-based alignment while removing spacing for an invisible, zero-width neighbor. Fixed in `09a2cc2`; Debug build/relaunch and user verification passed.
+
+The clickable Space indicator uses its full label bounds, including the unstyled number ring's interior and edges, without changing visible size or layout spacing. Fixed in `6a5599d`; Debug build/relaunch and user verification passed.
 
 **Showcase:** I01-I04. Entry points: each mode's Window State Indicator settings and Appearance > General. Representative commits: `411618f`, `20d3b2f`, `356af10`, `6248aab`, `b435c0a`, `f7b64c9`, `f933cd0`.
 

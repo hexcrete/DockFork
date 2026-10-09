@@ -118,6 +118,8 @@ Feature audit: `9efa1cc` against upstream `0bd2e46`, October 8, 2026; publicatio
 
 ## Fork Setup and Defaults
 
+For S01-S05, also check clicks near the unstyled number ring's edges in regular and Compact Mode across all three preview modes. The picker should open without activating the parent row; state-only and mock indicators remain noninteractive. Hit-target fix: `6a5599d`; build/relaunch and user verification passed, but no showcase media is recorded.
+
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
 | [ ] | Q01 | Screenshot pair: added-feature defaults | Use an unset test preference domain, not a reset of live preferences. Show styled state/Space pills and compact-only swapping; include the Current badge and unavailable Spaces. Existing saved choices may differ. | `0127698` |
