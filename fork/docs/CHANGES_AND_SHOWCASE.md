@@ -2,7 +2,7 @@
 
 DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor). DockDoor supplies the original application, Dock previews, Window Switcher, Cmd+Tab integration, widgets, and many settings. This guide describes the fork's additions and changes, not the origin of those existing capabilities.
 
-**Publication preparation:** DockFork packaging and release downloads are not available yet. The current development application still uses its local test identity. No new installation commands or download links are promised by this document.
+**Publication preparation:** the [DockFork packaging script](../README.md#build-a-dockfork-package) prepares a separately identified distribution build; package validation and release publication are still pending. The current development application retains its local test identity.
 
 ## Reading This Guide
 
@@ -141,4 +141,4 @@ Window state/Space indicators default to dock styling enabled in all three modes
 
 The original GPL-3.0 license and upstream attribution are retained. This fork does not imply affiliation, endorsement, or ownership of DockDoor Pro. Upstream settings backup/import, the base trackpad launcher, and existing widgets should remain attributed to upstream.
 
-Release preparation still needs a separate build-time DockFork identity, isolation from upstream auto-updates, an Apple Silicon release build, a documented permission/installation flow, and a sanitized optional settings example. Commit-history retention does not mean every historical commit is independently cherry-pickable; related implementation dependencies must be reviewed before preparing small upstream contributions.
+The fork-only packaging workflow supplies a build-time DockFork identity, isolation from upstream auto-updates, an Apple Silicon release build recipe, a documented permission/installation flow, and a sanitized optional settings example. The complete package build, signature/checksum checks, and local launch passed; manual feature and downloaded-installation validation are still required before publication. Commit-history retention does not mean every historical commit is independently cherry-pickable; related implementation dependencies must be reviewed before preparing small upstream contributions.

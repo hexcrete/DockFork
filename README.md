@@ -8,7 +8,7 @@ Based on **[DockDoor by ejbills](https://github.com/ejbills/DockDoor)**, with ad
 - [Roadmap](fork/docs/ROADMAP.md)
 - [Optional showcase preferences and fork-only assets](fork/README.md)
 
-**Publication preparation:** a DockFork build script and release downloads are still being prepared. The original README below describes DockDoor; its downloads, update links, commercial app, and support links belong to upstream, not DockFork.
+**Publication preparation:** the [DockFork packaging script](fork/README.md#build-a-dockfork-package) is available for validation; no release downloads have been published yet. The original README below describes DockDoor; its downloads, update links, commercial app, and support links belong to upstream, not DockFork.
 
 ---
 

@@ -1,0 +1,192 @@
+--- a/DockDoor/AppDelegate.swift
++++ b/DockDoor/AppDelegate.swift
+@@ -20,11 +20,11 @@
+     private var statusBarMenuDismissalEventNumber: Int?
+     private var statusBarMenuDismissalTimestamp: TimeInterval?
+     private let windowActionsMenu = WindowActionsMenuController()
+-    private var updaterController: SPUStandardUpdaterController
++    private var updaterController: SPUStandardUpdaterController?
+     @ObservedObject var updaterState: UpdaterState
+ 
+-    var updater: SPUUpdater {
+-        updaterController.updater
++    var updater: SPUUpdater? {
++        updaterController?.updater
+     }
+ 
+     #if DEBUG
+@@ -38,11 +38,8 @@
+         let state = UpdaterState()
+         updaterState = state
+ 
+-        let anUpdaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: state, userDriverDelegate: nil)
+-        updaterController = anUpdaterController
++        updaterController = nil
+ 
+-        state.updater = anUpdaterController.updater
+-
+         super.init()
+ 
+         settingsManager = SettingsManager(updaterState: state)
+@@ -119,7 +116,7 @@
+                 dockLocker = DockLocker()
+             }
+ 
+-            if updater.automaticallyChecksForUpdates {
++            if let updater, updater.automaticallyChecksForUpdates {
+                 print("AppDelegate: Automatic updates enabled, checking in background.")
+                 updater.checkForUpdatesInBackground()
+             }
+@@ -224,13 +221,13 @@
+         actionsItem.submenu = windowActionsMenu.menu
+         menu.addItem(actionsItem)
+         menu.addItem(NSMenuItem.separator())
+-        menu.addItem(NSMenuItem(title: String(localized: "Check for Updates…"), action: #selector(checkForUpdatesWrapper), keyEquivalent: ""))
++        menu.addItem(NSMenuItem(title: String(localized: "Download DockFork Updates…"), action: #selector(checkForUpdatesWrapper), keyEquivalent: ""))
+         menu.addItem(NSMenuItem(title: String(localized: "Support DockDoor"), action: #selector(openDonationPage), keyEquivalent: ""))
+         menu.addItem(NSMenuItem(title: String(localized: "Get DockDoor Pro…"), action: #selector(openProPage), keyEquivalent: ""))
+         menu.addItem(NSMenuItem(title: String(localized: "Leave a Review"), action: #selector(openReviewPage), keyEquivalent: ""))
+         menu.addItem(NSMenuItem.separator())
+-        menu.addItem(NSMenuItem(title: String(localized: "Restart DockDoor"), action: #selector(restartAppWrapper), keyEquivalent: ""))
+-        menu.addItem(NSMenuItem(title: String(localized: "Quit DockDoor"), action: #selector(quitAppWrapper), keyEquivalent: "q"))
++        menu.addItem(NSMenuItem(title: String(localized: "Restart DockFork"), action: #selector(restartAppWrapper), keyEquivalent: ""))
++        menu.addItem(NSMenuItem(title: String(localized: "Quit DockFork"), action: #selector(quitAppWrapper), keyEquivalent: "q"))
+         menu.delegate = self
+         statusBarMenu = menu
+         updateMenuBarInteraction()
+@@ -353,7 +350,7 @@
+     }
+ 
+     @objc private func checkForUpdatesWrapper() {
+-        updater.checkForUpdates()
++        updaterState.checkForUpdates()
+     }
+ 
+     @objc private func openDonationPage() {
+--- a/DockDoor/Utilities/UpdaterState.swift
++++ b/DockDoor/Utilities/UpdaterState.swift
+@@ -17,7 +17,7 @@
+ }
+ 
+ final class UpdaterState: NSObject, SPUUpdaterDelegate, ObservableObject {
+-    @Published var canCheckForUpdates: Bool = false
++    @Published var canCheckForUpdates: Bool = true
+     @Published var lastUpdateCheckDate: Date?
+     @Published var currentVersion: String
+     @Published var isAutomaticChecksEnabled: Bool = false
+@@ -102,7 +102,7 @@
+ 
+     func checkForUpdates() {
+         guard let updater else {
+-            updateStatus = .error(String(localized: "Updater not configured."))
++            NSWorkspace.shared.open(URL(string: "https://github.com/hexcrete/DockFork/releases")!)
+             return
+         }
+         updateStatus = .checking
+--- a/DockDoor/Utilities/DebugLogger.swift
++++ b/DockDoor/Utilities/DebugLogger.swift
+@@ -8,12 +8,12 @@
+     private static let queue = DispatchQueue(label: "DebugLogger", qos: .utility)
+     private static let diagnosticsDirectoryURL: URL = {
+         let applicationSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+-        return applicationSupport.appendingPathComponent("DockDoor/Diagnostics", isDirectory: true)
++        return applicationSupport.appendingPathComponent("DockFork/Diagnostics", isDirectory: true)
+     }()
+ 
+-    private static let logFileURL = diagnosticsDirectoryURL.appendingPathComponent("DockDoor-Debug.log")
+-    fileprivate static let hangSampleURL = diagnosticsDirectoryURL.appendingPathComponent("DockDoor-Hang.sample.txt")
+-    private static let exportURL = diagnosticsDirectoryURL.appendingPathComponent("DockDoor-Diagnostics.zip")
++    private static let logFileURL = diagnosticsDirectoryURL.appendingPathComponent("DockFork-Debug.log")
++    fileprivate static let hangSampleURL = diagnosticsDirectoryURL.appendingPathComponent("DockFork-Hang.sample.txt")
++    private static let exportURL = diagnosticsDirectoryURL.appendingPathComponent("DockFork-Diagnostics.zip")
+     private static let timestampLock = NSLock()
+ 
+     private static let timestampFormatter: DateFormatter = {
+@@ -204,8 +204,8 @@
+                 }
+ 
+                 let temporaryRootURL = FileManager.default.temporaryDirectory
+-                    .appendingPathComponent("DockDoor-Diagnostics-\(UUID().uuidString)", isDirectory: true)
+-                let stagingURL = temporaryRootURL.appendingPathComponent("DockDoor-Diagnostics", isDirectory: true)
++                    .appendingPathComponent("DockFork-Diagnostics-\(UUID().uuidString)", isDirectory: true)
++                let stagingURL = temporaryRootURL.appendingPathComponent("DockFork-Diagnostics", isDirectory: true)
+                 do {
+                     try FileManager.default.createDirectory(at: stagingURL, withIntermediateDirectories: true)
+                     defer { try? FileManager.default.removeItem(at: temporaryRootURL) }
+--- a/DockDoor/Views/Settings/SupportSettingsView.swift
++++ b/DockDoor/Views/Settings/SupportSettingsView.swift
+@@ -98,6 +98,7 @@
+                     }
+                     .labelsHidden()
+                     .frame(width: 100)
++                    .disabled(updaterState.updater == nil)
+                 }
+                 .settingsSearchTarget("support.updateChannel")
+ 
+@@ -146,6 +147,7 @@
+                         set: { _ in updaterState.toggleAutomaticChecks() }
+                     ))
+                     .labelsHidden()
++                    .disabled(updaterState.updater == nil)
+                 }
+                 .settingsSearchTarget("support.automaticUpdates")
+ 
+@@ -169,24 +171,30 @@
+ 
+     @ViewBuilder
+     private var updateStatusBadge: some View {
+-        switch updaterState.updateStatus {
+-        case .noUpdates:
+-            Label("Up to date", systemImage: "checkmark.circle.fill")
++        if updaterState.updater == nil {
++            Label("Manual updates", systemImage: "arrow.down.circle")
+                 .font(.caption)
+-                .foregroundColor(.green)
+-        case .checking:
+-            ProgressView()
+-                .scaleEffect(0.7)
+-                .frame(width: 20, height: 20)
+-        case let .available(version, _, _):
+-            Label("v\(version) available", systemImage: "arrow.down.circle.fill")
+-                .font(.caption)
+-                .foregroundColor(.blue)
+-        case let .error(message):
+-            Label(message, systemImage: "exclamationmark.triangle.fill")
+-                .font(.caption2)
+-                .foregroundColor(.red)
+-                .lineLimit(1)
++                .foregroundColor(.secondary)
++        } else {
++            switch updaterState.updateStatus {
++            case .noUpdates:
++                Label("Up to date", systemImage: "checkmark.circle.fill")
++                    .font(.caption)
++                    .foregroundColor(.green)
++            case .checking:
++                ProgressView()
++                    .scaleEffect(0.7)
++                    .frame(width: 20, height: 20)
++            case let .available(version, _, _):
++                Label("v\(version) available", systemImage: "arrow.down.circle.fill")
++                    .font(.caption)
++                    .foregroundColor(.blue)
++            case let .error(message):
++                Label(message, systemImage: "exclamationmark.triangle.fill")
++                    .font(.caption2)
++                    .foregroundColor(.red)
++                    .lineLimit(1)
++            }
+         }
+     }
+ 
+--- a/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift
++++ b/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift
+@@ -1006,7 +1006,7 @@
+         if shouldDisplay {
+             Button {
+                 if let appDelegate = NSApp.delegate as? AppDelegate {
+-                    appDelegate.updater.checkForUpdates()
++                    appDelegate.updaterState.checkForUpdates()
+                 }
+             } label: {
+                 Label("Update available", systemImage: "arrow.down.circle.fill")
