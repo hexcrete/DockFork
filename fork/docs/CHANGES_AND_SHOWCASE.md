@@ -13,7 +13,7 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 
-Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes nine documentation/defaults/packaging/indicator follow-ups through `6a5599d`, for 198 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes eleven documentation/defaults/packaging/indicator/appearance follow-ups through `bdc62ae`, for 200 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -130,6 +130,8 @@ Debug logging integrates hang diagnostics, bounded log storage, and ZIP export. 
 Window Switcher app icons can show badges in normal and Compact Mode with independent visibility options and a badge-size control. Badges do not participate in icon layout geometry. Non-compact badges depend on the visible app header.
 
 Shared appearance controls, mirrored title clusters, compact widget alignment, embedded-control contrast, control-edge spacing, and mock-preview hover visibility receive consistent handling across the applicable layouts.
+
+Non-compact Window Switcher Automatic app icons use 35 points when window titles are eligible to appear and 20 points otherwise, regardless of missing/duplicate title text. Hover-only title visibility still switches between these sizes on highlight/hover. Real-window and windowless headers share the rule; explicit icon sizes retain their 16-64-point limits and Compact Mode sizing is unchanged. Fixed in `bdc62ae`; six focused sizing checks, Debug build/relaunch, and user verification passed.
 
 **Showcase:** V01-V04 and I03. Representative commits: `023bfd2`, `a9f400a`, `82a8449`, `ba71716`, `9ce4a89`, `424c16c`, `1aebbc5`.
 
