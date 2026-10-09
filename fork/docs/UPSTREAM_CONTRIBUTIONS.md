@@ -4,10 +4,23 @@ Checked October 8, 2026 against the live [upstream contribution rules](https://g
 
 Publishing DockFork and submitting changes to DockDoor are separate activities. Preserve the fork's history and documented choices; do not offer the entire branch as one upstream PR or claim that it already complies with all upstream requirements.
 
+## Fork-Only Exclusions
+
+**Required before submission: review the complete PR diff against its upstream base, not just the selected commits or their titles.** Prepare a separate focused branch; keep the working fork and its history intact.
+
+- Exclude the entire `fork/` directory: packaging scripts/overlays, presets, commit ledger, roadmap, showcase media, and publication documentation.
+- Exclude fork-specific changes to root `AGENTS.md` and `README.md`. Keep upstream's versions by default; do not carry over fork branding or the fork build workflow.
+- Exclude local identity/signing configuration, personal editor/agent files, private notes, temporary fixtures, and generated build outputs.
+- Skip wholly fork-only commits. For mixed commits, extract only the required feature/fix changes and their necessary dependencies; do not cherry-pick the whole commit or silently discard a prerequisite fix.
+- Allow documentation and project registrations that are genuinely required by the agreed upstream issue. This is not a blanket ban on editing those files; each included change must serve that issue rather than fork publication or local development.
+- Audit the final changed-file list and every remaining hunk. Confirm there is no fork-only or unrelated content, then build and test that exact extracted branch under upstream's rules.
+
+File exclusions alone do not make a feature upstream-ready. Preference/default compatibility, dependency adaptation, disabled-feature cost, maintainer scope approval, and testing still apply.
+
 ## Scope and Compatibility Gates
 
 - Discuss one proposed feature with the maintainer in an issue before preparing its contribution. Our existing implementation is a prototype for that discussion, not evidence of prior scope approval. Bug reports use the issue template too.
-- Prepare a focused branch against current upstream for each agreed issue or feature. Keep bug fixes, refactors, and features separate; omit `fork/`, the fork-specific README introduction, unrelated settings, and publication material.
+- Prepare a focused branch against current upstream for each agreed issue or feature. Keep bug fixes, refactors, and features separate; include only the agreed scope and its reviewed dependencies.
 - Retain every existing Defaults key and existing default. Introduce new keys when necessary; do not add migration code. Replacement of singular alternate-shortcut preferences and other preference-model changes need adaptation before submission. The main shortcut and traffic-light scale retain upstream defaults.
 - New settings default to the existing behavior. Verify that disabled features do not construct their own observers, event taps, timers, or singletons. Do not claim this property without reviewing the selected patch.
 - Reuse the existing event tap, manipulation observers, WindowUtil, cache, screen/coordinate helpers, and private-API bridges. Avoid duplicate infrastructure, unnecessary polling/global mouse monitors, and reading other apps' private files or databases.

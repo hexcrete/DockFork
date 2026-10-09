@@ -7,7 +7,7 @@ Keep publication-only material here so it can be excluded from upstream contribu
 - `package.sh` and `packaging/`: isolated DockFork packaging and installation instructions.
 - `dist/`: ignored local package outputs. Future showcase media should also live under this directory.
 
-Application features stay in the existing DockDoor source locations. Excluding this directory does not make an arbitrary feature patch suitable for upstream; each contribution still needs its own scope, compatibility review, and testing. Omit the fork-specific root README introduction from those PRs too.
+Application features stay in the existing DockDoor source locations. **Upstream PRs exclude this directory and fork-specific root `AGENTS.md`/`README.md` changes.** Follow the [required upstream contribution checklist](docs/UPSTREAM_CONTRIBUTIONS.md#fork-only-exclusions), including mixed-commit extraction and final-diff review. File exclusions alone do not make a feature upstream-ready.
 
 ## Build a DockFork Package
 

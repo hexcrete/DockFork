@@ -1,4 +1,4 @@
-# DockDoor
+# DockFork (DockDoor Fork)
 
 macOS dock enhancement app — window previews on dock hover, Alt+Tab window switcher, Cmd+Tab overlay. Menu bar only (`LSUIElement: true`). Swift 5.10 / SwiftUI / AppKit. GPL-3.0.
 
@@ -12,9 +12,34 @@ Read [CONTRIBUTING.md](CONTRIBUTING.md) before you open, edit or comment on a pu
 
 These rules are for contributors. The maintainer (@ejbills) is exempt.
 
+## Upstream PR Gate (Required)
+
+**Never submit or merge the complete fork branch as an upstream PR.** Start a focused branch from current upstream and include only the agreed issue and its necessary dependencies.
+
+- Exclude all of `fork/`, fork-specific changes to root `AGENTS.md` and `README.md`, local identity/signing configuration, private notes, and generated outputs.
+- Do not cherry-pick mixed feature/fork-only commits wholesale. Extract the relevant changes without discarding required fixes.
+- Keep upstream's README and agent instructions by default. Necessary upstream documentation and source registrations are allowed only within the agreed issue's scope, without fork branding or development configuration.
+- **Review the complete final PR diff against its upstream base. Commit titles or a filtered commit list are not sufficient.**
+
+Follow the detailed [upstream contribution checklist](fork/docs/UPSTREAM_CONTRIBUTIONS.md#fork-only-exclusions). These are PR exclusions, not instructions to delete files from the working fork or rewrite its history.
+
 ## Build
 
-Requires Xcode 27 or later on macOS 27 or later. Open `DockDoor.xcodeproj` in Xcode and build (Cmd+R). No CLI build commands — this is an Xcode-managed project, not SPM.
+Requires Xcode 27 or later on macOS 27 or later. For this fork, use the included script from the repository root:
+
+```sh
+./fork/package.sh --dev
+```
+
+Build and relaunch after implementation changes unless the user explicitly says otherwise. This command builds Debug, signs with a local Apple Development certificate, gracefully replaces the running DockFork instance, and launches `fork/dist/dev/DockFork.app`. That location is gitignored. Verify the exact executable is running; do not launch older builds from other folders. Do not use computer-use automation for builds.
+
+Keep application identity and signing configuration in the fork build script rather than modifying the source project. The script applies DockFork identity in an isolated build snapshot. Preserve existing preferences and permissions. Certificate selection and limitations are documented in [fork/README.md](fork/README.md#stable-local-development-build).
+
+The development script includes tracked working-tree source changes but excludes untracked files and project-file changes. Flag that limitation when adding source files or project registrations rather than silently testing an incomplete snapshot.
+
+For release packaging, use `./fork/package.sh` separately. Release mode builds committed sources, uses ad-hoc signing, and does not install or launch the app. Do not distribute development builds.
+
+Upstream contributions still require the upstream Xcode validation workflow. Exclude these fork-specific build instructions from upstream PRs and follow [fork/docs/UPSTREAM_CONTRIBUTIONS.md](fork/docs/UPSTREAM_CONTRIBUTIONS.md).
 
 ## Adding Files to the Project
 
