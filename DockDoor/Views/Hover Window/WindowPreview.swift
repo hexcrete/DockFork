@@ -969,10 +969,9 @@ struct WindowPreview: View, Equatable {
     }
 
     private func controlsSpacing(hasAdjacentControl: Bool, hasVisibleTrafficLights: Bool) -> CGFloat {
-        if hasAdjacentControl {
-            return hasVisibleTrafficLights && appearance.disableDockStyleTrafficLights ? 6 : 8
-        }
-        return !appearance.useEmbeddedElements && appearance.disableDockStyleWindowStateIndicator ? 8 : 0
+        // Hover-hidden buttons retain a zero-width view, but must not leave a gap.
+        guard hasAdjacentControl else { return 0 }
+        return hasVisibleTrafficLights && appearance.disableDockStyleTrafficLights ? 6 : 8
     }
 
     private func configuredAdjacentControlHeight(
