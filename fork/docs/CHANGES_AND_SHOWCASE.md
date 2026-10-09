@@ -13,7 +13,7 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 
-Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes eleven documentation/defaults/packaging/indicator/appearance follow-ups through `bdc62ae`, for 200 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes thirteen documentation/defaults/packaging/indicator/appearance/modal-lifecycle follow-ups through `6c51d22`, for 202 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -142,6 +142,10 @@ The fork preserves many existing behaviors, but it does not preserve every upstr
 These are defaults for unset preferences, not instructions to reset an existing configuration. DockFork packaging uses a separate preference identity; explicitly import a reviewed settings export if you want your existing configuration.
 
 Window state/Space indicators default to dock styling enabled in all three modes, with swapping enabled only in Compact Mode. The Spaces dropdown defaults to showing the Current badge and unavailable Spaces. These defaults are declared in the app, not overridden by packaging; existing saved choices remain unchanged.
+
+## Modal Settings Dialogs
+
+Settings import/export temporarily suspend previews and dismiss existing preview sessions before opening their modal dialogs. Preview launch shortcuts pass through while suspended; cancellation, errors, and completion restore launching. This prevents visible but input-blocked Dock previews from appearing frozen. Fixed in `6c51d22`; Debug build/relaunch and user verification passed. Backup formats and import semantics are unchanged.
 
 ## Publication Boundaries
 

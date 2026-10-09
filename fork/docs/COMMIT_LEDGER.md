@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers eleven later commits through `bdc62ae317e5cbe62aedbc752c4fa179f63f6d42`: **203 total, 200 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Subsequent documentation edits are not yet included in these totals.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers thirteen later commits through `6c51d22ae902887123d6be0f1e9403bf6dd701a2`: **205 total, 202 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Subsequent documentation edits are not yet included in these totals.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..bdc62ae`, reviewed October 9, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..6c51d22`, reviewed October 9, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -354,6 +354,8 @@ Coverage: `9efa1cc..bdc62ae`, reviewed October 9, 2026. These commits are record
 | [`6a5599d`](https://github.com/hexcrete/DockFork/commit/6a5599d4eea15c0cd977434c2426652e2db4fa73) | Indicator interaction: give the shared Space picker button a full-label hit shape without changing layout, spacing, or enablement. Debug build/relaunch and user verification passed. | Fix | 1 |
 | [`64a4fa4`](https://github.com/hexcrete/DockFork/commit/64a4fa4cdf72e6857a429a80353d908f40e78d13) | Publication maintenance: record Space indicator hit-target verification and extend ledger/showcase coverage. | Documentation | 3 |
 | [`bdc62ae`](https://github.com/hexcrete/DockFork/commit/bdc62ae317e5cbe62aedbc752c4fa179f63f6d42) | Shared appearance: size Automatic switcher app icons by title visibility rather than title content; preserve hover-only changes, explicit-size limits, and Compact Mode sizing. Six focused sizing checks, Debug build/relaunch, and user verification passed. | Fix | 2 |
+| [`7e13e4b`](https://github.com/hexcrete/DockFork/commit/7e13e4b9a0bc1dc56683d76e34721a5ffacf8329) | Publication maintenance: record shared Automatic icon sizing, hover visibility, and verification in the ledger/showcase records. | Documentation | 3 |
+| [`6c51d22`](https://github.com/hexcrete/DockFork/commit/6c51d22ae902887123d6be0f1e9403bf6dd701a2) | Preview lifecycle: dismiss/suspend previews during settings import/export dialogs, pass shortcuts through, and restore launching on exit. Reuse existing dismissal, cancellation, and event snapshots; backup format and import semantics unchanged. Debug build/relaunch and user verification passed. | Fix | 6 |
 
 ## Upstream Attribution and Contribution Boundaries
 

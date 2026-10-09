@@ -129,4 +129,6 @@ Packaging, signing, and contribution-boundary changes do not need screenshots. R
 
 ## No Required Screenshot
 
+Import/export modal regression: with Dock or persistent Window Switcher previews open, open Import or Export Settings. Existing previews should close; Dock hover, switcher shortcuts, and trackpad launches should not open previews while the dialog owns input. Cancel, then verify every launcher works on the first attempt. Repeat import confirmation cancellation and invalid-file errors without applying a preset or resetting preferences. Fixed in `6c51d22`; build/relaunch and user verification passed. No showcase media recorded.
+
 Cache locking, event snapshots, cancellation ownership, debounce/coalescing, numeric guards, common menu/layout construction, build-ignore rules, and upstream merges belong in the ledger and technical notes. Screenshots cannot prove their correctness or performance. Existing tests and real regression scenarios are better evidence; publish performance claims only with measurements.
