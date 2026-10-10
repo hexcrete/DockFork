@@ -13,7 +13,7 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 
-Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes fifteen documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless follow-ups through `0b961e1`, for 204 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes seventeen documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless/dimming follow-ups through `afa75e4`, for 206 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -154,3 +154,7 @@ Settings import/export temporarily suspend previews and dismiss existing preview
 The original GPL-3.0 license and upstream attribution are retained. This fork does not imply affiliation, endorsement, or ownership of DockDoor Pro. Upstream settings backup/import, the base trackpad launcher, and existing widgets should remain attributed to upstream.
 
 The fork-only packaging workflow supplies a build-time DockFork identity, isolation from upstream auto-updates, an Apple Silicon release build recipe, a documented permission/installation flow, and a sanitized optional settings example. The complete package build, signature/checksum checks, and local launch passed; manual feature and downloaded-installation validation are still required before publication. Commit-history retention does not mean every historical commit is independently cherry-pickable; related implementation dependencies must be reviewed before preparing small upstream contributions.
+
+### Traffic-Light Button Dimming
+
+Both dimmed visibility choices dim only the traffic-light buttons, leaving the material pill undimmed, across Dock, Cmd+Tab, Window Switcher, Compact Mode, and mock previews. Whole-control hiding still follows preview hover/visibility and retains the stable pill layout. This corrects the fork’s `c832c1f` modifier-order change without restoring its conditional pill creation. Forty source-derived visibility/dimming checks, modifier-order checks, and the signed Debug build/relaunch passed; committed as `afa75e4` with user approval. Manual visual verification was not separately reported. The full Xcode test suite was not run. No new timers, observers, or discovery work are added.

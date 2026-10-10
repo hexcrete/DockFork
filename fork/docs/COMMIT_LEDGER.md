@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers fifteen later commits through `0b961e16f4fd190c6c5c616288d98ba3e10de89a`: **207 total, 204 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Subsequent documentation edits are not yet included in these totals.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers seventeen later commits through `afa75e4858f292490cb52fe1c600941776d6211a`: **209 total, 206 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Subsequent documentation edits are not yet included in these totals.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..0b961e1`, reviewed October 9, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..afa75e4`, reviewed October 9, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -358,6 +358,8 @@ Coverage: `9efa1cc..0b961e1`, reviewed October 9, 2026. These commits are record
 | [`6c51d22`](https://github.com/hexcrete/DockFork/commit/6c51d22ae902887123d6be0f1e9403bf6dd701a2) | Preview lifecycle: dismiss/suspend previews during settings import/export dialogs, pass shortcuts through, and restore launching on exit. Reuse existing dismissal, cancellation, and event snapshots; backup format and import semantics unchanged. Debug build/relaunch and user verification passed. | Fix | 6 |
 | [`879178d`](https://github.com/hexcrete/DockFork/commit/879178d987c61a70b194c829be74df0f3e7981f6) | Publication records: document modal preview lifecycle fix and extend ledger coverage. | Documentation | 3 |
 | [`0b961e1`](https://github.com/hexcrete/DockFork/commit/0b961e16f4fd190c6c5c616288d98ba3e10de89a) | Windowless presentation: per-mode full-size options for Dock/Cmd+Tab, default On; unify full-size placeholders with real-window card layout and interactions while retaining app-only controls and capture/drag guards. Eight focused presentation checks, signed Debug build/relaunch, and user manual verification passed; full Xcode test suite not run. | Feature / Support | 11 |
+| [`13ca167`](https://github.com/hexcrete/DockFork/commit/13ca167b2e81ea88ee53ef84df55d813b4c4a563) | Publication records: document unified full-size windowless presentation, verification, and capture candidates; extend ledger coverage. | Documentation | 3 |
+| [`afa75e4`](https://github.com/hexcrete/DockFork/commit/afa75e4858f292490cb52fe1c600941776d6211a) | Traffic lights: dim buttons before pill creation; retain whole-control hiding, hit-testing, and stable layout. Forty focused visibility/dimming checks and signed Debug build/relaunch passed; committed with user approval, manual visual verification not separately reported. | Fix | 1 |
 
 ## Upstream Attribution and Contribution Boundaries
 
