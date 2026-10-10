@@ -38,6 +38,36 @@ func handleSelectedDockItemChangedNotification(observer _: AXObserver, element _
 }
 
 final class DockObserver {
+    private final class CycleClickTracker {
+        struct Press {
+            let processIdentifier: pid_t
+            let event: CGEvent
+        }
+
+        var press: Press?
+
+        func begin(app: NSRunningApplication, event: CGEvent) -> Bool {
+            guard let copy = event.copy() else { return false }
+            press = Press(processIdentifier: app.processIdentifier, event: copy)
+            return true
+        }
+
+        func takePress() -> Press? {
+            defer { press = nil }
+            return press
+        }
+    }
+
+    private final class EventTapContext {
+        weak var observer: DockObserver?
+        let cycleClicks: CycleClickTracker?
+
+        init(observer: DockObserver, cycleClicks: CycleClickTracker?) {
+            self.observer = observer
+            self.cycleClicks = cycleClicks
+        }
+    }
+
     private enum VerticalScrollAction {
         case maximize
         case center
@@ -97,6 +127,9 @@ final class DockObserver {
 
     private var eventTap: CFMachPort?
     private var eventTapRunLoopSource: CFRunLoopSource?
+    private var eventTapContext: EventTapContext?
+    private var eventTapHandlesWindowCycling = false
+    private var dockClickSettingsObserver: Defaults.Observation?
 
     // Dock click behavior state
     private struct DockClickState {
@@ -178,6 +211,13 @@ final class DockObserver {
         setupSelectedDockItemObserver()
         startHealthCheckTimer()
         enableDockClickDetection()
+        dockClickSettingsObserver = Defaults.observe(keys: .shouldHideOnDockItemClick, .dockClickAction, options: []) { [weak self] in
+            DispatchQueue.main.async { [weak self] in
+                guard let self, eventTapHandlesWindowCycling != windowCyclingEnabled else { return }
+                removeEventTap()
+                setupEventTap()
+            }
+        }
     }
 
     deinit {
@@ -868,10 +908,14 @@ final class DockObserver {
 
     private func removeEventTap() {
         if let eventTap {
-            EventTapThread.shared.remove(eventTap, source: eventTapRunLoopSource)
+            let context = eventTapContext
+            EventTapThread.shared.remove(eventTap, source: eventTapRunLoopSource) {
+                withExtendedLifetime(context) {}
+            }
         }
         eventTap = nil
         eventTapRunLoopSource = nil
+        eventTapContext = nil
     }
 
     private static let dockProximityBand: CGFloat = 220
@@ -897,9 +941,16 @@ final class DockObserver {
 
     private func setupEventTap() {
         guard eventTap == nil, DockObserver.canPostEvents else { return }
+        let cycleClicks = windowCyclingEnabled ? CycleClickTracker() : nil
+        let context = EventTapContext(observer: self, cycleClicks: cycleClicks)
         var eventMask: CGEventMask = (1 << CGEventType.leftMouseDown.rawValue) |
             (1 << CGEventType.rightMouseDown.rawValue) |
             (1 << CGEventType.otherMouseDown.rawValue)
+
+        if cycleClicks != nil {
+            eventMask |= (1 << CGEventType.leftMouseUp.rawValue) |
+                (1 << CGEventType.leftMouseDragged.rawValue)
+        }
 
         if Defaults[.enableDockScrollGesture] || Defaults[.enableTitleBarScrollGesture] {
             eventMask |= (1 << CGEventType.scrollWheel.rawValue)
@@ -912,10 +963,11 @@ final class DockObserver {
             eventsOfInterest: eventMask,
             callback: { proxy, type, event, refcon -> Unmanaged<CGEvent>? in
                 guard let refcon else { return Unmanaged.passUnretained(event) }
-                let observer = Unmanaged<DockObserver>.fromOpaque(refcon).takeUnretainedValue()
-                return observer.eventTapCallback(proxy: proxy, type: type, event: event)
+                let context = Unmanaged<EventTapContext>.fromOpaque(refcon).takeUnretainedValue()
+                guard let observer = context.observer else { return Unmanaged.passUnretained(event) }
+                return observer.eventTapCallback(proxy: proxy, type: type, event: event, cycleClicks: context.cycleClicks)
             },
-            userInfo: Unmanaged.passUnretained(self).toOpaque()
+            userInfo: Unmanaged.passUnretained(context).toOpaque()
         ) else {
             print("Failed to create event tap")
             return
@@ -925,12 +977,50 @@ final class DockObserver {
         EventTapThread.shared.add(runLoopSource)
 
         self.eventTap = eventTap
+        eventTapContext = context
         eventTapRunLoopSource = runLoopSource
+        eventTapHandlesWindowCycling = cycleClicks != nil
     }
 
-    private func eventTapCallback(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+    private var windowCyclingEnabled: Bool {
+        Defaults[.shouldHideOnDockItemClick] && Defaults[.dockClickAction] == .cycleWindows
+    }
+
+    private func eventTapCallback(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent, cycleClicks: CycleClickTracker?) -> Unmanaged<CGEvent>? {
         if let passthrough = reEnableIfNeeded(tap: eventTap, type: type, event: event) {
+            cycleClicks?.press = nil
             return passthrough
+        }
+
+        if type == .leftMouseDragged {
+            // Restore the withheld press before the first drag, without re-entering this tap.
+            cycleClicks?.takePress()?.event.tapPostEvent(proxy)
+            return Unmanaged.passUnretained(event)
+        }
+
+        if type == .leftMouseUp {
+            guard let press = cycleClicks?.takePress() else { return Unmanaged.passUnretained(event) }
+            if windowCyclingEnabled,
+               !previewCoordinator.containsQuartzPoint(event.location),
+               isPointNearDock(event.location),
+               case let .success(app) = getDockItemAppStatusUnderMouse().status,
+               app.processIdentifier == press.processIdentifier
+            {
+                currentClickedAppPID = app.processIdentifier
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    cancelDockClickAction(for: app.processIdentifier)
+                    prepareForOverriddenDockClick()
+                    cycleThroughWindows(of: app)
+                }
+                return nil
+            }
+            press.event.tapPostEvent(proxy)
+            return Unmanaged.passUnretained(event)
+        }
+
+        if type == .leftMouseDown {
+            cycleClicks?.press = nil
         }
 
         if previewCoordinator.containsQuartzPoint(event.location) {
@@ -987,6 +1077,12 @@ final class DockObserver {
             }
 
             if type == .leftMouseDown, !previewCoordinator.tapSnapshot.mouseIsWithinPreviewWindow {
+                if windowCyclingEnabled,
+                   app.bundleIdentifier != Bundle.main.bundleIdentifier,
+                   cycleClicks?.begin(app: app, event: event) == true
+                {
+                    return nil
+                }
                 let shouldIntercept = handleDockClick(app: app)
                 if shouldIntercept {
                     return nil
@@ -1096,13 +1192,7 @@ final class DockObserver {
 
         switch action {
         case .cycleWindows:
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                cancelDockClickAction(for: pid)
-                prepareForOverriddenDockClick()
-                cycleThroughWindows(of: app)
-            }
-            return true
+            return false
         case .minimize, .hide:
             break
         }
