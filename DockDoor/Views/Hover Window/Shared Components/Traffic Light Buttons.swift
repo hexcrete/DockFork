@@ -59,6 +59,7 @@ struct TrafficLightButtons: View {
                     }
                 }
                 .padding(Self.contentPadding)
+                .opacity(buttonOpacity)
                 .simultaneousGesture(TapGesture())
                 .onHover { isHovering in
                     withAnimation(PreviewControlAnimation.animation(duration: Defaults[.trafficLightTransitionDuration])) {
@@ -70,16 +71,18 @@ struct TrafficLightButtons: View {
         .if(pillStyling && displayMode != .never && !enabledButtons.isEmpty) { view in
             view.materialPill(backgroundAppearance: backgroundAppearance)
         }
-        .opacity(opacity)
-        .allowsHitTesting(opacity != 0)
+        .opacity(isVisible ? 1 : 0)
+        .allowsHitTesting(isVisible)
         .contentShape(Rectangle())
     }
 
-    private var opacity: Double {
-        guard displayMode.isVisible(
+    private var isVisible: Bool {
+        displayMode.isVisible(
             hoveringOverParentWindow: hoveringOverParentWindow
-        ) else { return 0 }
+        )
+    }
 
+    private var buttonOpacity: Double {
         switch displayMode {
         case .dimmedOnPreviewHover, .dimmedUntilButtonHover:
             return isHovering || mockPreviewActive ? 1 : 0.25
