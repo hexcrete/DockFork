@@ -13,7 +13,7 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 
-Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes twenty-one documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless/dimming/pill-border/motion follow-ups through `ae79432`, for 210 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes twenty-three documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless/dimming/pill-border/motion/version follow-ups through `b674d9c`, for 212 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -154,6 +154,10 @@ Settings import/export temporarily suspend previews and dismiss existing preview
 The original GPL-3.0 license and upstream attribution are retained. This fork does not imply affiliation, endorsement, or ownership of DockDoor Pro. Upstream settings backup/import, the base trackpad launcher, and existing widgets should remain attributed to upstream.
 
 The fork-only packaging workflow supplies a build-time DockFork identity, isolation from upstream auto-updates, an Apple Silicon release build recipe, a documented permission/installation flow, and a sanitized optional settings example. The complete package build, signature/checksum checks, and local launch passed; manual feature and downloaded-installation validation are still required before publication. Commit-history retention does not mean every historical commit is independently cherry-pickable; related implementation dependencies must be reviewed before preparing small upstream contributions.
+
+### Fork and Upstream Version Identity
+
+The packaging follow-up (`b674d9c`) defaults the initial unpublished DockFork version to `0.1.0` and displays its upstream base separately in Support > Updates: DockDoor `1.40.7 + upstream changes`, commit `0bd2e46`. It records full hashes in `fork/version.json` and generated `BUILD-METADATA.json`; exact release bases omit the later-changes suffix. Packaging validates pinned tag identity and ancestry and checks freshness against available official upstream tracking refs. No runtime network requests, preferences, background work, source-project edits, or regular DockDoor UI changes are added. Nineteen isolated Git-history cases, working-source preparation, one-build version-override checks, and the signed Debug build passed. The initial macOS launch request failed with -600; a retry succeeded and the exact development executable, signature, and embedded fields were verified. User manual UI verification passed. Committed-source Release preparation passed after the implementation commit; the full Xcode test suite, a new complete Release package, and a downloaded-installation test have not been performed. Records must be refreshed after upstream merges; an offline clone without an upstream tracking ref cannot independently establish that the recorded base is the newest merged upstream state.
 
 ### Traffic-Light Button Dimming
 

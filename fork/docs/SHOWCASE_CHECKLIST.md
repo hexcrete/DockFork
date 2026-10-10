@@ -124,6 +124,7 @@ For S01-S05, also check clicks near the unstyled number ring's edges in regular 
 |---|---|---|---|---|
 | [ ] | Q01 | Screenshot pair: added-feature defaults | Use an unset test preference domain, not a reset of live preferences. Show styled state/Space pills and compact-only swapping; include the Current badge and unavailable Spaces. Existing saved choices may differ. | `0127698` |
 | [ ] | Q02 | Optional video: showcase preset | Export the test configuration first, import the reviewed preset into DockFork, restart, and show selected appearance/shortcut choices. Disclose that import replaces settings and the preset is optional, not app defaults. Redact permission/account details. | `287c38f` |
+| [ ] | Q03 | Screenshot: fork/upstream version identity | In the packaged app, open Support > Updates and show the distinct DockFork version and incorporated DockDoor release/commit. Hover for the full base hash if helpful. Initial metadata: DockFork 0.1.0, DockDoor 1.40.7 plus later changes through 0bd2e46; this is not a published DockFork release. User manual verification passed; media capture pending. | `b674d9c` |
 
 Packaging, signing, and contribution-boundary changes do not need screenshots. Record build/install validation separately in the packaging guide; media cannot establish signature trust, permission retention, or upstream readiness.
 

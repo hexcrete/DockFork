@@ -5,6 +5,7 @@ Keep publication-only material here so it can be excluded from upstream contribu
 - `docs/`: feature guide, commit ledger, showcase checklist, roadmap, contribution notes, and resource audit.
 - `presets/`: reviewed example preferences for optional release assets.
 - `package.sh` and `packaging/`: isolated DockFork packaging and installation instructions.
+- `version.json`: DockFork's version and its verified upstream release/commit base.
 - `dist/`: ignored local package outputs. Future showcase media should also live under this directory.
 
 Application features stay in the existing DockDoor source locations. **Upstream PRs exclude this directory and fork-specific root `AGENTS.md`/`README.md` changes.** Follow the [required upstream contribution checklist](docs/UPSTREAM_CONTRIBUTIONS.md#fork-only-exclusions), including mixed-commit extraction and final-diff review. File exclusions alone do not make a feature upstream-ready.
@@ -32,6 +33,23 @@ By default the script uses **committed HEAD**, not uncommitted application chang
 Each invocation creates a unique directory under `fork/dist/` (or `--output DIRECTORY`). Temporary build sources and derived data are deleted afterward. The original project is not edited. Packaging does not install, launch, import preferences, publish, or push anything.
 
 The resulting app uses `DockFork.app`, executable `DockFork`, and bundle/preference identity `io.github.hexcrete.DockFork`. Its Swift module and scripting command names remain DockDoor-compatible. The overlay disables Sparkle construction and replaces update checks with manual fork-release downloads; upstream feed/signing keys are removed. Diagnostics use a separate DockFork directory. See [installation and signing limitations](packaging/INSTALL.md).
+
+### Fork and Upstream Versions
+
+`version.json` keeps four independent fields: `forkVersion`, `upstreamRelease`, `upstreamReleaseCommit`, and `upstreamCommit`. The initial, unpublished DockFork version is `0.1.0`; the current base is DockDoor release `1.40.7` plus upstream changes through `0bd2e46`. Upstream's Xcode project still says `1.18.3`; it is not the published release version and is no longer used as DockFork's default version.
+
+Support > Updates displays the DockFork version and a separate `Based on DockDoor 1.40.7 + upstream changes · 0bd2e46` line. The full base hash is available by hovering over that line. An exact release base omits `+ upstream changes`. These values are embedded during packaging, not fetched at runtime. Standard DockDoor builds remain unchanged.
+
+After an upstream merge:
+
+1. Fetch the upstream release tags, then choose the newest **published stable release already included** in the incorporated upstream commit. Do not simply use GitHub's latest release if it is not merged.
+2. Record the release version, its full tag commit (`git rev-parse <release-tag>^{commit}`), and the full incorporated upstream commit in `version.json`.
+3. Keep `forkVersion` independent. Update it for a fork release, or use `--version X.Y.Z` for a one-build override without editing the record.
+4. Review the diff, run `ruby fork/packaging/tests/version_metadata_test.rb`, build, and verify the displayed base before publishing.
+
+Packaging requires complete local Git history and the pinned release tag. If a clone lacks that tag, fetch it from the official repository (for the current record: `git fetch https://github.com/ejbills/DockDoor.git tag 1.40.7`). The validator checks release-tag identity, release-to-base and base-to-build ancestry, and any newer included stable tags. If a remote points to the official DockDoor repository and has a `main` tracking ref, it also checks that the recorded base matches the merged remote history; fetching unmerged upstream changes does not change the label. Without such a remote, ancestry/tag checks still run offline, but confirming freshness of the base remains part of merge review. Shallow clones may need their history completed.
+
+Release mode reads the record from committed HEAD; local test/development mode reads the working record. The existing source-only exclusion still applies to untracked app files, but packaging explicitly uses its current fork-only assets, including this record and the validator. Commit and review those assets before a release. The script embeds version/base values in the isolated app's Info.plist and verifies them after building, without changing the source project. `BUILD-METADATA.json` records the effective fork version, upstream release/base hashes, source commit, and whether later upstream commits are included.
 
 ### Window State and Spaces Defaults
 
@@ -67,6 +85,7 @@ Publish these together after testing the package:
 - `DockFork-<version>-<commit>-arm64.zip`: ad-hoc-signed Apple Silicon app.
 - `DockFork-<commit>-source.tar.gz`, `DockFork.patch`, and `SOURCE-COMMIT.txt`: exact committed source and the applied overlay.
 - `INSTALL.md`, `LICENSE`, `SHA256SUMS.txt`, and `PACKAGING-PATCH-SHA256.txt`.
+- `BUILD-METADATA.json`: effective version and exact upstream/source ancestry for this package.
 - `DockFork-Showcase.json`: optional preferences, never automatically imported.
 
 Keep `build.log` local: it can contain developer paths and is not a release asset. Do not publish the entire output directory indiscriminately. A successful signature verification establishes package integrity, not Developer ID trust or notarization.

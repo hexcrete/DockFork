@@ -7,6 +7,7 @@ These are future ideas, not shipped features or delivery promises. The [current 
 - Publish as a clearly attributed DockDoor fork while retaining original history and GPL-3.0 licensing.
 - Validate the [isolated DockFork packaging script](../README.md#build-a-dockfork-package), including its distinct identity, signing, and installation; retain internal DockDoor naming.
 - Initially offer source and an ad-hoc-signed Apple Silicon build, with manual downloads rather than upstream auto-updates.
+- Verify the packaged fork version and recorded upstream base after each merge; keep the fork-only `version.json` and release build metadata distinct from upstream's project version.
 - Export/import settings explicitly and document fresh permissions. Do not silently share DockDoor's preferences.
 - Offer `fork/presets/DockFork-Showcase.json` as an optional, separately downloaded release asset, never an automatically applied configuration.
 - Prepare small, dependency-aware upstream proposals only after discussing scope with the maintainer. Follow upstream's contribution and AI-disclosure rules; the human author reviews and writes submission text.

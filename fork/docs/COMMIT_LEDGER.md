@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers twenty-one later commits through `ae79432976966d22046c845b1cdce19593503ae7`: **213 total, 210 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Subsequent uncommitted changes are not included in these totals.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers twenty-three later commits through `b674d9c7c1d404650cf31336f6d6fcc1d84c0fdf`: **215 total, 212 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. The documentation commit containing this update will be recorded in the next ledger update; coverage ends at the explicit implementation tip, not HEAD.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..ae79432`, reviewed October 9, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..b674d9c`, reviewed October 10, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -364,6 +364,9 @@ Coverage: `9efa1cc..ae79432`, reviewed October 9, 2026. These commits are record
 | [`07c6793`](https://github.com/hexcrete/DockFork/commit/07c6793bff02b68dcfe0298d32a9068396d00b1b) | Shared pill borders: restore upstream primary-color 10% outline at 1.5 points for search, titles, state/Space indicators, and traffic lights; retain blur/highlighting and remove need for search-specific styling. Source checks, signed Debug build/relaunch, and user visual verification passed; full Xcode test suite not run. | Fix | 1 |
 | [`43c9a0a`](https://github.com/hexcrete/DockFork/commit/43c9a0a58e528de33bcf5a5a6759b996acbaeb00) | Publication records: document unified control/search pill borders, user verification, and capture candidates; extend ledger coverage. | Documentation | 3 |
 | [`ae79432`](https://github.com/hexcrete/DockFork/commit/ae79432976966d22046c845b1cdce19593503ae7) | Traffic-light motion: app and macOS Reduce Motion override both dimming and visibility transitions through a shared pure policy; keep zero-duration opt-out and existing defaults. Twenty-five focused policy checks, six visibility-gate checks, signed Debug build/relaunch, and user manual verification passed; full Xcode test suite not run. | Fix | 7 |
+| [`efc6e8e`](https://github.com/hexcrete/DockFork/commit/efc6e8ebd90e1973df185521ee32021c5203fe06) | Publication records: document Reduce Motion precedence, verification, and showcase regression setup; extend ledger coverage. | Documentation | 3 |
+
+| [`b674d9c`](https://github.com/hexcrete/DockFork/commit/b674d9c7c1d404650cf31336f6d6fcc1d84c0fdf) | Packaging: record separate fork version and incorporated upstream release/base, validate ancestry and tags, embed Support label and build metadata. Nineteen isolated cases, source preparation/override, signed Debug build/relaunch, and user verification passed; committed-source release preparation also passed. No runtime background work. | Feature / Packaging | 5 |
 
 ## Upstream Attribution and Contribution Boundaries
 

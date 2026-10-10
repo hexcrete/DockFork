@@ -9,6 +9,7 @@ Publishing DockFork and submitting changes to DockDoor are separate activities. 
 **Required before submission: review the complete PR diff against its upstream base, not just the selected commits or their titles.** Prepare a separate focused branch; keep the working fork and its history intact.
 
 - Exclude the entire `fork/` directory: packaging scripts/overlays, presets, commit ledger, roadmap, showcase media, and publication documentation.
+- This includes `fork/version.json`, the version validator/tests, build metadata, and the Support version label supplied by the packaging overlay; do not add these to upstream's project or version UI.
 - Exclude fork-specific changes to root `AGENTS.md` and `README.md`. Keep upstream's versions by default; do not carry over fork branding or the fork build workflow.
 - Exclude local identity/signing configuration, personal editor/agent files, private notes, temporary fixtures, and generated build outputs.
 - Skip wholly fork-only commits. For mixed commits, extract only the required feature/fix changes and their necessary dependencies; do not cherry-pick the whole commit or silently discard a prerequisite fix.

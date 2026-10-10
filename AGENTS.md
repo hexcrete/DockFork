@@ -39,6 +39,8 @@ The development script includes tracked working-tree source changes but excludes
 
 For release packaging, use `./fork/package.sh` separately. Release mode builds committed sources, uses ad-hoc signing, and does not install or launch the app. Do not distribute development builds.
 
+After each upstream merge, update `fork/version.json` with the exact incorporated upstream commit and the newest published stable release tag contained in that commit's history, including its full release commit hash. Fetch upstream tags before selecting the release. Never label an unmerged release as the base or infer a release version from the stale Xcode project version. Keep DockFork's own version separate; update it for fork releases. Packaging validates the record and embeds it for Support > Updates. See [version maintenance](fork/README.md#fork-and-upstream-versions).
+
 Upstream contributions still require the upstream Xcode validation workflow. Exclude these fork-specific build instructions from upstream PRs and follow [fork/docs/UPSTREAM_CONTRIBUTIONS.md](fork/docs/UPSTREAM_CONTRIBUTIONS.md).
 
 ## Fork Documentation Maintenance (Required)

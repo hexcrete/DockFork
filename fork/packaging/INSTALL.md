@@ -16,6 +16,8 @@ This initial Apple Silicon package is ad-hoc signed, not Developer ID signed or 
 - The source project and Swift module retain DockDoor naming. Some inherited UI, scripting terminology, donation links, and acknowledgments still refer to the upstream project.
 - AppleScript can address the installed app as `tell application "DockFork"`; existing command names and event codes are unchanged. Permission prompts and automation must be tested on the installed build.
 
+Support > Updates shows DockFork's own version and its incorporated DockDoor release/commit separately. `+ upstream changes` means the base includes commits after that release, not that newer upstream releases are automatically installed. `BUILD-METADATA.json` accompanies release assets with the full upstream and source hashes. These values describe the built package and require no online check.
+
 A free Apple account is not needed for the ad-hoc build. It does not provide the Developer ID distribution identity used for ordinary notarized Mac releases. A later Developer ID/notarized release needs a separate signing and notarization workflow; switching signing identities can require users to grant permissions again. See [Apple's Developer ID guidance](https://developer.apple.com/developer-id/).
 
 Ad-hoc signing ties the app's designated requirement to that particular build. Updating to a rebuilt release can therefore require granting permissions again even when its name and bundle ID are unchanged. Installing at a fixed path alone does not solve this. The certificate-signed `--dev` workflow is for local testing only, not distribution.
