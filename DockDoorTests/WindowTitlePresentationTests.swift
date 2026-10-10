@@ -5,11 +5,21 @@ import Testing
 
 struct PreviewControlAnimationTests {
     @Test func zeroDurationDisablesControlAnimations() {
-        #expect(PreviewControlAnimation.animation(duration: 0) == nil)
-        #expect(PreviewControlAnimation.animation(duration: -0.01) == nil)
-        #expect(PreviewControlAnimation.animation(duration: 0.15) != nil)
-        #expect(PreviewControlAnimation.animation(duration: 0.5) == PreviewControlAnimation.animation(duration: 0.2))
+        #expect(PreviewControlAnimation.animation(duration: 0, animationsEnabled: true, reduceMotion: false) == nil)
+        #expect(PreviewControlAnimation.animation(duration: -0.01, animationsEnabled: true, reduceMotion: false) == nil)
+        #expect(PreviewControlAnimation.animation(duration: 0.15, animationsEnabled: true, reduceMotion: false) != nil)
+        #expect(PreviewControlAnimation.animation(duration: 0.5, animationsEnabled: true, reduceMotion: false) == PreviewControlAnimation.animation(duration: 0.2, animationsEnabled: true, reduceMotion: false))
         #expect(Defaults.Keys.trafficLightTransitionDuration.defaultValue == 0.1)
+    }
+
+    @Test func reduceMotionOverridesPositiveTransitionDurations() {
+        for duration in [0.01, 0.1, 0.2, 0.5] {
+            for animationsEnabled in [false, true] {
+                #expect(PreviewControlAnimation.animation(duration: duration, animationsEnabled: animationsEnabled, reduceMotion: true) == nil)
+            }
+            #expect(PreviewControlAnimation.animation(duration: duration, animationsEnabled: false, reduceMotion: false) == nil)
+            #expect(PreviewControlAnimation.animation(duration: duration, animationsEnabled: true, reduceMotion: false) != nil)
+        }
     }
 }
 

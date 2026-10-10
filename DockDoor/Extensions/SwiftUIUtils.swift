@@ -3,14 +3,29 @@ import Defaults
 import SwiftUI
 
 enum PreviewControlAnimation {
-    static func animation(duration: Double) -> Animation? {
-        duration > 0 ? .snappy(duration: min(duration, 0.2)) : nil
+    static func animation(duration: Double, animationsEnabled: Bool, reduceMotion: Bool) -> Animation? {
+        guard animationsEnabled, !reduceMotion, duration > 0 else { return nil }
+        return .snappy(duration: min(duration, 0.2))
+    }
+}
+
+private struct PreviewControlVisibilityAnimation: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let isVisible: Bool
+    let duration: Double
+    let animationsEnabled: Bool
+
+    func body(content: Content) -> some View {
+        content.animation(
+            PreviewControlAnimation.animation(duration: duration, animationsEnabled: animationsEnabled, reduceMotion: reduceMotion),
+            value: isVisible
+        )
     }
 }
 
 extension View {
-    func previewControlVisibilityAnimation(isVisible: Bool, duration: Double) -> some View {
-        animation(PreviewControlAnimation.animation(duration: duration), value: isVisible)
+    func previewControlVisibilityAnimation(isVisible: Bool, duration: Double, animationsEnabled: Bool) -> some View {
+        modifier(PreviewControlVisibilityAnimation(isVisible: isVisible, duration: duration, animationsEnabled: animationsEnabled))
     }
 }
 

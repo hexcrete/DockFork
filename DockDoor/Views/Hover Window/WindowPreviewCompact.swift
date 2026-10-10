@@ -258,7 +258,7 @@ struct WindowPreviewCompact: View, Equatable {
             }
             .padding(.trailing, controlsTrailingInset)
         }
-        .previewControlVisibilityAnimation(isVisible: hasVisibleTrafficLightButtons, duration: appearance.trafficLightTransitionDuration)
+        .previewControlVisibilityAnimation(isVisible: hasVisibleTrafficLightButtons, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
         .padding(.vertical, 8)
         .frame(width: rowWidth, height: appearance.compactRowHeight(hasWindowStateIndicator: hasWindowStateIndicator), alignment: .leading)
         .clipShape(CompactRowContentClip(trailingOverflow: max(0, -controlsTrailingInset)))

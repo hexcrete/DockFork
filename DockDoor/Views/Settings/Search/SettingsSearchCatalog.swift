@@ -1101,7 +1101,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "appearance.trafficLightTransitionDuration",
             title: String(localized: "Traffic Light Buttons Transition Animation Speed"),
-            description: String(localized: "Controls traffic light button transitions in all preview modes, independently of Reduce Motion. Set to 0 seconds to disable."),
+            description: String(localized: "Controls traffic light button transitions in all preview modes. Set to 0 seconds to disable only these transitions. Reduce Motion overrides this setting."),
             keywords: ["traffic light", "animation", "transition", "speed", "duration", "reduce motion", "dock", "switcher", "cmd tab"],
             tab: "Appearance",
             section: String(localized: "General Appearance"),

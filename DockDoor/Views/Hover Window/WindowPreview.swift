@@ -1164,7 +1164,7 @@ struct WindowPreview: View, Equatable {
             embeddedDockPreviewControls(selected)
                 .previewControlVisibilityAnimation(
                     isVisible: canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: selected || isHoveringOverDockPeekPreview),
-                    duration: appearance.trafficLightTransitionDuration
+                    duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations
                 )
         }
     }
@@ -1616,7 +1616,7 @@ struct WindowPreview: View, Equatable {
                     Spacer(minLength: 0)
                 }
                 .frame(width: dimensions.size.width)
-                .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration)
+                .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
             )
         } else {
             return AnyView(
@@ -1632,7 +1632,7 @@ struct WindowPreview: View, Equatable {
                     }
                 }
                 .frame(width: dimensions.size.width)
-                .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration)
+                .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
             )
         }
     }
@@ -1743,7 +1743,7 @@ struct WindowPreview: View, Equatable {
                         Spacer(minLength: 0)
                     }
                     .frame(width: dimensions.size.width)
-                    .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration)
+                    .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
                 )
             } else {
                 return AnyView(
@@ -1759,7 +1759,7 @@ struct WindowPreview: View, Equatable {
                         }
                     }
                     .frame(width: dimensions.size.width)
-                    .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration)
+                    .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
                 )
             }
         } else {

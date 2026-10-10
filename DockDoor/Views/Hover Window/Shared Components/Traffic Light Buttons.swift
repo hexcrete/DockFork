@@ -7,6 +7,7 @@ struct TrafficLightButtons: View {
     private static let contentPadding: CGFloat = 4
 
     @Environment(\.colorScheme) var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let displayMode: TrafficLightButtonsVisibility
     let hoveringOverParentWindow: Bool
     let onWindowAction: (WindowAction) -> Void
@@ -62,7 +63,11 @@ struct TrafficLightButtons: View {
                 .opacity(buttonOpacity)
                 .simultaneousGesture(TapGesture())
                 .onHover { isHovering in
-                    withAnimation(PreviewControlAnimation.animation(duration: Defaults[.trafficLightTransitionDuration])) {
+                    withAnimation(PreviewControlAnimation.animation(
+                        duration: Defaults[.trafficLightTransitionDuration],
+                        animationsEnabled: Defaults[.showAnimations],
+                        reduceMotion: reduceMotion
+                    )) {
                         self.isHovering = isHovering
                     }
                 }

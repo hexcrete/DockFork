@@ -84,7 +84,7 @@ struct GeneralAppearanceSection: View {
                         formatter: NumberFormatter.twoDecimalFormatter
                     )
                     .settingsSearchTarget("appearance.trafficLightTransitionDuration")
-                    Text("Controls traffic light button transitions in all preview modes, independently of Reduce Motion. Set to 0 seconds to disable.")
+                    Text(String(localized: "Controls traffic light button transitions in all preview modes. Set to 0 seconds to disable only these transitions. Reduce Motion overrides this setting."))
                         .font(.footnote)
                         .foregroundColor(.gray)
                 }
