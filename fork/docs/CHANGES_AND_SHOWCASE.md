@@ -13,7 +13,7 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 
-Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes seventeen documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless/dimming follow-ups through `afa75e4`, for 206 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes nineteen documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless/dimming/pill-border follow-ups through `07c6793`, for 208 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -158,3 +158,7 @@ The fork-only packaging workflow supplies a build-time DockFork identity, isolat
 ### Traffic-Light Button Dimming
 
 Both dimmed visibility choices dim only the traffic-light buttons, leaving the material pill undimmed, across Dock, Cmd+Tab, Window Switcher, Compact Mode, and mock previews. Whole-control hiding still follows preview hover/visibility and retains the stable pill layout. This corrects the fork’s `c832c1f` modifier-order change without restoring its conditional pill creation. Forty source-derived visibility/dimming checks, modifier-order checks, and the signed Debug build/relaunch passed; committed as `afa75e4` with user approval. Manual visual verification was not separately reported. The full Xcode test suite was not run. No new timers, observers, or discovery work are added.
+
+### Control-Pill Borders
+
+All material pills (search, titles, Space/state indicators, and traffic lights) use upstream’s subtle primary-color outline at 10% opacity and 1.5-point width rather than the preview container’s configurable white rim. Search uses the same shared style; there is no search-specific border override. Container border settings still control the preview container, not individual pills. The shared pill renderer still provides blur, highlight overlays, and padding; no per-mode copies or new background layers are added. This limits the broader styling effect introduced by `12e0a77`; it is not a claim that the reported artifact was a duplicated background. Source checks and the signed Debug build/relaunch passed. User visual verification passed; committed as `07c6793`. The full Xcode test suite was not run.

@@ -134,3 +134,5 @@ Import/export modal regression: with Dock or persistent Window Switcher previews
 Cache locking, event snapshots, cancellation ownership, debounce/coalescing, numeric guards, common menu/layout construction, build-ignore rules, and upstream merges belong in the ledger and technical notes. Screenshots cannot prove their correctness or performance. Existing tests and real regression scenarios are better evidence; publish performance claims only with measurements.
 
 Traffic-light dimming follow-up (`afa75e4`): compare dimmed buttons against the undimmed pill in both dimmed visibility options; cover compact/regular, embedded/non-embedded, light/dark, and unstyled controls. Keep hover-hidden pills fully hidden. Manual verification and media capture pending.
+
+Control-pill border follow-up (`07c6793`): compare title, Space/state, and traffic-light edges with upstream in light/dark appearances, styled/un-styled and highlighted-current-Space states; verify search uses the same subtle pill border while preserving its size, placement, and input behavior. User visual verification passed; media capture pending.
