@@ -13,7 +13,7 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 
-Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes twenty-three documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless/dimming/pill-border/motion/version follow-ups through `b674d9c`, for 212 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes twenty-five documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless/dimming/pill-border/motion/version/Dock-cycling follow-ups through `dc5a805`, for 214 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -80,6 +80,8 @@ The fork adds Dock window cycling, assignable bulk close/minimize actions, and a
 Keep-previews-after-action settings are independent from bringing moved/resized windows forward. Bulk minimize behavior considers minimizable windows rather than trying to minimize fullscreen windows. Header actions and Dock click actions share window-operation infrastructure; ordinary inactive-app clicks must still respect activation behavior.
 
 **Showcase:** A01-A03. Entry points: Dock Interaction, Gestures & Keybinds, and the app header. Representative commits: `ffa82dd`, `bef9786`, `28075b2`, `2c1679d`, `4743b0e`, `df7bf47`.
+
+Dock cycling fix (`dc5a805`): cycle only after releasing a click on the original app icon. On dragging, return the withheld original press to the native Dock before the first drag event, without re-entering DockDoor's event tap. Mouse-up/drag subscriptions and bounded press tracking exist only while the cycling override is enabled. Minimize/Hide, Shift-click, and configured preview-activation clicks retain their existing paths. Seven source-derived press lifetime/copy checks, signed Debug build, signature verification, and exact-path relaunch passed. User manual verification passed. The reviewed source matches the tested build; the full Xcode test suite was not run. No new timer or window discovery is added to the drag path.
 
 ## Native Menus and Scripting
 

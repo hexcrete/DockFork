@@ -64,7 +64,7 @@ Feature audit: `9efa1cc` against upstream `0bd2e46`, October 8, 2026; publicatio
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | A01 | Video: Dock window cycling | Open three windows in one active app; click repeatedly during a hover session, then leave/re-enter the icon. | `28075b2` |
+| [ ] | A01 | Video: Dock window cycling | Open three windows in one active app; click repeatedly during a hover session, then leave/re-enter the icon. With cycling enabled, drag its Dock icon to reorder it and verify dragging does not cycle windows. Repeat with an inactive app, then switch to Minimize/Hide and back without restarting. Drag-preservation follow-up: user manual verification passed; media capture pending. | `28075b2`, `dc5a805` |
 | [ ] | A02 | Video: bulk actions and header buttons | Show Minimize All/restore and Close All on disposable windows; include fullscreen exclusion and unchanged inactive-app activation behavior. | `ffa82dd`, `4743b0e`, `df7bf47` |
 | [ ] | A03 | Screenshot/video: post-action choices | Compare keep-open and foreground options for move/resize; show bring-forward remains available independently. | `bef9786`, `26f33aa` |
 | [ ] | M01 | Screenshot: enriched context menu | Open Arrange and Move to Space; include symbols, state-dependent titles, shortcut hints, and matching Quit styling. | `16a68eb`, `5ef868b`, `5532376` |

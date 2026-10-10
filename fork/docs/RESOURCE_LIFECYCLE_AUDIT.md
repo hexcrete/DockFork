@@ -33,6 +33,10 @@ There is no verified notification replacement to recommend from this investigati
 
 Live-capture shutdown and duration editing are complete. Keep the remaining lifecycle changes separate and validate each with build/relaunch and manual scenarios before committing; do not infer a measured CPU improvement from source inspection alone.
 
+## Dock Cycling Follow-Up
+
+October 10 Dock cycling follow-up (`dc5a805`): the existing Dock event tap includes mouse-up/drag events only while the cycling override is enabled. A per-tap tracker retains at most one copied mouse press; drag, release, disabled-tap recovery, replacement, and teardown discard it. The callback context has a weak observer reference and stays alive until event-thread invalidation completes. Settings observation uses weak captures; no additional event tap, timer, polling, or drag-path discovery is introduced. Signed Debug build/relaunch, seven press lifetime/copy checks, and user manual verification passed. Reviewed source matches the tested build; full Xcode suite not run. This follow-up is not a rerun of the October 8 audit or a measured performance comparison.
+
 ## Default Compatibility
 
 An unset main shortcut uses Either-side Option, and unset traffic-light scale is 1.0, matching upstream. Explicitly stored user choices remain unchanged. New-feature defaults and removed-preference compatibility were deliberately not changed in this pass.

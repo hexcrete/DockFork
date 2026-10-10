@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers twenty-three later commits through `b674d9c7c1d404650cf31336f6d6fcc1d84c0fdf`: **215 total, 212 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. The documentation commit containing this update will be recorded in the next ledger update; coverage ends at the explicit implementation tip, not HEAD.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers twenty-five later commits through `dc5a805c2892a111d73cd8ae41ac9efeb1dcc074`: **217 total, 214 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. The documentation commit containing this update will be recorded in the next ledger update; coverage ends at this explicit implementation tip, not HEAD.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..b674d9c`, reviewed October 10, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..dc5a805`, reviewed October 10, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -367,6 +367,10 @@ Coverage: `9efa1cc..b674d9c`, reviewed October 10, 2026. These commits are recor
 | [`efc6e8e`](https://github.com/hexcrete/DockFork/commit/efc6e8ebd90e1973df185521ee32021c5203fe06) | Publication records: document Reduce Motion precedence, verification, and showcase regression setup; extend ledger coverage. | Documentation | 3 |
 
 | [`b674d9c`](https://github.com/hexcrete/DockFork/commit/b674d9c7c1d404650cf31336f6d6fcc1d84c0fdf) | Packaging: record separate fork version and incorporated upstream release/base, validate ancestry and tags, embed Support label and build metadata. Nineteen isolated cases, source preparation/override, signed Debug build/relaunch, and user verification passed; committed-source release preparation also passed. No runtime background work. | Feature / Packaging | 5 |
+
+| [`025365b`](https://github.com/hexcrete/DockFork/commit/025365b9a64fa11161dffae5bdd9fa1e30a214cc) | Publication records: document separate fork/upstream versions, maintenance and contribution boundaries, verified preparation/build/manual checks, and remaining release-validation gaps. | Documentation | 8 |
+
+| [`dc5a805`](https://github.com/hexcrete/DockFork/commit/dc5a805c2892a111d73cd8ae41ac9efeb1dcc074) | Dock cycling: defer cycling until click release; restore the original press downstream for native icon dragging. Gate drag/up subscriptions, bound press tracking, and retain weak callback context through event-thread teardown. Seven focused checks, signed Debug build/relaunch, build-source comparison, and user manual verification passed; full Xcode suite not run. | Fix | 1 |
 
 ## Upstream Attribution and Contribution Boundaries
 
