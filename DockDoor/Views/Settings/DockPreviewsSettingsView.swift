@@ -10,6 +10,7 @@ struct DockPreviewsSettingsView: View {
     @Default(.groupAppInstancesInDock) var groupAppInstancesInDock
     @Default(.collapseNativeTabsIntoSingleWindow) var collapseNativeTabsIntoSingleWindow
     @Default(.includeHiddenWindowsInDockPreview) var includeHiddenWindowsInDockPreview
+    @Default(.showFullSizeWindowlessDockPreviews) var showFullSizeWindowlessDockPreviews
     @Default(.showWindowlessAppsInDockPreview) var showWindowlessAppsInDockPreview
     @Default(.dockPreviewActivationMode) var dockPreviewActivationMode
     @Default(.dockPreviewActivationModifier) var dockPreviewActivationModifier
@@ -100,6 +101,12 @@ struct DockPreviewsSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)
+
+                if showWindowlessAppsInDockPreview {
+                    Toggle("Show full size previews", isOn: $showFullSizeWindowlessDockPreviews)
+                        .settingsSearchTarget("dockPreviews.fullSizeWindowless")
+                        .padding(.leading, 20)
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: $ignoreAppsWithSingleWindow) { Text("Ignore apps with one window") }

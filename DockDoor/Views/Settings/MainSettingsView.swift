@@ -139,6 +139,8 @@ struct MainSettingsView: View {
                 Defaults[.showWindowlessAppsInSwitcher] = Defaults.Keys.showWindowlessAppsInSwitcher.defaultValue
                 Defaults[.excludeWindowlessAppsFromCurrentMonitorSwitcherScopes] = Defaults.Keys.excludeWindowlessAppsFromCurrentMonitorSwitcherScopes.defaultValue
                 Defaults[.excludeWindowlessAppsFromCurrentSpaceSwitcherScopes] = Defaults.Keys.excludeWindowlessAppsFromCurrentSpaceSwitcherScopes.defaultValue
+                Defaults[.showFullSizeWindowlessDockPreviews] = Defaults.Keys.showFullSizeWindowlessDockPreviews.defaultValue
+                Defaults[.showFullSizeWindowlessCmdTabPreviews] = Defaults.Keys.showFullSizeWindowlessCmdTabPreviews.defaultValue
                 Defaults[.showWindowlessAppsInDockPreview] = Defaults.Keys.showWindowlessAppsInDockPreview.defaultValue
                 Defaults[.showWindowlessAppsInCmdTab] = Defaults.Keys.showWindowlessAppsInCmdTab.defaultValue
                 Defaults[.windowlessAppActivationMode] = Defaults.Keys.windowlessAppActivationMode.defaultValue

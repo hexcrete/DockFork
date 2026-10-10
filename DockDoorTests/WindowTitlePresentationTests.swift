@@ -40,22 +40,33 @@ struct PreviewOutsideClickTests {
 }
 
 struct MissingWindowImageRecoveryTests {
-    @Test func realWindowsUseFullCardsOutsideCompactMode() {
-        for dockPosition: DockPosition in [.bottom, .left, .right, .cmdTab] {
-            for windowSwitcherActive in [false, true] {
+    @Test func fullSizeWindowlessCardsKeepAppOnlyControls() {
+        let window = WindowInfo.windowlessEntry(for: NSRunningApplication.current)
+        let buttons: Set<WindowAction> = [.quit, .close, .minimize, .hide]
+        #expect(resolvedTrafficLightButtons(
+            for: window, configuredButtons: buttons, showWindowlessQuitButton: true
+        ) == [.quit])
+        #expect(resolvedTrafficLightButtons(
+            for: window, configuredButtons: buttons, showWindowlessQuitButton: false
+        ).isEmpty)
+        #expect(Defaults.Keys.showFullSizeWindowlessDockPreviews.defaultValue)
+        #expect(Defaults.Keys.showFullSizeWindowlessCmdTabPreviews.defaultValue)
+    }
+
+    @Test func cardPresentationRespectsWindowlessSizeAndCompactMode() {
+        for showFullSize in [false, true] {
+            for isWindowless in [false, true] {
                 #expect(WindowPreviewHoverContainer.PreviewCardPresentation.resolve(
-                    isWindowlessApp: false,
+                    isWindowlessApp: isWindowless,
                     containerUsesCompactRows: false,
-                    windowSwitcherActive: windowSwitcherActive,
-                    dockPosition: dockPosition,
+                    showFullSizeWindowlessPreviews: showFullSize,
                     compactWidth: 400,
                     previewWidth: 300
-                ) == .regular)
+                ) == (isWindowless && !showFullSize ? .compact(width: 300) : .regular))
                 #expect(WindowPreviewHoverContainer.PreviewCardPresentation.resolve(
-                    isWindowlessApp: false,
+                    isWindowlessApp: isWindowless,
                     containerUsesCompactRows: true,
-                    windowSwitcherActive: windowSwitcherActive,
-                    dockPosition: dockPosition,
+                    showFullSizeWindowlessPreviews: showFullSize,
                     compactWidth: 400,
                     previewWidth: 300
                 ) == .compact(width: 400))

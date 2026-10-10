@@ -122,6 +122,8 @@ struct SettingsMockPreview: View {
     @Default(.compactModeTitleFormat) private var compactModeTitleFormat
     @Default(.compactModeItemSize) private var compactModeItemSize
     @Default(.compactModeHideTrafficLights) private var compactModeHideTrafficLights
+    @Default(.showFullSizeWindowlessDockPreviews) private var showFullSizeWindowlessDockPreviews
+    @Default(.showFullSizeWindowlessCmdTabPreviews) private var showFullSizeWindowlessCmdTabPreviews
     @Default(.showWindowlessAppQuitButton) private var showWindowlessAppQuitButton
     @Default(.titleOverflowStyle) private var titleOverflowStyle
 
@@ -328,6 +330,7 @@ struct SettingsMockPreview: View {
             disableDockStyleWindowStateIndicator: disableDockStyleWindowStateIndicator,
             swapTrafficLightsAndWindowStateIndicator: swapTrafficLightsAndWindowStateIndicator,
             limitIndicatorSwapToCompactMode: limitIndicatorSwapToCompactMode,
+            showFullSizeWindowlessPreviews: isWindowSwitcher || (isCmdTab ? showFullSizeWindowlessCmdTabPreviews : showFullSizeWindowlessDockPreviews),
             showWindowlessAppQuitButton: showWindowlessAppQuitButton,
             titleOverflowStyle: titleOverflowStyle
         )

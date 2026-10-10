@@ -804,6 +804,8 @@ extension Defaults.Keys {
     static let excludeWindowlessAppsFromCurrentMonitorSwitcherScopes = Key<Bool>("excludeWindowlessAppsFromCurrentMonitorSwitcherScopes", default: false)
     static let excludeWindowlessAppsFromCurrentSpaceSwitcherScopes = Key<Bool>("excludeWindowlessAppsFromCurrentSpaceSwitcherScopes", default: false)
     static let showWindowlessAppsInDockPreview = Key<Bool>("showWindowlessAppsInDockPreview", default: false)
+    static let showFullSizeWindowlessDockPreviews = Key<Bool>("showFullSizeWindowlessDockPreviews", default: true)
+    static let showFullSizeWindowlessCmdTabPreviews = Key<Bool>("showFullSizeWindowlessCmdTabPreviews", default: true)
     static let showWindowlessAppsInCmdTab = Key<Bool>("showWindowlessAppsInCmdTab", default: false)
     static let windowlessAppActivationMode = Key<WindowlessAppActivationMode>("windowlessAppActivationMode", default: .simulateDockClick)
     static let ignoreAppsWithSingleWindow = Key<Bool>("ignoreAppsWithSingleWindow", default: false)

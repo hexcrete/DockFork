@@ -1211,7 +1211,7 @@ struct WindowPreviewHoverContainer: View {
             let lines: [[FlowItem]] = usesCompactRows
                 ? createFlowItems(filteredIndices: cachedFilteredIndices).map { [$0] }
                 : createChunkedItems(filteredIndices: cachedFilteredIndices, gridFlow: gridFlow)
-            let onlyWindowlessDockLikeRows = !previewStateCoordinator.windowSwitcherActive &&
+            let onlyWindowlessDockLikeRows = !appearance.showFullSizeWindowlessPreviews &&
                 !cachedFilteredIndices.isEmpty &&
                 cachedFilteredIndices.allSatisfy { index in
                     index < previewStateCoordinator.windows.count && previewStateCoordinator.windows[index].isWindowlessApp
@@ -2257,32 +2257,12 @@ struct WindowPreviewHoverContainer: View {
             let presentation = PreviewCardPresentation.resolve(
                 isWindowlessApp: windowInfo.isWindowlessApp,
                 containerUsesCompactRows: usesCompactRows,
-                windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
-                dockPosition: dockPosition,
+                showFullSizeWindowlessPreviews: appearance.showFullSizeWindowlessPreviews,
                 compactWidth: appearance.compactModeWidth,
                 previewWidth: appearance.previewWidth
             )
 
             switch presentation {
-            case .windowless:
-                WindowlessAppPreview(
-                    windowInfo: windowInfo,
-                    index: index,
-                    dockPosition: dockPosition,
-                    uniformCardRadius: uniformCardRadius,
-                    isSelected: isSelected,
-                    windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
-                    dimensions: currentDimensionsMapForPreviews[index],
-                    mockPreviewActive: mockPreviewActive,
-                    handleWindowAction: { action in
-                        handleWindowAction(action, at: index)
-                    },
-                    onTap: onWindowTap,
-                    onHoverIndexChange: handleHoverIndexChange,
-                    appearance: appearance,
-                    backgroundAppearance: backgroundAppearance
-                )
-                .equatable()
             case let .compact(compactRowWidth):
                 WindowPreviewCompact(
                     windowInfo: windowInfo,

@@ -41,27 +41,18 @@ extension WindowPreviewHoverContainer {
     enum PreviewCardPresentation: Equatable {
         case regular
         case compact(width: CGFloat)
-        case windowless
 
         static func resolve(
             isWindowlessApp: Bool,
             containerUsesCompactRows: Bool,
-            windowSwitcherActive: Bool,
-            dockPosition: DockPosition,
+            showFullSizeWindowlessPreviews: Bool,
             compactWidth: CGFloat,
             previewWidth: CGFloat
         ) -> Self {
-            let usesWindowlessCompactRow = isWindowlessApp &&
-                (!windowSwitcherActive || dockPosition == .cmdTab) &&
-                !containerUsesCompactRows
-
-            if isWindowlessApp, !containerUsesCompactRows, !usesWindowlessCompactRow {
-                return .windowless
-            }
             if containerUsesCompactRows {
                 return .compact(width: compactWidth)
             }
-            if usesWindowlessCompactRow {
+            if isWindowlessApp, !showFullSizeWindowlessPreviews {
                 return .compact(width: previewWidth)
             }
             return .regular

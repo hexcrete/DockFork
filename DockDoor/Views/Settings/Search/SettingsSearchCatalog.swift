@@ -197,6 +197,14 @@ enum SettingsSearchCatalog {
             icon: "eye.slash"
         ),
         SettingsSearchItem(
+            id: "dockPreviews.fullSizeWindowless",
+            title: String(localized: "Show full size previews"),
+            keywords: ["windowless", "placeholder", "full", "size", "compact"],
+            tab: "DockPreviews",
+            section: String(localized: "Window Display"),
+            icon: "macwindow"
+        ),
+        SettingsSearchItem(
             id: "dockPreviews.showWindowless",
             title: String(localized: "Show preview for apps with no open windows"),
             description: String(localized: "Show a placeholder preview when hovering dock apps that have no windows."),
@@ -752,6 +760,14 @@ enum SettingsSearchCatalog {
             tab: "CmdTab",
             section: String(localized: "Window Display"),
             icon: "eye.slash"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.fullSizeWindowless",
+            title: String(localized: "Show full size previews"),
+            keywords: ["windowless", "placeholder", "full", "size", "compact"],
+            tab: "CmdTab",
+            section: String(localized: "Window Display"),
+            icon: "macwindow"
         ),
         SettingsSearchItem(
             id: "cmdTab.showWindowless",

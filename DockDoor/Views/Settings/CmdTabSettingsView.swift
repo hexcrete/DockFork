@@ -14,6 +14,7 @@ struct CmdTabSettingsView: View {
     @Default(.enableCmdTabEdgeAutoScroll) var enableCmdTabEdgeAutoScroll
     @Default(.cmdTabEdgeAutoScrollSpeed) var cmdTabEdgeAutoScrollSpeed
     @Default(.includeHiddenWindowsInCmdTab) var includeHiddenWindowsInCmdTab
+    @Default(.showFullSizeWindowlessCmdTabPreviews) var showFullSizeWindowlessCmdTabPreviews
     @Default(.showWindowlessAppsInCmdTab) var showWindowlessAppsInCmdTab
     @Default(.ignoreAppsWithSingleWindowInCmdTab) var ignoreAppsWithSingleWindowInCmdTab
 
@@ -171,6 +172,12 @@ struct CmdTabSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)
+
+                if showWindowlessAppsInCmdTab {
+                    Toggle("Show full size previews", isOn: $showFullSizeWindowlessCmdTabPreviews)
+                        .settingsSearchTarget("cmdTab.fullSizeWindowless")
+                        .padding(.leading, 20)
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: $ignoreAppsWithSingleWindowInCmdTab) { Text("Ignore apps with one window") }

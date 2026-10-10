@@ -501,6 +501,7 @@ struct PreviewAppearanceSettings: Equatable {
     let disableDockStyleWindowStateIndicator: Bool
     let swapTrafficLightsAndWindowStateIndicator: Bool
     let limitIndicatorSwapToCompactMode: Bool
+    let showFullSizeWindowlessPreviews: Bool
     let showWindowlessAppQuitButton: Bool
     let titleOverflowStyle: TitleOverflowStyle
 
@@ -602,6 +603,7 @@ struct PreviewAppearanceSettings: Equatable {
         .uniformCardRadius, .previewCornerRadius,
         .windowTitleFontSize, .windowStateIndicatorFontSize, .switcherAppIconSize, .trafficLightButtonScale,
         .previewWidth, .compactModeWidth, .compactModeTitleFormat, .compactModeItemSize, .compactModeHideTrafficLights,
+        .showFullSizeWindowlessDockPreviews, .showFullSizeWindowlessCmdTabPreviews,
         .showWindowlessAppQuitButton, .titleOverflowStyle,
     ]
 
@@ -664,6 +666,7 @@ struct PreviewAppearanceSettings: Equatable {
             disableDockStyleWindowStateIndicator: pick(.disableDockStyleWindowStateIndicator, switcher: .switcherDisableDockStyleWindowStateIndicator, cmdTab: .cmdTabDisableDockStyleWindowStateIndicator),
             swapTrafficLightsAndWindowStateIndicator: pick(.swapDockPreviewTrafficLightsAndWindowStateIndicator, switcher: .swapSwitcherTrafficLightsAndWindowStateIndicator, cmdTab: .swapCmdTabTrafficLightsAndWindowStateIndicator),
             limitIndicatorSwapToCompactMode: pick(.limitDockPreviewIndicatorSwapToCompactMode, switcher: .limitSwitcherIndicatorSwapToCompactMode, cmdTab: .limitCmdTabIndicatorSwapToCompactMode),
+            showFullSizeWindowlessPreviews: (windowSwitcherActive && !isCmdTab) || pick(.showFullSizeWindowlessDockPreviews, cmdTab: .showFullSizeWindowlessCmdTabPreviews),
             showWindowlessAppQuitButton: Defaults[.showWindowlessAppQuitButton],
             titleOverflowStyle: Defaults[.titleOverflowStyle]
         )
@@ -828,12 +831,22 @@ struct WindowPreview: View, Equatable {
         )
     }
 
+    private var previewTitle: String? {
+        if windowInfo.isWindowlessApp {
+            return String(localized: "No Open Windows", comment: "Label for running apps without any open windows in the window switcher")
+        }
+        if let title = windowInfo.windowName, !title.isEmpty {
+            return title
+        }
+        return windowInfo.app.localizedName
+    }
+
     private var isEffectivelyHidden: Bool {
-        windowInfo.isEffectivelyHiddenForUI
+        !windowInfo.isWindowlessApp && windowInfo.isEffectivelyHiddenForUI
     }
 
     private var windowStateLabel: String? {
-        guard appearance.windowStateIndicatorPlacement == .onWindowPreviews else { return nil }
+        guard !windowInfo.isWindowlessApp, appearance.windowStateIndicatorPlacement == .onWindowPreviews else { return nil }
         if windowInfo.isMinimized {
             return String(localized: "Minimized", comment: "Window state label")
         } else if isEffectivelyHidden {
@@ -852,7 +865,8 @@ struct WindowPreview: View, Equatable {
     }
 
     private var windowStateSymbols: [String] {
-        WindowStateSymbolResolver.symbols(
+        guard !windowInfo.isWindowlessApp else { return [] }
+        return WindowStateSymbolResolver.symbols(
             for: windowInfo,
             isEffectivelyHidden: isEffectivelyHidden
         )
@@ -868,7 +882,7 @@ struct WindowPreview: View, Equatable {
     }
 
     private var windowStateSymbol: String? {
-        guard appearance.windowStateIndicatorPlacement == .onWindowPreviews else { return nil }
+        guard !windowInfo.isWindowlessApp, appearance.windowStateIndicatorPlacement == .onWindowPreviews else { return nil }
         if windowInfo.isMinimized {
             return "minus.circle"
         } else if isEffectivelyHidden {
@@ -1022,7 +1036,7 @@ struct WindowPreview: View, Equatable {
     }
 
     private var isActiveWindow: Bool {
-        guard appearance.showActiveWindowBorder else { return false }
+        guard !windowInfo.isWindowlessApp, appearance.showActiveWindowBorder else { return false }
         guard windowInfo.app.isActive else { return false }
         return windowInfo.id == focusedWindowID
     }
@@ -1089,7 +1103,7 @@ struct WindowPreview: View, Equatable {
         Group {
             if skeletonMode {
                 Color.clear
-            } else if useLivePreview {
+            } else if useLivePreview && !windowInfo.isWindowlessApp {
                 LivePreviewImage(windowID: windowInfo.id, fallbackImage: windowInfo.image, quality: quality, frameRate: frameRate, context: windowSwitcherActive ? .windowSwitcher : .dock, placeholderIcon: windowInfo.image == nil ? windowInfo.app.icon : nil)
             } else if let cgImage = windowInfo.image {
                 Image(decorative: cgImage, scale: 1.0)
@@ -1173,11 +1187,7 @@ struct WindowPreview: View, Equatable {
 
     @ViewBuilder
     private func embeddedDockPreviewControls(_ selected: Bool) -> some View {
-        let titleToShow: String? = if let windowTitle = windowInfo.windowName, !windowTitle.isEmpty {
-            windowTitle
-        } else {
-            windowInfo.app.localizedName
-        }
+        let titleToShow = previewTitle
 
         let titlePresentation = WindowTitlePresentation.resolve(
             title: titleToShow,
@@ -1212,6 +1222,7 @@ struct WindowPreview: View, Equatable {
         let titleContent = Group {
             if titlePresentation.reservesSpace, let title = titleToShow {
                 titleLabel(title, adaptsToAvailableWidth: true, scrolls: titlePresentation.isVisible)
+                    .if(windowInfo.isWindowlessApp) { $0.italic() }
                     .font(appearance.windowTitleFontSize.font)
                     .multilineTextAlignment(titleTextAlignment)
                     .padding(4)
@@ -1486,7 +1497,7 @@ struct WindowPreview: View, Equatable {
             hasTrafficLights: canRenderTrafficLightButtons,
             stateLabelHeight: 17
         )
-        let windowTitle = windowInfo.windowName
+        let windowTitle = windowInfo.isWindowlessApp ? previewTitle : windowInfo.windowName
         let hasWindowTitleLabel = shouldShowWindowTitle &&
             windowTitle?.isEmpty == false &&
             windowTitle != windowInfo.app.localizedName
@@ -1517,6 +1528,7 @@ struct WindowPreview: View, Equatable {
 
             if let windowTitle, hasWindowTitleLabel {
                 titleLabel(windowTitle, adaptsToAvailableWidth: true)
+                    .if(windowInfo.isWindowlessApp) { $0.italic() }
                     .font(appearance.windowTitleFontSize.font)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(textAlignment)
@@ -1631,12 +1643,7 @@ struct WindowPreview: View, Equatable {
         showTitleContent: Bool = true,
         showControlsContent: Bool = true
     ) -> some View {
-        // Determine what title to show: window name first, then app name as fallback
-        let titleToShow: String? = if let windowTitle = windowInfo.windowName, !windowTitle.isEmpty {
-            windowTitle
-        } else {
-            windowInfo.app.localizedName
-        }
+        let titleToShow = previewTitle
 
         let titlePresentation = WindowTitlePresentation.resolve(
             title: titleToShow,
@@ -1667,6 +1674,7 @@ struct WindowPreview: View, Equatable {
         let titleContent = Group {
             if titlePresentation.reservesSpace, let title = titleToShow {
                 titleLabel(title, adaptsToAvailableWidth: true, scrolls: titlePresentation.isVisible)
+                    .if(windowInfo.isWindowlessApp) { $0.italic() }
                     .font(appearance.windowTitleFontSize.font)
                     .multilineTextAlignment(titleTextAlignment)
                     .padding(4)
