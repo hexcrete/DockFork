@@ -22,8 +22,8 @@ struct MaterialPillStyle: ViewModifier {
             }
             .clipShape(Capsule(style: .continuous))
             .borderedBackground(
-                .white.opacity(backgroundAppearance.borderOpacity),
-                lineWidth: backgroundAppearance.borderWidth,
+                .primary.opacity(0.1),
+                lineWidth: 1.5,
                 shape: Capsule(style: .continuous)
             )
     }
