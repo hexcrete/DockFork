@@ -65,7 +65,7 @@
      @objc private func openDonationPage() {
 --- a/DockDoor/Utilities/UpdaterState.swift
 +++ b/DockDoor/Utilities/UpdaterState.swift
-@@ -17,7 +17,7 @@
+@@ -17,9 +17,12 @@
  }
  
  final class UpdaterState: NSObject, SPUUpdaterDelegate, ObservableObject {
@@ -73,8 +73,13 @@
 +    @Published var canCheckForUpdates: Bool = true
      @Published var lastUpdateCheckDate: Date?
      @Published var currentVersion: String
++    let upstreamRelease = Bundle.main.object(forInfoDictionaryKey: "DockForkUpstreamRelease") as? String
++    let upstreamCommit = Bundle.main.object(forInfoDictionaryKey: "DockForkUpstreamCommit") as? String
++    let upstreamIncludesChanges = Bundle.main.object(forInfoDictionaryKey: "DockForkUpstreamIncludesChanges") as? Bool ?? false
      @Published var isAutomaticChecksEnabled: Bool = false
-@@ -102,7 +102,7 @@
+     @Published var updateChannel: UpdateChannel = .stable {
+         didSet {
+@@ -102,7 +105,7 @@
  
      func checkForUpdates() {
          guard let updater else {
@@ -115,7 +120,23 @@
                      defer { try? FileManager.default.removeItem(at: temporaryRootURL) }
 --- a/DockDoor/Views/Settings/SupportSettingsView.swift
 +++ b/DockDoor/Views/Settings/SupportSettingsView.swift
-@@ -98,6 +98,7 @@
+@@ -68,6 +68,15 @@
+                         Text("Version \(updaterState.currentVersion)")
+                             .font(.caption)
+                             .foregroundColor(.secondary)
++                        if let release = updaterState.upstreamRelease, let commit = updaterState.upstreamCommit {
++                            Text(updaterState.upstreamIncludesChanges
++                                 ? String(localized: "Based on DockDoor \(release) + upstream changes · \(String(commit.prefix(7)))")
++                                 : String(localized: "Based on DockDoor \(release) · \(String(commit.prefix(7)))"))
++                                .font(.caption)
++                                .foregroundColor(.secondary)
++                                .textSelection(.enabled)
++                                .help(String(localized: "Upstream commit: \(commit)"))
++                        }
+                     }
+ 
+                     Spacer()
+@@ -98,6 +107,7 @@
                      }
                      .labelsHidden()
                      .frame(width: 100)
@@ -123,7 +144,7 @@
                  }
                  .settingsSearchTarget("support.updateChannel")
  
-@@ -146,6 +147,7 @@
+@@ -146,6 +156,7 @@
                          set: { _ in updaterState.toggleAutomaticChecks() }
                      ))
                      .labelsHidden()
@@ -131,7 +152,7 @@
                  }
                  .settingsSearchTarget("support.automaticUpdates")
  
-@@ -169,24 +171,30 @@
+@@ -169,24 +180,30 @@
  
      @ViewBuilder
      private var updateStatusBadge: some View {

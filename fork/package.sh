@@ -22,6 +22,8 @@ Release mode performs no account, provisioning, installation, launch or publicat
 --dev builds Debug with tracked source changes, certificate-signs, replaces and
       launches the fixed local app at fork/dist/dev/DockFork.app. No release ZIP.
 --signing-identity selects a local Apple Development certificate for --dev.
+Version and upstream ancestry are recorded in fork/version.json; --version overrides
+only the DockFork version for this build.
 EOF
 }
 
@@ -92,6 +94,21 @@ trap cleanup EXIT
 source_dir="$work/source"
 mkdir -p "$source_dir"
 
+version_record="$work/version.json"
+if $include_working_tree; then
+    cp "$root/fork/version.json" "$version_record"
+else
+    if ! git -C "$root" show "$commit:fork/version.json" > "$version_record"; then
+        echo 'Release builds require a committed fork/version.json.' >&2
+        exit 1
+    fi
+fi
+/usr/bin/ruby "$root/fork/packaging/version_metadata.rb" "$root" "$commit" "$version" \
+    "$version_record" "$destination/BUILD-METADATA.json"
+read -r version upstream_release upstream_commit upstream_release_commit upstream_changes < <(
+    /usr/bin/ruby -rjson -e 'metadata = JSON.parse(File.read(ARGV[0])); puts %w[forkVersion upstreamRelease upstreamCommit upstreamReleaseCommit upstreamIncludesChanges].map { |key| metadata.fetch(key) }.join(" ")' "$destination/BUILD-METADATA.json"
+)
+
 # Archive committed sources, never the local Dev project identity or preferences.
 git -C "$root" archive "$commit" | tar -xf - -C "$source_dir"
 git -C "$root" archive --format=tar.gz --prefix=DockDoor-source/ "$commit" > "$destination/DockFork-${short_commit}-source.tar.gz"
@@ -145,6 +162,11 @@ done
 /usr/libexec/PlistBuddy -c 'Add :SUAllowsAutomaticUpdates bool false' "$plist"
 /usr/libexec/PlistBuddy -c 'Add :SUSendProfileInfo bool false' "$plist"
 /usr/libexec/PlistBuddy -c 'Add :DockForkDistribution bool true' "$plist"
+/usr/libexec/PlistBuddy -c "Add :DockForkUpstreamRelease string $upstream_release" "$plist"
+/usr/libexec/PlistBuddy -c "Add :DockForkUpstreamCommit string $upstream_commit" "$plist"
+/usr/libexec/PlistBuddy -c "Add :DockForkUpstreamReleaseCommit string $upstream_release_commit" "$plist"
+/usr/libexec/PlistBuddy -c "Add :DockForkUpstreamIncludesChanges bool $upstream_changes" "$plist"
+/usr/libexec/PlistBuddy -c "Add :DockForkSourceCommit string $commit" "$plist"
 
 cp "$root/fork/packaging/DockFork.patch" "$destination/DockFork.patch"
 printf '%s\n' "$commit" > "$destination/SOURCE-COMMIT.txt"
@@ -170,7 +192,7 @@ build_args=(
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO DEVELOPMENT_TEAM=
     ENABLE_HARDENED_RUNTIME=NO
 )
-printf 'Building %s source %s; log: %s\n' "$configuration" "$label" "$destination/build.log"
+printf 'Building DockFork %s (%s), upstream %s at %s; log: %s\n' "$version" "$configuration" "$upstream_release" "$upstream_commit" "$destination/build.log"
 if ! xcodebuild "${build_args[@]}" build > "$destination/build.log" 2>&1; then
     tail -n 50 "$destination/build.log" >&2
     exit 1
@@ -182,6 +204,13 @@ app_plist="$app/Contents/Info.plist"
 [[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app_plist") == io.github.hexcrete.DockFork ]]
 [[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app_plist") == DockFork ]]
 [[ $(/usr/libexec/PlistBuddy -c 'Print :DockForkDistribution' "$app_plist") == true ]]
+[[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app_plist") == "$version" ]]
+[[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app_plist") == "$version" ]]
+[[ $(/usr/libexec/PlistBuddy -c 'Print :DockForkUpstreamRelease' "$app_plist") == "$upstream_release" ]]
+[[ $(/usr/libexec/PlistBuddy -c 'Print :DockForkUpstreamCommit' "$app_plist") == "$upstream_commit" ]]
+[[ $(/usr/libexec/PlistBuddy -c 'Print :DockForkUpstreamReleaseCommit' "$app_plist") == "$upstream_release_commit" ]]
+[[ $(/usr/libexec/PlistBuddy -c 'Print :DockForkUpstreamIncludesChanges' "$app_plist") == "$upstream_changes" ]]
+[[ $(/usr/libexec/PlistBuddy -c 'Print :DockForkSourceCommit' "$app_plist") == "$commit" ]]
 if /usr/libexec/PlistBuddy -c 'Print :SUFeedURL' "$app_plist" >/dev/null 2>&1; then
     echo 'Unsafe package: upstream update feed remains.' >&2
     exit 1
@@ -262,7 +291,7 @@ cp "$root/fork/packaging/INSTALL.md" "$destination/INSTALL.md"
     cd "$destination"
     shasum -a 256 "$archive" "DockFork-${short_commit}-source.tar.gz" \
         DockFork-Showcase.json DockFork.patch INSTALL.md LICENSE SOURCE-COMMIT.txt \
-        PACKAGING-PATCH-SHA256.txt > SHA256SUMS.txt
+        PACKAGING-PATCH-SHA256.txt BUILD-METADATA.json > SHA256SUMS.txt
     if $include_working_tree; then shasum -a 256 WORKING-TREE.patch >> SHA256SUMS.txt; fi
 )
 printf 'Package ready (ad-hoc signed, not notarized): %s\n' "$destination"
