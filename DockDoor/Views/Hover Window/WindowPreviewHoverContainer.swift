@@ -1234,6 +1234,7 @@ struct WindowPreviewHoverContainer: View {
             CardGridScrollView(
                 layout: layout,
                 contentKey: previewStateCoordinator.windows.map(\.viewSnapshot),
+                focusedWindowID: previewStateCoordinator.focusedWindowID,
                 coordinator: previewStateCoordinator,
                 scrolledFromStart: $scrolledFromStart,
                 scrolledToEnd: $scrolledToEnd,

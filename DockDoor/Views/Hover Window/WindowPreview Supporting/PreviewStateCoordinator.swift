@@ -98,8 +98,9 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    func setFocusedWindowID(_ windowID: CGWindowID?) {
-        focusedWindowID = windowID
+    func updateActiveFocusedWindowID(_ windowID: CGWindowID?, for processIdentifier: pid_t) {
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier == processIdentifier else { return }
+        applyActiveFocusedWindowID(windowID, frontmostPID: processIdentifier)
     }
 
     @MainActor
@@ -671,7 +672,7 @@ class PreviewStateCoordinator: ObservableObject {
         }
 
         let refreshedWindowID = resolvedWindowID.flatMap { windowID in
-            windows.contains(where: { $0.id == windowID }) ? windowID : nil
+            windows.contains(where: { $0.id == windowID && $0.app.processIdentifier == frontmostPID }) ? windowID : nil
         } ?? frontmostPID.flatMap { pid in
             windows
                 .filter { $0.app.processIdentifier == pid }
@@ -679,6 +680,9 @@ class PreviewStateCoordinator: ObservableObject {
                 .id
         }
         if focusedWindowID != refreshedWindowID {
+            if Defaults[.debugMode] {
+                DebugLogger.log("PreviewFocus", details: "frontmostPID=\(String(describing: frontmostPID)), AX=\(String(describing: resolvedWindowID)), border=\(String(describing: focusedWindowID))->\(String(describing: refreshedWindowID))")
+            }
             focusedWindowID = refreshedWindowID
         }
     }

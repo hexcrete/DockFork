@@ -81,6 +81,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let token: UUID
         let expectedProcessIdentifier: pid_t?
         let expiresAt: Date
+        let preservesDockCycle: Bool
     }
 
     private var deferredActionWatchersByKey: [String: DeferredActionWatcher] = [:]
@@ -549,14 +550,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @discardableResult
-    private func suppressNextActionDrivenActivationDismissal(for expectedProcessIdentifier: pid_t?) -> UUID? {
+    private func suppressNextActionDrivenActivationDismissal(for expectedProcessIdentifier: pid_t?, preservesDockCycle: Bool = false) -> UUID? {
         guard isVisible else { return nil }
 
         let token = UUID()
         activationDismissalSuppression = ActivationDismissalSuppression(
             token: token,
             expectedProcessIdentifier: expectedProcessIdentifier,
-            expiresAt: Date().addingTimeInterval(1)
+            expiresAt: Date().addingTimeInterval(1),
+            preservesDockCycle: preservesDockCycle
         )
         return token
     }
@@ -573,12 +575,35 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             return false
         }
 
+        if suppression.preservesDockCycle, !canPreserveDockPreviewsForWindowCycle(of: processIdentifier) {
+            activationDismissalSuppression = nil
+            return false
+        }
+
         let matches = suppression.expectedProcessIdentifier == nil ||
             suppression.expectedProcessIdentifier == processIdentifier
         if !matches {
             activationDismissalSuppression = nil
         }
         return matches
+    }
+
+    func canPreserveDockPreviewsForWindowCycle(of processIdentifier: pid_t) -> Bool {
+        Defaults[.keepDockPreviewsOpenWhenCycling] &&
+            Defaults[.shouldHideOnDockItemClick] && Defaults[.dockClickAction] == .cycleWindows &&
+            isVisible && !windowSwitcherCoordinator.windowSwitcherActive &&
+            currentDockPosition != .cmdTab && currentlyDisplayedPID == processIdentifier
+    }
+
+    @discardableResult
+    func preserveDockPreviewsForWindowCycle(to window: WindowInfo) -> Bool {
+        guard canPreserveDockPreviewsForWindowCycle(of: window.app.processIdentifier) else { return false }
+        guard !WindowUtil.activationMaySwitchSpaces(for: window) else {
+            hideWindow()
+            return false
+        }
+        suppressNextActionDrivenActivationDismissal(for: window.app.processIdentifier, preservesDockCycle: true)
+        return true
     }
 
     @MainActor

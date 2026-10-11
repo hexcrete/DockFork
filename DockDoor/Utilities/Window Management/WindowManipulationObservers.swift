@@ -368,7 +368,7 @@ class WindowManipulationObservers {
             let appAX = AXUIElementCreateApplication(app.processIdentifier)
             let focusedWindowID = (try? appAX.focusedWindow()).flatMap { try? $0.cgWindowId() }
             Task { @MainActor [weak self] in
-                self?.previewCoordinator.windowSwitcherCoordinator.setFocusedWindowID(focusedWindowID)
+                self?.previewCoordinator.windowSwitcherCoordinator.updateActiveFocusedWindowID(focusedWindowID, for: pid)
             }
             updateTimestampIfAppActive(element: element, app: app)
             if let focusedWindowID {

@@ -26,6 +26,7 @@ struct CardGridScrollView: NSViewRepresentable {
 
     let layout: Layout
     let contentKey: [WindowInfo.ViewSnapshot]
+    let focusedWindowID: CGWindowID?
     let coordinator: PreviewStateCoordinator
     @Binding var scrolledFromStart: Bool
     @Binding var scrolledToEnd: Bool
@@ -238,6 +239,7 @@ struct CardGridScrollView: NSViewRepresentable {
         private var frames: [FlowItem: CGRect] = [:]
         private var layout: Layout?
         private var contentKey: [WindowInfo.ViewSnapshot] = []
+        private var focusedWindowID: CGWindowID?
         private var previewCoordinator: PreviewStateCoordinator?
         private var scrolledFromStart: Binding<Bool>?
         private var scrolledToEnd: Binding<Bool>?
@@ -277,13 +279,18 @@ struct CardGridScrollView: NSViewRepresentable {
             scrolledFromStart = representable.$scrolledFromStart
             scrolledToEnd = representable.$scrolledToEnd
 
+            let previousFocusedWindowID = focusedWindowID
+            let focusChanged = focusedWindowID != representable.focusedWindowID
+            focusedWindowID = representable.focusedWindowID
+
             if layout != representable.layout {
                 layout = representable.layout
                 contentKey = representable.contentKey
                 container.scrollsVertically = representable.layout.scrollsVertically
                 rebuild(in: container, representable: representable)
-            } else if contentKey != representable.contentKey {
+            } else if contentKey != representable.contentKey || focusChanged {
                 let previousContentSize = contentSize
+                let contentChanged = contentKey != representable.contentKey
                 let identityChanged = contentKey.count == representable.contentKey.count &&
                     zip(contentKey, representable.contentKey).contains {
                         $0.id != $1.id || $0.pid != $1.pid
@@ -300,6 +307,14 @@ struct CardGridScrollView: NSViewRepresentable {
                     }
                 } else {
                     for (item, hostingView) in hostingViews {
+                        // Focus-only changes affect the old and new border, not card geometry.
+                        if !contentChanged {
+                            guard case let .window(index) = item,
+                                  contentKey.indices.contains(index)
+                            else { continue }
+                            let windowID = contentKey[index].id
+                            guard windowID == previousFocusedWindowID || windowID == focusedWindowID else { continue }
+                        }
                         hostingView.rootView = Self.hostedCard(representable.makeCard(item))
                     }
                 }

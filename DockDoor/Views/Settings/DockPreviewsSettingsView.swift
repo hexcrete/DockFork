@@ -21,6 +21,7 @@ struct DockPreviewsSettingsView: View {
     @Default(.dockPreviewEdgeAutoScrollSpeed) var dockPreviewEdgeAutoScrollSpeed
     @Default(.shouldHideOnDockItemClick) var shouldHideOnDockItemClick
     @Default(.dockClickAction) var dockClickAction
+    @Default(.keepDockPreviewsOpenWhenCycling) var keepDockPreviewsOpenWhenCycling
     @Default(.enableCmdRightClickQuit) var enableCmdRightClickQuit
     @Default(.quitAppOnWindowClose) var quitAppOnWindowClose
     @Default(.bufferFromDock) var bufferFromDock
@@ -269,6 +270,13 @@ struct DockPreviewsSettingsView: View {
                     .pickerStyle(MenuPickerStyle())
                     .padding(.leading, 20)
                     .settingsSearchTarget("dockPreviews.clickAction")
+                    if dockClickAction == .cycleWindows {
+                        Toggle(isOn: $keepDockPreviewsOpenWhenCycling) {
+                            Text("Keep previews open when cycling through windows")
+                        }
+                        .padding(.leading, 20)
+                        .settingsSearchTarget("dockPreviews.keepOpenWhenCycling")
+                    }
                 }
 
                 Toggle(isOn: $enableCmdRightClickQuit) { Text("CMD + Right Click on dock icon to quit app") }

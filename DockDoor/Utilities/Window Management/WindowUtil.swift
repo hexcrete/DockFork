@@ -282,18 +282,6 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     }
 
     func shouldForcePreviewCloseForFullscreenTransition(on window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> Bool {
-        func shouldForceCloseForCrossSpaceWindow(_ candidate: WindowInfo, activeSpaceIDs: Set<Int>) -> Bool {
-            let windowSpaces = Set(candidate.id.cgsSpaces().map { Int($0) })
-            if !windowSpaces.isEmpty {
-                return windowSpaces.isDisjoint(with: activeSpaceIDs)
-            }
-            if let cachedSpaceID = candidate.spaceID {
-                return !activeSpaceIDs.contains(cachedSpaceID)
-            }
-            // Unknown Space membership: only keep-open when we can prove same-space.
-            return true
-        }
-
         switch self {
         case .toggleFullScreen:
             guard let isFullscreen = try? window.axElement.isFullscreen() else { return false }
@@ -319,24 +307,13 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
                 return true
             }
 
-            let activeSpaceIDs = currentActiveSpaceIDs()
-            guard !activeSpaceIDs.isEmpty else {
-                // If we cannot resolve the current Space set, prefer pre-close to avoid cross-space preview artifacts.
-                return true
-            }
-
-            return shouldForceCloseForCrossSpaceWindow(window, activeSpaceIDs: activeSpaceIDs)
+            return WindowUtil.activationMaySwitchSpaces(for: window)
 
         case .minimize:
             // Unminimizing can jump Spaces when restoring a window located elsewhere.
             guard window.isMinimized else { return false }
 
-            let activeSpaceIDs = currentActiveSpaceIDs()
-            guard !activeSpaceIDs.isEmpty else {
-                return true
-            }
-
-            return shouldForceCloseForCrossSpaceWindow(window, activeSpaceIDs: activeSpaceIDs)
+            return WindowUtil.activationMaySwitchSpaces(for: window)
 
         case .minimizeAllWindows:
             // Keep previews open for unminimize-all even when some windows may restore on another Space.
@@ -2079,6 +2056,20 @@ extension WindowUtil {
         let appElement = AXUIElementCreateApplication(processIdentifier)
         guard let focusedWindow = (try? appElement.focusedWindow()) ?? nil else { return nil }
         return try? focusedWindow.cgWindowId()
+    }
+
+    static func activationMaySwitchSpaces(for window: WindowInfo) -> Bool {
+        let activeSpaceIDs = currentActiveSpaceIDs()
+        guard !activeSpaceIDs.isEmpty else { return true }
+        let windowSpaces = Set(window.id.cgsSpaces().map { Int($0) })
+        if !windowSpaces.isEmpty {
+            return windowSpaces.isDisjoint(with: activeSpaceIDs)
+        }
+        if let cachedSpaceID = window.spaceID {
+            return !activeSpaceIDs.contains(cachedSpaceID)
+        }
+        // Unknown membership: only keep previews open when same-Space activation is known.
+        return true
     }
 
     /// Returns whether a single window belongs to one of the given active Spaces.

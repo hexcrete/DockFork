@@ -358,6 +358,14 @@ enum SettingsSearchCatalog {
             icon: "cursorarrow.click.2"
         ),
         SettingsSearchItem(
+            id: "dockPreviews.keepOpenWhenCycling",
+            title: String(localized: "Keep previews open when cycling through windows"),
+            keywords: ["dock", "click", "cycle", "windows", "keep", "open", "active"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "arrow.triangle.2.circlepath"
+        ),
+        SettingsSearchItem(
             id: "dockPreviews.cmdRightClickQuit",
             title: String(localized: "CMD + Right Click on dock icon to quit app"),
             keywords: ["quit", "right click", "command", "force"],

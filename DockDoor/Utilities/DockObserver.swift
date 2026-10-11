@@ -1010,7 +1010,7 @@ final class DockObserver {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     cancelDockClickAction(for: app.processIdentifier)
-                    prepareForOverriddenDockClick()
+                    prepareForWindowCycle(of: app)
                     cycleThroughWindows(of: app)
                 }
                 return nil
@@ -1076,7 +1076,7 @@ final class DockObserver {
                 return nil
             }
 
-            if type == .leftMouseDown, !previewCoordinator.tapSnapshot.mouseIsWithinPreviewWindow {
+            if type == .leftMouseDown {
                 if windowCyclingEnabled,
                    app.bundleIdentifier != Bundle.main.bundleIdentifier,
                    cycleClicks?.begin(app: app, event: event) == true
@@ -1232,10 +1232,12 @@ final class DockObserver {
     }
 
     @MainActor
-    private func prepareForOverriddenDockClick() {
+    private func prepareForWindowCycle(of app: NSRunningApplication) {
         clearLastHoveredDockApp()
         previewCoordinator.cancelPendingShow()
-        previewCoordinator.hideWindow()
+        if !previewCoordinator.canPreserveDockPreviewsForWindowCycle(of: app.processIdentifier) {
+            previewCoordinator.hideWindow()
+        }
     }
 
     @MainActor
@@ -1401,6 +1403,8 @@ final class DockObserver {
             return
         }
 
+        DebugLogger.log("DockCycle", details: "PID: \(processIdentifier), target: \(targetWindowID), focused: \(String(describing: focusedWindowID)), hover generation: \(hoverGeneration)")
+
         if targetWindow.isMinimized || app.isHidden {
             scheduleCycledWindowActivation(
                 targetWindow,
@@ -1409,7 +1413,11 @@ final class DockObserver {
             )
         } else {
             cancelDockClickAction(for: app.processIdentifier)
+            let keptPreviewsOpen = previewCoordinator.preserveDockPreviewsForWindowCycle(to: targetWindow)
             targetWindow.bringToFront()
+            if keptPreviewsOpen {
+                previewCoordinator.windowSwitcherCoordinator.scheduleActiveFocusedWindowRefresh()
+            }
         }
     }
 
@@ -1431,6 +1439,7 @@ final class DockObserver {
                 }
             }
 
+            previewCoordinator.preserveDockPreviewsForWindowCycle(to: targetWindow)
             if app.isHidden {
                 guard await WindowUtil.setHiddenStateConfirmed(for: app, isHidden: false) else {
                     return
@@ -1448,8 +1457,12 @@ final class DockObserver {
                   cycleHoverGeneration == hoverGeneration
             else { return }
 
+            let keptPreviewsOpen = previewCoordinator.preserveDockPreviewsForWindowCycle(to: targetWindow)
             app.activate(options: [.activateIgnoringOtherApps])
             targetWindow.bringToFront()
+            if keptPreviewsOpen {
+                previewCoordinator.windowSwitcherCoordinator.scheduleActiveFocusedWindowRefresh()
+            }
         }
         dockClickActionTasks[pid] = PendingDockClickAction(token: token, task: task)
     }
