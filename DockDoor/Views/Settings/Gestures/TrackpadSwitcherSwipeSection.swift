@@ -58,7 +58,7 @@ struct TrackpadSwitcherSwipeSection: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle(isOn: $selectWindowOnPersistentSwitcherSwipe) {
-                            Text(String(localized: "Select last window when swiping in persistent Window Switchers"))
+                            Text(String(localized: "Select highlighted window when swiping in persistent Window Switchers"))
                         }
                         .settingsSearchTarget("gestures.trackpadSwitcherSwipePersistentSelection")
 
