@@ -1773,7 +1773,8 @@ struct WindowPreview: View, Equatable {
         let switcherCardWidth = dynamicSwitcherCardWidth
 
         ZStack(alignment: .topLeading) {
-            VStack(alignment: .leading, spacing: 0) {
+            // Padded toolbars must not shift the narrower image toward one edge.
+            VStack(alignment: .center, spacing: 0) {
                 if !appearance.useEmbeddedElements,
                    appearance.controlPosition.showsOnTop
                 {
