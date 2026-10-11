@@ -13,7 +13,7 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 
-Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes twenty-five documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless/dimming/pill-border/motion/version/Dock-cycling follow-ups through `dc5a805`, for 214 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes twenty-seven documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless/dimming/pill-border/motion/version/Dock-cycling follow-ups through `b7faf95`, for 216 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -82,6 +82,12 @@ Keep-previews-after-action settings are independent from bringing moved/resized 
 **Showcase:** A01-A03. Entry points: Dock Interaction, Gestures & Keybinds, and the app header. Representative commits: `ffa82dd`, `bef9786`, `28075b2`, `2c1679d`, `4743b0e`, `df7bf47`.
 
 Dock cycling fix (`dc5a805`): cycle only after releasing a click on the original app icon. On dragging, return the withheld original press to the native Dock before the first drag event, without re-entering DockDoor's event tap. Mouse-up/drag subscriptions and bounded press tracking exist only while the cycling override is enabled. Minimize/Hide, Shift-click, and configured preview-activation clicks retain their existing paths. Seven source-derived press lifetime/copy checks, signed Debug build, signature verification, and exact-path relaunch passed. User manual verification passed. The reviewed source matches the tested build; the full Xcode test suite was not run. No new timer or window discovery is added to the drag path.
+
+Cycling option (`b7faf95`): Dock Interaction > Dock Click Action > Cycle through windows exposes Keep previews open when cycling through windows, default Off. It retains an already-visible Dock container only for same-Space activation, using the shared conservative Space-transition check also used by Unhide/Un-minimize. Off-Space or unknown-membership targets close previews before restoration/activation. Actual Space changes always use the ordinary dismissal lifecycle, even if prediction missed a transition. No Dock-visibility monitor, polling, discovery scan, or capture request is added.
+
+AppKit-hosted cards refresh only the old/new active borders for focus-only changes, without grid remeasurement or reordering. AX focus updates validate the frontmost PID, preventing background apps from overwriting the border. Dock clicks use actual coordinates rather than a stale hover flag; native Dock dragging/replay remain unchanged. User manual verification passed for preview retention, focus/re-entry fixes, and transition dismissal.
+
+Validation: 444 source-derived transition/preservation cases passed, including unknown membership, active Spaces on multiple displays, and no Space reads while preservation is ineligible. Earlier 120 focus-notification, 50 card-refresh, and 7 press checks passed. Latest signed Debug build, exact-path relaunch, signature and source-snapshot verification passed. Full Xcode suite and measured CPU comparison were not performed. Committed as `b7faf95` after manual approval.
 
 ## Native Menus and Scripting
 
