@@ -76,7 +76,7 @@ Feature audit: `9efa1cc` against upstream `0bd2e46`, October 8, 2026; publicatio
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
 | [ ] | L01 | Video: horizontal/vertical grids | Use enough windows to overflow; compare Max Rows 1/2 and Ignore screen size limit off, then Tab and arrow traversal. Compact Mode stays vertical. | `19b3ddd`, `8af3b00`, `f4ccf61` |
-| [ ] | L02 | Video: edge auto-scroll | Start with pointer already at an edge: no scroll until movement. Enter the edge zone, show stale highlight cleared, then return over a real card. Repeat relevant mode/axis options. | `bbb44ad`, `08c52c6`, `f7e5a12` |
+| [ ] | L02 | Video: edge auto-scroll | Start with pointer already at an edge: no scroll until movement. Enter the edge zone, show stale highlight cleared, then return over a real card. Repeat relevant mode/axis options. At the scrolled end, close enough windows or filter results to remove a row/column; verify pointer highlights and clicks still match visible cards, including when content stops overflowing (user manual verification of the reported scroll-geometry issue passed; mode-by-mode capture not recorded). | `bbb44ad`, `08c52c6`, `f7e5a12`, `295ef75` |
 | [ ] | L03 | Screenshot/video: search placement and focus | Fill a switcher, open search, and show no blocking overlap. Click its empty field: helper disappears; dismiss input: helper can return. | `586407f`, `9151f2d` |
 | [ ] | L04 | Video: windowless-to-window transition | Hover a windowless app, create one disposable window, and show the panel resizing even though its entry count remains one. | `c802975` |
 

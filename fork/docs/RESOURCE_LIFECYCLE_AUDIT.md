@@ -41,6 +41,10 @@ Keep-open cycling option (`b7faf95`), October 11: reuses the coordinator's one-s
 
 Existing active-focus refresh remains coalesced and border-gated. Focus-only grid updates refresh the old/new borders without geometry work. Source-PID validation rejects background-app focus notifications; actual click coordinates avoid stale hover-state gating. The 444 updated transition/preservation cases passed, including zero topology reads when ineligible; earlier 120 focus, 50 card-refresh, and 7 press checks passed. Latest signed Debug build, exact-path relaunch, signature and source-snapshot verification passed. User manual verification passed for the tested transition scenarios; no separate hardware/display coverage is inferred from that approval. This is not a rerun of the October 8 audit or a measured CPU comparison; full Xcode suite not run.
 
+## Scroll Geometry Follow-Up
+
+October 11 targeted review: content-size updates in the shared AppKit card grid could clamp the logical offset without committing the corresponding view origin. This omission dates to upstream `23fccf2`, not the fork's edge-scroll changes. The fix (`295ef75`) commits on content-size updates, using the existing no-op guard when the offset is unchanged. Viewport-size and axis-change paths already do so. Layer-only scrolling, timer ownership, weak captures, and teardown remain unchanged; no additional repeating work or measurement is added. Production-container coordinate checks and both-axis regression cases passed in an isolated native harness; signed Debug build/relaunch, reviewed source correspondence, and user manual verification of the reported issue passed. Separate all-mode/display manual coverage is not recorded, and the full Xcode suite was not run. This is not a rerun of the October 8 resource audit or a measured performance comparison.
+
 ## Default Compatibility
 
 An unset main shortcut uses Either-side Option, and unset traffic-light scale is 1.0, matching upstream. Explicitly stored user choices remain unchanged. New-feature defaults and removed-preference compatibility were deliberately not changed in this pass.
