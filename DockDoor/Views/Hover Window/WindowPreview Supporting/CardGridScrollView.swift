@@ -85,6 +85,8 @@ struct CardGridScrollView: NSViewRepresentable {
             didSet {
                 contentView.frame.size = contentSize
                 setOffset(offset)
+                // Layout changes must update pointer coordinates, not just the visual transform.
+                commit()
             }
         }
 

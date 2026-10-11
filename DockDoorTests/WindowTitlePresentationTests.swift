@@ -1,7 +1,58 @@
 import Cocoa
 import Defaults
+import QuartzCore
 @testable import DockDoor
 import Testing
+
+struct CardGridScrollGeometryTests {
+    @MainActor @Test(arguments: [true, false])
+    func contentResizeCommitsPointerGeometry(scrollsVertically: Bool) {
+        let grid = CardGridScrollView.ContainerView(scrollsVertically: scrollsVertically)
+        let host = CardGridScrollView.FlippedView(frame: CGRect(x: 0, y: 0, width: 200, height: 200))
+        host.addSubview(grid)
+        grid.setFrameSize(CGSize(width: 200, height: 200))
+        grid.contentSize = scrollsVertically
+            ? CGSize(width: 200, height: 800)
+            : CGSize(width: 800, height: 200)
+        grid.scroll(to: 600, animated: false)
+        let target = NSView()
+        grid.contentView.addSubview(target)
+
+        var expectedOffset: CGFloat = 600
+        for extent: CGFloat in [400, 100, 700] {
+            grid.contentSize = scrollsVertically
+                ? CGSize(width: 200, height: extent)
+                : CGSize(width: extent, height: 200)
+            expectedOffset = min(expectedOffset, max(0, extent - 200))
+            #expect(grid.offset == expectedOffset)
+            let point = grid.contentView.convert(CGPoint(x: 60, y: 60), from: grid)
+            #expect((scrollsVertically ? point.y : point.x) == 60 + grid.offset)
+            #expect(CATransform3DIsIdentity(grid.contentView.layer!.sublayerTransform))
+            target.frame = CGRect(
+                x: scrollsVertically ? 40 : grid.offset + 40,
+                y: scrollsVertically ? grid.offset + 40 : 40,
+                width: 40, height: 40
+            )
+            #expect(grid.hitTest(CGPoint(x: 60, y: 60)) === target)
+        }
+    }
+
+    @MainActor @Test(arguments: [true, false])
+    func viewportResizeAndAxisChangeCommitPointerGeometry(scrollsVertically: Bool) {
+        let grid = CardGridScrollView.ContainerView(scrollsVertically: scrollsVertically)
+        grid.setFrameSize(CGSize(width: 200, height: 200))
+        grid.contentSize = CGSize(width: 800, height: 800)
+        grid.scroll(to: 600, animated: false)
+        grid.setFrameSize(CGSize(width: 600, height: 600))
+        #expect(grid.offset == 200)
+        let point = grid.contentView.convert(CGPoint(x: 60, y: 60), from: grid)
+        #expect((scrollsVertically ? point.y : point.x) == 260)
+        grid.scrollsVertically.toggle()
+        #expect(grid.offset == 0)
+        #expect(grid.contentView.frame.origin == .zero)
+        #expect(CATransform3DIsIdentity(grid.contentView.layer!.sublayerTransform))
+    }
+}
 
 struct PreviewControlAnimationTests {
     @Test func zeroDurationDisablesControlAnimations() {
