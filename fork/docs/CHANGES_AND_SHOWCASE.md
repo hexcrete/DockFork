@@ -17,7 +17,7 @@ Release validation on October 11, 2026 covered a committed-source `82f0a06` cand
 
 The optional showcase preset was refreshed October 11, 2026 in `3d1e761`: 237 recognized preferences remain after removing four private/system settings and the export timestamp. The latest export has no window-title/focus history; its file-dialog bookmark is excluded. All 15 shortcut IDs are generic, and debug logging remains off. The preset retains the supplied interaction and appearance choices without changing app defaults or importing them, including updated shortcuts, embedded Dock/Cmd+Tab controls, and compact-style windowless rows. The latest working-tree Release test candidate contains this preset; its checksums and correspondence passed verification. No import testing of this latest refresh is recorded.
 
-Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes thirty later follow-ups through `3d1e761`, for 219 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes thirty-two later follow-ups through `e2667b3`, for 221 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -109,7 +109,9 @@ Horizontal Window Switcher grids respect the applicable row/screen limit, and cy
 
 Entering an edge-scroll zone clears stale preview selection. Content clipping and fade edges follow the container, while search placement accounts for the panel size. Search helper text disappears while its input is active, including click focus. Placeholder-to-window replacement triggers appropriate panel resizing even when the row count is unchanged.
 
-**Showcase:** L01-L04. Representative commits: `c802975`, `19b3ddd`, `8af3b00`, `08c52c6`, `f7e5a12`, `586407f`, `9151f2d`.
+Non-embedded preview centering: the shared regular-card stack centers its screenshot independently of toolbar width. Fork commit `a86d0c7` gave the switcher toolbar a fixed image-width frame; the existing outer toolbar padding then made it wider than the screenshot, exposing the inherited stack's leading alignment. Upstream's flexible switcher toolbar does not impose that fixed width. The current fix changes only stack alignment, not title/control alignment, card sizing, or padding. The same renderer covers regular and full-size placeholder cards in Dock, Cmd+Tab, and Window Switcher; Compact Mode is unchanged. A reduced offscreen SwiftUI reproduction measured a 3-point shift before the fix and zero afterward; 216 native-renderer width/padding/toolbar-position checks passed. The signed Debug build/relaunch, exact running path, signature, binary correspondence, and reviewed source-patch comparison passed. These are structural layout checks, not manual verification of every app mode; the full Xcode suite was not run. No timers, observers, measurement caches, or runtime state are added.
+
+**Showcase:** L01-L04. Representative commits: `c802975`, `19b3ddd`, `8af3b00`, `08c52c6`, `f7e5a12`, `586407f`, `9151f2d`, `e2667b3`.
 
 ## Full-Size Preview Appearance
 

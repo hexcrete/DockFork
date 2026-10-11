@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers thirty later commits through `3d1e7614ca030a4d00bd5f1a985722214e756e57`: **222 total, 219 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. The documentation commit containing this update will be recorded in the next ledger update; coverage ends at this explicit tip, not a subsequent documentation commit.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers thirty-two later commits through `e2667b30c98aeb7ee57df9eefb6123ad2c5777b0`: **224 total, 221 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. The commit containing this update will be recorded in the next ledger update; coverage ends at this explicit tip, not a subsequent commit.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..3d1e761`, reviewed October 11, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..e2667b3`, reviewed October 11, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -378,6 +378,8 @@ Coverage: `9efa1cc..3d1e761`, reviewed October 11, 2026. These commits are recor
 | [`82f0a06`](https://github.com/hexcrete/DockFork/commit/82f0a06600861d1a8fa9cf9fd024e1d61a273952) | Publication: record same-Space Dock cycling behavior, manual/targeted validation, resource-lifecycle boundaries, capture candidate, and ledger coverage. | Documentation | 4 |
 | [`1f72ecb`](https://github.com/hexcrete/DockFork/commit/1f72ecbac21ec714c641a5e89cae2fc59c7be8d7) | Settings wording: name the highlighted window rather than the last window in persistent swipe selection; match the search title. Preference key, default, and runtime behavior unchanged. Signed Debug build/relaunch and local Release validation passed; manual UI test not recorded. | UI | 2 |
 | [`3d1e761`](https://github.com/hexcrete/DockFork/commit/3d1e7614ca030a4d00bd5f1a985722214e756e57) | Showcase preset: refresh 237 recognized preferences from the supplied export; remove four private/system entries and export timestamp, verify nested shortcut records and generic IDs, and keep debug logging off. Optional asset only, no import or app-default change. | Preset | 1 |
+| [`eeef787`](https://github.com/hexcrete/DockFork/commit/eeef787b123aa1a628f16d6b365e8ae54049ca99) | Publication records: document preset privacy, label clarification, Release candidate checks and unperformed installation tests; simplify intermediate build notes and extend ledger coverage through the preset commit. | Documentation | 4 |
+| [`e2667b3`](https://github.com/hexcrete/DockFork/commit/e2667b30c98aeb7ee57df9eefb6123ad2c5777b0) | Preview layout: center shared regular-card images independently of padded toolbar width, including missing-image and full-size windowless cards; retain toolbar alignment and sizing. Reduced native-renderer checks and signed Debug build/relaunch passed; full Xcode suite and mode-by-mode manual verification not recorded. | Fix | 1 |
 
 ## Upstream Attribution and Contribution Boundaries
 

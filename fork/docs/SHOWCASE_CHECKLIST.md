@@ -21,7 +21,7 @@ Feature audit: `9efa1cc` against upstream `0bd2e46`, October 8, 2026; publicatio
 |---|---|---|---|---|
 | [ ] | W01 | Screenshot pair: independent compact width | Keep normal preview width constant; change compact width and compare the same rows. | `e3b7a83` |
 | [ ] | W02 | Screenshot: compact state/title formatting | Include normal, minimized, hidden, and windowless apps; compare state placement options without losing the actual title. | `2a79e61`, `c95f197`, `628ddde` |
-| [ ] | W03 | Screenshot grid: placeholders | Compare embedded/non-embedded and dynamic/fixed sizing; compare Dock/Cmd+Tab windowless “Show full size previews” On/Off outside Compact Mode and verify shared title styling, control scale/visibility, alignment, and edge spacing (user manual verification passed; capture not yet recorded). Optionally omit one mock screenshot and show full-size real-window controls. | `7b2491a`, `7368daf`, `717c1e0`, `0b961e1` |
+| [ ] | W03 | Screenshot grid: placeholders | Compare embedded/non-embedded and dynamic/fixed sizing; compare Dock/Cmd+Tab windowless “Show full size previews” On/Off outside Compact Mode and verify shared title styling, control scale/visibility, alignment, and edge spacing (user manual verification of the full-size feature passed; capture not yet recorded). With non-embedded controls, verify screenshot/app-icon centering on regular, missing-image, and full-size windowless cards; manual verification of the centering fix is pending. Optionally omit one mock screenshot and show full-size real-window controls. | `7b2491a`, `7368daf`, `717c1e0`, `0b961e1`, `e2667b3` |
 
 ## State and Space Controls
 
