@@ -100,7 +100,7 @@ Feature audit: `9efa1cc` against upstream `0bd2e46`, October 8, 2026; publicatio
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | B01 | Video: native tab grouping | Show two same-frame Safari/Finder windows on an unfocused Space remaining distinct; tabs in each window remain grouped. Include hide/unhide if stable. | `4f703ed`, `abdc4ec`, `6fb1946` |
+| [ ] | B01 | Video: native tab grouping | Show two same-frame Safari/Finder windows on an unfocused Space remaining distinct; tabs in each window remain grouped. Include hide/unhide if stable. For upstream `8ede8d0` integrated in `325ef3f`, select different native tabs before invoking the switcher and verify activation returns to the selected tab; user manual merge verification passed; media remains unrecorded. | `4f703ed`, `abdc4ec`, `6fb1946`; upstream `8ede8d0` |
 | [ ] | B02 | Video: fullscreen metadata | Use ordinary and tiled fullscreen; show state and Space numbering after settling, including Mission Control-created fullscreen Spaces. No intentionally malformed captures. | `e2e4c45`, `a94bb4d`, `1a5a978` |
 | [ ] | B03 | Screenshot: actionable nonstandard windows | Show a harmless Calendar Info pane with only supported controls; do not include an autofill suggestion popup as a real window. Optional compatibility-layer example. | `804d85a`, `288262b` |
 | [ ] | B04 | Optional temporary fixture: missing image | Omit the first settings mock image, compare all three modes with dynamic sizing and embedding, then restore the fixture. Historical capture failures are not required. | `6fe02cc`, `717c1e0` |

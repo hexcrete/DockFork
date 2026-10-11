@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers thirty-six later commits through `9fcf28dbb82334e40ff7141d2b16e3661f9755b2`: **228 total, 225 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The documentation commit containing this update will be recorded in the next ledger update.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers forty-two later commits through `325ef3fbd5af4e863cf96a458ec6f91b1af569ce`: **234 total, 230 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The documentation commit containing this update will be recorded in the next ledger update.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..9fcf28d`, reviewed October 11, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..325ef3f`, reviewed October 11, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes four newly integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -381,14 +381,19 @@ Coverage: `9efa1cc..9fcf28d`, reviewed October 11, 2026. These commits are recor
 | [`eeef787`](https://github.com/hexcrete/DockFork/commit/eeef787b123aa1a628f16d6b365e8ae54049ca99) | Publication records: document preset privacy, label clarification, Release candidate checks and unperformed installation tests; simplify intermediate build notes and extend ledger coverage through the preset commit. | Documentation | 4 |
 | [`e2667b3`](https://github.com/hexcrete/DockFork/commit/e2667b30c98aeb7ee57df9eefb6123ad2c5777b0) | Preview layout: center shared regular-card images independently of padded toolbar width, including missing-image and full-size windowless cards; retain toolbar alignment and sizing. Reduced native-renderer checks and signed Debug build/relaunch passed; full Xcode suite and mode-by-mode manual verification not recorded. | Fix | 1 |
 | [`b7ea008`](https://github.com/hexcrete/DockFork/commit/b7ea0087b31b19922042ed7e41cabeaa9ea6b51f) | Publication records: explain the fork-specific fixed-toolbar-width interaction behind preview misalignment, record structural validation and manual-testing gaps, extend ledger coverage through the fix, and update the existing capture candidate. | Documentation | 3 |
-
 | [`295ef75`](https://github.com/hexcrete/DockFork/commit/295ef75e137db923df11b2d48df51cae70cedb3b) | Scroll geometry: commit clamped content-size offsets to the AppKit view origin so pointer hit targets follow visible cards after removal/filtering. Shared both-axis fix for an inherited upstream omission, with regression tests. Native harness, signed Debug build/relaunch, source correspondence, and user manual verification passed; full Xcode suite not run. | Fix | 2 |
 | [`fdc4cf0`](https://github.com/hexcrete/DockFork/commit/fdc4cf036c910c102526c8b1fc8fea288fd89ce5) | Publication records: document inherited scroll geometry omission, shared both-axis correction, regression/manual validation, resource boundaries, and capture setup; extend ledger coverage through the fix. | Documentation | 4 |
 | [`9fcf28d`](https://github.com/hexcrete/DockFork/commit/9fcf28dbb82334e40ff7141d2b16e3661f9755b2) | Showcase preset: privacy-review the supplied 241-key export, omit four private/system entries and timestamp, retain 237 settings and generic shortcut IDs with logging off; change only app-header style to Popover and switcher icon size to Automatic. Optional asset, no import or app-default change. | Preset | 1 |
+| [`0f67711`](https://github.com/hexcrete/DockFork/commit/0f677114abffc2360b1a38eae824b4865cb2ddc9) | Publication records: describe the sanitized two-setting preset refresh and committed-source Release candidate, nine checksums, signatures, archive/preset correspondence and testing gaps; extend ledger coverage through the preset commit. | Documentation | 4 |
+| [`8ede8d0`](https://github.com/ejbills/DockDoor/commit/8ede8d0a9fa74fffe87c09657503872c7ad2be22) | Upstream: cache newly focused native-tab identities, retain AX geometry, and avoid background-app focus events canceling active-app MRU updates. Existing fork grouping and discovery safeguards preserved. | Upstream fix | 2 |
+| [`7358716`](https://github.com/ejbills/DockDoor/commit/7358716142ca37adb8149bb0d4c2ae1dd838e4f5) | Upstream: use the resting Dock edge for active-app indicator placement while an icon bounces. | Upstream fix | 1 |
+| [`4f5aeb9`](https://github.com/ejbills/DockDoor/commit/4f5aeb91f89db34bb74fa9295871196c8f0115c1) | Upstream: add DockDoor 1.40.8b1 beta appcast metadata. Does not enable upstream updates in DockFork. | Upstream metadata | 1 |
+| [`7be384b`](https://github.com/ejbills/DockDoor/commit/7be384b46da66f380bf3a9bb24ee6c6476bbd0dc) | Upstream: add DockDoor 1.40.8b2 beta appcast metadata. The latest incorporated stable release remains 1.40.7. | Upstream metadata | 1 |
+| [`325ef3f`](https://github.com/hexcrete/DockFork/commit/325ef3fbd5af4e863cf96a458ec6f91b1af569ce) | Integration: conflict-free merge of upstream 7be384b, preserving local focus/tab behavior; record exact upstream base and stable release separately. Pre-commit signed Debug build/relaunch, metadata/scroll checks, and user manual verification passed; full Xcode suite not run. Changed-file count is against the first parent. | Merge | 5 |
 
 ## Upstream Attribution and Contribution Boundaries
 
-The three merge entries integrate upstream capabilities and fix merge interactions; they are not ownership claims over upstream's contributions. In particular, the base swipe launcher and latest JSON backup/import support came from upstream. Attribution in the guide distinguishes those from fork refinements.
+The original three merge entries and the later continuation merge integrate upstream capabilities and fix merge interactions; they are not ownership claims over upstream's contributions. In particular, the base swipe launcher and latest JSON backup/import support came from upstream. Attribution in the guide distinguishes those from fork refinements.
 
 Preserve this history in the public fork. When proposing upstream contributions, prepare small dependency-aware branches after agreeing scope; do not assume an early commit can be cherry-picked onto current main unchanged. Existing upstream contribution instructions require human review, testing, and AI disclosure.
 
