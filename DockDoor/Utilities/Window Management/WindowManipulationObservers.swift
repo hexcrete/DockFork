@@ -366,9 +366,15 @@ class WindowManipulationObservers {
         switch notificationName {
         case kAXFocusedUIElementChangedNotification, kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification:
             let appAX = AXUIElementCreateApplication(app.processIdentifier)
-            let focusedWindowID = (try? appAX.focusedWindow()).flatMap { try? $0.cgWindowId() }
+            let focusedWindow = try? appAX.focusedWindow()
+            let focusedWindowID = focusedWindow.flatMap { try? $0.cgWindowId() }
             Task { @MainActor [weak self] in
                 self?.previewCoordinator.windowSwitcherCoordinator.updateActiveFocusedWindowID(focusedWindowID, for: pid)
+            }
+            if notificationName != kAXFocusedUIElementChangedNotification, let focusedWindow {
+                Task.detached(priority: .userInitiated) {
+                    await WindowUtil.cacheCreatedWindow(axWindow: focusedWindow, app: app)
+                }
             }
             updateTimestampIfAppActive(element: element, app: app)
             if let focusedWindowID {
@@ -521,6 +527,7 @@ class WindowManipulationObservers {
     }
 
     private func updateTimestampIfAppActive(element: AXUIElement, app: NSRunningApplication) {
+        guard app.isActive else { return }
         updateDateTimeWorkItem?.cancel()
 
         let workItem = DispatchWorkItem {
