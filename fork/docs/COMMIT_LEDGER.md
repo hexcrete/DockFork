@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers thirty-four later commits through `295ef75e137db923df11b2d48df51cae70cedb3b`: **226 total, 223 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The documentation commit containing this update will be recorded in the next ledger update.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers thirty-six later commits through `9fcf28dbb82334e40ff7141d2b16e3661f9755b2`: **228 total, 225 non-merge and 3 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The documentation commit containing this update will be recorded in the next ledger update.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..295ef75`, reviewed October 11, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..9fcf28d`, reviewed October 11, 2026. These commits are recorded once here rather than inserted into the frozen category tables. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -383,6 +383,8 @@ Coverage: `9efa1cc..295ef75`, reviewed October 11, 2026. These commits are recor
 | [`b7ea008`](https://github.com/hexcrete/DockFork/commit/b7ea0087b31b19922042ed7e41cabeaa9ea6b51f) | Publication records: explain the fork-specific fixed-toolbar-width interaction behind preview misalignment, record structural validation and manual-testing gaps, extend ledger coverage through the fix, and update the existing capture candidate. | Documentation | 3 |
 
 | [`295ef75`](https://github.com/hexcrete/DockFork/commit/295ef75e137db923df11b2d48df51cae70cedb3b) | Scroll geometry: commit clamped content-size offsets to the AppKit view origin so pointer hit targets follow visible cards after removal/filtering. Shared both-axis fix for an inherited upstream omission, with regression tests. Native harness, signed Debug build/relaunch, source correspondence, and user manual verification passed; full Xcode suite not run. | Fix | 2 |
+| [`fdc4cf0`](https://github.com/hexcrete/DockFork/commit/fdc4cf036c910c102526c8b1fc8fea288fd89ce5) | Publication records: document inherited scroll geometry omission, shared both-axis correction, regression/manual validation, resource boundaries, and capture setup; extend ledger coverage through the fix. | Documentation | 4 |
+| [`9fcf28d`](https://github.com/hexcrete/DockFork/commit/9fcf28dbb82334e40ff7141d2b16e3661f9755b2) | Showcase preset: privacy-review the supplied 241-key export, omit four private/system entries and timestamp, retain 237 settings and generic shortcut IDs with logging off; change only app-header style to Popover and switcher icon size to Automatic. Optional asset, no import or app-default change. | Preset | 1 |
 
 ## Upstream Attribution and Contribution Boundaries
 
