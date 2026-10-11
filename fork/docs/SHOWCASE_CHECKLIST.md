@@ -8,6 +8,7 @@ Feature audit: `9efa1cc` against upstream `0bd2e46`, October 8, 2026; publicatio
 
 - Use harmless sample window titles, files, browser pages, events, and music. Hide notifications and redact usernames, license details, logs, and app-specific private data.
 - Record the current fork build, appearance settings, keyboard layout, and relevant toggles. Use a visible keystroke annotation for keyboard-only behavior.
+- The latest optional preset refreshed October 11, 2026 in `3d1e761` contains 237 reviewed preferences, including retained Dock cycling previews, dimmed hover-only traffic lights, embedded Dock/Cmd+Tab controls, compact-style windowless rows, updated shortcuts, and compact thresholds of five. Captures must reflect the settings actually used; no preset import or media capture is inferred from the JSON privacy review. The latest working-tree Release test candidate includes this preset and renamed swipe-setting label; earlier candidates contain older presets. No final committed-source candidate or installation verification of these updates is recorded.
 - For before/after media, use the same windows and settings on both builds. Clearly label historical comparisons versus comparisons with current upstream; do not attribute an upstream feature to the fork.
 - Prefer short MP4 clips for interaction and PNG screenshots for settings/static layout. Chosen publication media goes in a reviewed repository asset directory; no empty or broken embeds are needed now.
 - Capture light and dark mode for styling claims. For shared behaviors, add Dock/Cmd+Tab/Window Switcher examples where practical, not three copies of every video.
@@ -56,7 +57,7 @@ Feature audit: `9efa1cc` against upstream `0bd2e46`, October 8, 2026; publicatio
 |---|---|---|---|---|
 | [ ] | P01 | Video: menu-bar click assignment | Toggle persistent switcher with one button and the app menu with the other; repeat with opposite assignment. | `c9adbf9`, `c46bfae` |
 | [ ] | P02 | Video: persistent mouse-first session | Release launcher modifiers; use preview actions, search, and Mouse Follows Focus. Show optional unhighlighted start. | `19d4888`, `2898dc6`, `1571630` |
-| [ ] | P03 | Video: swipe/keyboard ownership | Disable conflicting system gestures first. Swipe into a persistent session, take ownership with Tab, start a new swipe, and explicitly invoke a modifier session. Show selection on release only for the owning session. | `78bfbf6`, `ae93b49` |
+| [ ] | P03 | Video: swipe/keyboard ownership | Disable conflicting system gestures first. Enable "Select highlighted window when swiping in persistent Window Switchers"; swipe into a persistent session, take ownership with Tab, start a new swipe, and explicitly invoke a modifier session. Show selection on release only for the owning session. | `78bfbf6`, `ae93b49`, `1f72ecb` |
 | [ ] | P04 | Video: reverse selection | Show horizontal and vertical swipe selection before/after reversal. Describe direction relative to the selected row, not just finger motion. | `7797cdf` |
 | [ ] | R01 | Video: last-focused shortcuts | Use three innocuous windows and known focus order; show repeated switching and filtered scope, including starting from the desktop. No speed claim without timing. | `af0bbcd`, `69507bc`, `bfaf5f4` |
 

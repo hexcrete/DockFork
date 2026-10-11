@@ -94,6 +94,12 @@ Before release, quit the Dev instance and test DockFork's fresh permissions, ind
 
 No release has been published. Source-only preparation, the complete Release build, nested ad-hoc signature verification, ZIP integrity, checksums, and local launch have passed. Manual feature testing and downloaded/quarantined installation validation remain pending.
 
+Release validation, October 11, 2026: a committed-source candidate from `82f0a06600861d1a8fa9cf9fd024e1d61a273952` passed the arm64 Release build on macOS 27.0.1 / Xcode 27.0. All nine asset checksums, ZIP integrity, unpacked nested signatures, and all 219 bundle entries' contents, modes, and symlinks passed verification. Its source archive matched the committed tree; the packaging patch applied cleanly, and the bundled license, preset, and installation guide matched their source files. Embedded identity/version/source metadata and absence of the upstream updater feed were verified. This candidate predates the latest preset and label updates.
+
+A later local test candidate used `--include-working-tree` to build the renamed swipe setting and attach the refreshed 237-setting preset. All ten asset checksums (including `WORKING-TREE.patch`), ZIP integrity, unpacked nested signatures, 219 bundle entries, preset correspondence, source-patch reconstruction, and identity/version checks passed. The committed archive plus the supplied patch reconstructs its changed app sources. All 19 version-metadata tests passed. These test candidates use DockFork `0.1.0`, based on DockDoor `1.40.7` plus changes through `0bd2e46`.
+
+Neither candidate was installed or launched; the running development app and preferences were left untouched. They remain ad-hoc signed, not notarized. The full Xcode test suite, clean-account/second-Mac installation, downloaded/quarantined installation, update/permission behavior, and minimum-OS runtime compatibility remain unverified. The build emits Swift 6 compatibility warnings in the current Swift 5 language mode; this is not a warning-free build. Build the final publication candidate from committed HEAD without `--include-working-tree`. Generated assets and logs remain gitignored under `fork/dist/`; publish only the asset allowlist above, never `build.log` or the entire directory.
+
 ## Optional Showcase Preset
 
 [DockFork-Showcase.json](presets/DockFork-Showcase.json) provides a sanitized example configuration. It is not the application's default configuration and must not be imported automatically. Attach this same JSON as a separate optional asset when creating the release; no release has been published yet.
@@ -102,12 +108,12 @@ To try it, first export your existing settings, then use **General > Backup & Re
 
 ### Privacy Review
 
-The sanitized preset retains 234 recognized preference keys from the supplied export. Review included nested JSON stored inside shortcut strings, not just the outer JSON.
+The current preset was refreshed and privacy-reviewed October 11, 2026. It retains 237 recognized preference keys from the latest 241-key export. Review included nested JSON stored inside shortcut strings, not just the outer JSON.
 
-- Removed 36 private-state, system, updater, or obsolete keys, including saved window order, folder-specific sort dictionaries, the saved-directory bookmark, permission/UI-state flags, and system window geometry.
+- Removed four private-state or system keys: the file-dialog directory bookmark, save-panel geometry, cached screen-recording permission, and the reopen-settings flag. This latest export contains no saved window order or window-title/focus history. No folder-specific sort dictionary or other opaque payload remains.
 - Removed the exact export timestamp. Retained the nonpersonal format identifier and application version used for compatibility information.
-- Replaced 15 original shortcut-row UUIDs with generic stable IDs; key combinations, actions, and scopes are unchanged.
-- Set debug logging off instead of carrying over the development logging choice.
+- Verified all 15 shortcut-row UUIDs already use unique generic stable IDs; key combinations, actions, and scopes are unchanged.
+- Kept debug logging off.
 - Retained the generic `launched: true` flag to avoid replaying first-run onboarding after import. It contains no identifying information and does not grant macOS permissions; permission history remains excluded.
 - No remaining file paths, bookmarks, binary payloads, account identifiers, email addresses, URLs, or window titles were found in the prepared preset.
 
@@ -118,3 +124,5 @@ The envelope intentionally retains `"app": "DockDoor"` because the current impor
 This is an opinionated showcase configuration, not a recommended setup for everyone. In particular, it configures Left Option + Tab, side-specific Command double taps, preview action shortcuts (including Close and Quit), numbered Spaces shortcuts, and trackpad swipe launching. Review **Gestures & Keybinds** after import and resolve conflicts with macOS gestures or other applications. Some appearance choices use newer macOS capabilities; results can differ by system version, display configuration, and Reduce Motion settings.
 
 Privacy and import-format checks do not prove every interaction is appropriate on another person's Mac. Re-exported preferences must be reviewed again before publication: exports can include new private state and system metadata.
+
+This refresh preserves the supplied appearance/interaction choices, including same-Space Dock cycling preview retention, dimmed hover-only traffic lights, embedded Dock/Cmd+Tab controls, compact-style windowless Dock/Cmd+Tab rows, and compact thresholds of five. Updated shortcut/search keys are retained. It does not change application defaults or import settings. No import test of this latest preset is recorded; packaging checks are documented under [release validation](#release-assets-and-validation).

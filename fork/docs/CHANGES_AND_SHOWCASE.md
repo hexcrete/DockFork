@@ -4,6 +4,8 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 **Publication preparation:** the [DockFork packaging script](../README.md#build-a-dockfork-package) prepares a separately identified distribution build. Release build/signature/checksum checks and local launch have passed; manual feature and downloaded/quarantined installation validation remain pending. Local development now uses certificate-signed DockFork at the fixed, gitignored `fork/dist/dev/DockFork.app` path. No release has been published.
 
+Release validation on October 11, 2026 covered a committed-source `82f0a06` candidate and a later working-tree test candidate containing the label rename and refreshed preset. Arm64 Release builds, checksums, ZIP integrity, exact unpacked bundle correspondence, nested ad-hoc signatures, source/patch correspondence, and version/identity checks passed. All 19 version-metadata tests passed. Neither candidate was launched or installed; development-app verification is not Release installation verification. Build a final candidate from committed HEAD before publication. Clean/downloaded installation, permissions/update behavior, manual Release feature tests, and minimum-OS compatibility remain pending. See [release validation](../README.md#release-assets-and-validation). Swift 6 compatibility warnings remain in the Swift 5 build; no full Xcode test-suite run is claimed.
+
 ## Reading This Guide
 
 - [Complete commit ledger](COMMIT_LEDGER.md): every branch-only commit in the audited history, grouped by category.
@@ -13,7 +15,9 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 - [Upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md): compatibility, testing, and human-review requirements for proposing selected changes to DockDoor.
 - [Original project](https://github.com/ejbills/DockDoor): upstream documentation, attribution, and releases.
 
-Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes twenty-seven documentation/defaults/packaging/indicator/appearance/modal-lifecycle/windowless/dimming/pill-border/motion/version/Dock-cycling follow-ups through `b7faf95`, for 216 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
+The optional showcase preset was refreshed October 11, 2026 in `3d1e761`: 237 recognized preferences remain after removing four private/system settings and the export timestamp. The latest export has no window-title/focus history; its file-dialog bookmark is excluded. All 15 shortcut IDs are generic, and debug logging remains off. The preset retains the supplied interaction and appearance choices without changing app defaults or importing them, including updated shortcuts, embedded Dock/Cmd+Tab controls, and compact-style windowless rows. The latest working-tree Release test candidate contains this preset; its checksums and correspondence passed verification. No import testing of this latest refresh is recorded.
+
+Original feature audit: fork `9efa1cc`, upstream `0bd2e46`, October 8, 2026. The ledger now includes thirty later follow-ups through `3d1e761`, for 219 non-merge commits and three upstream-integration commits. Publication and defaults notes reflect those follow-ups; this is not a new whole-app safety audit. Intermediate implementations are not separate features. New upstream backup/import functionality is not claimed as a fork contribution.
 
 ## Compact and Windowless Previews
 
@@ -61,7 +65,9 @@ The shared, alphabetically displayed scope list contains Active App + Current Sp
 
 The menu-bar icon can launch a persistent Window Switcher, with configurable left/right-click assignment. Persistent sessions remain open after initializer modifiers are released and can start with no highlighted window. Configured mouse-follow behavior remains available.
 
-Trackpad swipes can optionally take ownership of persistent sessions and select on release. Keyboard cycling can take ownership back; invoking a held-modifier switcher explicitly changes the session to modifier-driven behavior. A held initializer takes precedence over swipe takeover. Swipe selection direction is reversible, with consistent horizontal/vertical defaults.
+Trackpad swipes can optionally take ownership of persistent sessions and select on release. The setting is labeled "Select highlighted window when swiping in persistent Window Switchers" to distinguish the highlighted selection from the last-focused-window action; its preference key, default, and behavior are unchanged. Keyboard cycling can take ownership back; invoking a held-modifier switcher explicitly changes the session to modifier-driven behavior. A held initializer takes precedence over swipe takeover. Swipe selection direction is reversible, with consistent horizontal/vertical defaults.
+
+Label/search-title update `1f72ecb`, validated October 11, 2026: matching source strings and `git diff --check` passed. The signed Debug build and signature checks passed; macOS initially returned launch error -600, then a retry launched the exact fixed development executable. Installed binary and build-source patch comparisons passed. Manual UI verification and the full Xcode suite were not performed for this wording-only update.
 
 The base global swipe launcher came from upstream; these commits refine its selection direction and session ownership. Do not describe the entire upstream gesture launcher as newly invented by this fork.
 
