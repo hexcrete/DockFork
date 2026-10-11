@@ -17,7 +17,7 @@
     ],
     "anchorDockPreviewPosition": true,
     "appAppearanceMode": "system",
-    "appNameStyle": "default",
+    "appNameStyle": "popover",
     "bufferFromDock": -25,
     "closingPostActionBehavior": true,
     "cmdShortcuts": [
@@ -219,7 +219,7 @@
     "swapSwitcherTrafficLightsAndWindowStateIndicator": true,
     "switchToDestinationSpaceAfterMoving": false,
     "switcherAppIconBadgeScale": 1,
-    "switcherAppIconSize": 35,
+    "switcherAppIconSize": 0,
     "switcherBackwardKeyCode": 56,
     "switcherDisableDockStyleSpaceNumberIndicator": false,
     "switcherDisableDockStyleTrafficLights": false,
