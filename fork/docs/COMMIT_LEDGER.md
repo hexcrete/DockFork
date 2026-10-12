@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers forty-nine later commits through `4fdaa5626dbc10a70c83df88a2b3cb444c851c43`: **241 total, 237 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The documentation commit containing this update will be recorded in the next ledger update.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers fifty later commits through `36e635e8f0ad35cdd90fb390b3aa0195cefdd8b2`: **242 total, 238 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The documentation commit containing this update will be recorded in the next ledger update.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..4fdaa56`, reviewed October 12, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes four newly integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..36e635e`, reviewed October 12, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes four newly integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -403,6 +403,8 @@ Coverage: `9efa1cc..4fdaa56`, reviewed October 12, 2026. These commits are recor
 | [`077d584`](https://github.com/hexcrete/DockFork/commit/077d5845d5ada6ce7c3b09f0b70fd192b63bbf7d) | Publication records: prepare the public testing fork, distinguish upstream examples from pending fork media, and record repository/default-branch setup without publishing a Release. | Documentation | 6 |
 
 | [`4fdaa56`](https://github.com/hexcrete/DockFork/commit/4fdaa5626dbc10a70c83df88a2b3cb444c851c43) | Settings dialogs: defer Import/Export file-panel creation until the SwiftUI button callback returns and prevent overlapping backup operations; preserve confirmation and preview-suspension cleanup. Signed Debug build/relaunch, extracted gate checks, and user verification passed. | Fix | 1 |
+
+| [`36e635e`](https://github.com/hexcrete/DockFork/commit/36e635e8f0ad35cdd90fb390b3aa0195cefdd8b2) | Publication records: document the reviewed settings file-dialog fix, user verification, unchanged Release artifact, and ledger coverage through the fix. Source for the rebuilt October 12 candidate. | Documentation | 5 |
 
 ## Upstream Attribution and Contribution Boundaries
 
