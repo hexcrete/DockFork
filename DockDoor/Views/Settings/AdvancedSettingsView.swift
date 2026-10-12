@@ -186,13 +186,9 @@ struct AdvancedSettingsView: View {
 
     private func applyResizeRefreshDebounceDelays() {
         WindowUtil.setResizeRefreshDebounceDelays(
-            programmaticMilliseconds: resizeRefreshDelayMilliseconds(from: programmaticResizePreviewRefreshDelay),
-            axMilliseconds: resizeRefreshDelayMilliseconds(from: nativeResizePreviewRefreshDelay)
+            programmaticSeconds: programmaticResizePreviewRefreshDelay,
+            axSeconds: nativeResizePreviewRefreshDelay
         )
-    }
-
-    private func resizeRefreshDelayMilliseconds(from seconds: CGFloat) -> UInt64 {
-        UInt64(max(0, (seconds * 1000).rounded()))
     }
 
     // MARK: - Preview Quality

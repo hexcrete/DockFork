@@ -4,6 +4,40 @@ import QuartzCore
 @testable import DockDoor
 import Testing
 
+struct NumericPreferenceSafetyTests {
+    @Test func resizeDelaysStayWithinTheSupportedRange() {
+        let cases: [(CGFloat, UInt64)] = [
+            (0, 0), (0.18, 180), (0.36, 360), (0.1234, 123), (1, 1000),
+            (-1, 0), (2, 1000), (.greatestFiniteMagnitude, 1000),
+            (-.greatestFiniteMagnitude, 0), (.infinity, 180), (-.infinity, 180), (.nan, 180),
+        ]
+        for (seconds, expected) in cases {
+            #expect(WindowUtil.resizeRefreshDelayMilliseconds(from: seconds, fallback: 0.18) == expected)
+        }
+    }
+
+    @Test func invalidResizeDelaysUseTheirOwnDefault() {
+        #expect(WindowUtil.resizeRefreshDelayMilliseconds(
+            from: .nan, fallback: Defaults.Keys.programmaticResizePreviewRefreshDelay.defaultValue
+        ) == 180)
+        #expect(WindowUtil.resizeRefreshDelayMilliseconds(
+            from: .infinity, fallback: Defaults.Keys.nativeResizePreviewRefreshDelay.defaultValue
+        ) == 360)
+    }
+
+    @Test func logSizeBoundsPreventArithmeticOverflow() {
+        let cases: [(Double, UInt64)] = [
+            (-.greatestFiniteMagnitude, 1), (-1, 1), (0, 1), (1, 1), (20.5, 20), (100, 100),
+            (.greatestFiniteMagnitude, 100), (.infinity, 10), (-.infinity, 10), (.nan, 10),
+        ]
+        for (megabytes, expected) in cases {
+            let bytes = DebugLogger.maximumLogSizeBytes(megabytes)
+            #expect(bytes == expected * 1024 * 1024)
+            #expect(bytes * 3 / 4 <= bytes)
+        }
+    }
+}
+
 struct CardGridScrollGeometryTests {
     @MainActor @Test(arguments: [true, false])
     func contentResizeCommitsPointerGeometry(scrollsVertically: Bool) {

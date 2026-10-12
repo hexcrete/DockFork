@@ -80,10 +80,15 @@ enum DebugLogger {
         }
     }
 
+    static func maximumLogSizeBytes(_ sizeMB: Double) -> UInt64 {
+        let boundedSize = sizeMB.isFinite ? min(100, max(1, sizeMB)) : Defaults.Keys.debugLogMaximumSizeMB.defaultValue
+        return UInt64(boundedSize) * 1024 * 1024
+    }
+
     private static func trimLogIfNeeded(fileSize: UInt64) {
         guard Defaults[.limitDebugLogFileSize] else { return }
 
-        let maximumBytes = UInt64(max(1, Defaults[.debugLogMaximumSizeMB])) * 1024 * 1024
+        let maximumBytes = maximumLogSizeBytes(Defaults[.debugLogMaximumSizeMB])
         guard fileSize > maximumBytes else { return }
         guard let handle = try? FileHandle(forReadingFrom: logFileURL) else { return }
         let retainedBytes = maximumBytes * 3 / 4

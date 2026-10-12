@@ -717,9 +717,18 @@ enum WindowUtil {
 // MARK: - Cache Management
 
 extension WindowUtil {
-    static func setResizeRefreshDebounceDelays(programmaticMilliseconds: UInt64, axMilliseconds: UInt64) {
-        programmaticResizeRefreshDelayMilliseconds = programmaticMilliseconds
-        axResizeRefreshDelayMilliseconds = axMilliseconds
+    static func resizeRefreshDelayMilliseconds(from seconds: CGFloat, fallback: CGFloat) -> UInt64 {
+        let boundedSeconds = seconds.isFinite ? min(1, max(0, seconds)) : fallback
+        return UInt64((boundedSeconds * 1000).rounded())
+    }
+
+    static func setResizeRefreshDebounceDelays(programmaticSeconds: CGFloat, axSeconds: CGFloat) {
+        programmaticResizeRefreshDelayMilliseconds = resizeRefreshDelayMilliseconds(
+            from: programmaticSeconds, fallback: Defaults.Keys.programmaticResizePreviewRefreshDelay.defaultValue
+        )
+        axResizeRefreshDelayMilliseconds = resizeRefreshDelayMilliseconds(
+            from: axSeconds, fallback: Defaults.Keys.nativeResizePreviewRefreshDelay.defaultValue
+        )
     }
 
     /// Reads cached windows for an app without triggering any SCK/AX fetches.
