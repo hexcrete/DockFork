@@ -36,9 +36,9 @@ The resulting app uses `DockFork.app`, executable `DockFork`, and bundle/prefere
 
 ### Fork and Upstream Versions
 
-`version.json` keeps four independent fields: `forkVersion`, `upstreamRelease`, `upstreamReleaseCommit`, and `upstreamCommit`. The initial, unpublished DockFork version is `0.1.0`; the current base is DockDoor release `1.40.7` plus upstream changes through `0bd2e46`. Upstream's Xcode project still says `1.18.3`; it is not the published release version and is no longer used as DockFork's default version.
+`version.json` keeps four independent fields: `forkVersion`, `upstreamRelease`, `upstreamReleaseCommit`, and `upstreamCommit`. The initial, unpublished DockFork version is `0.1.0`; the current base is DockDoor release `1.40.7` plus upstream changes through `7be384b`. Upstream's Xcode project still says `1.18.3`; it is not the published release version and is no longer used as DockFork's default version.
 
-Support > Updates displays the DockFork version and a separate `Based on DockDoor 1.40.7 + upstream changes · 0bd2e46` line. The full base hash is available by hovering over that line. An exact release base omits `+ upstream changes`. These values are embedded during packaging, not fetched at runtime. Standard DockDoor builds remain unchanged.
+Support > Updates displays the DockFork version and a separate `Based on DockDoor 1.40.7 + upstream changes · 7be384b` line. The full base hash is available by hovering over that line. An exact release base omits `+ upstream changes`. These values are embedded during packaging, not fetched at runtime. Standard DockDoor builds remain unchanged.
 
 After an upstream merge:
 

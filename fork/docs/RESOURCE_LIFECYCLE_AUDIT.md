@@ -48,3 +48,9 @@ October 11 targeted review: content-size updates in the shared AppKit card grid 
 ## Default Compatibility
 
 An unset main shortcut uses Either-side Option, and unset traffic-light scale is 1.0, matching upstream. Explicitly stored user choices remain unchanged. New-feature defaults and removed-preference compatibility were deliberately not changed in this pass.
+
+## Final Review: Space Candidate Reads and Numeric Boundaries
+
+October 11 targeted follow-up, separate from the October 8 audit: numbered/scripted Space navigation previously read AX fullscreen state on the main thread for cached windows that would later be rejected. Cheap eligibility and destination-membership checks now run first, using the cache directly rather than the switcher display sorter, which can itself query hidden-window state. Only remaining destination candidates receive a background AX state check; the existing latest-wins task rechecks cancellation, request token, application state, and Space membership before activation. A superseded in-flight AX read may finish, but cannot activate a stale candidate. No new global scan, event monitor, timer, or repeating task is added. This is a source-level work reduction, not a measured CPU or latency improvement.
+
+Resize-delay conversion is centralized and bounded to the supported 0-1 second slider range, with per-setting defaults for non-finite input. Log-size arithmetic is bounded to the supported 1-100 MB range. These are consumer safeguards for invalid stored/imported values, not a backup-format redesign or preference migration. The earlier optional-resource follow-ups and their recorded limitations remain separate. Committed as `1b73971` and `221265f`. The signed Debug build, source/binary correspondence, 55 isolated regression tests, 19 metadata cases, and user manual verification passed; full Xcode suite and exhaustive display/OS tests were not rerun. The current feature guide records validation boundaries.

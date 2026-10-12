@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers forty-two later commits through `325ef3fbd5af4e863cf96a458ec6f91b1af569ce`: **234 total, 230 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The documentation commit containing this update will be recorded in the next ledger update.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers forty-five later commits through `221265f55cd0243a8517cd2cd63bc7ed9747545d`: **237 total, 233 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The documentation commit containing this update will be recorded in the next ledger update.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..325ef3f`, reviewed October 11, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes four newly integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..221265f`, reviewed October 12, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes four newly integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -390,6 +390,11 @@ Coverage: `9efa1cc..325ef3f`, reviewed October 11, 2026. These commits are recor
 | [`4f5aeb9`](https://github.com/ejbills/DockDoor/commit/4f5aeb91f89db34bb74fa9295871196c8f0115c1) | Upstream: add DockDoor 1.40.8b1 beta appcast metadata. Does not enable upstream updates in DockFork. | Upstream metadata | 1 |
 | [`7be384b`](https://github.com/ejbills/DockDoor/commit/7be384b46da66f380bf3a9bb24ee6c6476bbd0dc) | Upstream: add DockDoor 1.40.8b2 beta appcast metadata. The latest incorporated stable release remains 1.40.7. | Upstream metadata | 1 |
 | [`325ef3f`](https://github.com/hexcrete/DockFork/commit/325ef3fbd5af4e863cf96a458ec6f91b1af569ce) | Integration: conflict-free merge of upstream 7be384b, preserving local focus/tab behavior; record exact upstream base and stable release separately. Pre-commit signed Debug build/relaunch, metadata/scroll checks, and user manual verification passed; full Xcode suite not run. Changed-file count is against the first parent. | Merge | 5 |
+
+| [`1515921`](https://github.com/hexcrete/DockFork/commit/1515921b956aa6c1dfdb36d9b78f2d3813023b02) | Publication records: document upstream integration, post-commit signed Debug build and exact-path launch, metadata and isolated tests, and unchanged Release validation gaps. | Documentation | 4 |
+
+| [`1b73971`](https://github.com/hexcrete/DockFork/commit/1b7397125b1d89e72ef694014127ab5f12d910e9) | Space navigation: reject unrelated/ineligible cached windows before AX reads, bypass presentation sorting, check remaining candidates off-main, and revalidate latest request/membership before activation. Signed Debug build and user manual verification passed; no measured performance claim. | Safety / Spaces | 1 |
+| [`221265f`](https://github.com/hexcrete/DockFork/commit/221265f55cd0243a8517cd2cd63bc7ed9747545d) | Numeric safety: centralize resize-delay conversion, bound stored/imported delays and log limits before integer arithmetic, and add extreme/fractional/non-finite regression cases. Defaults, live preferences and import format unchanged. | Safety / Diagnostics | 5 |
 
 ## Upstream Attribution and Contribution Boundaries
 
