@@ -8,7 +8,7 @@ Based on **[DockDoor by ejbills](https://github.com/ejbills/DockDoor)**, with ad
 - [Roadmap](fork/docs/ROADMAP.md)
 - [Optional showcase preferences and fork-only assets](fork/README.md)
 
-**Publication preparation:** the [DockFork packaging script](fork/README.md#build-a-dockfork-package) is available for validation; no release downloads have been published yet. The original README below describes DockDoor; its downloads, update links, commercial app, and support links belong to upstream, not DockFork.
+**Early public testing:** [DockFork is a public fork](https://github.com/hexcrete/DockFork) with source and a locally verified release candidate. No GitHub release downloads have been published yet. Fork screenshots and recordings will be added as testers provide feedback; they are not required to begin testing. See the [build and installation guide](fork/README.md#build-a-dockfork-package). The original README below describes DockDoor; its screenshots, downloads, update links, commercial app, and support links belong to upstream, not DockFork.
 
 ---
 
