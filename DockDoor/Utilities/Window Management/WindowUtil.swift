@@ -1365,19 +1365,15 @@ extension WindowUtil {
         moveCursorToDisplayIfNeeded(targetScreen)
 
         let ownPID = ProcessInfo.processInfo.processIdentifier
-        let candidates = getAllWindowsIgnoringSwitcherFilters().filter { window in
-            let sourceSpaceIDs = WindowSpaces.sourceSpaceIDs(for: window)
-            let isFullscreen = window.isFullscreen == true || (try? window.axElement.isFullscreen()) == true
-            let matchesDestinationKind = destination.space.kind == .fullscreen ? isFullscreen : !isFullscreen
+        evictTerminatedApps()
+        let candidates = desktopSpaceWindowCacheManager.getAllWindows().filter { window in
             return !window.isWindowlessApp &&
                 window.id != 0 &&
                 window.app.processIdentifier != ownPID &&
                 !window.app.isTerminated &&
                 !window.app.isHidden &&
-                !window.isEffectivelyHiddenForUI &&
                 !window.isMinimized &&
-                matchesDestinationKind &&
-                sourceSpaceIDs == Set([destination.space.id])
+                WindowSpaces.sourceSpaceIDs(for: window) == Set([destination.space.id])
         }
 
         let token = UUID()
@@ -1390,7 +1386,13 @@ extension WindowUtil {
             }
             for candidate in orderedCandidates {
                 guard !Task.isCancelled, pendingManagedSpaceSwitch?.token == token else { return }
-                guard !candidate.app.isTerminated,
+                let matchesDestinationKind = await Task.detached(priority: .userInitiated) {
+                    let isFullscreen = candidate.isFullscreen == true || (try? candidate.axElement.isFullscreen()) == true
+                    return !candidate.isEffectivelyHiddenForUI &&
+                        (destination.space.kind == .fullscreen ? isFullscreen : !isFullscreen)
+                }.value
+                guard !Task.isCancelled, pendingManagedSpaceSwitch?.token == token else { return }
+                guard matchesDestinationKind, !candidate.app.isTerminated, !candidate.app.isHidden,
                       WindowSpaces.sourceSpaceIDs(for: candidate).contains(destination.space.id)
                 else { continue }
                 let activation = await candidate.bringToFrontResult()
