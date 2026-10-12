@@ -35,7 +35,31 @@ enum SettingsBackupManager {
     // MARK: - UI entry points
 
     @MainActor
+    private static var isPresentingBackupDialog = false
+
+    @MainActor
     static func exportSettings() {
+        presentBackupDialog { exportSettingsDialog() }
+    }
+
+    @MainActor
+    static func importSettings() {
+        presentBackupDialog { importSettingsDialog() }
+    }
+
+    @MainActor
+    private static func presentBackupDialog(_ action: @escaping @MainActor () -> Void) {
+        guard !isPresentingBackupDialog else { return }
+        isPresentingBackupDialog = true
+        // File-panel initialization may pump the run loop; leave SwiftUI's button update first.
+        DispatchQueue.main.async {
+            defer { isPresentingBackupDialog = false }
+            action()
+        }
+    }
+
+    @MainActor
+    private static func exportSettingsDialog() {
         let coordinator = suspendPreviews()
         defer { coordinator?.setPresentationSuspended(false) }
         let panel = NSSavePanel()
@@ -55,7 +79,7 @@ enum SettingsBackupManager {
     }
 
     @MainActor
-    static func importSettings() {
+    private static func importSettingsDialog() {
         let coordinator = suspendPreviews()
         defer { coordinator?.setPresentationSuspended(false) }
         let panel = NSOpenPanel()
