@@ -152,3 +152,5 @@ Rebuilt October 12 candidate `36e635e` supersedes `0cabb33` for testing and futu
 October 12 user-reported Release testing: `36e635e` works on additional Macs running macOS 27 after local transfer. Downloaded/quarantined installation remains pending; no individual feature, hardware or preset-import claim is inferred. Media capture status remains unchanged.
 
 Draft release `v0.1.0`, October 12: ten approved assets and release notes are uploaded and download-back verified against candidate `36e635e`. Tag ancestry matches the tested source. Publication remains paused; authenticated draft downloads do not establish public links or browser quarantine/Gatekeeper behavior. No media status changes.
+
+Public prerelease `v0.1.0` is available at https://github.com/hexcrete/DockFork/releases/tag/v0.1.0, using candidate `36e635e`. All ten public asset links and an anonymous ZIP checksum were verified. macOS 27 local-transfer testing is user-reported; browser/quarantine/Gatekeeper verification and showcase media remain pending. No capture IDs or media checkboxes changed.
