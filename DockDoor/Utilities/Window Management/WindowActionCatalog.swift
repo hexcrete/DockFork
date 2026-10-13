@@ -13,6 +13,21 @@ struct WindowActionGroup: Identifiable {
 }
 
 extension WindowAction {
+    var tilingDirection: PreviewTilingLayout.Direction? {
+        switch self {
+        case .autoTileSelectedWindows: .neutral
+        case .fillLeftHalf: .left
+        case .fillRightHalf: .right
+        case .fillTopHalf: .top
+        case .fillBottomHalf: .bottom
+        case .fillTopLeftQuarter: .topLeft
+        case .fillTopRightQuarter: .topRight
+        case .fillBottomLeftQuarter: .bottomLeft
+        case .fillBottomRightQuarter: .bottomRight
+        default: nil
+        }
+    }
+
     func batchTargets(from windows: [WindowInfo]) -> [WindowInfo] {
         var seenApps = Set<pid_t>()
         return windows.filter { window in
@@ -67,9 +82,9 @@ extension WindowAction {
         var actions: [WindowAction] {
             switch self {
             case .window:
-                [.openAppWindow, .openNewWindow, .minimize, .hide, .maximize, .toggleFullScreen, .bringToCurrentSpace]
+                [.toggleWindowSelection, .openAppWindow, .openNewWindow, .minimize, .hide, .maximize, .toggleFullScreen, .bringToCurrentSpace]
             case .arrange:
-                [.fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+                [.autoTileSelectedWindows, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
                  .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center]
             case .app:
                 [.close, .quit]
@@ -77,10 +92,13 @@ extension WindowAction {
         }
     }
 
-    static func availableGroups(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> [WindowActionGroup] {
+    static func availableGroups(for window: WindowInfo, batchTargets: [WindowInfo]? = nil,
+                                includeSelectionActions: Bool = false) -> [WindowActionGroup]
+    {
         Group.allCases.compactMap { group in
             let actions = group.actions.filter {
-                ($0 == .toggleFullScreen && batchTargets?.contains(where: { $0.isFullscreen == true }) == true) || $0.isAvailable(for: window)
+                ($0 != .toggleWindowSelection || includeSelectionActions) &&
+                    (($0 == .toggleFullScreen && batchTargets?.contains(where: { $0.isFullscreen == true }) == true) || $0.isAvailable(for: window))
             }
             return actions.isEmpty ? nil : WindowActionGroup(id: group, actions: actions)
         }
@@ -96,6 +114,8 @@ extension WindowAction {
         switch self {
         case .toggleWindowSelection:
             return Defaults[.enableMultiWindowSelection]
+        case .autoTileSelectedWindows:
+            return true
         case .close:
             return window.closeButton != nil
         case .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
@@ -108,6 +128,12 @@ extension WindowAction {
     }
 
     func menuTitle(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> String {
+        if self == .toggleWindowSelection {
+            return batchTargets == nil ? String(localized: "Add to Selection") : String(localized: "Remove from Selection")
+        }
+        if self == .autoTileSelectedWindows {
+            return (batchTargets?.count ?? 0) > 1 ? localizedName : String(localized: "Auto Tile Window")
+        }
         if let batchTargets, batchTargets.count > 1 {
             switch self {
             case .minimize:

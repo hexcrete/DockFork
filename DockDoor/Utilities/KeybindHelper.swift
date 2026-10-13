@@ -1146,11 +1146,12 @@ class KeybindHelper {
                         {
                             let supportsHighlightedAppAction = action == .close || action == .quit
                             let highlightedApps = hasSelection ? [] : DockObserver.activeInstance?.selectedCmdTabApplications() ?? []
+                            let canTileCheckedWindows = action == .autoTileSelectedWindows && tapSnapshot.hasCheckedWindows
 
-                            if hasSelection || (supportsHighlightedAppAction && !highlightedApps.isEmpty) {
+                            if hasSelection || canTileCheckedWindows || (supportsHighlightedAppAction && !highlightedApps.isEmpty) {
                                 cmdTabActionPerformed = true
                                 Task { @MainActor in
-                                    if hasSelection {
+                                    if hasSelection || canTileCheckedWindows {
                                         self.previewCoordinator.performActionOnCurrentWindow(
                                             action: action,
                                             preservePreviews: true
@@ -1794,10 +1795,10 @@ class KeybindHelper {
         }
 
         if previewIsCurrentlyVisible {
-            if modifierFlagsMatch(effectivePreviewShortcutKeybind(), flags: flags),
-               snapshot.hasSelection
-            {
-                if let action = getActionForPreviewShortcut(keyCode: keyCode) {
+            if modifierFlagsMatch(effectivePreviewShortcutKeybind(), flags: flags) {
+                if let action = getActionForPreviewShortcut(keyCode: keyCode),
+                   snapshot.hasSelection || (action == .autoTileSelectedWindows && snapshot.hasCheckedWindows)
+                {
                     preventSwitcherHideOnRelease = true
                     return (true, { @MainActor in
                         self.windowSwitchingCoordinator.takeKeyboardOwnership()

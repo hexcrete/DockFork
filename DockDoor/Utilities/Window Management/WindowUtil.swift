@@ -144,6 +144,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     case fillBottomRightQuarter
     case center
     case toggleWindowSelection
+    case autoTileSelectedWindows
 
     /// No action
     case none
@@ -192,6 +193,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             String(localized: "Center Window", comment: "Window action")
         case .toggleWindowSelection:
             String(localized: "Toggle Window Selection", comment: "Window action")
+        case .autoTileSelectedWindows:
+            String(localized: "Auto Tile Selected Windows", comment: "Window action")
         case .none:
             String(localized: "No Action", comment: "Window action")
         }
@@ -220,13 +223,14 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .fillBottomRightQuarter: "rectangle.split.2x2.fill"
         case .center: "rectangle.center.inset.filled"
         case .toggleWindowSelection: "checkmark.circle"
+        case .autoTileSelectedWindows: "rectangle.split.2x2"
         case .none: "nosign"
         }
     }
 
     /// Actions that can be assigned to preview shortcuts, gestures, and mouse interactions.
     static let assignablePreviewActions: [WindowAction] = [
-        .none, .toggleWindowSelection, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
+        .none, .toggleWindowSelection, .autoTileSelectedWindows, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
         .minimize, .minimizeAllWindows, .maximize, .toggleFullScreen, .bringToCurrentSpace, .hide, .quit,
         .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
         .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center,
@@ -259,7 +263,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
                 return .unhiding
             }
             return nonFullscreenWindows.allSatisfy(\.isMinimized) ? .unhiding : .hiding
-        case .maximize, .toggleFullScreen, .bringToCurrentSpace,
+        case .autoTileSelectedWindows, .maximize, .toggleFullScreen, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center:
@@ -271,7 +275,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
     func closePreviewsOnlyAfterSuccess(for window: WindowInfo, category: PostActionCategory?) -> Bool {
         switch self {
-        case .openNewWindow, .toggleFullScreen, .bringToCurrentSpace,
+        case .autoTileSelectedWindows, .openNewWindow, .toggleFullScreen, .bringToCurrentSpace,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center:
@@ -324,7 +328,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             // This avoids hard-closing the container in the common edge case of mixed-space minimized sets.
             return false
 
-        case .quit, .close, .openAppWindow, .openNewWindow, .closeAllWindows, .bringToCurrentSpace,
+        case .autoTileSelectedWindows, .quit, .close, .openAppWindow, .openNewWindow, .closeAllWindows, .bringToCurrentSpace,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center, .toggleWindowSelection, .none:
@@ -360,7 +364,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             true
         case .toggleFullScreen:
             true
-        case .toggleWindowSelection, .none:
+        case .autoTileSelectedWindows, .toggleWindowSelection, .none:
             false
         }
     }
@@ -369,7 +373,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         switch self {
         case .openNewWindow, .close, .quit, .closeAllWindows, .toggleFullScreen:
             true
-        case .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
+        case .autoTileSelectedWindows, .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center, .toggleWindowSelection, .none:
@@ -381,7 +385,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         switch self {
         case .toggleFullScreen, .openNewWindow, .close, .quit, .closeAllWindows:
             true
-        case .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
+        case .autoTileSelectedWindows, .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center, .toggleWindowSelection, .none:
@@ -551,6 +555,16 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
             return window.centerWindow() ? .dismissed : .noChange
 
+        case .autoTileSelectedWindows:
+            Task { @MainActor in
+                let result = await WindowUtil.tilePreviewWindows([window], direction: .neutral)
+                if !result.failed.isEmpty {
+                    DebugLogger.log("AutoTileWindow", details: "Failed window \(window.id)")
+                    NSSound.beep()
+                }
+            }
+            return .noChange
+
         case .toggleWindowSelection, .none:
             return .noChange
         }
@@ -718,6 +732,8 @@ extension WindowUtil {
 
     @MainActor
     static func performPreviewBatchAction(_ action: WindowAction, on windows: [WindowInfo]) async -> PreviewBatchResult {
+        guard !Task.isCancelled else { return PreviewBatchResult() }
+        if let direction = action.tilingDirection { return await tilePreviewWindows(windows, direction: direction) }
         var result = PreviewBatchResult()
         let targets = action.batchTargets(from: windows)
         guard !targets.isEmpty else { result.failed = windows.map(PreviewWindowIdentity.init); return result }
@@ -985,11 +1001,51 @@ extension WindowUtil {
                                     destination: ManagedSpaceDestination,
                                     isRequestActive: @escaping @MainActor () -> Bool) async -> PreviewBatchResult
     {
-        var result = PreviewBatchResult()
         guard let centers = PreviewDragLayout.centers(for: targets.map(\.originalFrame), at: pointer, within: screen.visibleFrame) else {
-            result.failed = targets.map { PreviewWindowIdentity($0.window) }
-            return result
+            return PreviewBatchResult(failed: targets.map { PreviewWindowIdentity($0.window) })
         }
+        let centerByIdentity = Dictionary(uniqueKeysWithValues: zip(targets, centers).map { (PreviewWindowIdentity($0.0.window), $0.1) })
+        return await performWindowGroupPlacement(targets.map(\.window), destination: destination,
+                                                 raiseWindows: true, isRequestActive: isRequestActive)
+        { window, _, _ in
+            guard let center = centerByIdentity[PreviewWindowIdentity(window)] else { return false }
+            return placeWindowCentered(window, at: center, on: screen) != nil
+        }
+    }
+
+    @MainActor
+    static func tilePreviewWindows(_ windows: [WindowInfo], direction: PreviewTilingLayout.Direction,
+                                   bringToFront: Bool? = nil) async -> PreviewBatchResult
+    {
+        let pointer = NSEvent.mouseLocation
+        let topology = WindowSpaces.managedDisplays()
+        guard let screen = pointer.screen(),
+              let spaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: pointer),
+              let destination = WindowSpaces.destination(forSpaceID: spaceID, in: topology),
+              destination.space.kind == .desktop
+        else { return PreviewBatchResult(failed: windows.map(PreviewWindowIdentity.init)) }
+        let maximumRows = Defaults[.maximumTilingRows]
+        let maximumColumns = Defaults[.maximumTilingColumns]
+        var frames: [CGRect?]?
+        return await performWindowGroupPlacement(windows, destination: destination,
+                                                 raiseWindows: bringToFront ?? Defaults[.moveResizeBringToForeground],
+                                                 isRequestActive: { true })
+        { window, index, count in
+            if frames == nil {
+                frames = PreviewTilingLayout.frames(count: count, in: screen.visibleFrame, direction: direction,
+                                                    maximumRows: maximumRows, maximumColumns: maximumColumns)
+            }
+            guard let frame = frames?[index] else { return true }
+            return window.setWindowFrame(frame, on: screen)
+        }
+    }
+
+    @MainActor
+    private static func performWindowGroupPlacement(_ windows: [WindowInfo], destination: ManagedSpaceDestination,
+                                                    raiseWindows: Bool, isRequestActive: @escaping @MainActor () -> Bool,
+                                                    place: (WindowInfo, Int, Int) -> Bool) async -> PreviewBatchResult
+    {
+        var result = PreviewBatchResult()
         let topology = WindowSpaces.managedDisplays()
         var ready = Set<PreviewWindowIdentity>()
         var pending = Set<PreviewWindowIdentity>()
@@ -998,9 +1054,8 @@ extension WindowUtil {
             cancel()
         } }
 
-        for target in targets {
+        for window in windows {
             guard !Task.isCancelled, isRequestActive() else { return result }
-            let window = target.window
             let identity = PreviewWindowIdentity(window)
             guard !window.app.isTerminated, WindowSpaces.validateMoveSource(window, in: topology) == nil else {
                 result.failed.append(identity)
@@ -1029,9 +1084,10 @@ extension WindowUtil {
         }
         cancellations.removeAll()
 
-        for (target, center) in zip(targets, centers) where ready.contains(PreviewWindowIdentity(target.window)) {
+        var revealedWindows: [WindowInfo] = []
+        for original in windows where ready.contains(PreviewWindowIdentity(original)) {
             guard !Task.isCancelled, isRequestActive() else { return result }
-            var window = target.window
+            var window = original
             var revealed = true
             if window.app.isHidden { revealed = await setHiddenStateConfirmed(for: window.app, isHidden: false) }
             if revealed, window.isMinimized || (try? window.axElement.isMinimized()) == true {
@@ -1039,15 +1095,21 @@ extension WindowUtil {
                 if revealed { window.isMinimized = false }
             }
             guard !Task.isCancelled, isRequestActive() else { return result }
-            if revealed, placeWindowCentered(window, at: center, on: screen) != nil {
-                result.succeeded.append(window)
-            } else { result.failed.append(PreviewWindowIdentity(window)) }
+            if revealed { revealedWindows.append(window) }
+            else { result.failed.append(PreviewWindowIdentity(window)) }
+        }
+        for (index, window) in revealedWindows.enumerated() {
+            guard !Task.isCancelled, isRequestActive() else { return result }
+            if place(window, index, revealedWindows.count) { result.succeeded.append(window) }
+            else { result.failed.append(PreviewWindowIdentity(window)) }
             await Task.yield()
         }
-        // Raise in reverse check order so the leading checked window finishes in front.
-        for window in result.succeeded.reversed() {
-            guard !Task.isCancelled, isRequestActive() else { return result }
-            if await !window.bringToFrontConfirmed() { result.failed.append(PreviewWindowIdentity(window)) }
+        if raiseWindows {
+            // Raise in reverse check order so the leading checked window finishes in front.
+            for window in result.succeeded.reversed() {
+                guard !Task.isCancelled, isRequestActive() else { return result }
+                if await !window.bringToFrontConfirmed() { result.failed.append(PreviewWindowIdentity(window)) }
+            }
         }
         return result
     }

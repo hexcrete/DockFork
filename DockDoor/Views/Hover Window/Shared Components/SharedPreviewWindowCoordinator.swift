@@ -1527,6 +1527,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     @discardableResult
     func performActionOnCurrentWindow(action: WindowAction, preservePreviews: Bool = false) -> Bool {
         let coordinator = windowSwitcherCoordinator
+        if action == .autoTileSelectedWindows {
+            guard let first = coordinator.checkedActionTargets()?.first ?? coordinator.getCurrentWindow() else { NSSound.beep(); return false }
+            return performCheckedWindowAction(action, on: first, preservePreviews: preservePreviews) ?? false
+        }
         guard coordinator.currIndex >= 0, coordinator.currIndex < coordinator.windows.count else {
             return false
         }
@@ -1749,7 +1753,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     // nil delegates to single-window handling; the Bool reports immediate preview dismissal.
     func performCheckedWindowAction(_ action: WindowAction, on initiator: WindowInfo, preservePreviews: Bool = false) -> Bool? {
         guard action != .toggleWindowSelection, action != .none,
-              let targets = windowSwitcherCoordinator.checkedActionTargets(for: initiator), targets.count > 1
+              let targets = action == .autoTileSelectedWindows
+              ? windowSwitcherCoordinator.checkedActionTargets() ?? [initiator]
+              : windowSwitcherCoordinator.checkedActionTargets(for: initiator),
+              targets.count > 1 || action == .autoTileSelectedWindows
         else { return nil }
         if action == .toggleFullScreen, !targets.contains(where: { $0.isFullscreen == true }) { return nil }
         if action == .bringToCurrentSpace {
@@ -1789,7 +1796,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
             let samePresentation = contentView === originalContent && isVisible
             guard samePresentation || (needsTransition && !isVisible) else { return }
-            let shouldFocus = revealsWindows || (category == .movingAndResizing && action != .toggleFullScreen && Defaults[.moveResizeBringToForeground])
+            let shouldFocus = revealsWindows || (category == .movingAndResizing && action != .toggleFullScreen && action.tilingDirection == nil && Defaults[.moveResizeBringToForeground])
             let succeededIdentities = Set(result.succeeded.map(PreviewWindowIdentity.init))
             if shouldFocus,
                let first = targets.first(where: { succeededIdentities.contains(PreviewWindowIdentity($0)) }) ?? result.succeeded.first

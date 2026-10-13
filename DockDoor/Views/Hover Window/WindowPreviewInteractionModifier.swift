@@ -406,7 +406,7 @@ final class WindowActionMenuBuilder: NSObject {
     ) -> NSMenu {
         let menu = NSMenu()
         let batchTargets = showShortcutHints ? SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(for: window) : nil
-        let groups = WindowAction.availableGroups(for: window, batchTargets: batchTargets)
+        let groups = WindowAction.availableGroups(for: window, batchTargets: batchTargets, includeSelectionActions: showShortcutHints)
 
         if let actions = groups.first(where: { $0.id == .window })?.actions {
             add(

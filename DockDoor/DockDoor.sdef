@@ -145,8 +145,35 @@
             <result type="text" description="Success or error message."/>
         </command>
 
-        <!-- Window Data Commands (with images) -->
+        <!-- Window Tiling and Selection Commands -->
+        <command name="auto tile window" code="DKDRatwn" description="Fill the current Desktop with one window using the shared tiling operation. A 1x1 tiling limit moves without resizing.">
+            <cocoa class="TileWindowsCommand"/>
+            <direct-parameter type="text" description="Window ID or 'active'."/>
+            <parameter name="bringing to front" code="frnt" type="boolean" optional="yes" description="Raise the tiled window. Defaults to the configured Bring moved/resized windows to front preference.">
+                <cocoa key="bringingToFront"/>
+            </parameter>
+            <result type="text" description="'ok' after completion, or an error. Successful partial changes are not rolled back."/>
+        </command>
+        <command name="tile windows" code="DKDRtlws" description="Tile an ordered group on the current Desktop. Overflow groups repeat the layout. A 1x1 limit moves without resizing.">
+            <cocoa class="TileWindowsCommand"/>
+            <direct-parameter optional="yes" description="List of window IDs in leading order. If omitted, use checked windows, or the active window when none are checked.">
+                <type type="text" list="yes"/>
+            </direct-parameter>
+            <parameter name="to" code="topr" type="text" optional="yes" description="Direction: 'auto', 'left', 'right', 'top', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right'. Defaults to 'auto'.">
+                <cocoa key="position"/>
+            </parameter>
+            <parameter name="bringing to front" code="frnt" type="boolean" optional="yes" description="Raise all tiled windows with the first in front. Defaults to the configured foreground preference.">
+                <cocoa key="bringingToFront"/>
+            </parameter>
+            <result type="text" description="'ok' after completion, or an error listing failed window IDs. Successful partial changes are retained."/>
+        </command>
+        <command name="toggle window selection" code="DKDRtwsl" description="Toggle a window's checked membership in an open preview session. Requires multi-window selection enabled.">
+            <cocoa class="ToggleWindowSelectionCommand"/>
+            <direct-parameter type="text" description="Window ID or 'active'."/>
+            <result type="text" description="Success or error message."/>
+        </command>
 
+        <!-- Window Data Commands (with images) -->
         <command name="get window" code="DKDRgtwn" description="Get window info including cached preview image.">
             <cocoa class="GetWindowCommand"/>
             <direct-parameter type="text" description="Window ID or 'active' for the frontmost window."/>

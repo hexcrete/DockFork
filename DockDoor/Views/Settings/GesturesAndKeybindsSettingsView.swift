@@ -26,6 +26,8 @@ private struct WindowSelectionSettingsSection: View {
     @Default(.showUncheckedSelectionCheckboxes) private var showUnchecked
     @Default(.selectionCheckboxVisibility) private var visibility
     @Default(.showWindowSelectionSummary) private var showSummary
+    @Default(.maximumTilingRows) private var maximumTilingRows
+    @Default(.maximumTilingColumns) private var maximumTilingColumns
 
     var body: some View {
         SettingsGroup(header: "Window Selection & Tiling") {
@@ -54,6 +56,21 @@ private struct WindowSelectionSettingsSection: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)
+                    Picker("Maximum tiling rows:", selection: $maximumTilingRows) {
+                        ForEach(1 ... 6, id: \.self) { Text("\($0)").tag($0) }
+                    }
+                    .settingsSearchTarget("gestures.maximumTilingRows")
+                    Picker("Maximum tiling columns:", selection: $maximumTilingColumns) {
+                        ForEach(1 ... 6, id: \.self) { Text("\($0)").tag($0) }
+                    }
+                    .settingsSearchTarget("gestures.maximumTilingColumns")
+                    Text("The first checked window leads. Auto Tile Selected Windows and Half/Quarter actions arrange checked groups on the current Desktop. Set both limits to 1 to move windows without resizing. Overflowing groups repeat the same layout.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 20)
+                    if maximumTilingRows > 3 || maximumTilingColumns > 3 {
+                        SettingsNote(icon: "exclamationmark.triangle", text: "More than 3 rows or columns may not look good on some displays. Apps may enforce minimum window sizes.")
+                    }
                 }
             }
         }

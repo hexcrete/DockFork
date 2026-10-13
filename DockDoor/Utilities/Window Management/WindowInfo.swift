@@ -3,6 +3,86 @@ import Cocoa
 import Defaults
 import ScreenCaptureKit
 
+enum PreviewTilingLayout {
+    enum Direction: CaseIterable {
+        case neutral, left, right, top, bottom, topLeft, topRight, bottomLeft, bottomRight
+
+        var isQuarter: Bool {
+            switch self {
+            case .topLeft, .topRight, .bottomLeft, .bottomRight: true
+            default: false
+            }
+        }
+    }
+
+    static func frames(count: Int, in bounds: CGRect, direction: Direction = .neutral,
+                       maximumRows: Int, maximumColumns: Int) -> [CGRect?]
+    {
+        guard count > 0 else { return [] }
+        let rows = min(6, max(1, maximumRows))
+        let columns = min(6, max(1, maximumColumns))
+        guard rows != 1 || columns != 1 else { return Array(repeating: nil, count: count) }
+        let capacity = rows * columns
+        if count > capacity {
+            return stride(from: 0, to: count, by: capacity).flatMap { start in
+                frames(count: min(capacity, count - start), in: bounds, direction: direction,
+                       maximumRows: rows, maximumColumns: columns)
+            }
+        }
+        let tiledCount = min(count, rows * columns)
+        var normalized: [CGRect] = []
+        if tiledCount == 1 {
+            normalized = switch direction {
+            case .neutral: [CGRect(x: 0, y: 0, width: 1, height: 1)]
+            case .left, .right: [CGRect(x: 0, y: 0, width: 0.5, height: 1)]
+            case .top, .bottom: [CGRect(x: 0, y: 0.5, width: 1, height: 0.5)]
+            case .topLeft, .topRight, .bottomLeft, .bottomRight: [CGRect(x: 0, y: 0.5, width: 0.5, height: 0.5)]
+            }
+        } else if direction.isQuarter, tiledCount <= 4, rows >= 2, columns >= 2 {
+            normalized = (0 ..< tiledCount).map { CGRect(x: CGFloat($0 % 2) / 2, y: $0 < 2 ? 0.5 : 0, width: 0.5, height: 0.5) }
+        } else if tiledCount == 2, rows >= 2, columns >= 2 {
+            normalized = direction == .top || direction == .bottom
+                ? [CGRect(x: 0, y: 0.5, width: 1, height: 0.5), CGRect(x: 0, y: 0, width: 1, height: 0.5)]
+                : [CGRect(x: 0, y: 0, width: 0.5, height: 1), CGRect(x: 0.5, y: 0, width: 0.5, height: 1)]
+        } else if tiledCount == 3, rows >= 2, columns >= 2 {
+            normalized = direction == .top || direction == .bottom
+                ? [CGRect(x: 0, y: 0.5, width: 1, height: 0.5), CGRect(x: 0, y: 0, width: 0.5, height: 0.5), CGRect(x: 0.5, y: 0, width: 0.5, height: 0.5)]
+                : [CGRect(x: 0, y: 0, width: 0.5, height: 1), CGRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5), CGRect(x: 0.5, y: 0, width: 0.5, height: 0.5)]
+        } else if tiledCount == 4, rows >= 2, columns >= 2 {
+            normalized = (0 ..< 4).map { CGRect(x: CGFloat($0 % 2) / 2, y: $0 < 2 ? 0.5 : 0, width: 0.5, height: 0.5) }
+        } else {
+            var grid = (rows: rows, columns: columns)
+            var bestUnused = Int.max
+            var bestAspect = CGFloat.infinity
+            for r in 1 ... rows {
+                for c in 1 ... columns where r * c >= tiledCount {
+                    let unused = r * c - tiledCount
+                    let aspect = abs(log((bounds.width / CGFloat(c)) / (bounds.height / CGFloat(r))))
+                    if unused < bestUnused || (unused == bestUnused && aspect < bestAspect) {
+                        grid = (r, c); bestUnused = unused; bestAspect = aspect
+                    }
+                }
+            }
+            for index in 0 ..< tiledCount {
+                let row = index / grid.columns
+                let rowCount = min(grid.columns, tiledCount - row * grid.columns)
+                normalized.append(CGRect(x: CGFloat(index % grid.columns) / CGFloat(rowCount),
+                                         y: 1 - CGFloat(row + 1) / CGFloat(grid.rows),
+                                         width: 1 / CGFloat(rowCount), height: 1 / CGFloat(grid.rows)))
+            }
+        }
+        let mirrorX = direction == .right || direction == .topRight || direction == .bottomRight
+        let mirrorY = direction == .bottom || direction == .bottomLeft || direction == .bottomRight
+        let frames = normalized.map { frame -> CGRect? in
+            let x = mirrorX ? 1 - frame.maxX : frame.minX
+            let y = mirrorY ? 1 - frame.maxY : frame.minY
+            return CGRect(x: bounds.minX + x * bounds.width, y: bounds.minY + y * bounds.height,
+                          width: frame.width * bounds.width, height: frame.height * bounds.height)
+        }
+        return frames + Array(repeating: nil, count: count - tiledCount)
+    }
+}
+
 enum WindowActivationResult {
     case succeeded
     case failed
@@ -438,8 +518,8 @@ extension WindowInfo {
     }
 
     @discardableResult
-    func setWindowFrame(_ targetFrame: CGRect) -> Bool {
-        guard let screen = NSScreen.screens.first(where: { $0.frame.intersects(targetFrame) })
+    func setWindowFrame(_ targetFrame: CGRect, on targetScreen: NSScreen? = nil) -> Bool {
+        guard let screen = targetScreen ?? NSScreen.screens.first(where: { $0.frame.intersects(targetFrame) })
             ?? currentWindowPlacementContext()?.screen
             ?? NSScreen.main
         else {

@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 import Foundation
 
 // MARK: - Shared Command Logic
@@ -364,6 +365,9 @@ enum DockDoorCommands {
         lines.append("  minimize window \"active\"")
         lines.append("  position window \"active\" to \"left\"")
         lines.append("  position window \"12345\" to \"top-right\"")
+        lines.append("  auto tile window \"active\"")
+        lines.append("  tile windows {\"12345\", \"67890\"} to \"right\" with bringing to front")
+        lines.append("  toggle window selection \"active\" -- requires an open preview and multi-window selection enabled")
         lines.append("  list spaces")
         lines.append("  switch to space 3")
         lines.append("  switch to space by id \"12345\"")
@@ -682,6 +686,80 @@ class MoveWindowCommand: NSScriptCommand {
         case .unavailableDestination: "Only desktop Spaces can receive windows"
         case .alreadyOnDestination: "Window is already on the destination Space"
         }
+    }
+}
+
+@objc(TileWindowsCommand)
+class TileWindowsCommand: NSScriptCommand {
+    @MainActor private var hasReplied = false
+    @MainActor private var operationTask: Task<Void, Never>?
+    @MainActor private var deadlineTask: Task<Void, Never>?
+
+    override func performDefaultImplementation() -> Any? {
+        let identifiers: [String]?
+        if directParameter == nil { identifiers = nil }
+        else if let id = directParameter as? String { identifiers = [id] }
+        else if let ids = directParameter as? [String], !ids.isEmpty { identifiers = ids }
+        else { return "error: Provide a window ID or a nonempty list of window IDs" }
+        let position = evaluatedArguments?["position"] as? String ?? "auto"
+        let direction = position.lowercased() == "auto" ? PreviewTilingLayout.Direction.neutral
+            : DockDoorCommands.parsePositionAction(position)?.tilingDirection
+        guard let direction else { return "error: Invalid tiling direction" }
+        let foreground = evaluatedArguments?["bringingToFront"] as? Bool
+
+        suspendExecution()
+        Task { @MainActor in
+            deadlineTask = Task { @MainActor in
+                do { try await Task.sleep(nanoseconds: 15_000_000_000) } catch { return }
+                finish("error: Tiling timed out or was superseded")
+            }
+            operationTask = Task { @MainActor in
+                do {
+                    let requested: [WindowInfo] = if let identifiers {
+                        try identifiers.map { try DockDoorCommands.resolveWindowId($0).get().0 }
+                    } else if let checked = SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(), !checked.isEmpty {
+                        checked
+                    } else { try [DockDoorCommands.resolveWindowId("active").get().0] }
+                    var seen = Set<PreviewWindowIdentity>()
+                    let windows = requested.filter { seen.insert(PreviewWindowIdentity($0)).inserted }
+                    let result = await WindowUtil.tilePreviewWindows(windows, direction: direction, bringToFront: foreground)
+                    guard !Task.isCancelled, !hasReplied else { return }
+                    let failures = result.failed.map { String($0.windowID) }.joined(separator: ", ")
+                    finish(result.failed.isEmpty ? "ok" : "error: Tiling failed for windows \(failures); successful changes were retained")
+                } catch { finish("error: \(error.localizedDescription)") }
+            }
+        }
+        return nil
+    }
+
+    @MainActor private func finish(_ result: String) {
+        guard !hasReplied else { return }
+        hasReplied = true
+        operationTask?.cancel()
+        deadlineTask?.cancel()
+        operationTask = nil
+        deadlineTask = nil
+        resumeExecution(withResult: result)
+    }
+}
+
+@objc(ToggleWindowSelectionCommand)
+class ToggleWindowSelectionCommand: NSScriptCommand {
+    override func performDefaultImplementation() -> Any? {
+        guard let identifier = directParameter as? String else { return "error: Window ID required" }
+        suspendExecution()
+        Task { @MainActor in
+            do {
+                guard Defaults[.enableMultiWindowSelection],
+                      let coordinator = SharedPreviewWindowCoordinator.activeInstance, coordinator.isVisible
+                else { resumeExecution(withResult: "error: Enable multi-window selection and open previews first"); return }
+                let window = try DockDoorCommands.resolveWindowId(identifier).get().0
+                guard !window.isWindowlessApp, !window.app.isTerminated else { resumeExecution(withResult: "error: Window is unavailable"); return }
+                coordinator.windowSwitcherCoordinator.toggleCheckedWindow(window)
+                resumeExecution(withResult: "ok")
+            } catch { resumeExecution(withResult: "error: \(error.localizedDescription)") }
+        }
+        return nil
     }
 }
 

@@ -658,3 +658,83 @@ struct PreviewGroupDragLayoutTests {
         #expect(PreviewDragLayout.centers(for: [], at: .zero, within: screen) == [])
     }
 }
+
+struct PreviewTilingLayoutTests {
+    private let screen = CGRect(x: -1000, y: 200, width: 1000, height: 800)
+
+    @Test func oneFillsTwoSplitAndThreeHaveALeadingHalf() {
+        #expect(PreviewTilingLayout.frames(count: 1, in: screen, maximumRows: 2, maximumColumns: 2) == [screen])
+        let right = PreviewTilingLayout.frames(count: 3, in: screen, direction: .right, maximumRows: 2, maximumColumns: 2)
+        #expect(right[0] == CGRect(x: -500, y: 200, width: 500, height: 800))
+        #expect(right[1] == CGRect(x: -1000, y: 600, width: 500, height: 400))
+        #expect(right[2] == CGRect(x: -1000, y: 200, width: 500, height: 400))
+        let bottom = PreviewTilingLayout.frames(count: 2, in: screen, direction: .bottom, maximumRows: 2, maximumColumns: 2)
+        #expect(bottom[0] == CGRect(x: -1000, y: 200, width: 1000, height: 400))
+    }
+
+    @Test func quarterCommandsUseCornerCellsWithoutFillingUnusedCells() {
+        let frames = PreviewTilingLayout.frames(count: 3, in: screen, direction: .bottomRight, maximumRows: 2, maximumColumns: 2)
+        #expect(frames[0] == CGRect(x: -500, y: 200, width: 500, height: 400))
+        #expect(frames[1] == CGRect(x: -1000, y: 200, width: 500, height: 400))
+        #expect(frames[2] == CGRect(x: -500, y: 600, width: 500, height: 400))
+    }
+
+    @Test func limitsDisableResizingAndOverflowRepeatsTheLayout() {
+        #expect(PreviewTilingLayout.frames(count: 3, in: screen, maximumRows: 1, maximumColumns: 1) == [nil, nil, nil])
+        let frames = PreviewTilingLayout.frames(count: 7, in: screen, maximumRows: 2, maximumColumns: 2)
+        #expect(frames.count == 7)
+        #expect(frames.prefix(4).allSatisfy { $0 != nil })
+        #expect(frames.suffix(3).allSatisfy { $0 != nil })
+        #expect(frames[4] == CGRect(x: -1000, y: 200, width: 500, height: 800))
+        #expect(PreviewTilingLayout.frames(count: 2, in: screen, maximumRows: Int.min, maximumColumns: Int.max).count == 2)
+    }
+
+    @Test func largerGridsAdaptToDisplayAspectAndExpandTheLastRow() {
+        let landscape = CGRect(x: 0, y: 0, width: 1600, height: 900)
+        let frames = PreviewTilingLayout.frames(count: 5, in: landscape, maximumRows: 4, maximumColumns: 4)
+        #expect(abs((frames[0]?.width ?? 0) - 1600 / 3.0) < 0.001)
+        #expect(frames[3]?.width == 800)
+        #expect(frames[4]?.maxX == 1600)
+        let portrait = CGRect(x: 0, y: 0, width: 900, height: 1600)
+        let tall = PreviewTilingLayout.frames(count: 6, in: portrait, maximumRows: 4, maximumColumns: 4)
+        #expect(tall[0]?.width == 450)
+    }
+
+    @Test func everyBatchStaysInsideTheDisplayWithoutOverlapping() {
+        for rows in 1 ... 6 {
+            for columns in 1 ... 6 {
+                for direction in PreviewTilingLayout.Direction.allCases {
+                    for count in 1 ... 40 {
+                        let frames = PreviewTilingLayout.frames(count: count, in: screen, direction: direction,
+                                                                maximumRows: rows, maximumColumns: columns)
+                        #expect(frames.count == count)
+                        let tiled = frames.compactMap { $0 }
+                        #expect(tiled.count == (rows == 1 && columns == 1 ? 0 : count))
+                        for (index, frame) in tiled.enumerated() {
+                            #expect(frame.width > 0 && frame.height > 0)
+                            #expect(frame.minX >= screen.minX - 0.001 && frame.maxX <= screen.maxX + 0.001)
+                            #expect(frame.minY >= screen.minY - 0.001 && frame.maxY <= screen.maxY + 0.001)
+                            for (offset, other) in tiled.dropFirst(index + 1).enumerated() {
+                                let otherIndex = index + offset + 1
+                                if index / (rows * columns) != otherIndex / (rows * columns) { continue }
+                                let overlap = frame.intersection(other)
+                                #expect(overlap.isNull || overlap.width * overlap.height < 0.001)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test func overflowUsesItsOwnCountAndRequestedDirection() {
+        let auto = PreviewTilingLayout.frames(count: 5, in: screen, maximumRows: 2, maximumColumns: 2)
+        #expect(auto[4] == screen)
+        let right = PreviewTilingLayout.frames(count: 5, in: screen, direction: .right, maximumRows: 2, maximumColumns: 2)
+        #expect(right[4] == CGRect(x: -500, y: 200, width: 500, height: 800))
+        let topLeft = PreviewTilingLayout.frames(count: 6, in: screen, direction: .topLeft, maximumRows: 2, maximumColumns: 2)
+        #expect(topLeft[4] == CGRect(x: -1000, y: 600, width: 500, height: 400))
+        #expect(topLeft[5] == CGRect(x: -500, y: 600, width: 500, height: 400))
+        #expect(PreviewTilingLayout.frames(count: 36, in: screen, maximumRows: 6, maximumColumns: 6).compactMap { $0 }.count == 36)
+    }
+}

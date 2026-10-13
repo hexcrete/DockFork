@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers fifty-six later commits through `c82793295f6a56d6f1650d68a9f250b599b55b64`: **248 total, 244 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The approved selection and batch-action commits are recorded. The group-drag commit containing this update is excluded from this explicit coverage boundary; record its final hash in the next update. A commit cannot contain its own final hash.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers fifty-seven later commits through `313e21331c5f9ca219369a6fb4b2a5b6f5b99393`: **249 total, 245 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The approved selection and batch-action commits are recorded. The approved group-drag commit is recorded. The approved tiling commit containing this update is excluded from this explicit coverage boundary and must be recorded in the next ledger update. A commit cannot contain its own final hash.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -415,6 +415,8 @@ Coverage: `9efa1cc..a4150a5`, extended and verified against Git October 13, 2026
 | [`a4150a5`](https://github.com/hexcrete/DockFork/commit/a4150a58b915660eda70fade1a87ecd5cd3edfac) | Keyboard completion respects selection release suppression; separate one-line source guard with publication-record updates. | Fix | 3 |
 
 | [`c827932`](https://github.com/hexcrete/DockFork/commit/c82793295f6a56d6f1650d68a9f250b599b55b64) | Ordered checked-group window actions and confirmed Space moves; shared mixed-state policy, exit-only group fullscreen, failure reporting and cancellation cleanup. User manual verification passed. | Feature | 17 |
+
+| [`313e213`](https://github.com/hexcrete/DockFork/commit/313e21331c5f9ca219369a6fb4b2a5b6f5b99393) | Stable checked-group dragging, ordered bounded icon ghost, confirmed relative placement and whole-group Aero Shake protection through reconciliation. User manual verification passed. | Feature | 9 |
 
 ## Upstream Attribution and Contribution Boundaries
 

@@ -1982,6 +1982,24 @@ enum SettingsSearchCatalog {
             icon: "checkmark.circle"
         ),
         SettingsSearchItem(
+            id: "gestures.maximumTilingRows",
+            title: String(localized: "Maximum tiling rows:"),
+            description: String(localized: "The first checked window leads. Auto Tile Selected Windows and Half/Quarter actions arrange checked groups on the current Desktop. Set both limits to 1 to move windows without resizing. Overflowing groups repeat the same layout."),
+            keywords: ["selection", "tile", "grid", "rows", "capacity"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Selection & Tiling"),
+            icon: "rectangle.split.2x2"
+        ),
+        SettingsSearchItem(
+            id: "gestures.maximumTilingColumns",
+            title: String(localized: "Maximum tiling columns:"),
+            description: String(localized: "The first checked window leads. Auto Tile Selected Windows and Half/Quarter actions arrange checked groups on the current Desktop. Set both limits to 1 to move windows without resizing. Overflowing groups repeat the same layout."),
+            keywords: ["selection", "tile", "grid", "columns", "capacity"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Selection & Tiling"),
+            icon: "rectangle.split.2x2"
+        ),
+        SettingsSearchItem(
             id: "gestures.enableSpacesShortcuts",
             title: String(localized: "Enable Spaces Shortcuts"),
             description: String(localized: "When a window preview is focused, press the Window Switcher modifier plus a number to move the window to that numbered Desktop. When Window Switcher is open without a focused preview, the same shortcut switches to that numbered Space."),

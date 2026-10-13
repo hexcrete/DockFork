@@ -1047,6 +1047,8 @@ extension Defaults.Keys {
     static let showWindowSelectionSummary = Key<Bool>("showWindowSelectionSummary", default: false)
     static let showUncheckedSelectionCheckboxes = Key<Bool>("showUncheckedSelectionCheckboxes", default: true)
     static let selectionCheckboxVisibility = Key<SelectionCheckboxVisibility>("selectionCheckboxVisibility", default: .previewHover)
+    static let maximumTilingRows = Key<Int>("maximumTilingRows", default: 2)
+    static let maximumTilingColumns = Key<Int>("maximumTilingColumns", default: 2)
 
     // MARK: - Window Preview Keyboard Shortcuts
 

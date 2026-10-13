@@ -31,13 +31,38 @@ Validation: 35 isolated selection/policy tests and 12 production-executor checks
 
 ## Development: Group Dragging
 
-Phase 3 manual verification was reported successful October 13. This development change is not in the published 0.1.0 release. Dragging a checked window snapshots the full ordered checked group, including search-filtered cached members; dragging an unchecked window retains the existing single-window behavior. The drag ghost reuses the existing registered, mouse-inert, capture-excluded window. A native material-backed row shows up to six app icons in check order plus an overflow count, without screenshots or additional capture streams.
+Phase 3 is committed as `313e213`; manual verification was reported successful October 13. This development change is not in the published 0.1.0 release. Dragging a checked window snapshots the full ordered checked group, including search-filtered cached members; dragging an unchecked window retains the existing single-window behavior. The drag ghost reuses the existing registered, mouse-inert, capture-excluded window. A native material-backed row shows up to six app icons in check order plus an overflow count, without screenshots or additional capture streams.
 
 Group placement translates the original AX frames into AppKit centers around the drop pointer. The whole formation is constrained when it fits the destination visible area. If it cannot fit, existing single-window placement fits/clamps each member, so spacing can compress. Space assignment is confirmed before revealing hidden/minimized members or placing them; already-assigned members skip the move request. Source validation rejects fullscreen/multi-Desktop/windowless windows. Failures chime and log stable identities, keep previews open, and do not undo successful members. Raising runs in reverse check order so the first checked member finishes in front.
 
 Cancellation tears down the ghost and outstanding request-scoped moves. Aero Shake retains Dock/Cmd+Tab parity: Except protects all dragged members in both the initial global-minimize pass and reconciliation retries. Existing single-window dragging, external spring-loading, tiling, and drop-to-tile are not changed in this phase.
 
 Validation: 39 isolated selection/policy/geometry tests passed, including formation clamping, coordinate inversion, nonzero display origins, oversized formations and invalid geometry. Six source-extracted exclusion checks using native AX identities and five production group-drop checks with fake platform adapters also passed. They cover ID/element fallback, ordered raising, move confirmation, hidden/minimized reveal, partial rejection and cancellation, not live window behavior. User manual group-drag verification passed October 13. The full Xcode suite was not run. Build/signature/exact-path launch are checked separately. No performance measurement or macOS drag behavior is inferred from geometry tests.
+
+## Development: Automatic Tiling
+
+Phase 4 manual verification was reported successful October 13 and the final source review found no blocking issues. This development change is not in the published 0.1.0 release. Auto Tile Selected Windows is available in the shared shortcut/gesture/mouse-action catalog and preview Arrange menus. It uses checked windows, including when keyboard highlighting is absent, and fills a single targeted window when none are checked. Menu-bar Arrange offers Auto Tile Window for its individual target; preview menus also offer Add/Remove from Selection. Half/Quarter actions tile multiple checked windows; individual-window Half/Quarter behavior remains unchanged. Menu-bar window menus remain individual.
+
+Tiling targets the current Desktop and display under the pointer, using its visible frame. The first checked eligible window leads. One fills the display, two use halves, three use a leading half and two opposite quarters, and four use quarters. Half actions choose the leading edge; Quarter actions with two/three windows use quarter cells and leave unused cells empty. Grid constraints take precedence when the requested shape cannot fit the permitted rows/columns. Larger groups use a display-aspect-aware grid with an expanded short final row. Maximum tiling rows/columns are independently configurable from 1 to 6, both default 2. Values above 3 show a display/minimum-size warning. A 1x1 limit still moves without resizing. Overflow repeats the same algorithm in ordered batches up to the configured capacity; a final single member fills the display for Auto Tile or uses the requested half/quarter. macOS may adjust windows during Space assignment, and apps can enforce minimum sizes.
+
+Tiling and group dragging share one confirmed-move/reveal/placement worker. Fullscreen, windowless, terminated and multi-Desktop sources are rejected; successful eligible members retain checking order. Layout is computed once after confirmation/reveal, not during preview rendering or pointer movement. Placement uses the explicit destination screen and reports AX acceptance/partial failure. Tiling raises all successfully placed windows when Bring moved/resized windows to front is enabled, in reverse checking order so the leading member finishes in front. This occurs in the placement worker, not a container-view completion guard; Off makes no explicit activation requests. Drag drops retain their required raising. Existing targeted preview recapture and fullscreen image safeguards remain intact. Failed members chime/log; successful moves are not rolled back.
+
+Validation: 45 isolated tests passed, including 12,960 count/direction/grid-limit combinations with bounds checks and overlap checks within each batch. Overlap between overflow batches is intentional. Five simulated production group-drop checks passed after the shared-worker extraction, plus five simulated production tiling checks covering repeated overflow, foreground raising On/Off, 1x1 move-only behavior, single fill and directional quarters. These do not establish live macOS placement or multi-display behavior. The signed Debug build, exact-path relaunch, source/dictionary correspondence and diff checks passed. Relaunch required one retry after Launch Services error -600. User manual verification passed October 13; no exhaustive display or feature coverage is inferred. Full Xcode tests remain pending. The separate scripting follow-up precedes drop-to-tile; neither is part of this implementation.
+
+### Tiling and Selection Scripting
+
+New native commands reuse the same tiling operation and checked-selection model. Existing Apple event codes/commands are unchanged. Ordered IDs are deduplicated without changing their first occurrence. Omitting IDs uses checked windows, or the active window when none are checked. Scripts wait for completion with one bounded reply and report partial failures without rolling back successful changes. The tiling deadline is 15 seconds; it cancels remaining work, not changes already made.
+
+```applescript
+tell application "DockFork"
+    auto tile window "active"
+    tile windows {"12345", "67890"} to "right" with bringing to front
+    tile windows without bringing to front
+    toggle window selection "active"
+end tell
+```
+
+The last command requires multi-window selection enabled and an open preview session. Direction defaults to `"auto"`; other directions use the existing position names. The foreground argument is optional and otherwise uses the configured preference. These commands and examples are included in the app's scripting dictionary/generated help. Native command compilation, generated help and invalid single/list/empty-list replies passed on the running signed development build without modifying real windows. The dictionary uses a typed list of text for ID arrays, not an untyped list receiver. Successful real-window scripting and deadline races still require manual verification.
 
 ## Reading This Guide
 
