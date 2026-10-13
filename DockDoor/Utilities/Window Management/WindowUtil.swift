@@ -981,6 +981,78 @@ extension WindowUtil {
     }
 
     @MainActor
+    static func placeDraggedWindows(_ targets: [PreviewDragTarget], at pointer: CGPoint, on screen: NSScreen,
+                                    destination: ManagedSpaceDestination,
+                                    isRequestActive: @escaping @MainActor () -> Bool) async -> PreviewBatchResult
+    {
+        var result = PreviewBatchResult()
+        guard let centers = PreviewDragLayout.centers(for: targets.map(\.originalFrame), at: pointer, within: screen.visibleFrame) else {
+            result.failed = targets.map { PreviewWindowIdentity($0.window) }
+            return result
+        }
+        let topology = WindowSpaces.managedDisplays()
+        var ready = Set<PreviewWindowIdentity>()
+        var pending = Set<PreviewWindowIdentity>()
+        var cancellations: [@MainActor () -> Void] = []
+        defer { for cancel in cancellations {
+            cancel()
+        } }
+
+        for target in targets {
+            guard !Task.isCancelled, isRequestActive() else { return result }
+            let window = target.window
+            let identity = PreviewWindowIdentity(window)
+            guard !window.app.isTerminated, WindowSpaces.validateMoveSource(window, in: topology) == nil else {
+                result.failed.append(identity)
+                continue
+            }
+            if WindowSpaces.sourceSpaceIDs(for: window).contains(destination.space.id) {
+                ready.insert(identity)
+                continue
+            }
+            pending.insert(identity)
+            if let cancel = performConfirmedSpaceMove(window, to: destination, dismissPreviews: nil,
+                                                      switchToDestination: false, isRequestActive: isRequestActive,
+                                                      completion: { success in
+                                                          pending.remove(identity)
+                                                          if success { ready.insert(identity) } else { result.failed.append(identity) }
+                                                      })
+            { cancellations.append(cancel) }
+        }
+        for _ in 0 ..< 25 where !pending.isEmpty {
+            do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return result }
+        }
+        guard !Task.isCancelled, isRequestActive() else { return result }
+        result.failed.append(contentsOf: pending)
+        for cancel in cancellations {
+            cancel()
+        }
+        cancellations.removeAll()
+
+        for (target, center) in zip(targets, centers) where ready.contains(PreviewWindowIdentity(target.window)) {
+            guard !Task.isCancelled, isRequestActive() else { return result }
+            var window = target.window
+            var revealed = true
+            if window.app.isHidden { revealed = await setHiddenStateConfirmed(for: window.app, isHidden: false) }
+            if revealed, window.isMinimized || (try? window.axElement.isMinimized()) == true {
+                revealed = await !setMinimizedWindowsConfirmed([window], isMinimized: false).isEmpty
+                if revealed { window.isMinimized = false }
+            }
+            guard !Task.isCancelled, isRequestActive() else { return result }
+            if revealed, placeWindowCentered(window, at: center, on: screen) != nil {
+                result.succeeded.append(window)
+            } else { result.failed.append(PreviewWindowIdentity(window)) }
+            await Task.yield()
+        }
+        // Raise in reverse check order so the leading checked window finishes in front.
+        for window in result.succeeded.reversed() {
+            guard !Task.isCancelled, isRequestActive() else { return result }
+            if await !window.bringToFrontConfirmed() { result.failed.append(PreviewWindowIdentity(window)) }
+        }
+        return result
+    }
+
+    @MainActor
     static func placeWindowCentered(
         _ windowInfo: WindowInfo,
         at pointerLocation: CGPoint,
@@ -3531,29 +3603,46 @@ extension WindowUtil {
 
     @discardableResult
     static func minimizeAllWindowsGlobally() -> Int {
-        minimizeAllWindowsGlobally(excludingWindowID: nil, excludingElement: nil)
+        minimizeAllWindowsGlobally(exclusions: GlobalMinimizeExclusions([]))
     }
 
     @discardableResult
     static func minimizeAllWindowsExcept(_ keptWindow: WindowInfo) -> Int {
-        minimizeAllWindowsGlobally(excludingWindowID: keptWindow.id, excludingElement: keptWindow.axElement)
+        minimizeAllWindowsExcept([keptWindow])
+    }
+
+    @discardableResult
+    static func minimizeAllWindowsExcept(_ keptWindows: [WindowInfo]) -> Int {
+        minimizeAllWindowsGlobally(exclusions: GlobalMinimizeExclusions(keptWindows))
+    }
+
+    private struct GlobalMinimizeExclusions {
+        let ids: Set<CGWindowID>
+        let elements: [AXUIElement]
+
+        init(_ windows: [WindowInfo]) {
+            ids = Set(windows.map(\.id))
+            elements = windows.map(\.axElement)
+        }
+
+        func contains(windowID: CGWindowID?, element: AXUIElement) -> Bool {
+            if let windowID, ids.contains(windowID) { return true }
+            return elements.contains { CFEqual($0, element) }
+        }
     }
 
     @discardableResult
     private static func minimizeAllWindowsGlobally(
-        excludingWindowID: CGWindowID?,
-        excludingElement: AXUIElement?
+        exclusions: GlobalMinimizeExclusions
     ) -> Int {
         let targets = collectGlobalMinimizeTargetsFast(
-            excludingWindowID: excludingWindowID,
-            excludingElement: excludingElement
+            exclusions: exclusions
         )
         guard !targets.isEmpty else { return 0 }
         minimizeAXWindowsAsync(targets.map(\.element))
         scheduleGlobalMinimizeReconciliation(
             for: targets,
-            excludingWindowID: excludingWindowID,
-            excludingElement: excludingElement
+            exclusions: exclusions
         )
         return targets.count
     }
@@ -3590,21 +3679,6 @@ extension WindowUtil {
             !isAppFiltered(app)
     }
 
-    private static func shouldExcludeGlobalMinimizeTarget(
-        windowID: CGWindowID?,
-        element: AXUIElement,
-        excludingWindowID: CGWindowID?,
-        excludingElement: AXUIElement?
-    ) -> Bool {
-        if let excludingElement, CFEqual(element, excludingElement) {
-            return true
-        }
-        if let excludingWindowID, let windowID, windowID == excludingWindowID {
-            return true
-        }
-        return false
-    }
-
     private static func appendGlobalMinimizeTarget(
         pid: pid_t,
         windowID: CGWindowID?,
@@ -3626,8 +3700,7 @@ extension WindowUtil {
     }
 
     private static func collectGlobalMinimizeTargetsFast(
-        excludingWindowID: CGWindowID?,
-        excludingElement: AXUIElement?
+        exclusions: GlobalMinimizeExclusions
     ) -> [GlobalMinimizeReconciliationSnapshot] {
         let ownBundleId = Bundle.main.bundleIdentifier
         var targets: [GlobalMinimizeReconciliationSnapshot] = []
@@ -3640,12 +3713,7 @@ extension WindowUtil {
                   !window.isMinimized,
                   window.isFullscreen != true,
                   appEligibleForGlobalMinimize(window.app, ownBundleId: ownBundleId),
-                  !shouldExcludeGlobalMinimizeTarget(
-                      windowID: window.id,
-                      element: window.axElement,
-                      excludingWindowID: excludingWindowID,
-                      excludingElement: excludingElement
-                  )
+                  !exclusions.contains(windowID: window.id, element: window.axElement)
             else {
                 continue
             }
@@ -3667,12 +3735,7 @@ extension WindowUtil {
 
             for axWindow in axWindows {
                 let windowID = try? axWindow.cgWindowId()
-                guard !shouldExcludeGlobalMinimizeTarget(
-                    windowID: windowID,
-                    element: axWindow,
-                    excludingWindowID: excludingWindowID,
-                    excludingElement: excludingElement
-                ) else {
+                guard !exclusions.contains(windowID: windowID, element: axWindow) else {
                     continue
                 }
                 if (try? axWindow.isMinimized()) == true {
@@ -3698,8 +3761,7 @@ extension WindowUtil {
 
     private static func collectGlobalMinimizeTargetsHeavy(
         for pids: Set<pid_t>,
-        excludingWindowID: CGWindowID?,
-        excludingElement: AXUIElement?
+        exclusions: GlobalMinimizeExclusions
     ) -> [GlobalMinimizeReconciliationSnapshot] {
         guard !pids.isEmpty else { return [] }
 
@@ -3721,12 +3783,7 @@ extension WindowUtil {
 
             for axWindow in axWindows {
                 let windowID = try? axWindow.cgWindowId()
-                guard !shouldExcludeGlobalMinimizeTarget(
-                    windowID: windowID,
-                    element: axWindow,
-                    excludingWindowID: excludingWindowID,
-                    excludingElement: excludingElement
-                ) else {
+                guard !exclusions.contains(windowID: windowID, element: axWindow) else {
                     continue
                 }
                 if (try? axWindow.isMinimized()) == true {
@@ -3809,8 +3866,7 @@ extension WindowUtil {
 
     private static func cacheHasPendingGlobalMinimizeWindows(
         pid: pid_t,
-        excludingWindowID: CGWindowID?,
-        excludingElement: AXUIElement?
+        exclusions: GlobalMinimizeExclusions
     ) -> Bool {
         let ownBundleId = Bundle.main.bundleIdentifier
         let cachedWindows = desktopSpaceWindowCacheManager.readCache(pid: pid)
@@ -3823,20 +3879,13 @@ extension WindowUtil {
                 return false
             }
 
-            if let excludingWindowID, window.id == excludingWindowID {
-                return false
-            }
-            if let excludingElement, CFEqual(window.axElement, excludingElement) {
-                return false
-            }
-            return true
+            return !exclusions.contains(windowID: window.id, element: window.axElement)
         }
     }
 
     private static func scheduleGlobalMinimizeReconciliation(
         for targets: [GlobalMinimizeReconciliationSnapshot],
-        excludingWindowID: CGWindowID?,
-        excludingElement: AXUIElement?
+        exclusions: GlobalMinimizeExclusions
     ) {
         guard !targets.isEmpty else { return }
 
@@ -3855,8 +3904,7 @@ extension WindowUtil {
             for pid in trackedPIDs {
                 if cacheHasPendingGlobalMinimizeWindows(
                     pid: pid,
-                    excludingWindowID: excludingWindowID,
-                    excludingElement: excludingElement
+                    exclusions: exclusions
                 ) {
                     unresolvedPIDs.insert(pid)
                 }
@@ -3876,8 +3924,7 @@ extension WindowUtil {
             for pid in trackedPIDs where unresolvedPIDs.contains(pid) {
                 if !cacheHasPendingGlobalMinimizeWindows(
                     pid: pid,
-                    excludingWindowID: excludingWindowID,
-                    excludingElement: excludingElement
+                    exclusions: exclusions
                 ) {
                     unresolvedPIDs.remove(pid)
                 }
@@ -3887,8 +3934,7 @@ extension WindowUtil {
 
             let heavyTargets = collectGlobalMinimizeTargetsHeavy(
                 for: unresolvedPIDs,
-                excludingWindowID: excludingWindowID,
-                excludingElement: excludingElement
+                exclusions: exclusions
             )
             guard !heavyTargets.isEmpty else { return }
 

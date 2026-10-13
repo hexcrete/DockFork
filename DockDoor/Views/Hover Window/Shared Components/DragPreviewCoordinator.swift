@@ -1,4 +1,24 @@
 import AppKit
+import SwiftUI
+
+struct PreviewDragTarget {
+    let window: WindowInfo
+    let originalFrame: CGRect
+}
+
+enum PreviewDragLayout {
+    // Cached frames use AX coordinates, whose vertical axis is opposite AppKit's.
+    static func centers(for frames: [CGRect], at pointer: CGPoint, within visibleFrame: CGRect) -> [CGPoint]? {
+        guard frames.allSatisfy({ $0.minX.isFinite && $0.minY.isFinite && $0.width.isFinite && $0.height.isFinite && $0.width > 0 && $0.height > 0 }) else { return nil }
+        guard let first = frames.first else { return [] }
+        let bounds = frames.dropFirst().reduce(first) { $0.union($1) }
+        let centerX = bounds.width <= visibleFrame.width
+            ? min(max(pointer.x, visibleFrame.minX + bounds.width / 2), visibleFrame.maxX - bounds.width / 2) : visibleFrame.midX
+        let centerY = bounds.height <= visibleFrame.height
+            ? min(max(pointer.y, visibleFrame.minY + bounds.height / 2), visibleFrame.maxY - bounds.height / 2) : visibleFrame.midY
+        return frames.map { CGPoint(x: centerX + $0.midX - bounds.midX, y: centerY + bounds.midY - $0.midY) }
+    }
+}
 
 @MainActor
 final class DragPreviewCoordinator {
@@ -17,6 +37,7 @@ final class DragPreviewCoordinator {
         image: CGImage?,
         fallbackIcon: NSImage?,
         logicalWindowSize: CGSize,
+        group: [WindowInfo] = [],
         at location: CGPoint,
         token: UUID
     ) {
@@ -24,6 +45,27 @@ final class DragPreviewCoordinator {
 
         sessionToken = token
         dragStartLocation = location
+
+        if group.count > 1 {
+            let visible = Array(group.prefix(6))
+            let overflow = group.count - visible.count
+            let iconsWidth = CGFloat(visible.count) * iconPreviewSize.width
+            let spacingWidth = CGFloat(visible.count - 1) * 8
+            let overflowWidth: CGFloat = overflow > 0 ? 40 : 0
+            let size = CGSize(width: iconsWidth + spacingWidth + 20 + overflowWidth, height: 65)
+            let row = HStack(spacing: 8) {
+                ForEach(visible, id: \.id) { window in
+                    Image(nsImage: window.app.icon ?? NSImage())
+                        .resizable().frame(width: 45, height: 45)
+                }
+                if overflow > 0 { Text("+\(overflow)").font(.caption).foregroundStyle(.secondary) }
+            }
+            .padding(10)
+            .frame(width: size.width, height: size.height)
+            .dockStyle(backgroundAppearance: .resolve(), cornerRadius: 12)
+            showGhost(NSHostingView(rootView: row), size: size, at: location)
+            return
+        }
 
         let content: NSImage
         let scaledSize: CGSize
@@ -37,12 +79,16 @@ final class DragPreviewCoordinator {
             return
         }
 
-        let scaledFrame = CGRect(
-            x: location.x - scaledSize.width / 2,
-            y: location.y - scaledSize.height / 2,
-            width: scaledSize.width,
-            height: scaledSize.height
-        )
+        let imageView = NSImageView(frame: NSRect(origin: .zero, size: scaledSize))
+        imageView.image = content
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.alphaValue = previewOpacity
+        showGhost(imageView, size: scaledSize, at: location)
+    }
+
+    private func showGhost(_ content: NSView, size: CGSize, at location: CGPoint) {
+        let scaledFrame = CGRect(x: location.x - size.width / 2, y: location.y - size.height / 2,
+                                 width: size.width, height: size.height)
 
         let previewWindow = NSWindow(
             contentRect: scaledFrame,
@@ -60,12 +106,7 @@ final class DragPreviewCoordinator {
         previewWindow.sharingType = .none
         previewWindow.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle, .fullScreenAuxiliary]
 
-        let imageView = NSImageView(frame: NSRect(origin: .zero, size: scaledFrame.size))
-        imageView.image = content
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.alphaValue = previewOpacity
-
-        previewWindow.contentView = imageView
+        previewWindow.contentView = content
         initialWindowFrame = scaledFrame
         if previewWindow.windowNumber > 0 {
             let windowID = CGWindowID(previewWindow.windowNumber)

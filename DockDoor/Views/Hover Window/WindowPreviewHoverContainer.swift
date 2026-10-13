@@ -134,6 +134,7 @@ struct WindowPreviewHoverContainer: View {
         let token = UUID()
         let identity: DraggedWindowIdentity
         let window: WindowInfo
+        let targets: [PreviewDragTarget]
         var consumedByShake = false
         var isCompletingDrop = false
     }
@@ -792,10 +793,13 @@ struct WindowPreviewHoverContainer: View {
 
     private func beginPreviewDrag(for window: WindowInfo, at location: CGPoint) {
         guard dragSession == nil, !mockPreviewActive, !window.isWindowlessApp else { return }
-
+        let checked = previewStateCoordinator.checkedActionTargets(for: window) ?? []
         let session = PreviewDragSession(
             identity: DraggedWindowIdentity(window),
-            window: window
+            window: window,
+            targets: (checked.count > 1 ? checked : [window]).map {
+                PreviewDragTarget(window: $0, originalFrame: $0.frame)
+            }
         )
         dragSession = session
         isDragging = true
@@ -806,6 +810,7 @@ struct WindowPreviewHoverContainer: View {
             image: window.image,
             fallbackIcon: window.app.icon,
             logicalWindowSize: logicalWindowSize,
+            group: session.targets.map(\.window),
             at: location,
             token: session.token
         )
@@ -839,7 +844,10 @@ struct WindowPreviewHoverContainer: View {
             case .all:
                 minimizeAllWindows()
             case .except:
-                minimizeAllWindows(window)
+                if session.targets.count > 1 {
+                    _ = WindowUtil.minimizeAllWindowsExcept(session.targets.map(\.window))
+                    onWindowTap?()
+                } else { minimizeAllWindows(session.window) }
             case .none:
                 break
             }
@@ -860,9 +868,33 @@ struct WindowPreviewHoverContainer: View {
         {
             session.isCompletingDrop = true
             dragSession = session
-            handleWindowDrop(at: location, for: session.window, token: session.token)
+            if session.targets.count > 1 {
+                completeGroupDrop(session, at: location)
+            } else { handleWindowDrop(at: location, for: session.window, token: session.token) }
         } else {
             cancelPreviewDrag(token: session.token)
+        }
+    }
+
+    private func completeGroupDrop(_ session: PreviewDragSession, at location: CGPoint) {
+        let displays = WindowSpaces.managedDisplays()
+        guard let screen = location.screen(),
+              let spaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: location),
+              let destination = WindowSpaces.destination(forSpaceID: spaceID, in: displays),
+              destination.space.kind == .desktop
+        else { NSSound.beep(); cancelPreviewDrag(token: session.token); return }
+
+        dragCompletionTask = Task { @MainActor in
+            let result = await WindowUtil.placeDraggedWindows(session.targets, at: location, on: screen,
+                                                              destination: destination,
+                                                              isRequestActive: { dragSession?.token == session.token })
+            guard !Task.isCancelled, dragSession?.token == session.token else { return }
+            dragCompletionTask = nil
+            cancelPreviewDrag(token: session.token)
+            if !result.failed.isEmpty {
+                DebugLogger.log("PreviewGroupDrop", details: "Failed: " + result.failed.map { "\($0.pid):\($0.windowID)" }.joined(separator: ", "))
+                NSSound.beep()
+            } else if !result.succeeded.isEmpty { onWindowTap?() }
         }
     }
 

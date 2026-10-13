@@ -627,3 +627,34 @@ struct PreviewBatchTogglePolicyTests {
         #expect(PreviewBatchTogglePolicy.targetState([]) == nil)
     }
 }
+
+struct PreviewGroupDragLayoutTests {
+    private let screen = CGRect(x: 0, y: 0, width: 1000, height: 800)
+
+    @Test func preservesOrderAndConvertsTheVerticalAxis() {
+        let frames = [CGRect(x: 100, y: 100, width: 200, height: 100), CGRect(x: 400, y: 300, width: 200, height: 100)]
+        #expect(PreviewDragLayout.centers(for: frames, at: CGPoint(x: 500, y: 400), within: screen)
+            == [CGPoint(x: 350, y: 500), CGPoint(x: 650, y: 300)])
+    }
+
+    @Test func clampsTheFormationRatherThanEachWindowWhenItFits() {
+        let frames = [CGRect(x: 0, y: 0, width: 200, height: 100), CGRect(x: 300, y: 0, width: 200, height: 100)]
+        #expect(PreviewDragLayout.centers(for: frames, at: .zero, within: screen)
+            == [CGPoint(x: 100, y: 50), CGPoint(x: 400, y: 50)])
+        #expect(PreviewDragLayout.centers(for: frames, at: CGPoint(x: 1000, y: 800), within: screen)
+            == [CGPoint(x: 600, y: 750), CGPoint(x: 900, y: 750)])
+    }
+
+    @Test func handlesOtherDisplayOriginsAndOversizedFormations() {
+        let display = CGRect(x: -1000, y: 800, width: 1000, height: 800)
+        let frames = [CGRect(x: 0, y: 0, width: 200, height: 100), CGRect(x: 1400, y: 0, width: 200, height: 100)]
+        #expect(PreviewDragLayout.centers(for: frames, at: CGPoint(x: -900, y: 900), within: display)
+            == [CGPoint(x: -1200, y: 900), CGPoint(x: 200, y: 900)])
+    }
+
+    @Test func rejectsUnknownGeometryAndAllowsEmptyGroups() {
+        #expect(PreviewDragLayout.centers(for: [.zero], at: .zero, within: screen) == nil)
+        #expect(PreviewDragLayout.centers(for: [CGRect(x: CGFloat.infinity, y: 0, width: 100, height: 100)], at: .zero, within: screen) == nil)
+        #expect(PreviewDragLayout.centers(for: [], at: .zero, within: screen) == [])
+    }
+}
