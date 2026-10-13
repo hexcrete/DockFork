@@ -1,12 +1,53 @@
 import AppKit
 import Defaults
 
+enum PreviewBatchTogglePolicy {
+    static func targetState(_ states: [Bool]) -> Bool? {
+        states.isEmpty ? nil : !states.allSatisfy { $0 }
+    }
+}
+
 struct WindowActionGroup: Identifiable {
     let id: WindowAction.Group
     let actions: [WindowAction]
 }
 
 extension WindowAction {
+    func batchTargets(from windows: [WindowInfo]) -> [WindowInfo] {
+        var seenApps = Set<pid_t>()
+        return windows.filter { window in
+            guard !isAppWidePreviewAction || seenApps.insert(window.app.processIdentifier).inserted else { return false }
+            if self == .toggleFullScreen { return window.isFullscreen == true }
+            if self == .hide, !window.app.isHidden {
+                let appWindows = WindowUtil.readCachedWindows(for: window.app.processIdentifier)
+                if !appWindows.isEmpty, appWindows.allSatisfy({ $0.isFullscreen == true }) { return false }
+            }
+            return true
+        }
+    }
+
+    func batchTargetState(for windows: [WindowInfo]) -> Bool? {
+        switch self {
+        case .minimize, .minimizeAllWindows:
+            let candidates = self == .minimizeAllWindows
+                ? Set(windows.map(\.app.processIdentifier)).flatMap { WindowUtil.readCachedWindows(for: $0) }
+                : windows
+            let eligible = candidates.filter { !$0.isWindowlessApp && $0.isFullscreen != true }
+            return PreviewBatchTogglePolicy.targetState(eligible.map(\.isMinimized))
+        case .hide:
+            return PreviewBatchTogglePolicy.targetState(batchTargets(from: windows).map(\.app.isHidden))
+        default:
+            return nil
+        }
+    }
+
+    var isAppWidePreviewAction: Bool {
+        switch self {
+        case .hide, .quit, .closeAllWindows, .minimizeAllWindows, .openNewWindow: true
+        default: false
+        }
+    }
+
     enum Group: String, CaseIterable {
         case window
         case arrange
@@ -36,9 +77,11 @@ extension WindowAction {
         }
     }
 
-    static func availableGroups(for window: WindowInfo) -> [WindowActionGroup] {
+    static func availableGroups(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> [WindowActionGroup] {
         Group.allCases.compactMap { group in
-            let actions = group.actions.filter { $0.isAvailable(for: window) }
+            let actions = group.actions.filter {
+                ($0 == .toggleFullScreen && batchTargets?.contains(where: { $0.isFullscreen == true }) == true) || $0.isAvailable(for: window)
+            }
             return actions.isEmpty ? nil : WindowActionGroup(id: group, actions: actions)
         }
     }
@@ -64,8 +107,22 @@ extension WindowAction {
         }
     }
 
-    func menuTitle(for window: WindowInfo) -> String {
-        switch self {
+    func menuTitle(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> String {
+        if let batchTargets, batchTargets.count > 1 {
+            switch self {
+            case .minimize:
+                return batchTargetState(for: batchTargets) == false
+                    ? String(localized: "Un-minimize Selected Windows") : String(localized: "Minimize Selected Windows")
+            case .hide:
+                return batchTargetState(for: batchTargets) == false
+                    ? String(localized: "Unhide Selected Apps") : String(localized: "Hide Selected Apps")
+            case .toggleFullScreen:
+                return batchTargets.contains { $0.isFullscreen == true }
+                    ? String(localized: "Exit Full Screen for Selected Windows") : String(localized: "Enter Full Screen (This Window)")
+            default: break
+            }
+        }
+        return switch self {
         case .minimize where window.isMinimized:
             String(localized: "Un-minimize", comment: "Window action for an already minimized window")
         case .hide where window.isHidden:
@@ -77,8 +134,12 @@ extension WindowAction {
         }
     }
 
-    func menuIcon(for window: WindowInfo) -> String {
-        switch self {
+    func menuIcon(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> String {
+        if let batchTargets, batchTargets.count > 1 {
+            if self == .minimize { return batchTargetState(for: batchTargets) == false ? "arrow.up.left.and.arrow.down.right.square" : iconName }
+            if self == .hide { return batchTargetState(for: batchTargets) == false ? "eye" : iconName }
+        }
+        return switch self {
         case .minimize where window.isMinimized:
             "arrow.up.left.and.arrow.down.right.square"
         case .hide where window.isHidden:

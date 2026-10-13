@@ -2145,7 +2145,12 @@ struct WindowPreviewHoverContainer: View {
             let handleCardAction: (WindowAction) -> Void = { action in
                 if action == .toggleWindowSelection {
                     if !mockPreviewActive { previewStateCoordinator.toggleCheckedWindow(windowInfo) }
+                } else if !mockPreviewActive,
+                          SharedPreviewWindowCoordinator.activeInstance?.performCheckedWindowAction(action, on: windowInfo) != nil
+                {
+                    return
                 } else {
+                    if action != .none { SharedPreviewWindowCoordinator.activeInstance?.cancelPreviewBatchAction() }
                     handleWindowAction(action, at: index)
                 }
             }

@@ -29,6 +29,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     weak static var activeInstance: SharedPreviewWindowCoordinator?
 
     private var isPresentationSuspended = false
+    private var previewBatchTask: Task<Void, Never>?
+    private var previewBatchToken: UUID?
 
     var canPresentPreviews: Bool {
         !isPresentationSuspended && NSApp.modalWindow == nil
@@ -262,6 +264,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     deinit {
+        previewBatchTask?.cancel()
         focusFadeTimer?.invalidate()
         if let focusFadeLocalMonitor { NSEvent.removeMonitor(focusFadeLocalMonitor) }
         if let focusFadeGlobalMonitor { NSEvent.removeMonitor(focusFadeGlobalMonitor) }
@@ -1529,10 +1532,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
 
         let window = coordinator.windows[coordinator.currIndex]
+        if let dismissed = performCheckedWindowAction(action, on: window, preservePreviews: preservePreviews) { return dismissed }
         if action == .toggleWindowSelection {
             coordinator.toggleCheckedWindow(window)
             return false
         }
+        if action != .none { cancelPreviewBatchAction() }
         let willQuitOnClose = action == .close &&
             !window.isWindowlessApp &&
             WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: window.app.processIdentifier)
@@ -1738,6 +1743,157 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
 
         return false
+    }
+
+    @MainActor
+    // nil delegates to single-window handling; the Bool reports immediate preview dismissal.
+    func performCheckedWindowAction(_ action: WindowAction, on initiator: WindowInfo, preservePreviews: Bool = false) -> Bool? {
+        guard action != .toggleWindowSelection, action != .none,
+              let targets = windowSwitcherCoordinator.checkedActionTargets(for: initiator), targets.count > 1
+        else { return nil }
+        if action == .toggleFullScreen, !targets.contains(where: { $0.isFullscreen == true }) { return nil }
+        if action == .bringToCurrentSpace {
+            let displays = WindowSpaces.managedDisplays()
+            guard let spaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: NSEvent.mouseLocation),
+                  let destination = WindowSpaces.destination(forSpaceID: spaceID, in: displays)
+            else { NSSound.beep(); return false }
+            _ = performCheckedSpaceMove(initiator, to: destination, dismissPreviews: { [weak self] in self?.hideWindow() })
+            return false
+        }
+
+        previewBatchTask?.cancel()
+        let token = UUID()
+        previewBatchToken = token
+        let originalContent = contentView
+        let category = action.batchTargetState(for: targets).map { $0 ? WindowAction.PostActionCategory.hiding : .unhiding }
+            ?? action.postActionCategory(for: initiator, preferredWindows: targets)
+        let keepOpen = preservePreviews || selectionKeepsPreviewsOpen || (category?.keepPreviewsOpen ?? (action != .openAppWindow))
+        let revealsWindows = action == .openAppWindow || category == .unhiding
+        let needsTransition = !preservePreviews && (action == .toggleFullScreen ||
+            (revealsWindows && targets.contains { WindowUtil.activationMaySwitchSpaces(for: $0) }))
+        if needsTransition { hideWindow() }
+        previewBatchTask = Task { @MainActor [weak self] in
+            let result = await WindowUtil.performPreviewBatchAction(action, on: targets)
+            guard !Task.isCancelled, let self, previewBatchToken == token else { return }
+            defer {
+                if previewBatchToken == token { previewBatchTask = nil; previewBatchToken = nil }
+            }
+            reportBatchFailures(result.failed, action: action.rawValue)
+            var refreshedApps = Set<pid_t>()
+            for window in targets where refreshedApps.insert(window.app.processIdentifier).inserted {
+                if action == .minimize || action == .minimizeAllWindows || action == .hide {
+                    windowSwitcherCoordinator.scheduleVisibilityStateSync(processIdentifier: window.app.processIdentifier)
+                } else if action == .close || action == .quit || action == .closeAllWindows || action == .openNewWindow {
+                    scheduleInPlaceActionRefresh(for: window.app, forceImageRefresh: action == .openNewWindow)
+                }
+            }
+            let samePresentation = contentView === originalContent && isVisible
+            guard samePresentation || (needsTransition && !isVisible) else { return }
+            let shouldFocus = revealsWindows || (category == .movingAndResizing && action != .toggleFullScreen && Defaults[.moveResizeBringToForeground])
+            let succeededIdentities = Set(result.succeeded.map(PreviewWindowIdentity.init))
+            if shouldFocus,
+               let first = targets.first(where: { succeededIdentities.contains(PreviewWindowIdentity($0)) }) ?? result.succeeded.first
+            {
+                let refreshed = WindowUtil.readCachedWindows(for: first.app.processIdentifier).first { $0.id == first.id } ?? first
+                if !keepOpen || needsTransition || WindowUtil.canBringWindowToFrontWithoutSpaceSwitch(refreshed) {
+                    if !keepOpen || needsTransition { hideWindow() }
+                    let activated = await refreshed.bringToFrontConfirmed()
+                    guard !Task.isCancelled, previewBatchToken == token else { return }
+                    if !activated { reportBatchFailures([PreviewWindowIdentity(first)], action: "activateAfterBatch") }
+                }
+            }
+            guard !Task.isCancelled, previewBatchToken == token else { return }
+            if !keepOpen, !result.succeeded.isEmpty, samePresentation { hideWindow() }
+            windowSwitcherCoordinator.scheduleActiveFocusedWindowRefresh()
+        }
+        return needsTransition
+    }
+
+    @MainActor
+    @discardableResult
+    func performCheckedSpaceMove(_ initiator: WindowInfo, to destination: ManagedSpaceDestination,
+                                 dismissPreviews: (() -> Void)?) -> Bool
+    {
+        guard let targets = windowSwitcherCoordinator.checkedActionTargets(for: initiator), targets.count > 1 else { return false }
+        previewBatchTask?.cancel()
+        let token = UUID()
+        previewBatchToken = token
+        let originalContent = contentView
+        let followsDestination = Defaults[.switchToDestinationSpaceAfterMoving]
+        previewBatchTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            defer {
+                if previewBatchToken == token { previewBatchTask = nil; previewBatchToken = nil }
+            }
+            var succeeded: [WindowInfo] = []
+            var failed: [PreviewWindowIdentity] = []
+            var pending = Set<PreviewWindowIdentity>()
+            var cancellations: [@MainActor () -> Void] = []
+            var requestedMove = false
+            defer { for cancel in cancellations {
+                cancel()
+            } }
+            let topology = WindowSpaces.managedDisplays()
+            for window in targets {
+                let identity = PreviewWindowIdentity(window)
+                if WindowSpaces.validateMoveSource(window, in: topology) == nil,
+                   WindowSpaces.sourceSpaceIDs(for: window).contains(destination.space.id), destination.space.kind == .desktop
+                {
+                    succeeded.append(window)
+                    continue
+                }
+                requestedMove = true
+                pending.insert(identity)
+                let cancel = WindowUtil.performConfirmedSpaceMove(window, to: destination, dismissPreviews: nil,
+                                                                  switchToDestination: false,
+                                                                  isRequestActive: { self.previewBatchToken == token })
+                { success in
+                    pending.remove(identity)
+                    if success { succeeded.append(window) } else { failed.append(identity) }
+                }
+                if let cancel { cancellations.append(cancel) }
+            }
+            guard requestedMove else {
+                reportBatchFailures(targets.map(PreviewWindowIdentity.init), action: "moveToCurrentDestination")
+                return
+            }
+            for _ in 0 ..< 25 where !pending.isEmpty {
+                do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return }
+            }
+            guard !Task.isCancelled, previewBatchToken == token else { return }
+            failed.append(contentsOf: pending)
+            reportBatchFailures(failed, action: "moveToSpace")
+            let succeededIdentities = Set(succeeded.map(PreviewWindowIdentity.init))
+            if followsDestination, !succeeded.isEmpty, isVisible, contentView === originalContent,
+               let first = targets.first(where: { succeededIdentities.contains(PreviewWindowIdentity($0)) })
+            {
+                dismissPreviews?()
+                var moved = WindowUtil.readCachedWindows(for: first.app.processIdentifier).first { $0.id == first.id } ?? first
+                var canFocus = true
+                if moved.app.isHidden { canFocus = await WindowUtil.setHiddenStateConfirmed(for: moved.app, isHidden: false) }
+                if canFocus, moved.isMinimized {
+                    canFocus = await !(WindowUtil.setMinimizedWindowsConfirmed([moved], isMinimized: false)).isEmpty
+                    if canFocus { moved.isMinimized = false }
+                }
+                guard !Task.isCancelled, previewBatchToken == token else { return }
+                if canFocus { canFocus = await moved.bringToFrontConfirmed() }
+                if !canFocus { reportBatchFailures([PreviewWindowIdentity(first)], action: "followSpace") }
+            }
+            guard !Task.isCancelled, previewBatchToken == token else { return }
+        }
+        return true
+    }
+
+    private func reportBatchFailures(_ failures: [PreviewWindowIdentity], action: String) {
+        guard !failures.isEmpty else { return }
+        DebugLogger.log("PreviewBatchAction", details: "\(action) failed for " + failures.map { "\($0.pid):\($0.windowID)" }.joined(separator: ", "))
+        NSSound.beep()
+    }
+
+    func cancelPreviewBatchAction() {
+        previewBatchTask?.cancel()
+        previewBatchTask = nil
+        previewBatchToken = nil
     }
 
     @MainActor

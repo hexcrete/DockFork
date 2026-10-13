@@ -2122,10 +2122,13 @@ class KeybindHelper {
                 NSSound.beep()
                 return
             }
-            preventSwitcherHideOnRelease = true
             if DockObserver.isCmdTabSwitcherActive {
                 cmdTabActionPerformed = true
             }
+            if previewCoordinator.performCheckedSpaceMove(selectedWindow, to: destination,
+                                                          dismissPreviews: { [weak self] in self?.dismissPreviewsForSpaceChange() })
+            { return }
+            preventSwitcherHideOnRelease = true
             WindowUtil.performConfirmedSpaceMove(
                 selectedWindow,
                 to: destination,
@@ -2173,6 +2176,7 @@ class KeybindHelper {
         preventSwitcherHideOnRelease = false
         guard windowSwitchingCoordinator.dismissesOnModifierRelease,
               !Defaults[.preventSwitcherHide],
+              !previewCoordinator.windowSwitcherCoordinator.selectionSuppressesRelease,
               !isSwitcherModifierKeyPressed,
               previewCoordinator.isVisible
         else { return }

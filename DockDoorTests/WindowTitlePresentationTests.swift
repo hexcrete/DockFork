@@ -591,3 +591,39 @@ struct SelectionCheckboxVisibilityTests {
         ))
     }
 }
+
+struct PreviewBatchSelectionTests {
+    @Test func checkedInitiatorsUseCheckingOrderAndUncheckedOnesStaySingle() {
+        let first = PreviewWindowIdentity(pid: 1, windowID: 10)
+        let second = PreviewWindowIdentity(pid: 2, windowID: 20)
+        let unchecked = PreviewWindowIdentity(pid: 1, windowID: 30)
+        var selection = OrderedPreviewSelection()
+        selection.toggle(first)
+        selection.toggle(second)
+        #expect(selection.actionIdentities(for: second) == [first, second])
+        #expect(selection.actionIdentities(for: unchecked) == nil)
+        selection.remove([first])
+        #expect(selection.actionIdentities(for: second) == [second])
+    }
+
+    @Test func onlyAppWideCommandsAreDeduplicatedByApp() {
+        let appWide: Set<WindowAction> = [.hide, .quit, .closeAllWindows, .minimizeAllWindows, .openNewWindow]
+        for action in WindowAction.allCases {
+            #expect(action.isAppWidePreviewAction == appWide.contains(action))
+        }
+    }
+}
+
+struct PreviewBatchTogglePolicyTests {
+    @Test func mixedSelectionsApplyRatherThanUndoState() {
+        #expect(PreviewBatchTogglePolicy.targetState([false, true]) == true)
+        #expect(PreviewBatchTogglePolicy.targetState([true, false]) == true)
+        #expect(PreviewBatchTogglePolicy.targetState([false, false]) == true)
+    }
+
+    @Test func onlyUniformlyAppliedStateIsUndone() {
+        #expect(PreviewBatchTogglePolicy.targetState([true, true]) == false)
+        #expect(PreviewBatchTogglePolicy.targetState([true]) == false)
+        #expect(PreviewBatchTogglePolicy.targetState([]) == nil)
+    }
+}

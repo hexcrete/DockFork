@@ -1949,7 +1949,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.enableMultiWindowSelection",
             title: String(localized: "Enable multi-window selection"),
-            description: String(localized: "Check windows using selection controls or the Toggle Window Selection action. Checked windows keep Window Switcher previews open; Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection."),
+            description: String(localized: "Check windows using selection controls or the Toggle Window Selection action. Checked windows keep Window Switcher previews open; Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection. Mixed selections minimize or hide when any applicable target is unminimized or visible; otherwise they restore or unhide. Fullscreen exits all selected fullscreen windows. If none are fullscreen, only the clicked or highlighted window enters fullscreen."),
             keywords: ["selection", "multiple", "check", "batch", "escape"],
             tab: "GesturesKeybinds",
             section: String(localized: "Window Selection & Tiling"),

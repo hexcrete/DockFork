@@ -34,6 +34,10 @@ struct OrderedPreviewSelection: Equatable {
         membership.subtract(removed)
         identities.removeAll { removed.contains($0) }
     }
+
+    func actionIdentities(for initiator: PreviewWindowIdentity) -> [PreviewWindowIdentity]? {
+        membership.contains(initiator) ? identities : nil
+    }
 }
 
 /// Keeps highlight and checked membership separate from window metadata updates.
@@ -115,6 +119,16 @@ class PreviewStateCoordinator: ObservableObject {
         guard !removed.isEmpty else { return }
         selection.checkedWindows.remove(removed)
         publishCheckedSelection()
+    }
+
+    @MainActor
+    func checkedActionTargets(for initiator: WindowInfo) -> [WindowInfo]? {
+        guard Defaults[.enableMultiWindowSelection],
+              let identities = selection.checkedWindows.actionIdentities(for: PreviewWindowIdentity(initiator))
+        else { return nil }
+        let cached = Set(identities.map(\.pid)).flatMap { WindowUtil.readCachedWindows(for: $0) }
+        let byIdentity = Dictionary(cached.map { (PreviewWindowIdentity($0), $0) }, uniquingKeysWith: { first, _ in first })
+        return identities.compactMap { byIdentity[$0] }.filter { !$0.isWindowlessApp && !$0.app.isTerminated }
     }
 
     @MainActor

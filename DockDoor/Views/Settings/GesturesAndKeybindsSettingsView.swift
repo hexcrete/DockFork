@@ -32,7 +32,7 @@ private struct WindowSelectionSettingsSection: View {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Enable multi-window selection", isOn: $enabled)
                     .settingsSearchTarget("gestures.enableMultiWindowSelection")
-                Text("Check windows using selection controls or the Toggle Window Selection action. Checked windows keep Window Switcher previews open; Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection.")
+                Text("Check windows using selection controls or the Toggle Window Selection action. Checked windows keep Window Switcher previews open; Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection. Mixed selections minimize or hide when any applicable target is unminimized or visible; otherwise they restore or unhide. Fullscreen exits all selected fullscreen windows. If none are fullscreen, only the clicked or highlighted window enters fullscreen.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 20)

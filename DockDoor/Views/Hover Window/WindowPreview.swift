@@ -11,10 +11,12 @@ final class SpaceMoveMenuController: NSObject {
         let window: WindowInfo
         let destination: ManagedSpaceDestination
         let dismissPreviews: (() -> Void)?
+        let usesCheckedSelection: Bool
     }
 
     private struct FullscreenExitRequest {
         let window: WindowInfo
+        let usesCheckedSelection: Bool
     }
 
     func present(for window: WindowInfo, dismissPreviews: (() -> Void)?) {
@@ -48,6 +50,7 @@ final class SpaceMoveMenuController: NSObject {
         let displays = WindowSpaces.managedDisplays(includeOwners: true)
         let sourceValidation = WindowSpaces.validateMoveSource(window, in: displays)
         let sourceSpaceIDs = WindowSpaces.sourceSpaceIDs(for: window)
+        let targets = showShortcutHints ? SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(for: window) ?? [window] : [window]
 
         if sourceValidation == .fullscreen {
             let item = NSMenuItem(
@@ -56,7 +59,7 @@ final class SpaceMoveMenuController: NSObject {
                 keyEquivalent: ""
             )
             item.target = self
-            item.representedObject = FullscreenExitRequest(window: window)
+            item.representedObject = FullscreenExitRequest(window: window, usesCheckedSelection: showShortcutHints)
             menu.addItem(item)
             return menu
         }
@@ -112,7 +115,9 @@ final class SpaceMoveMenuController: NSObject {
                 }
 
                 if space.kind == .desktop {
-                    let isCurrent = sourceSpaceIDs.contains(space.id)
+                    let isCurrent = targets.count > 1
+                        ? targets.allSatisfy { WindowSpaces.sourceSpaceIDs(for: $0).contains(space.id) }
+                        : sourceSpaceIDs.contains(space.id)
                     item.state = isCurrent ? .on : .off
                     item.isEnabled = !isCurrent
                     if !isCurrent {
@@ -121,7 +126,8 @@ final class SpaceMoveMenuController: NSObject {
                         item.representedObject = MoveRequest(
                             window: window,
                             destination: destination,
-                            dismissPreviews: dismissPreviews
+                            dismissPreviews: dismissPreviews,
+                            usesCheckedSelection: showShortcutHints
                         )
                     }
                 } else {
@@ -242,6 +248,9 @@ final class SpaceMoveMenuController: NSObject {
 
     @objc private func moveWindow(_ sender: NSMenuItem) {
         guard let request = sender.representedObject as? MoveRequest else { return }
+        if request.usesCheckedSelection,
+           SharedPreviewWindowCoordinator.activeInstance?.performCheckedSpaceMove(request.window, to: request.destination, dismissPreviews: request.dismissPreviews) == true
+        { return }
         WindowUtil.performConfirmedSpaceMove(
             request.window,
             to: request.destination,
@@ -250,8 +259,12 @@ final class SpaceMoveMenuController: NSObject {
     }
 
     @objc private func exitFullScreen(_ sender: NSMenuItem) {
-        guard let request = sender.representedObject as? FullscreenExitRequest,
-              WindowUtil.exitFullScreenWithoutActivation(request.window)
+        guard let request = sender.representedObject as? FullscreenExitRequest else { return }
+        if request.usesCheckedSelection,
+           SharedPreviewWindowCoordinator.activeInstance?.performCheckedWindowAction(.toggleFullScreen, on: request.window, preservePreviews: true) != nil
+        { return }
+        guard
+            WindowUtil.exitFullScreenWithoutActivation(request.window)
         else {
             NSSound.beep()
             return

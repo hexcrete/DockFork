@@ -405,12 +405,14 @@ final class WindowActionMenuBuilder: NSObject {
         dismissPreviews: (() -> Void)?
     ) -> NSMenu {
         let menu = NSMenu()
-        let groups = WindowAction.availableGroups(for: window)
+        let batchTargets = showShortcutHints ? SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(for: window) : nil
+        let groups = WindowAction.availableGroups(for: window, batchTargets: batchTargets)
 
         if let actions = groups.first(where: { $0.id == .window })?.actions {
             add(
                 actions,
                 for: window,
+                batchTargets: batchTargets,
                 to: menu,
                 shortcutKeybind: shortcutKeybind,
                 shortcutByAction: shortcutByAction,
@@ -436,6 +438,7 @@ final class WindowActionMenuBuilder: NSObject {
                 add(
                     actions,
                     for: window,
+                    batchTargets: batchTargets,
                     to: arrangeMenu,
                     shortcutKeybind: shortcutKeybind,
                     shortcutByAction: shortcutByAction,
@@ -469,6 +472,7 @@ final class WindowActionMenuBuilder: NSObject {
             add(
                 actions,
                 for: window,
+                batchTargets: batchTargets,
                 to: menu,
                 shortcutKeybind: shortcutKeybind,
                 shortcutByAction: shortcutByAction,
@@ -483,6 +487,7 @@ final class WindowActionMenuBuilder: NSObject {
     private func add(
         _ actions: [WindowAction],
         for window: WindowInfo,
+        batchTargets: [WindowInfo]?,
         to menu: NSMenu,
         shortcutKeybind: UserKeyBind,
         shortcutByAction: [WindowAction: CmdShortcut],
@@ -491,14 +496,14 @@ final class WindowActionMenuBuilder: NSObject {
     ) {
         for action in actions {
             let item = NSMenuItem(
-                title: action.menuTitle(for: window),
+                title: action.menuTitle(for: window, batchTargets: batchTargets),
                 action: #selector(performAction(_:)),
                 keyEquivalent: ""
             )
             item.target = self
             item.representedObject = ActionRequest(action: action, handler: handler)
             item.image = NSImage(
-                systemSymbolName: action.menuIcon(for: window),
+                systemSymbolName: action.menuIcon(for: window, batchTargets: batchTargets),
                 accessibilityDescription: nil
             )
             forceImageVisibility(for: item)

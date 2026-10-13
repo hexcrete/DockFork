@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers fifty-four later commits through `fa76e579c1a6b464b336a3eb115d8686e972bdbf`: **246 total, 242 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The selection phase is recorded; the release-guard follow-up will be recorded in the next update, since a commit cannot contain its own final hash.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers fifty-five later commits through `a4150a58b915660eda70fade1a87ecd5cd3edfac`: **247 total, 243 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. Both approved selection commits are recorded. The batch-action commit containing this update is excluded from this explicit coverage boundary; record its final hash in the next ledger update. A commit cannot contain its own final hash.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -339,7 +339,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..d783512`, reviewed October 12, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes four newly integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..a4150a5`, extended and verified against Git October 13, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes four newly integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -412,6 +412,7 @@ Coverage: `9efa1cc..d783512`, reviewed October 12, 2026. These commits are recor
 
 | [`d783512`](https://github.com/hexcrete/DockFork/commit/d78351215a1532b6f66cf043beb6cdb75e8895de) | Publication records: record the published 0.1.0 prerelease URL, verified assets, unchanged tested source, and pending downloaded-installation validation. | Documentation | 6 |
 | [`fa76e57`](https://github.com/hexcrete/DockFork/commit/fa76e579c1a6b464b336a3eb115d8686e972bdbf) | Ordered preview selection: shared checkbox controls, optional header-style summary, session lifecycle, keyboard selection and cache-only cleanup. User manual verification passed; final cleanup review build passed. | Feature | 23 |
+| [`a4150a5`](https://github.com/hexcrete/DockFork/commit/a4150a58b915660eda70fade1a87ecd5cd3edfac) | Keyboard completion respects selection release suppression; separate one-line source guard with publication-record updates. | Fix | 3 |
 
 ## Upstream Attribution and Contribution Boundaries
 

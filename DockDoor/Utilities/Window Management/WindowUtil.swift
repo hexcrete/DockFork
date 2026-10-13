@@ -507,8 +507,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
         case .maximize:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
-            window.zoom()
-            return .dismissed
+            return window.zoom() ? .dismissed : .noChange
 
         case .bringToCurrentSpace:
             if WindowUtil.moveWindowToCurrentManagedSpace(window) {
@@ -518,48 +517,39 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
         case .fillLeftHalf:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
-            window.fillLeftHalf()
-            return .dismissed
+            return window.fillLeftHalf() ? .dismissed : .noChange
 
         case .fillRightHalf:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
-            window.fillRightHalf()
-            return .dismissed
+            return window.fillRightHalf() ? .dismissed : .noChange
 
         case .fillTopHalf:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
-            window.fillTopHalf()
-            return .dismissed
+            return window.fillTopHalf() ? .dismissed : .noChange
 
         case .fillBottomHalf:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
-            window.fillBottomHalf()
-            return .dismissed
+            return window.fillBottomHalf() ? .dismissed : .noChange
 
         case .fillTopLeftQuarter:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
-            window.fillTopLeftQuarter()
-            return .dismissed
+            return window.fillTopLeftQuarter() ? .dismissed : .noChange
 
         case .fillTopRightQuarter:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
-            window.fillTopRightQuarter()
-            return .dismissed
+            return window.fillTopRightQuarter() ? .dismissed : .noChange
 
         case .fillBottomLeftQuarter:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
-            window.fillBottomLeftQuarter()
-            return .dismissed
+            return window.fillBottomLeftQuarter() ? .dismissed : .noChange
 
         case .fillBottomRightQuarter:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
-            window.fillBottomRightQuarter()
-            return .dismissed
+            return window.fillBottomRightQuarter() ? .dismissed : .noChange
 
         case .center:
             guard (try? window.axElement.isFullscreen()) != true else { return .noChange }
-            window.centerWindow()
-            return .dismissed
+            return window.centerWindow() ? .dismissed : .noChange
 
         case .toggleWindowSelection, .none:
             return .noChange
@@ -721,6 +711,106 @@ enum WindowUtil {
 // MARK: - Cache Management
 
 extension WindowUtil {
+    struct PreviewBatchResult {
+        var succeeded: [WindowInfo] = []
+        var failed: [PreviewWindowIdentity] = []
+    }
+
+    @MainActor
+    static func performPreviewBatchAction(_ action: WindowAction, on windows: [WindowInfo]) async -> PreviewBatchResult {
+        var result = PreviewBatchResult()
+        let targets = action.batchTargets(from: windows)
+        guard !targets.isEmpty else { result.failed = windows.map(PreviewWindowIdentity.init); return result }
+        let hiddenTarget = action.batchTargetState(for: windows) ?? false
+        let forceQuit = NSEvent.modifierFlags.contains(.option)
+
+        if action == .minimize || action == .minimizeAllWindows || action == .openAppWindow {
+            let minimizedTarget = action == .openAppWindow ? false : (action.batchTargetState(for: windows) ?? false)
+            let candidates = (action == .minimizeAllWindows
+                ? targets.flatMap { readCachedWindows(for: $0.app.processIdentifier) }
+                : targets).filter { $0.isFullscreen != true }
+            guard !candidates.isEmpty else {
+                result.failed = targets.map(PreviewWindowIdentity.init)
+                return result
+            }
+            var unrevealedApps = Set<pid_t>()
+            if !minimizedTarget {
+                var revealedApps = Set<pid_t>()
+                for window in candidates where window.app.isHidden && revealedApps.insert(window.app.processIdentifier).inserted {
+                    guard !Task.isCancelled else { return result }
+                    if await !setHiddenStateConfirmed(for: window.app, isHidden: false) {
+                        unrevealedApps.insert(window.app.processIdentifier)
+                    }
+                }
+            }
+            result.succeeded = await setMinimizedWindowsConfirmed(candidates.filter { !unrevealedApps.contains($0.app.processIdentifier) }, isMinimized: minimizedTarget)
+            let confirmed = Set(result.succeeded.map(PreviewWindowIdentity.init))
+            result.failed = candidates.map(PreviewWindowIdentity.init).filter { !confirmed.contains($0) }
+            return result
+        }
+
+        var quitApps = Set<pid_t>()
+        for window in targets {
+            guard !Task.isCancelled else { return result }
+            let pid = window.app.processIdentifier
+            var succeeded = false
+            if !window.app.isTerminated, action == .toggleFullScreen || action.isAvailable(for: window) {
+                switch action {
+                case .hide:
+                    if !hiddenTarget || !hasOnlyFullscreenWindows(for: window.app) {
+                        succeeded = await setHiddenStateConfirmed(for: window.app, isHidden: hiddenTarget)
+                    }
+                case .toggleFullScreen:
+                    succeeded = await exitFullscreenConfirmed(window)
+                case .quit:
+                    succeeded = forceQuit ? window.app.forceTerminate() : window.app.terminate()
+                case .close where shouldQuitAppOnWindowClose(processIdentifier: pid):
+                    if quitApps.insert(pid).inserted {
+                        succeeded = forceQuit ? window.app.forceTerminate() : window.app.terminate()
+                    } else { succeeded = true }
+                case .close:
+                    succeeded = window.close()
+                case .closeAllWindows:
+                    succeeded = closeAllWindows(for: window.app) > 0
+                case .openNewWindow:
+                    openNewWindow(app: window.app)
+                    succeeded = true
+                default:
+                    if (try? window.axElement.isFullscreen()) != true {
+                        if case .dismissed = action.perform(on: window, preferredWindows: windows) { succeeded = true }
+                    }
+                }
+            }
+            if succeeded { result.succeeded.append(window) }
+            else { result.failed.append(PreviewWindowIdentity(window)) }
+            await Task.yield()
+        }
+        return result
+    }
+
+    private static func exitFullscreenConfirmed(_ window: WindowInfo) async -> Bool {
+        let worker = Task.detached(priority: .userInitiated) {
+            do {
+                guard let current = try? window.axElement.isFullscreen() else { return false }
+                if current { try window.axElement.setAttribute(kAXFullscreenAttribute, false) }
+                for delay in [UInt64(0), 100_000_000, 300_000_000, 700_000_000] {
+                    if delay > 0 { try await Task.sleep(nanoseconds: delay) }
+                    guard !Task.isCancelled else { return false }
+                    if (try? window.axElement.isFullscreen()) == false {
+                        guard !Task.isCancelled else { return false }
+                        updateCachedWindowState(window, isFullscreen: false)
+                        return true
+                    }
+                }
+            } catch { return false }
+            return false
+        }
+        let succeeded = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+        guard !Task.isCancelled else { return false }
+        scheduleCachedWindowMetadataReconciliation(pid: window.app.processIdentifier, windowID: window.id)
+        return succeeded
+    }
+
     static func resizeRefreshDelayMilliseconds(from seconds: CGFloat, fallback: CGFloat) -> UInt64 {
         let boundedSeconds = seconds.isFinite ? min(1, max(0, seconds)) : fallback
         return UInt64((boundedSeconds * 1000).rounded())
@@ -3904,12 +3994,16 @@ extension WindowUtil {
 
     // Publish minimized state only after AX reports the requested value.
     static func setMinimizedStateConfirmed(_ windows: [WindowInfo], isMinimized: Bool) async -> Int {
+        await setMinimizedWindowsConfirmed(windows, isMinimized: isMinimized).count
+    }
+
+    static func setMinimizedWindowsConfirmed(_ windows: [WindowInfo], isMinimized: Bool) async -> [WindowInfo] {
         let ownBundleId = Bundle.main.bundleIdentifier
         let candidates = windows.filter {
             !$0.isWindowlessApp &&
                 $0.app.bundleIdentifier != ownBundleId
         }
-        guard !candidates.isEmpty else { return 0 }
+        guard !candidates.isEmpty else { return [] }
 
         let worker = Task.detached(priority: .userInitiated) {
             let targets = candidates.filter { window in
@@ -3959,7 +4053,7 @@ extension WindowUtil {
             worker.cancel()
         }
 
-        guard !Task.isCancelled else { return 0 }
+        guard !Task.isCancelled else { return [] }
         let windowsByPID = Dictionary(grouping: confirmedWindows, by: { $0.app.processIdentifier })
         for (pid, appWindows) in windowsByPID {
             updateCachedWindowStates(
@@ -3969,7 +4063,7 @@ extension WindowUtil {
                 isMinimized: isMinimized
             )
         }
-        return confirmedWindows.count
+        return confirmedWindows
     }
 
     // Publish app visibility only after AX reports the requested value.
