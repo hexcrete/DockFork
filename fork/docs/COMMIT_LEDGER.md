@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers fifty-three later commits through `d78351215a1532b6f66cf043beb6cdb75e8895de`: **245 total, 241 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. Uncommitted multi-window selection development is not included; its eventual commit will be recorded after manual approval.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers fifty-four later commits through `fa76e579c1a6b464b336a3eb115d8686e972bdbf`: **246 total, 242 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The selection phase is recorded; the release-guard follow-up will be recorded in the next update, since a commit cannot contain its own final hash.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -411,6 +411,7 @@ Coverage: `9efa1cc..d783512`, reviewed October 12, 2026. These commits are recor
 | [`49cd13d`](https://github.com/hexcrete/DockFork/commit/49cd13db37499fcb3187e0da6d2cff8e5035a39a) | Release records: document tagged source, ten verified draft assets, unchanged app/settings, and paused publication; extend ledger through release preparation. | Documentation | 4 |
 
 | [`d783512`](https://github.com/hexcrete/DockFork/commit/d78351215a1532b6f66cf043beb6cdb75e8895de) | Publication records: record the published 0.1.0 prerelease URL, verified assets, unchanged tested source, and pending downloaded-installation validation. | Documentation | 6 |
+| [`fa76e57`](https://github.com/hexcrete/DockFork/commit/fa76e579c1a6b464b336a3eb115d8686e972bdbf) | Ordered preview selection: shared checkbox controls, optional header-style summary, session lifecycle, keyboard selection and cache-only cleanup. User manual verification passed; final cleanup review build passed. | Feature | 23 |
 
 ## Upstream Attribution and Contribution Boundaries
 

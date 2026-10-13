@@ -1812,6 +1812,7 @@ class KeybindHelper {
 
                             if self.windowSwitchingCoordinator.dismissesOnModifierRelease,
                                !Defaults[.preventSwitcherHide],
+                               !self.previewCoordinator.windowSwitcherCoordinator.selectionSuppressesRelease,
                                !self.isSwitcherModifierKeyPressed
                             {
                                 self.switcherSessionActive = false
