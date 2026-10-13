@@ -143,6 +143,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     case fillBottomLeftQuarter
     case fillBottomRightQuarter
     case center
+    case toggleWindowSelection
 
     /// No action
     case none
@@ -189,6 +190,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             String(localized: "Fill Bottom Right", comment: "Window action")
         case .center:
             String(localized: "Center Window", comment: "Window action")
+        case .toggleWindowSelection:
+            String(localized: "Toggle Window Selection", comment: "Window action")
         case .none:
             String(localized: "No Action", comment: "Window action")
         }
@@ -216,13 +219,14 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .fillBottomLeftQuarter: "rectangle.split.2x2.fill"
         case .fillBottomRightQuarter: "rectangle.split.2x2.fill"
         case .center: "rectangle.center.inset.filled"
+        case .toggleWindowSelection: "checkmark.circle"
         case .none: "nosign"
         }
     }
 
     /// Actions that can be assigned to preview shortcuts, gestures, and mouse interactions.
     static let assignablePreviewActions: [WindowAction] = [
-        .none, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
+        .none, .toggleWindowSelection, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
         .minimize, .minimizeAllWindows, .maximize, .toggleFullScreen, .bringToCurrentSpace, .hide, .quit,
         .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
         .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center,
@@ -260,7 +264,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center:
             return .movingAndResizing
-        case .openAppWindow, .none:
+        case .openAppWindow, .toggleWindowSelection, .none:
             return nil
         }
     }
@@ -276,7 +280,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             !window.isMinimized
         case .minimizeAllWindows:
             category == .hiding
-        case .openAppWindow, .hide, .close, .quit, .closeAllWindows, .none:
+        case .openAppWindow, .hide, .close, .quit, .closeAllWindows, .toggleWindowSelection, .none:
             false
         }
     }
@@ -323,7 +327,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .quit, .close, .openAppWindow, .openNewWindow, .closeAllWindows, .bringToCurrentSpace,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
-             .center, .none:
+             .center, .toggleWindowSelection, .none:
             return false
         }
     }
@@ -356,7 +360,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             true
         case .toggleFullScreen:
             true
-        case .none:
+        case .toggleWindowSelection, .none:
             false
         }
     }
@@ -368,7 +372,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
-             .center, .none:
+             .center, .toggleWindowSelection, .none:
             false
         }
     }
@@ -380,7 +384,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
-             .center, .none:
+             .center, .toggleWindowSelection, .none:
             false
         }
     }
@@ -557,7 +561,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             window.centerWindow()
             return .dismissed
 
-        case .none:
+        case .toggleWindowSelection, .none:
             return .noChange
         }
     }
@@ -1376,7 +1380,7 @@ extension WindowUtil {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         evictTerminatedApps()
         let candidates = desktopSpaceWindowCacheManager.getAllWindows().filter { window in
-            return !window.isWindowlessApp &&
+            !window.isWindowlessApp &&
                 window.id != 0 &&
                 window.app.processIdentifier != ownPID &&
                 !window.app.isTerminated &&

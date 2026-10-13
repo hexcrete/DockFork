@@ -498,6 +498,17 @@ struct WindowPreviewHoverContainer: View {
         (appearanceOverride ?? cachedAppearance)?.radii ?? .current()
     }
 
+    private var showsSelectionSummary: Bool {
+        !mockPreviewActive && resolvedAppearance.showWindowSelectionSummary && previewStateCoordinator.checkedWindowCount > 0
+    }
+
+    private var selectionSummary: some View {
+        PreviewSelectionStrip(coordinator: previewStateCoordinator,
+                              style: previewStateCoordinator.selectionSummaryStyle,
+                              backgroundAppearance: backgroundAppearance)
+            .fixedSize(horizontal: true, vertical: true)
+    }
+
     var body: some View {
         BaseHoverContainer(
             bestGuessMonitor: bestGuessMonitor,
@@ -506,11 +517,13 @@ struct WindowPreviewHoverContainer: View {
             backgroundAppearance: backgroundAppearance,
             cornerRadius: radii.container
         )
+        .padding(.bottom, showsSelectionSummary && previewStateCoordinator.selectionSummaryStyle == .popover
+            ? PreviewHeaderLayout.contentReservation(for: .popover) : 0)
         .contentShape(Rectangle())
         .onTapGesture {
             activateApp()
         }
-        .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .popover && effectiveShowAppName) ? 30 : 0)
+        .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .popover && effectiveShowAppName) ? PreviewHeaderLayout.contentReservation(for: .popover) : 0)
         .onAppear {
             hasAppeared = true
             loadAppIcon()
@@ -550,7 +563,10 @@ struct WindowPreviewHoverContainer: View {
         .onChange(of: previewStateCoordinator.pointerInteractionSessionID) { _ in
             hoveringAppIcon = false
         }
-        .task(id: previewStateCoordinator.windowSwitcherActive) {
+        .onChange(of: previewStateCoordinator.selectionSummaryStyle) { _ in
+            if showsSelectionSummary { previewStateCoordinator.refreshSelectionLayout() }
+        }
+        .task(id: [previewStateCoordinator.windowSwitcherActive, cachedAppearance?.enableMultiWindowSelection ?? Defaults[.enableMultiWindowSelection]]) {
             let keys = PreviewAppearanceSettings.observedKeys + BackgroundAppearance.observedKeys
             for await _ in Defaults.updates(keys, initial: true) {
                 let previousAppearance = cachedAppearance
@@ -559,6 +575,14 @@ struct WindowPreviewHoverContainer: View {
                     dockPosition: dockPosition
                 )
                 if updated != cachedAppearance { cachedAppearance = updated }
+                if let previousAppearance, previousAppearance.showWindowSelectionSummary != updated.showWindowSelectionSummary,
+                   previewStateCoordinator.checkedWindowCount > 0
+                {
+                    previewStateCoordinator.refreshSelectionLayout()
+                }
+                if !updated.enableMultiWindowSelection, previewStateCoordinator.checkedWindowCount > 0 {
+                    previewStateCoordinator.clearCheckedWindows(resetOwnership: true)
+                }
                 let updatedBg = BackgroundAppearance.resolve()
                 if updatedBg != backgroundAppearance { backgroundAppearance = updatedBg }
 
@@ -638,10 +662,14 @@ struct WindowPreviewHoverContainer: View {
             disableLeading: dynamicFadeEnabled && !scrolledFromStart,
             disableTrailing: scrolledToEnd
         )
-        .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .default && effectiveShowAppName) ? 25 : 0)
+        .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .default && effectiveShowAppName) ? PreviewHeaderLayout.contentReservation(for: .default) : 0)
+        .padding(.bottom, showsSelectionSummary && previewStateCoordinator.selectionSummaryStyle == .default ? PreviewHeaderLayout.contentReservation(for: .default) : 0)
         .clipShape(RoundedRectangle(cornerRadius: radii.container, style: .continuous).inset(by: 1))
-        .overlay(alignment: effectiveAppNameStyle == .popover ? .top : .topLeading) {
+        .overlay(alignment: PreviewHeaderLayout.alignment(for: effectiveAppNameStyle, edge: .top)) {
             hoverTitleBaseView(labelSize: measureString(appName, fontSize: 14))
+        }
+        .overlay(alignment: PreviewHeaderLayout.alignment(for: previewStateCoordinator.selectionSummaryStyle, edge: .bottom)) {
+            if showsSelectionSummary { selectionSummary.transition(.opacity) }
         }
         .overlay {
             if !mockPreviewActive, !isDragging {
@@ -873,129 +901,26 @@ struct WindowPreviewHoverContainer: View {
 
     @ViewBuilder
     private func hoverTitleBaseView(labelSize: CGSize) -> some View {
-        let showName = !effectiveShowAppIconOnly
-
         if !previewStateCoordinator.windowSwitcherActive, effectiveShouldShowHeader {
-            Group {
-                switch effectiveAppNameStyle {
-                case .default:
-                    HStack(alignment: .center) {
-                        HStack(spacing: 6) {
-                            if let appIcon {
-                                Image(nsImage: appIcon)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .zIndex(1)
-                                    .frame(width: 24, height: 24)
-                            } else {
-                                ProgressView()
-                                    .frame(width: 24, height: 24)
-                            }
-                            if showName {
-                                hoverTitleLabelView(labelSize: labelSize)
-                            }
-                        }
-                        .contentShape(Rectangle())
-
-                        let shouldShowUpdateElements = updateAvailable && !mockPreviewActive
-
-                        Group {
-                            update(shouldShowUpdateElements)
-                            massOperations(hoveringAppIcon && !updateAvailable && showMassActionButtons)
-                        }
-                        .padding(.leading, 4)
+            PreviewHeader(style: effectiveAppNameStyle, edge: .top,
+                          backgroundAppearance: backgroundAppearance, onHover: handleAppHeaderHover)
+            {
+                HStack(spacing: PreviewHeaderLayout.labelSpacing) {
+                    if let appIcon {
+                        Image(nsImage: appIcon)
+                            .resizable()
+                            .scaledToFit()
+                            .zIndex(1)
+                            .frame(width: PreviewHeaderLayout.minimumHeight, height: PreviewHeaderLayout.minimumHeight)
+                    } else {
+                        ProgressView().frame(width: PreviewHeaderLayout.minimumHeight, height: PreviewHeaderLayout.minimumHeight)
                     }
-                    .contentShape(Rectangle())
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case .active:
-                            handleAppHeaderHover(true)
-                        case .ended:
-                            handleAppHeaderHover(false)
-                        }
-                    }
-                    .shadow(radius: 2)
-                    .globalPadding(.top, 12)
-                    .globalPadding(.leading, 20)
-
-                case .shadowed:
-                    HStack(spacing: 2) {
-                        HStack(spacing: 6) {
-                            if let appIcon {
-                                Image(nsImage: appIcon)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .zIndex(1)
-                                    .frame(width: 24, height: 24)
-                            } else {
-                                ProgressView()
-                                    .frame(width: 24, height: 24)
-                            }
-                            if showName {
-                                hoverTitleLabelView(labelSize: labelSize)
-                            }
-                        }
-                        .contentShape(Rectangle())
-
-                        let shouldShowUpdateElements = updateAvailable && !mockPreviewActive
-
-                        Group {
-                            update(shouldShowUpdateElements)
-                            massOperations(hoveringAppIcon && !updateAvailable && showMassActionButtons)
-                        }
-                        .padding(.leading, 4)
-                    }
-                    .contentShape(Rectangle())
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case .active:
-                            handleAppHeaderHover(true)
-                        case .ended:
-                            handleAppHeaderHover(false)
-                        }
-                    }
-                    .padding(EdgeInsets(top: -11.5, leading: 15, bottom: -1.5, trailing: 1.5))
-
-                case .popover:
-                    HStack(alignment: .center, spacing: 2) {
-                        HStack(spacing: 6) {
-                            if let appIcon {
-                                Image(nsImage: appIcon)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .zIndex(1)
-                                    .frame(width: 24, height: 24)
-                            } else {
-                                ProgressView()
-                                    .frame(width: 24, height: 24)
-                            }
-                            if showName {
-                                hoverTitleLabelView(labelSize: labelSize)
-                            }
-                        }
-                        .contentShape(Rectangle())
-
-                        let shouldShowUpdateElements = updateAvailable && !mockPreviewActive
-
-                        Group {
-                            update(shouldShowUpdateElements)
-                            massOperations(hoveringAppIcon && !updateAvailable && showMassActionButtons)
-                        }
-                        .padding(.leading, 4)
-                    }
-                    .padding(.vertical, 5)
-                    .padding(.horizontal, 10)
-                    .dockStyle(backgroundAppearance: backgroundAppearance, cornerRadius: 10)
-                    .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .onContinuousHover { phase in
-                        switch phase {
-                        case .active:
-                            handleAppHeaderHover(true)
-                        case .ended:
-                            handleAppHeaderHover(false)
-                        }
-                    }
-                    .offset(y: -30)
+                    if !effectiveShowAppIconOnly { hoverTitleLabelView(labelSize: labelSize) }
+                }
+            } actions: {
+                Group {
+                    update(updateAvailable && !mockPreviewActive)
+                    massOperations(hoveringAppIcon && !updateAvailable && showMassActionButtons)
                 }
             }
         }
@@ -1077,55 +1002,11 @@ struct WindowPreviewHoverContainer: View {
                     .mask(baseText)
                     .fontWeight(.medium)
                     .padding(.leading, 4)
-                    .shadow(stacked: 2, radius: 6)
-                    .background(
-                        ZStack {
-                            MaterialBlurView(material: .hudWindow)
-                                .mask(
-                                    Ellipse()
-                                        .fill(
-                                            LinearGradient(
-                                                gradient: Gradient(
-                                                    colors: [
-                                                        Color.white.opacity(1.0),
-                                                        Color.white.opacity(0.35),
-                                                    ]
-                                                ),
-                                                startPoint: .top,
-                                                endPoint: .bottom
-                                            )
-                                        )
-                                )
-                                .blur(radius: 5)
-                        }
-                        .frame(width: labelSize.width + 30)
-                    )
+                    .modifier(PreviewHeaderTextShadow(labelWidth: labelSize.width))
                 } else {
                     baseText
                         .foregroundStyle(Color.primary)
-                        .shadow(stacked: 2, radius: 6)
-                        .background(
-                            ZStack {
-                                MaterialBlurView(material: .hudWindow)
-                                    .mask(
-                                        Ellipse()
-                                            .fill(
-                                                LinearGradient(
-                                                    gradient: Gradient(
-                                                        colors: [
-                                                            Color.white.opacity(1.0),
-                                                            Color.white.opacity(0.35),
-                                                        ]
-                                                    ),
-                                                    startPoint: .top,
-                                                    endPoint: .bottom
-                                                )
-                                            )
-                                    )
-                                    .blur(radius: 5)
-                            }
-                            .frame(width: labelSize.width + 30)
-                        )
+                        .modifier(PreviewHeaderTextShadow(labelWidth: labelSize.width))
                 }
             case .default, .popover:
                 if trimmedAppName == "DockDoor" {
@@ -1265,9 +1146,11 @@ struct WindowPreviewHoverContainer: View {
 
         let edgeSize: CGFloat = 50
         let width = edgeScrollHoverSize.width
-        let height = edgeScrollHoverSize.height
+        let summaryHeight = showsSelectionSummary && previewStateCoordinator.selectionSummaryStyle == .default
+            ? PreviewHeaderLayout.contentReservation(for: .default) : 0
+        let height = edgeScrollHoverSize.height - summaryHeight
 
-        guard width > 0, height > 0 else {
+        guard width > 0, height > 0, location.y <= height else {
             edgeScrollRequest = nil
             return
         }
@@ -1449,6 +1332,10 @@ struct WindowPreviewHoverContainer: View {
     private func handleWindowAction(_ action: WindowAction, at index: Int) {
         guard index < previewStateCoordinator.windows.count else { return }
         let window = previewStateCoordinator.windows[index]
+        if action == .toggleWindowSelection {
+            if !mockPreviewActive { previewStateCoordinator.toggleCheckedWindow(window) }
+            return
+        }
         let willQuitOnClose = action == .close &&
             !window.isWindowlessApp &&
             WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: window.app.processIdentifier)
@@ -1471,7 +1358,7 @@ struct WindowPreviewHoverContainer: View {
             for: actionStateWindow,
             preferredWindows: previewStateCoordinator.windows
         )
-        let keepPreviewsOpen = category?.keepPreviewsOpen ?? true
+        let keepPreviewsOpen = SharedPreviewWindowCoordinator.activeInstance?.selectionKeepsPreviewsOpen == true || (category?.keepPreviewsOpen ?? true)
         let closeAfterSuccess = action.closePreviewsOnlyAfterSuccess(
             for: actionStateWindow,
             category: category
@@ -2255,6 +2142,13 @@ struct WindowPreviewHoverContainer: View {
             }()
 
             let isSelected = index == currIndex
+            let handleCardAction: (WindowAction) -> Void = { action in
+                if action == .toggleWindowSelection {
+                    if !mockPreviewActive { previewStateCoordinator.toggleCheckedWindow(windowInfo) }
+                } else {
+                    handleWindowAction(action, at: index)
+                }
+            }
             let presentation = PreviewCardPresentation.resolve(
                 isWindowlessApp: windowInfo.isWindowlessApp,
                 containerUsesCompactRows: usesCompactRows,
@@ -2270,9 +2164,7 @@ struct WindowPreviewHoverContainer: View {
                     index: index,
                     dockPosition: dockPosition,
                     uniformCardRadius: uniformCardRadius,
-                    handleWindowAction: { action in
-                        handleWindowAction(action, at: index)
-                    },
+                    handleWindowAction: handleCardAction,
                     isSelected: isSelected,
                     windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
                     mockPreviewActive: mockPreviewActive,
@@ -2284,7 +2176,8 @@ struct WindowPreviewHoverContainer: View {
                     backgroundAppearance: backgroundAppearance,
                     focusedWindowID: previewStateCoordinator.focusedWindowID,
                     currentSpaceNumbers: currentSpaceNumbers,
-                    spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo)
+                    spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo),
+                    isChecked: previewStateCoordinator.selection.checkedWindows.membership.contains(PreviewWindowIdentity(windowInfo))
                 )
                 .equatable()
                 .gesture(previewDragGesture(for: windowInfo))
@@ -2296,9 +2189,7 @@ struct WindowPreviewHoverContainer: View {
                     dockPosition: dockPosition,
                     bestGuessMonitor: bestGuessMonitor,
                     uniformCardRadius: uniformCardRadius,
-                    handleWindowAction: { action in
-                        handleWindowAction(action, at: index)
-                    },
+                    handleWindowAction: handleCardAction,
                     isSelected: isSelected,
                     windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
                     dimensions: resolvedDimensions(for: index, dimensionsMap: currentDimensionsMapForPreviews),
@@ -2311,7 +2202,8 @@ struct WindowPreviewHoverContainer: View {
                     backgroundAppearance: backgroundAppearance,
                     focusedWindowID: previewStateCoordinator.focusedWindowID,
                     currentSpaceNumbers: currentSpaceNumbers,
-                    spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo)
+                    spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo),
+                    isChecked: previewStateCoordinator.selection.checkedWindows.membership.contains(PreviewWindowIdentity(windowInfo))
                 )
                 .equatable()
                 .gesture(previewDragGesture(for: windowInfo))
@@ -2363,5 +2255,135 @@ struct WindowPreviewHoverContainer: View {
             maxWidth: usesCompactRows ? compactModeWidth : previewWidth,
             minHeight: 120
         )
+    }
+}
+
+enum PreviewHeaderLayout {
+    static let labelSpacing: CGFloat = 6
+    static let minimumHeight: CGFloat = 24
+    static func contentReservation(for style: AppNameStyle) -> CGFloat {
+        switch style {
+        case .default: 25
+        case .popover: 30
+        case .shadowed: 0
+        }
+    }
+
+    static func alignment(for style: AppNameStyle, edge: VerticalEdge) -> Alignment {
+        if edge == .top { return style == .popover ? .top : .topLeading }
+        return style == .popover ? .bottom : .bottomLeading
+    }
+}
+
+private struct PreviewHeader<Label: View, Actions: View>: View {
+    let style: AppNameStyle
+    let edge: VerticalEdge
+    let backgroundAppearance: BackgroundAppearance
+    let onHover: ((Bool) -> Void)?
+    let label: Label
+    let actions: Actions
+
+    init(style: AppNameStyle, edge: VerticalEdge, backgroundAppearance: BackgroundAppearance,
+         onHover: ((Bool) -> Void)? = nil, @ViewBuilder label: () -> Label, @ViewBuilder actions: () -> Actions)
+    {
+        self.style = style
+        self.edge = edge
+        self.backgroundAppearance = backgroundAppearance
+        self.onHover = onHover
+        self.label = label()
+        self.actions = actions()
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: style == .default ? nil : 2) {
+            label.contentShape(Rectangle())
+            actions.padding(.leading, 4)
+        }
+        .frame(minHeight: PreviewHeaderLayout.minimumHeight)
+        .if(style == .popover) {
+            $0.padding(.vertical, 5)
+                .padding(.horizontal, 10)
+                .dockStyle(backgroundAppearance: backgroundAppearance, cornerRadius: 10)
+        }
+        .contentShape(Rectangle())
+        .if(style == .popover) { $0.contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous)) }
+        .if(onHover != nil) { view in
+            view.onContinuousHover { phase in
+                switch phase {
+                case .active: onHover?(true)
+                case .ended: onHover?(false)
+                }
+            }
+        }
+        .if(style == .default) {
+            $0.shadow(radius: 2)
+                .globalPadding(edge == .top ? .top : .bottom, 12)
+                .globalPadding(.leading, 20)
+        }
+        .if(style == .shadowed) {
+            $0.padding(EdgeInsets(top: edge == .top ? -11.5 : -1.5, leading: 15,
+                                  bottom: edge == .top ? -1.5 : -11.5, trailing: 1.5))
+        }
+        .if(style == .popover) {
+            $0.offset(y: (edge == .top ? -1 : 1) * PreviewHeaderLayout.contentReservation(for: style))
+        }
+    }
+}
+
+private struct PreviewHeaderTextShadow: ViewModifier {
+    let labelWidth: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .shadow(stacked: 2, radius: 6)
+            .background {
+                ZStack {
+                    MaterialBlurView(material: .hudWindow)
+                        .mask {
+                            Ellipse().fill(LinearGradient(colors: [.white, .white.opacity(0.35)],
+                                                          startPoint: .top, endPoint: .bottom))
+                        }
+                        .blur(radius: 5)
+                }
+                .frame(width: labelWidth + 30)
+            }
+    }
+}
+
+private struct PreviewSelectionStrip: View {
+    @ObservedObject var coordinator: PreviewStateCoordinator
+    let style: AppNameStyle
+    let backgroundAppearance: BackgroundAppearance
+
+    private var hiddenCount: Int {
+        let visible = Set(coordinator.filteredWindowIndices().map { PreviewWindowIdentity(coordinator.windows[$0]) })
+        return coordinator.selection.checkedWindows.membership.subtracting(visible).count
+    }
+
+    var body: some View {
+        let countLabel = String(localized: "\(coordinator.checkedWindowCount) selected")
+        PreviewHeader(style: style, edge: .bottom, backgroundAppearance: backgroundAppearance) {
+            HStack(spacing: PreviewHeaderLayout.labelSpacing) {
+                Text(countLabel)
+                    .fontWeight(.medium)
+                    .if(style == .shadowed) {
+                        $0.modifier(PreviewHeaderTextShadow(labelWidth: measureString(countLabel, fontSize: 14).width))
+                    }
+                if hiddenCount > 0 {
+                    let hiddenLabel = String(localized: "\(hiddenCount) outside view")
+                    Text(hiddenLabel)
+                        .foregroundStyle(.secondary)
+                        .if(style == .shadowed) {
+                            $0.modifier(PreviewHeaderTextShadow(labelWidth: measureString(hiddenLabel, fontSize: 14).width))
+                        }
+                }
+            }
+        } actions: {
+            Button(String(localized: "Clear Selection")) { coordinator.clearCheckedWindows() }
+                .font(.caption)
+                .buttonStyle(AccentButtonStyle(small: true))
+        }
+        .font(.body)
+        .lineLimit(1)
     }
 }

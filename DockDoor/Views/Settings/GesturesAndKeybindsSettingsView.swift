@@ -13,8 +13,53 @@ struct GesturesAndKeybindsSettingsView: View {
                 CmdKeyShortcutsSection()
                 PreviewPostActionBehaviorSection()
                 SpacesSettingsSection()
+                WindowSelectionSettingsSection()
                 WindowSwitcherKeybindSection()
                 TrackpadSwitcherSwipeSection()
+            }
+        }
+    }
+}
+
+private struct WindowSelectionSettingsSection: View {
+    @Default(.enableMultiWindowSelection) private var enabled
+    @Default(.showUncheckedSelectionCheckboxes) private var showUnchecked
+    @Default(.selectionCheckboxVisibility) private var visibility
+    @Default(.showWindowSelectionSummary) private var showSummary
+
+    var body: some View {
+        SettingsGroup(header: "Window Selection & Tiling") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Enable multi-window selection", isOn: $enabled)
+                    .settingsSearchTarget("gestures.enableMultiWindowSelection")
+                Text("Check windows using selection controls or the Toggle Window Selection action. Checked windows keep Window Switcher previews open; Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 20)
+                if enabled {
+                    Toggle("Show selection summary", isOn: $showSummary)
+                        .settingsSearchTarget("gestures.showWindowSelectionSummary")
+                    Toggle("Show unchecked selection checkboxes", isOn: $showUnchecked)
+                        .settingsSearchTarget("gestures.showUncheckedSelectionCheckboxes")
+                    if showUnchecked {
+                        Picker("Checkbox visibility:", selection: $visibility) {
+                            ForEach(SelectionCheckboxVisibility.allCases, id: \.self) { option in
+                                Text(option.localizedName).tag(option)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .settingsSearchTarget("gestures.selectionCheckboxVisibility")
+                    }
+                    Text("Checked controls stay visible. Preview hover includes keyboard highlighting. In Compact Mode, On title hover uses icon hover; other options use preview hover. Hidden titles outside Compact Mode fall back to preview hover.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 20)
+                }
+            }
+        }
+        .onChange(of: enabled) { newValue in
+            if !newValue {
+                SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)
             }
         }
     }

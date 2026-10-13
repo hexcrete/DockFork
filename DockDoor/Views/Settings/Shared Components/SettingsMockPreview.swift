@@ -284,6 +284,10 @@ struct SettingsMockPreview: View {
         }
 
         return PreviewAppearanceSettings(
+            enableMultiWindowSelection: false,
+            showWindowSelectionSummary: false,
+            showUncheckedSelectionCheckboxes: false,
+            selectionCheckboxVisibility: .previewHover,
             trafficLightVisibility: trafficLightVisibility,
             enabledTrafficLightButtons: enabledButtons,
             useMonochromeTrafficLights: monochrome,

@@ -140,6 +140,7 @@ private class WindowSwitchingCoordinator {
                    initializerHeld: initializerHeld
                ) == true
             {
+                coordinator.clearCheckedWindows(resetOwnership: true)
                 activeLaunchSource = .trackpad
                 trackpadSessionId = currentSessionId
                 trackpadTookOverKeepOpenSession = true
@@ -157,6 +158,7 @@ private class WindowSwitchingCoordinator {
             }
             return true
         } else if isModifierPressed {
+            if launchSource == .trackpad { coordinator.clearCheckedWindows(resetOwnership: true) }
             return await initializeWindowSwitching(
                 previewCoordinator: previewCoordinator,
                 mode: mode,
@@ -691,6 +693,9 @@ class KeybindHelper {
 
     init(previewCoordinator: SharedPreviewWindowCoordinator) {
         self.previewCoordinator = previewCoordinator
+        previewCoordinator.windowSwitcherCoordinator.onSelectionPinned = { [weak self] in
+            self?.windowSwitchingCoordinator.takeKeyboardOwnership()
+        }
         setupEventTap()
         startMonitoring()
         if Defaults[.enableWindowSwitcher], Defaults[.enableTrackpadSwitcherSwipe] {
@@ -748,6 +753,7 @@ class KeybindHelper {
         windowSwitchingCoordinator.relinquishTrackpadSession()
 
         let coordinator = previewCoordinator.windowSwitcherCoordinator
+        coordinator.clearCheckedWindows(resetOwnership: true)
         if coordinator.isKeybindSessionActive {
             if currentInvocationMode == mode, togglesCurrentScope {
                 switcherSessionActive = false
@@ -1185,11 +1191,11 @@ class KeybindHelper {
                 return Unmanaged.passUnretained(event)
             }
             let isWindowSwitcherActive = snapshot.isWindowSwitcherActive
-            if snapshot.isVisible, isWindowSwitcherActive || isCmdTabActive {
+            if snapshot.isVisible, isWindowSwitcherActive || isCmdTabActive || snapshot.hasCheckedWindows {
                 let clickLocation = NSEvent.mouseLocation
                 if !snapshot.shouldDismissForOutsideClick(at: clickLocation) {
                     let flags = event.flags
-                    if flags.contains(.maskControl) {
+                    if flags.contains(.maskControl), isWindowSwitcherActive || isCmdTabActive {
                         var newFlags = flags
                         newFlags.remove(.maskControl)
                         event.flags = newFlags
@@ -1631,11 +1637,14 @@ class KeybindHelper {
 
     @MainActor
     private func selectOnSwitcherRelease() {
+        guard !previewCoordinator.windowSwitcherCoordinator.selectionSuppressesRelease else { return }
         windowSwitchingCoordinator.cancelPendingRender()
         let sessionId = windowSwitchingCoordinator.currentSessionId
 
         Task { @MainActor in
-            guard self.windowSwitchingCoordinator.currentSessionId == sessionId else { return }
+            guard self.windowSwitchingCoordinator.currentSessionId == sessionId,
+                  !self.previewCoordinator.windowSwitcherCoordinator.selectionSuppressesRelease
+            else { return }
             if self.previewCoordinator.isVisible, self.previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
                 self.previewCoordinator.selectAndBringToFrontCurrentWindow()
                 self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
@@ -1720,6 +1729,7 @@ class KeybindHelper {
         } : nil
 
         if previewIsCurrentlyVisible || snapshot.fullPreviewFrame != nil,
+           !snapshot.isNativeMenuTracking,
            keyCode == kVK_Escape,
            !isExactSwitcherShortcutPressed,
            !isAlternateShortcutPressed,
@@ -2021,6 +2031,11 @@ class KeybindHelper {
         let modifierPressedForActivation = isModifierPressed ?? isSwitcherModifierKeyPressed
         let takesOverPersistentSession = modifierPressedForActivation &&
             (windowSwitchingCoordinator.isPersistentSession || windowSwitchingCoordinator.trackpadOpenedCurrentSession)
+        if !isExistingSession || shouldSwitchScope || takesOverPersistentSession ||
+            (rollbackKeybind != nil && rollbackKeybind != activeSessionKeybind)
+        {
+            previewCoordinator.windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)
+        }
         if takesOverPersistentSession {
             previewCoordinator.unfocusSearchWindow()
             preventSwitcherHideOnRelease = false

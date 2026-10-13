@@ -1,7 +1,7 @@
 import Cocoa
 import Defaults
-import QuartzCore
 @testable import DockDoor
+import QuartzCore
 import Testing
 
 struct NumericPreferenceSafetyTests {
@@ -468,5 +468,126 @@ struct HeldSwitcherConflictTests {
         let initializer = UserKeyBind(keyCode: 48, modifierFlags: ShortcutModifierKey.option.modifierFlags)
         let combination = UserKeyBind(keyCode: 48, modifierFlags: ShortcutModifierKey.option.modifierFlags | ShortcutModifierKey.shift.modifierFlags)
         #expect(!WindowSwitcherShortcutResolver.heldShortcutOverlaps(combination, initializer: initializer, backwardKeyCode: 49))
+    }
+}
+
+struct OrderedPreviewSelectionTests {
+    @Test func checkedWindowsPreventImplicitActivationDismissal() {
+        for isKeybindSessionActive in [false, true] {
+            #expect(!WindowManipulationObservers.shouldDismissPreviewOnAppActivation(
+                isKeybindSessionActive: isKeybindSessionActive,
+                keepPreviewOnHoverActivation: false,
+                previewHoverAction: .none,
+                mouseIsWithinPreviewWindow: false,
+                hasCheckedWindows: true
+            ))
+        }
+        #expect(WindowManipulationObservers.shouldDismissPreviewOnAppActivation(
+            isKeybindSessionActive: false,
+            keepPreviewOnHoverActivation: false,
+            previewHoverAction: .none,
+            mouseIsWithinPreviewWindow: false,
+            hasCheckedWindows: false
+        ))
+    }
+
+    @Test func selectionRetainsInsertionOrderAndRecheckingAppends() {
+        let first = PreviewWindowIdentity(pid: 1, windowID: 10)
+        let second = PreviewWindowIdentity(pid: 1, windowID: 11)
+        var selection = OrderedPreviewSelection()
+        selection.toggle(first)
+        selection.toggle(second)
+        #expect(selection.identities == [first, second])
+        selection.toggle(first)
+        selection.toggle(first)
+        #expect(selection.identities == [second, first])
+        #expect(selection.membership == Set([first, second]))
+    }
+
+    @Test func identityIncludesTheOwningProcess() {
+        let first = PreviewWindowIdentity(pid: 1, windowID: 10)
+        let second = PreviewWindowIdentity(pid: 2, windowID: 10)
+        var selection = OrderedPreviewSelection()
+        selection.toggle(first)
+        selection.toggle(second)
+        selection.remove([first])
+        #expect(selection.identities == [second])
+        #expect(selection.membership == [second])
+    }
+
+    @Test func removalPreservesSurvivorOrderAndIgnoresUnrelatedRows() {
+        let rows = (1 ... 5).map { PreviewWindowIdentity(pid: 1, windowID: UInt32($0)) }
+        var selection = OrderedPreviewSelection()
+        for row in rows {
+            selection.toggle(row)
+        }
+        selection.remove([rows[1], rows[3], PreviewWindowIdentity(pid: 2, windowID: 99)])
+        #expect(selection.identities == [rows[0], rows[2], rows[4]])
+        #expect(selection.membership == Set(selection.identities))
+    }
+}
+
+struct SelectionCheckboxVisibilityTests {
+    @Test func headersShareMirroredAlignmentAndReservation() {
+        for style in [AppNameStyle.default, .shadowed, .popover] {
+            #expect(PreviewHeaderLayout.alignment(for: style, edge: .top) == (style == .popover ? .top : .topLeading))
+            #expect(PreviewHeaderLayout.alignment(for: style, edge: .bottom) == (style == .popover ? .bottom : .bottomLeading))
+        }
+        #expect(PreviewHeaderLayout.contentReservation(for: .default) == 25)
+        #expect(PreviewHeaderLayout.contentReservation(for: .popover) == 30)
+        #expect(PreviewHeaderLayout.contentReservation(for: .shadowed) == 0)
+    }
+
+    @MainActor @Test func iconCheckboxSizeUsesTheRequestedLinearScale() {
+        #expect(PreviewSelectionCheckbox.iconDiameter(for: 16) == 20)
+        #expect(PreviewSelectionCheckbox.iconDiameter(for: 20) == 21)
+        #expect(PreviewSelectionCheckbox.iconDiameter(for: 35) == 24.75)
+        #expect(PreviewSelectionCheckbox.iconDiameter(for: 64) == 32)
+    }
+
+    @Test func checkedWindowsAlwaysShowTheControl() {
+        for visibility in SelectionCheckboxVisibility.allCases {
+            for compact in [false, true] {
+                #expect(visibility.showsCheckbox(checked: true, previewHovered: false,
+                                                 titleHovered: false, titleAvailable: true, compact: compact))
+            }
+        }
+    }
+
+    @Test func compactTitleHoverUsesOnlyIconHover() {
+        #expect(!SelectionCheckboxVisibility.titleHover.showsCheckbox(checked: false, previewHovered: true,
+                                                                      titleHovered: false, titleAvailable: false, compact: true))
+        #expect(SelectionCheckboxVisibility.titleHover.showsCheckbox(checked: false, previewHovered: true,
+                                                                     titleHovered: true, titleAvailable: false, compact: true))
+    }
+
+    @Test func otherCompactControlsRequirePreviewHover() {
+        for visibility in [SelectionCheckboxVisibility.always, .previewHover] {
+            #expect(!visibility.showsCheckbox(checked: false, previewHovered: false,
+                                              titleHovered: true, titleAvailable: true, compact: true))
+            #expect(visibility.showsCheckbox(checked: false, previewHovered: true,
+                                             titleHovered: false, titleAvailable: true, compact: true))
+        }
+    }
+
+    @Test func titleHoverFallsBackOnlyWhenTheTitleIsUnavailable() {
+        #expect(!SelectionCheckboxVisibility.titleHover.showsCheckbox(
+            checked: false, previewHovered: true, titleHovered: false, titleAvailable: true, compact: false
+        ))
+        #expect(SelectionCheckboxVisibility.titleHover.showsCheckbox(
+            checked: false, previewHovered: true, titleHovered: false, titleAvailable: false, compact: false
+        ))
+        #expect(SelectionCheckboxVisibility.titleHover.showsCheckbox(
+            checked: false, previewHovered: false, titleHovered: true, titleAvailable: true, compact: false
+        ))
+    }
+
+    @Test func regularAlwaysAndPreviewHoverRemainDistinct() {
+        #expect(SelectionCheckboxVisibility.always.showsCheckbox(
+            checked: false, previewHovered: false, titleHovered: false, titleAvailable: true, compact: false
+        ))
+        #expect(!SelectionCheckboxVisibility.previewHover.showsCheckbox(
+            checked: false, previewHovered: false, titleHovered: true, titleAvailable: true, compact: false
+        ))
     }
 }

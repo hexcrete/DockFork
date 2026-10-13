@@ -1,8 +1,34 @@
 import Carbon.HIToolbox.Events
 import Cocoa
 import Defaults
+
 import Foundation
 import SwiftUI
+
+enum SelectionCheckboxVisibility: String, CaseIterable, Defaults.Serializable {
+    case always
+    case previewHover
+    case titleHover
+
+    var localizedName: String {
+        switch self {
+        case .always: String(localized: "Always")
+        case .previewHover: String(localized: "On preview hover")
+        case .titleHover: String(localized: "On title hover")
+        }
+    }
+
+    func showsCheckbox(checked: Bool, previewHovered: Bool, titleHovered: Bool,
+                       titleAvailable: Bool, compact: Bool) -> Bool
+    {
+        if checked { return true }
+        if compact { return self == .titleHover ? titleHovered : previewHovered }
+        if self == .previewHover || (self == .titleHover && !titleAvailable) {
+            return previewHovered
+        }
+        return self == .always || titleHovered
+    }
+}
 
 let optimisticScreenSizeWidth = NSScreen.main!.frame.width
 let optimisticScreenSizeHeight = NSScreen.main!.frame.height
@@ -1017,6 +1043,10 @@ extension Defaults.Keys {
     static let showUnavailableSpacesInMenu = Key<Bool>("showUnavailableSpacesInMenu", default: true)
     static let showCurrentSpaceBadgeInMenu = Key<Bool>("showCurrentSpaceBadgeInMenu", default: true)
     static let enableSpacesShortcuts = Key<Bool>("enableSpacesShortcuts", default: false)
+    static let enableMultiWindowSelection = Key<Bool>("enableMultiWindowSelection", default: false)
+    static let showWindowSelectionSummary = Key<Bool>("showWindowSelectionSummary", default: false)
+    static let showUncheckedSelectionCheckboxes = Key<Bool>("showUncheckedSelectionCheckboxes", default: true)
+    static let selectionCheckboxVisibility = Key<SelectionCheckboxVisibility>("selectionCheckboxVisibility", default: .previewHover)
 
     // MARK: - Window Preview Keyboard Shortcuts
 

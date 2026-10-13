@@ -15,6 +15,15 @@ Feature audit: `9efa1cc` against upstream `0bd2e46`, October 8, 2026; publicatio
 - Don't reproduce real hangs, crashes, destructive actions on valuable windows, or reset your live preferences to make a recording.
 - Optional missing-image tests require a temporary mock build. Remove that change and rebuild before making a release.
 
+## Development Selection Captures
+
+These candidates require the new development build, not the published 0.1.0 release. Implementation is uncommitted and awaiting manual approval; add commit references after approval. No capture is recorded.
+
+| Pick | ID | Capture | Setup and visible result | Commits |
+|---|---|---|---|---|
+| [ ] | M01 | Screenshot: selection controls | Enable multi-window selection. Compare title-side Dock/Cmd+Tab controls, Window Switcher icon overlays, and Compact Mode. Include hidden titles/app headers, checked-only visibility, enlarged font-height title controls and material-backed icon checkboxes. Compare all three App Header Styles for the optional summary. Verify Compact On title hover responds only over the icon, including with mouse hover selection disabled; compare title/icon-hover fading with preview-hover fading, including animations disabled and Reduce Motion; preview-hover checkboxes must not interrupt traffic-light sliding; verify repeated held-shortcut cycling preserves ordered checks and highlight after both middle-click and assigned keyboard selection; verify keyboard actions followed by initializer release retain checked sessions. | Phase 1 pending |
+| [ ] | M02 | Video: ordered checks and session pinning | Enable Show selection summary, check several windows, filter one out, show counts, then uncheck/recheck. Verify initializer release keeps the standalone switcher open; Escape or an outside click dismisses the container and clears checks. Label this selection-only, not batch actions or tiling. | Phase 1 pending |
+
 ## Compact and Windowless Cards
 
 | Pick | ID | Capture | Setup and visible result | Commits |

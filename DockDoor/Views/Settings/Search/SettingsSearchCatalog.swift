@@ -1947,6 +1947,41 @@ enum SettingsSearchCatalog {
             icon: "rectangle.slash"
         ),
         SettingsSearchItem(
+            id: "gestures.enableMultiWindowSelection",
+            title: String(localized: "Enable multi-window selection"),
+            description: String(localized: "Check windows using selection controls or the Toggle Window Selection action. Checked windows keep Window Switcher previews open; Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection."),
+            keywords: ["selection", "multiple", "check", "batch", "escape"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Selection & Tiling"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.showWindowSelectionSummary",
+            title: String(localized: "Show selection summary"),
+            keywords: ["selection", "count", "clear", "header"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Selection & Tiling"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.showUncheckedSelectionCheckboxes",
+            title: String(localized: "Show unchecked selection checkboxes"),
+            description: String(localized: "Checked controls stay visible. Preview hover includes keyboard highlighting. In Compact Mode, On title hover uses icon hover; other options use preview hover. Hidden titles outside Compact Mode fall back to preview hover."),
+            keywords: ["selection", "checkbox", "title", "icon"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Selection & Tiling"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.selectionCheckboxVisibility",
+            title: String(localized: "Checkbox visibility:"),
+            description: String(localized: "Checked controls stay visible. Preview hover includes keyboard highlighting. In Compact Mode, On title hover uses icon hover; other options use preview hover. Hidden titles outside Compact Mode fall back to preview hover."),
+            keywords: ["selection", "checkbox", "hover", "title", "visibility"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Selection & Tiling"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
             id: "gestures.enableSpacesShortcuts",
             title: String(localized: "Enable Spaces Shortcuts"),
             description: String(localized: "When a window preview is focused, press the Window Switcher modifier plus a number to move the window to that numbered Desktop. When Window Switcher is open without a focused preview, the same shortcut switches to that numbered Space."),

@@ -32,15 +32,17 @@ struct WindowPreviewCompact: View, Equatable {
     let focusedWindowID: CGWindowID?
     let currentSpaceNumbers: Set<Int>
     var spaceNumber: Int? = nil
+    var isChecked = false
 
     @State private var isHovering = false
+    @State private var isHoveringIcon = false
 
     private var isHighlighted: Bool {
         isSelected
     }
 
     static func == (l: Self, r: Self) -> Bool {
-        l.index == r.index && l.isSelected == r.isSelected
+        l.index == r.index && l.isSelected == r.isSelected && l.isChecked == r.isChecked
             && l.windowSwitcherActive == r.windowSwitcherActive
             && l.uniformCardRadius == r.uniformCardRadius
             && l.widthOverride == r.widthOverride
@@ -199,6 +201,42 @@ struct WindowPreviewCompact: View, Equatable {
                 badgeScale: appearance.appIconBadgeScale,
                 mockPreviewActive: mockPreviewActive
             )
+            .overlay {
+                if appearance.enableMultiWindowSelection, !mockPreviewActive, !windowInfo.isWindowlessApp,
+                   appearance.showUncheckedSelectionCheckboxes || isChecked
+                {
+                    PreviewSelectionCheckbox(
+                        isChecked: isChecked,
+                        isVisible: appearance.selectionCheckboxVisibility.showsCheckbox(
+                            checked: isChecked,
+                            previewHovered: isSelected || isHovering,
+                            titleHovered: isHoveringIcon,
+                            titleAvailable: appearance.showAppHeader,
+                            compact: true
+                        ),
+                        color: appearance.activeAppIndicatorColor,
+                        diameter: PreviewSelectionCheckbox.iconDiameter(for: appearance.compactModeItemSize.iconSize),
+                        backgroundAppearance: backgroundAppearance,
+                        animationsEnabled: appearance.showAnimations,
+                        toggle: { handleWindowAction(.toggleWindowSelection) }
+                    )
+                }
+            }
+
+            .if(appearance.enableMultiWindowSelection && appearance.showUncheckedSelectionCheckboxes &&
+                appearance.selectionCheckboxVisibility == .titleHover && !mockPreviewActive && !windowInfo.isWindowlessApp)
+            { view in
+                view.onContinuousHover { phase in
+                    let hovering: Bool = switch phase {
+                    case .active:
+                        SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.registerMouseMovementSinceOpen() == true
+                    case .ended:
+                        false
+                    }
+                    if isHoveringIcon != hovering { isHoveringIcon = hovering }
+                }
+                .onDisappear { isHoveringIcon = false }
+            }
 
             if appearance.showAppHeader {
                 // Title content based on format
@@ -284,7 +322,7 @@ struct WindowPreviewCompact: View, Equatable {
             onTap: onTap,
             onDragHoverIndexChange: onDragHoverIndexChange
         )
-        .opacity(isHighlighted ? 1.0 : appearance.unselectedContentOpacity)
+        .opacity(isHighlighted || isChecked ? 1.0 : appearance.unselectedContentOpacity)
         .padding(.horizontal, CardRadius.innerPadding)
         .contentShape(Rectangle())
         .onContinuousHover { phase in

@@ -101,6 +101,11 @@ class MouseTrackingNSView: NSView {
         inactivityCheckTimer = Timer.scheduledTimer(withTimeInterval: inactivityCheckInterval, repeats: true) { [weak self] _ in
             guard let self, let window else { return }
 
+            if SharedPreviewWindowCoordinator.activeInstance?.selectionKeepsPreviewsOpen == true {
+                cancelFadeOut()
+                setWindowOpacity(to: 1, duration: 0)
+                return
+            }
             let currentMouseLocation = NSEvent.mouseLocation
             let windowFrame = window.frame.insetBy(dx: HoverContainerPadding.container, dy: HoverContainerPadding.container)
 
@@ -176,6 +181,7 @@ class MouseTrackingNSView: NSView {
             guard let self else { return }
             guard SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.windowSwitcherActive == false else { return }
             guard !DockObserver.isCmdTabSwitcherActive else { return }
+            guard SharedPreviewWindowCoordinator.activeInstance?.selectionKeepsPreviewsOpen != true else { return }
 
             guard let window, window.alphaValue > 0 else { return }
 
@@ -211,6 +217,7 @@ class MouseTrackingNSView: NSView {
     private func performHideWindow(preventLastAppClear: Bool = false) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
+            guard SharedPreviewWindowCoordinator.activeInstance?.selectionKeepsPreviewsOpen != true else { return }
             let preservePendingShow = shouldPreservePendingShowForDockIconTransition()
             SharedPreviewWindowCoordinator.activeInstance?.hideWindow(cancelPendingShow: !preservePendingShow)
         }

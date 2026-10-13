@@ -376,10 +376,11 @@ extension WindowPreviewHoverContainer {
         previewMaxColumns: Int,
         previewMaxRows: Int,
         switcherMaxRows: Int,
-        totalItems: Int? = nil
+        totalItems: Int? = nil,
+        accessoryHeight: CGFloat = 0
     ) -> (maxColumns: Int, maxRows: Int) {
         let screenWidth = bestGuessMonitor.visibleFrame.width
-        let screenHeight = bestGuessMonitor.visibleFrame.height
+        let screenHeight = max(0, bestGuessMonitor.visibleFrame.height - accessoryHeight)
         let metrics = PreviewLayoutMetrics.regular(paddingMultiplier: Defaults[.globalPaddingMultiplier])
         let itemSpacing = metrics.itemSpacing
         let globalPadding = metrics.totalPanelInset * 2

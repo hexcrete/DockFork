@@ -451,7 +451,7 @@ final class DockObserver {
 
     @MainActor
     private func showPreviewForHoveredDockApp(mouseLocation currentMouseLocation: CGPoint, overrideDelay: Bool, refreshLogContext: String) {
-        guard previewCoordinator.canPresentPreviews else { return }
+        guard previewCoordinator.canPresentPreviews, !previewCoordinator.selectionKeepsPreviewsOpen else { return }
         let previousDiscoveryTask = cancelDockPreviewDiscovery()
         let discoveryGeneration = dockPreviewDiscoveryGeneration
         let appUnderMouseElement = DebugLogger.measureSlow("getDockItemAppStatusUnderMouse", thresholdMs: 100) {
@@ -1021,6 +1021,20 @@ final class DockObserver {
 
         if type == .leftMouseDown {
             cycleClicks?.press = nil
+            let snapshot = previewCoordinator.tapSnapshot
+            if snapshot.hasCheckedWindows, !snapshot.isWindowSwitcherActive {
+                let clickLocation = NSEvent.mouseLocation
+                if snapshot.shouldDismissForOutsideClick(at: clickLocation) {
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self else { return }
+                        let current = previewCoordinator.tapSnapshot
+                        guard current.hasCheckedWindows, !current.isWindowSwitcherActive,
+                              current.shouldDismissForOutsideClick(at: clickLocation) else { return }
+                        if current.isCmdTabPreview { teardownCmdTabObserver() }
+                        previewCoordinator.hideWindow()
+                    }
+                }
+            }
         }
 
         if previewCoordinator.containsQuartzPoint(event.location) {

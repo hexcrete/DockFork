@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 
 struct WindowActionGroup: Identifiable {
     let id: WindowAction.Group
@@ -50,6 +51,8 @@ extension WindowAction {
         }
 
         switch self {
+        case .toggleWindowSelection:
+            return Defaults[.enableMultiWindowSelection]
         case .close:
             return window.closeButton != nil
         case .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,

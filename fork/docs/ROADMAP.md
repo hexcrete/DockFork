@@ -25,11 +25,15 @@ The public source fork is established at [hexcrete/DockFork](https://github.com/
 
 ## Multi-Window Selection and Tiling
 
-- Select real windows through middle-click, an assignable preview action, and an optional title-side checkbox. In eligible non-Command persistent sessions, consider Command-click too; resolve conflicts first.
-- Show compact selection feedback over the app icon; retain checked state visibly and suppress ordinary auto-dismiss while selection is active.
-- Applicable actions, Space movement, and dragging should operate on the selected identity set, with per-window outcomes rather than silent all-or-nothing assumptions.
-- A later selection action popup and deterministic auto-tiling: one maximized window; two halves; three with a left half plus two right quarters; four quarters. Layouts for five or more are undecided.
-- Group drag ghosts can use app icons. Dropping onto another window/selection can combine ordered identities for tiling after explicit interaction rules are designed.
+Approved implementation sequence, with a build/relaunch and manual approval before each commit and subsequent phase:
+
+1. Selection controls and lifecycle. Implemented October 13; user manual verification passed, with final review cleanup validated separately. Shared settings default Off. Real-window checks follow selection order, retain membership across filters, prune closed windows, and optionally show selected/outside-view counts in a separate header-style summary, default Off. Middle-click remains configurable through Toggle Window Selection. Eligible non-Command persistent standalone sessions also support Command-click. Checkboxes use the title region or app icon, with Always, On preview hover, and On title hover choices. Compact Mode maps On title hover to icon hover and its other choices to preview hover; hidden/unavailable titles outside Compact Mode fall back to preview hover; checked controls stay visible. Selection pins Window Switcher initializer/swipe dismissal, while Dock and Cmd+Tab retain normal hover dismissal, Escape and outside clicks dismiss and clear selection, and new launches, scope/initializer changes, and persistent/swipe takeovers reset checks, while repeated cycling of the same held shortcut retains them. Native keyboard-only Cmd+Tab release is unchanged.
+2. Batch operations. Checked targets operate on the ordered selection; unchecked targets remain single-window. Deduplicate app-wide operations by PID, determine one common minimize/hide/fullscreen intent, and report per-window failures. Keep existing transition safeguards.
+3. Group dragging. Capture stable ordered identities; use a horizontal app-icon ghost and preserve relative window placement on the destination Desktop. Retain Aero Shake parity in Dock and Cmd+Tab, including except-group behavior.
+4. Tiling. Keep Auto Tile Selected Windows as a dedicated assignable action. Half/Quarter commands also arrange checked groups with their leading direction. The first checked window leads. Neutral layouts use one filled window, two halves, three with a leading half and two opposite quarters, or four quarters. Quarter commands with two/three windows use quarter-sized 2x2 cells and leave unused cells empty. Row/column upper bounds range 1-4, default 2x2; 1x1 disables auto-tiling. For larger groups, choose a balanced display-aspect-aware grid within those bounds, expand a short last row, and move overflow without resizing.
+5. Drop-to-tile. The target window/group comes first in its existing selection order, followed by the dragged group; deduplicate identities. Use the target Desktop/display. Dropping a group onto itself does nothing. A 1x1 configuration moves without tiling.
+
+No batching, group dragging, tiling, or drop-to-tile is included in phase 1 or the published 0.1.0 release. A dedicated selection-action popup and Spaces Bar remain later work.
 
 ## Pinned Floating Windows
 

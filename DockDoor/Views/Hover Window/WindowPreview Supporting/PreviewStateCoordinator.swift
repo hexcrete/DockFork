@@ -2,9 +2,44 @@ import ApplicationServices
 import Defaults
 import SwiftUI
 
-/// Isolated so index changes only invalidate views that read it, not the entire preview container.
+struct PreviewWindowIdentity: Hashable {
+    let pid: pid_t
+    let windowID: CGWindowID
+
+    init(pid: pid_t, windowID: CGWindowID) {
+        self.pid = pid
+        self.windowID = windowID
+    }
+
+    init(_ window: WindowInfo) {
+        self.init(pid: window.app.processIdentifier, windowID: window.id)
+    }
+}
+
+struct OrderedPreviewSelection: Equatable {
+    private(set) var identities: [PreviewWindowIdentity] = []
+    private(set) var membership: Set<PreviewWindowIdentity> = []
+
+    mutating func toggle(_ identity: PreviewWindowIdentity) {
+        if membership.remove(identity) != nil {
+            identities.removeAll { $0 == identity }
+        } else {
+            membership.insert(identity)
+            identities.append(identity)
+        }
+    }
+
+    mutating func remove(_ removed: Set<PreviewWindowIdentity>) {
+        guard !membership.isDisjoint(with: removed) else { return }
+        membership.subtract(removed)
+        identities.removeAll { removed.contains($0) }
+    }
+}
+
+/// Keeps highlight and checked membership separate from window metadata updates.
 final class SwitcherSelectionState: ObservableObject {
     @Published var currIndex: Int = -1
+    @Published fileprivate(set) var checkedWindows = OrderedPreviewSelection()
 }
 
 /// Pure UI state container for window preview presentation
@@ -28,6 +63,84 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     var tapStateDidChange: (() -> Void)?
+
+    @Published private(set) var checkedWindowCount = 0
+    private(set) var selectionSuppressesRelease = false
+    var onSelectionPinned: (() -> Void)?
+    private var selectionLayoutGeneration: UInt = 0
+
+    @MainActor
+    func toggleCheckedWindow(_ window: WindowInfo) {
+        guard Defaults[.enableMultiWindowSelection], !window.isWindowlessApp, !window.app.isTerminated else { return }
+        let identity = PreviewWindowIdentity(window)
+        guard windows.contains(where: { PreviewWindowIdentity($0) == identity }) else { return }
+        selection.checkedWindows.toggle(identity)
+        if windowSwitcherActive, !selectionSuppressesRelease, !selection.checkedWindows.identities.isEmpty {
+            selectionSuppressesRelease = true
+            onSelectionPinned?()
+        }
+        publishCheckedSelection()
+    }
+
+    @MainActor
+    func clearCheckedWindows(resetOwnership: Bool = false) {
+        if resetOwnership { selectionSuppressesRelease = false }
+        guard checkedWindowCount > 0 else {
+            tapStateDidChange?()
+            return
+        }
+        selection.checkedWindows = OrderedPreviewSelection()
+        publishCheckedSelection()
+    }
+
+    @MainActor
+    private func publishCheckedSelection() {
+        let newCount = selection.checkedWindows.identities.count
+        let changedSize = (checkedWindowCount == 0) != (newCount == 0)
+        checkedWindowCount = newCount
+        tapStateDidChange?()
+        if changedSize {
+            refreshSelectionLayout()
+        }
+    }
+
+    @MainActor
+    private func reconcileCheckedWindows() {
+        guard checkedWindowCount > 0 else { return }
+        let identities = selection.checkedWindows.identities
+        let live = Set(Set(identities.map(\.pid)).flatMap {
+            WindowUtil.readCachedWindows(for: $0).map(PreviewWindowIdentity.init)
+        })
+        let removed = selection.checkedWindows.membership.subtracting(live)
+        guard !removed.isEmpty else { return }
+        selection.checkedWindows.remove(removed)
+        publishCheckedSelection()
+    }
+
+    @MainActor
+    func refreshSelectionLayout() {
+        selectionLayoutGeneration &+= 1
+        let generation = selectionLayoutGeneration
+        DispatchQueue.main.async { [weak self] in
+            guard let self, selectionLayoutGeneration == generation,
+                  !windows.isEmpty || checkedWindowCount > 0
+            else { return }
+            if let monitor = lastKnownBestGuessMonitor {
+                recomputeAndPublishDimensions(dockPosition: lastKnownDockPosition, bestGuessMonitor: monitor)
+            }
+            onFrameRefreshNeeded?()
+        }
+    }
+
+    var selectionSummaryStyle: AppNameStyle {
+        if windowSwitcherActive { return .default }
+        return lastKnownDockPosition == .cmdTab ? Defaults[.cmdTabAppNameStyle] : Defaults[.appNameStyle]
+    }
+
+    var selectionAccessoryHeight: CGFloat {
+        guard checkedWindowCount > 0, Defaults[.showWindowSelectionSummary] else { return 0 }
+        return PreviewHeaderLayout.contentReservation(for: selectionSummaryStyle)
+    }
 
     @Published private(set) var selectionInputSource: SelectionInputSource = .programmatic
 
@@ -166,6 +279,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     var onFrameRefreshNeeded: (() -> Void)?
     private var lastKnownBestGuessMonitor: NSScreen?
+    private var lastKnownDockPosition: DockPosition = .bottom
     private var visibilitySyncTasksByPID: [pid_t: Task<Void, Never>] = [:]
     private var activeFocusRefreshTask: Task<Void, Never>?
     private var pendingActiveFocusRefreshRequest = false
@@ -275,6 +389,7 @@ class PreviewStateCoordinator: ObservableObject {
     @MainActor
     func setWindows(_ newWindows: [WindowInfo], dockPosition: DockPosition, bestGuessMonitor: NSScreen, isMockPreviewActive: Bool = false) {
         windows = newWindows
+        reconcileCheckedWindows()
         refreshFocusedWindowID(from: newWindows)
         refreshDesktopNumbers()
         lastKnownBestGuessMonitor = bestGuessMonitor
@@ -409,6 +524,7 @@ class PreviewStateCoordinator: ObservableObject {
         }
 
         // Restore selection to the same window, or clamp if it was removed
+        reconcileCheckedWindows()
         if let selectedWindowIdentity,
            let newIndex = windows.firstIndex(where: { mergeIdentity(for: $0) == selectedWindowIdentity })
         {
@@ -528,6 +644,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func applyCacheChanges(removed: [WindowInfo], added: [WindowInfo], updated: [WindowInfo]) {
+        if !removed.isEmpty { reconcileCheckedWindows() }
         guard !windows.isEmpty else { return }
 
         if !updated.isEmpty {
@@ -735,6 +852,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func recomputeAndPublishDimensions(dockPosition: DockPosition, bestGuessMonitor: NSScreen, isMockPreviewActive: Bool = false) {
+        lastKnownDockPosition = dockPosition
         let panelSize = getWindowSize()
 
         let newOverallMaxDimension = WindowPreviewHoverContainer.calculateOverallMaxDimensions(
@@ -753,7 +871,8 @@ class PreviewStateCoordinator: ObservableObject {
             previewMaxColumns: Defaults[.previewMaxColumns],
             previewMaxRows: Defaults[.previewMaxRows],
             switcherMaxRows: Defaults[.switcherMaxRows],
-            totalItems: windows.count
+            totalItems: windows.count,
+            accessoryHeight: selectionAccessoryHeight
         )
 
         var newDimensionsMap = WindowPreviewHoverContainer.precomputeWindowDimensions(
@@ -844,6 +963,7 @@ class PreviewStateCoordinator: ObservableObject {
             expectedContentSizeIsExact = false
             expectedContentSize = .zero
         }
+        if expectedContentSize != .zero { expectedContentSize.height += selectionAccessoryHeight }
     }
 
     private func resolvedSwitcherRowLimit(
@@ -867,7 +987,7 @@ class PreviewStateCoordinator: ObservableObject {
             paddingMultiplier: Defaults[.globalPaddingMultiplier]
         )
         let spacing = metrics.itemSpacing
-        let availableHeight = bestGuessMonitor.visibleFrame.height - metrics.totalPanelInset * 2
+        let availableHeight = bestGuessMonitor.visibleFrame.height - metrics.totalPanelInset * 2 - selectionAccessoryHeight
         let rowsThatFit = max(1, Int((availableHeight + spacing) / (itemHeight + spacing)))
         return min(initialRows, rowsThatFit)
     }
@@ -972,33 +1092,41 @@ class PreviewStateCoordinator: ObservableObject {
             let title = windows[i].windowName
             return title?.isEmpty == false && title != windows[i].app.localizedName
         }) ?? 0
-        guard let dims = dimensionsMap[sampleIndex] else { return nil }
+        var sampleIndices = [sampleIndex]
+        if Defaults[.enableMultiWindowSelection], !Defaults[.showUncheckedSelectionCheckboxes],
+           let checkedIndex = windows.indices.first(where: { selection.checkedWindows.membership.contains(PreviewWindowIdentity(windows[$0])) }),
+           checkedIndex != sampleIndex
+        { sampleIndices.append(checkedIndex) }
 
-        let sample = WindowPreview(
-            windowInfo: windows[sampleIndex],
-            onTap: nil,
-            index: sampleIndex,
-            dockPosition: dockPosition,
-            bestGuessMonitor: bestGuessMonitor,
-            uniformCardRadius: Defaults[.uniformCardRadius],
-            handleWindowAction: { _ in },
-            isSelected: true,
-            windowSwitcherActive: true,
-            dimensions: dims,
-            showAppIconOnly: Defaults[.showAppIconOnly],
-            mockPreviewActive: false,
-            onHoverIndexChange: nil,
-            onDragHoverIndexChange: nil,
-            useLivePreview: false,
-            skeletonMode: true,
-            appearance: PreviewAppearanceSettings.resolve(windowSwitcherActive: true, dockPosition: dockPosition),
-            backgroundAppearance: BackgroundAppearance.resolve(),
-            focusedWindowID: nil,
-            currentSpaceNumbers: []
-        )
-        let measured = NSHostingView(rootView: sample).fittingSize
-        guard measured.height > 0 else { return nil }
-        return max(0, measured.height - dims.size.height)
+        return sampleIndices.compactMap { sampleIndex -> CGFloat? in
+            guard let dims = dimensionsMap[sampleIndex] else { return nil }
+            let sample = WindowPreview(
+                windowInfo: windows[sampleIndex],
+                onTap: nil,
+                index: sampleIndex,
+                dockPosition: dockPosition,
+                bestGuessMonitor: bestGuessMonitor,
+                uniformCardRadius: Defaults[.uniformCardRadius],
+                handleWindowAction: { _ in },
+                isSelected: true,
+                windowSwitcherActive: true,
+                dimensions: dims,
+                showAppIconOnly: Defaults[.showAppIconOnly],
+                mockPreviewActive: false,
+                onHoverIndexChange: nil,
+                onDragHoverIndexChange: nil,
+                useLivePreview: false,
+                skeletonMode: true,
+                appearance: PreviewAppearanceSettings.resolve(windowSwitcherActive: true, dockPosition: dockPosition),
+                backgroundAppearance: BackgroundAppearance.resolve(),
+                focusedWindowID: nil,
+                currentSpaceNumbers: [],
+                isChecked: selection.checkedWindows.membership.contains(PreviewWindowIdentity(windows[sampleIndex]))
+            )
+            let measured = NSHostingView(rootView: sample).fittingSize
+            guard measured.height > 0 else { return nil }
+            return max(0, measured.height - dims.size.height)
+        }.max()
     }
 
     private static let estimatedEmbeddedWidgetHeight: CGFloat = 100

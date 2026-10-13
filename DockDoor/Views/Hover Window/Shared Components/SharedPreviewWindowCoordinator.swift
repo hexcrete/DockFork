@@ -34,6 +34,17 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         !isPresentationSuspended && NSApp.modalWindow == nil
     }
 
+    var selectionKeepsPreviewsOpen: Bool {
+        windowSwitcherCoordinator.checkedWindowCount > 0 &&
+            windowSwitcherCoordinator.windowSwitcherActive
+    }
+
+    var permitsCommandClickSelection: Bool {
+        windowSwitcherCoordinator.windowSwitcherActive &&
+            (windowSwitcherCoordinator.selectionSuppressesRelease || activePreviewShortcutKeybindSnapshot() == nil) &&
+            (effectivePreviewShortcutKeybind().modifierFlags & Int(CGEventFlags.maskCommand.rawValue)) == 0
+    }
+
     func setPresentationSuspended(_ suspended: Bool) {
         isPresentationSuspended = suspended
         publishTapSnapshot()
@@ -110,6 +121,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var isWindowSwitcherActive = false
         var isCmdTabPreview = false
         var hasSelection = false
+        var hasCheckedWindows = false
         var isKeybindSessionActive = false
         var mouseIsWithinPreviewWindow = false
         var isPreviewFocusFadeMonitoring = false
@@ -208,6 +220,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             isWindowSwitcherActive: windowSwitcherCoordinator.windowSwitcherActive,
             isCmdTabPreview: !windowSwitcherCoordinator.windowSwitcherActive && currentDockPosition == .cmdTab,
             hasSelection: windowSwitcherCoordinator.currIndex >= 0,
+            hasCheckedWindows: windowSwitcherCoordinator.checkedWindowCount > 0,
             isKeybindSessionActive: windowSwitcherCoordinator.isKeybindSessionActive,
             mouseIsWithinPreviewWindow: mouseIsWithinPreviewWindow,
             isPreviewFocusFadeMonitoring: focusFadeLocalMonitor != nil,
@@ -496,6 +509,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     func hideWindow(cancelPendingShow shouldCancelPendingShow: Bool = true) {
+        windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)
         stopPreviewFocusFade()
         AppIconBadgeStore.stopIfInitialized()
         if shouldCancelPendingShow {
@@ -1515,6 +1529,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
 
         let window = coordinator.windows[coordinator.currIndex]
+        if action == .toggleWindowSelection {
+            coordinator.toggleCheckedWindow(window)
+            return false
+        }
         let willQuitOnClose = action == .close &&
             !window.isWindowlessApp &&
             WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: window.app.processIdentifier)
@@ -1538,7 +1556,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             for: actionStateWindow,
             preferredWindows: coordinator.windows
         )
-        let keepPreviewsOpen = preservePreviews || (category?.keepPreviewsOpen ?? (action != .openAppWindow))
+        let keepPreviewsOpen = preservePreviews || selectionKeepsPreviewsOpen || (category?.keepPreviewsOpen ?? (action != .openAppWindow))
         let closeAfterSuccess = action.closePreviewsOnlyAfterSuccess(
             for: actionStateWindow,
             category: category
@@ -2209,6 +2227,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                     dockItemFrameOverride: CGRect? = nil, fullPreviewHoverID: UUID? = nil)
     {
         guard canPresentPreviews else { return }
+        if windowSwitcherCoordinator.checkedWindowCount > 0,
+           centeredHoverWindowState == nil,
+           let currentPID = currentlyDisplayedPID,
+           let requestedPID = windows.first?.app.processIdentifier,
+           currentPID != requestedPID
+        {
+            if selectionKeepsPreviewsOpen { return }
+            windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)
+        }
         let renderStartTime = CFAbsoluteTimeGetCurrent()
         DebugLogger.log("PreviewRender", details: "showWindow called: \(windows.count) windows for \(appName)")
 

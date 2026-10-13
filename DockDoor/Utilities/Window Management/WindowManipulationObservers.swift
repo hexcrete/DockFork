@@ -43,9 +43,10 @@ class WindowManipulationObservers {
         isKeybindSessionActive: Bool,
         keepPreviewOnHoverActivation: Bool,
         previewHoverAction: PreviewHoverAction,
-        mouseIsWithinPreviewWindow: Bool
+        mouseIsWithinPreviewWindow: Bool,
+        hasCheckedWindows: Bool = false
     ) -> Bool {
-        guard !isKeybindSessionActive else { return false }
+        guard !isKeybindSessionActive, !hasCheckedWindows else { return false }
         return !(keepPreviewOnHoverActivation && previewHoverAction == .tap && mouseIsWithinPreviewWindow)
     }
 
@@ -210,7 +211,7 @@ class WindowManipulationObservers {
             if coordinator.windows.isEmpty {
                 previewCoordinator.hideWindow()
             }
-        } else if !Defaults[.keepPreviewOnAppTerminate] {
+        } else if !Defaults[.keepPreviewOnAppTerminate], !previewCoordinator.selectionKeepsPreviewsOpen {
             previewCoordinator.hideWindow()
         }
 
@@ -254,7 +255,9 @@ class WindowManipulationObservers {
             isKeybindSessionActive: tapSnapshot.isKeybindSessionActive,
             keepPreviewOnHoverActivation: Defaults[.keepPreviewOnHoverActivation],
             previewHoverAction: Defaults[.previewHoverAction],
-            mouseIsWithinPreviewWindow: tapSnapshot.mouseIsWithinPreviewWindow
+            mouseIsWithinPreviewWindow: tapSnapshot.mouseIsWithinPreviewWindow,
+            hasCheckedWindows: tapSnapshot.hasCheckedWindows &&
+                tapSnapshot.isWindowSwitcherActive
         ), !suppressActionDrivenDismissal {
             previewCoordinator.hideWindow()
         }

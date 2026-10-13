@@ -454,7 +454,60 @@ struct WindowStateIndicator: View {
     }
 }
 
+struct PreviewSelectionCheckbox: View {
+    let isChecked: Bool
+    let isVisible: Bool
+    let color: Color
+    var diameter: CGFloat = 20
+    var drawingScale: CGFloat = 1
+    var backgroundAppearance: BackgroundAppearance? = nil
+    var animationsEnabled: Bool = false
+    let toggle: () -> Void
+
+    static func iconDiameter(for iconSize: CGFloat) -> CGFloat {
+        20 + max(0, iconSize - 16) / 4
+    }
+
+    var body: some View {
+        ZStack {
+            if isVisible {
+                Button(action: toggle) {
+                    Circle()
+                        .fill(isChecked ? color : Color.clear)
+                        .overlay {
+                            Circle().strokeBorder(Color.secondary, lineWidth: 1)
+                            if isChecked {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: diameter * 0.55, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        .frame(width: diameter, height: diameter)
+                        .background {
+                            if let backgroundAppearance {
+                                Color.clear
+                                    .frame(width: max(0, diameter - 2 * MaterialPillStyle.horizontalPadding),
+                                           height: max(0, diameter - 2 * MaterialPillStyle.verticalPadding))
+                                    .materialPill(backgroundAppearance: backgroundAppearance)
+                            }
+                        }
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .scaleEffect(drawingScale)
+                .accessibilityLabel(isChecked ? String(localized: "Remove window from selection") : String(localized: "Add window to selection"))
+                .transition(.opacity)
+            }
+        }
+        .previewControlVisibilityAnimation(isVisible: isVisible, duration: 0.15, animationsEnabled: animationsEnabled)
+    }
+}
+
 struct PreviewAppearanceSettings: Equatable {
+    let enableMultiWindowSelection: Bool
+    let showWindowSelectionSummary: Bool
+    let showUncheckedSelectionCheckboxes: Bool
+    let selectionCheckboxVisibility: SelectionCheckboxVisibility
     let trafficLightVisibility: TrafficLightButtonsVisibility
     let enabledTrafficLightButtons: Set<WindowAction>
     let useMonochromeTrafficLights: Bool
@@ -573,39 +626,44 @@ struct PreviewAppearanceSettings: Equatable {
         return max(-CGFloat(CardRadius.innerPadding), edgeInset - CGFloat(CardRadius.innerPadding))
     }
 
-    static let observedKeys: [Defaults._AnyKey] = [
-        .trafficLightButtonsVisibility, .switcherTrafficLightButtonsVisibility, .cmdTabTrafficLightButtonsVisibility,
-        .enabledTrafficLightButtons, .switcherEnabledTrafficLightButtons, .cmdTabEnabledTrafficLightButtons,
-        .useMonochromeTrafficLights, .switcherUseMonochromeTrafficLights, .cmdTabUseMonochromeTrafficLights,
-        .switcherShowAppHeader,
-        .switcherShowAppIconBadges, .switcherShowCompactAppIconBadges, .switcherAppIconBadgeScale,
-        .showWindowTitle, .switcherShowWindowTitle, .cmdTabShowWindowTitle,
-        .windowTitleVisibility, .switcherWindowTitleVisibility, .cmdTabWindowTitleVisibility,
-        .dockPreviewControlPosition, .windowSwitcherControlPosition, .cmdTabControlPosition,
-        .useEmbeddedDockPreviewElements, .switcherUseEmbeddedDockPreviewElements, .cmdTabUseEmbeddedDockPreviewElements,
-        .disableDockStyleTrafficLights, .switcherDisableDockStyleTrafficLights, .cmdTabDisableDockStyleTrafficLights,
-        .disableDockStyleTitles, .cmdTabDisableDockStyleTitles,
-        .dockLivePreviewQuality, .windowSwitcherLivePreviewQuality,
-        .dockLivePreviewFrameRate, .windowSwitcherLivePreviewFrameRate,
-        .showDockPreviewSpaceNumberIndicator, .showSwitcherSpaceNumberIndicator, .showCmdTabSpaceNumberIndicator,
-        .enableSpaceIndicatorWindowMoving,
-        .highlightDockPreviewCurrentSpaceIndicator, .highlightSwitcherCurrentSpaceIndicator, .highlightCmdTabCurrentSpaceIndicator,
-        .dockPreviewWindowStateIndicatorPlacement, .switcherWindowStateIndicatorPlacement, .cmdTabWindowStateIndicatorPlacement,
-        .disableDockStyleWindowStateIndicator, .switcherDisableDockStyleWindowStateIndicator, .cmdTabDisableDockStyleWindowStateIndicator,
-        .swapDockPreviewTrafficLightsAndWindowStateIndicator, .swapSwitcherTrafficLightsAndWindowStateIndicator, .swapCmdTabTrafficLightsAndWindowStateIndicator,
-        .limitDockPreviewIndicatorSwapToCompactMode, .limitSwitcherIndicatorSwapToCompactMode, .limitCmdTabIndicatorSwapToCompactMode,
-        .dimMinimizedHiddenPreviews, .selectionOpacity, .unselectedContentOpacity, .hoverHighlightColor,
-        .allowDynamicImageSizing, .hidePreviewCardBackground,
-        .tapEquivalentInterval, .switcherTapEquivalentInterval, .cmdTabTapEquivalentInterval,
-        .previewHoverAction, .switcherPreviewHoverAction, .cmdTabPreviewHoverAction,
-        .keepPreviewOnHoverActivation,
-        .showActiveWindowBorder, .activeAppIndicatorColor, .showAnimations, .trafficLightTransitionDuration, .globalPaddingMultiplier,
-        .uniformCardRadius, .previewCornerRadius,
-        .windowTitleFontSize, .windowStateIndicatorFontSize, .switcherAppIconSize, .trafficLightButtonScale,
-        .previewWidth, .compactModeWidth, .compactModeTitleFormat, .compactModeItemSize, .compactModeHideTrafficLights,
-        .showFullSizeWindowlessDockPreviews, .showFullSizeWindowlessCmdTabPreviews,
-        .showWindowlessAppQuitButton, .titleOverflowStyle,
-    ]
+    static var observedKeys: [Defaults._AnyKey] {
+        let keys: [Defaults._AnyKey] = [
+            .enableMultiWindowSelection,
+            .trafficLightButtonsVisibility, .switcherTrafficLightButtonsVisibility, .cmdTabTrafficLightButtonsVisibility,
+            .enabledTrafficLightButtons, .switcherEnabledTrafficLightButtons, .cmdTabEnabledTrafficLightButtons,
+            .useMonochromeTrafficLights, .switcherUseMonochromeTrafficLights, .cmdTabUseMonochromeTrafficLights,
+            .switcherShowAppHeader,
+            .switcherShowAppIconBadges, .switcherShowCompactAppIconBadges, .switcherAppIconBadgeScale,
+            .showWindowTitle, .switcherShowWindowTitle, .cmdTabShowWindowTitle,
+            .windowTitleVisibility, .switcherWindowTitleVisibility, .cmdTabWindowTitleVisibility,
+            .dockPreviewControlPosition, .windowSwitcherControlPosition, .cmdTabControlPosition,
+            .useEmbeddedDockPreviewElements, .switcherUseEmbeddedDockPreviewElements, .cmdTabUseEmbeddedDockPreviewElements,
+            .disableDockStyleTrafficLights, .switcherDisableDockStyleTrafficLights, .cmdTabDisableDockStyleTrafficLights,
+            .disableDockStyleTitles, .cmdTabDisableDockStyleTitles,
+            .dockLivePreviewQuality, .windowSwitcherLivePreviewQuality,
+            .dockLivePreviewFrameRate, .windowSwitcherLivePreviewFrameRate,
+            .showDockPreviewSpaceNumberIndicator, .showSwitcherSpaceNumberIndicator, .showCmdTabSpaceNumberIndicator,
+            .enableSpaceIndicatorWindowMoving,
+            .highlightDockPreviewCurrentSpaceIndicator, .highlightSwitcherCurrentSpaceIndicator, .highlightCmdTabCurrentSpaceIndicator,
+            .dockPreviewWindowStateIndicatorPlacement, .switcherWindowStateIndicatorPlacement, .cmdTabWindowStateIndicatorPlacement,
+            .disableDockStyleWindowStateIndicator, .switcherDisableDockStyleWindowStateIndicator, .cmdTabDisableDockStyleWindowStateIndicator,
+            .swapDockPreviewTrafficLightsAndWindowStateIndicator, .swapSwitcherTrafficLightsAndWindowStateIndicator, .swapCmdTabTrafficLightsAndWindowStateIndicator,
+            .limitDockPreviewIndicatorSwapToCompactMode, .limitSwitcherIndicatorSwapToCompactMode, .limitCmdTabIndicatorSwapToCompactMode,
+            .dimMinimizedHiddenPreviews, .selectionOpacity, .unselectedContentOpacity, .hoverHighlightColor,
+            .allowDynamicImageSizing, .hidePreviewCardBackground,
+            .tapEquivalentInterval, .switcherTapEquivalentInterval, .cmdTabTapEquivalentInterval,
+            .previewHoverAction, .switcherPreviewHoverAction, .cmdTabPreviewHoverAction,
+            .keepPreviewOnHoverActivation,
+            .showActiveWindowBorder, .activeAppIndicatorColor, .showAnimations, .trafficLightTransitionDuration, .globalPaddingMultiplier,
+            .uniformCardRadius, .previewCornerRadius,
+            .windowTitleFontSize, .windowStateIndicatorFontSize, .switcherAppIconSize, .trafficLightButtonScale,
+            .previewWidth, .compactModeWidth, .compactModeTitleFormat, .compactModeItemSize, .compactModeHideTrafficLights,
+            .showFullSizeWindowlessDockPreviews, .showFullSizeWindowlessCmdTabPreviews,
+            .showWindowlessAppQuitButton, .titleOverflowStyle,
+        ]
+        return keys + (Defaults[.enableMultiWindowSelection]
+            ? [.showUncheckedSelectionCheckboxes, .selectionCheckboxVisibility, .showWindowSelectionSummary] : [])
+    }
 
     static func resolve(windowSwitcherActive: Bool, dockPosition: DockPosition) -> PreviewAppearanceSettings {
         let isCmdTab = dockPosition == .cmdTab
@@ -619,7 +677,12 @@ struct PreviewAppearanceSettings: Equatable {
             return Defaults[base]
         }
 
+        let selectionEnabled = Defaults[.enableMultiWindowSelection]
         return PreviewAppearanceSettings(
+            enableMultiWindowSelection: selectionEnabled,
+            showWindowSelectionSummary: selectionEnabled && Defaults[.showWindowSelectionSummary],
+            showUncheckedSelectionCheckboxes: selectionEnabled ? Defaults[.showUncheckedSelectionCheckboxes] : Defaults.Keys.showUncheckedSelectionCheckboxes.defaultValue,
+            selectionCheckboxVisibility: selectionEnabled ? Defaults[.selectionCheckboxVisibility] : Defaults.Keys.selectionCheckboxVisibility.defaultValue,
             trafficLightVisibility: pick(.trafficLightButtonsVisibility, switcher: .switcherTrafficLightButtonsVisibility, cmdTab: .cmdTabTrafficLightButtonsVisibility),
             enabledTrafficLightButtons: pick(.enabledTrafficLightButtons, switcher: .switcherEnabledTrafficLightButtons, cmdTab: .cmdTabEnabledTrafficLightButtons),
             useMonochromeTrafficLights: pick(.useMonochromeTrafficLights, switcher: .switcherUseMonochromeTrafficLights, cmdTab: .cmdTabUseMonochromeTrafficLights),
@@ -819,9 +882,85 @@ struct WindowPreview: View, Equatable {
     let focusedWindowID: CGWindowID?
     let currentSpaceNumbers: Set<Int>
     var spaceNumber: Int? = nil
+    var isChecked = false
 
     @State private var isHoveringOverDockPeekPreview = false
     @State private var isHoveringOverWindowSwitcherPreview = false
+    @State private var isHoveringTitle = false
+
+    private var hasSelectionControl: Bool {
+        appearance.enableMultiWindowSelection && !mockPreviewActive && !windowInfo.isWindowlessApp &&
+            (appearance.showUncheckedSelectionCheckboxes || isChecked)
+    }
+
+    private func selectionCheckboxIsVisible(titleAvailable: Bool) -> Bool {
+        let pointerHovered = isHoveringOverDockPeekPreview || isHoveringOverWindowSwitcherPreview
+        let previewHovered = isSelected || pointerHovered
+        return appearance.selectionCheckboxVisibility.showsCheckbox(
+            checked: isChecked,
+            previewHovered: previewHovered,
+            titleHovered: isHoveringTitle && pointerHovered,
+            titleAvailable: titleAvailable,
+            compact: false
+        )
+    }
+
+    private var showsSelectionControl: Bool {
+        guard hasSelectionControl else { return false }
+        let titleAvailable = windowSwitcherActive ? appearance.showAppHeader : WindowTitlePresentation.resolve(
+            title: previewTitle,
+            showWindowTitle: appearance.showWindowTitle,
+            visibility: appearance.windowTitleVisibility,
+            isHighlighted: isSelected
+        ).isVisible
+        return selectionCheckboxIsVisible(titleAvailable: titleAvailable)
+    }
+
+    private func selectionCheckbox(titleAvailable: Bool, iconSize: CGFloat? = nil) -> some View {
+        PreviewSelectionCheckbox(
+            isChecked: isChecked,
+            isVisible: selectionCheckboxIsVisible(titleAvailable: titleAvailable),
+            color: appearance.activeAppIndicatorColor,
+            diameter: iconSize.map(PreviewSelectionCheckbox.iconDiameter) ?? appearance.windowTitleFontSize.measuredLineHeight,
+            drawingScale: iconSize == nil ? 1.2 : 1,
+            backgroundAppearance: iconSize == nil ? nil : backgroundAppearance,
+            animationsEnabled: appearance.showAnimations,
+            toggle: { handleWindowAction(.toggleWindowSelection) }
+        )
+        .transition(.opacity)
+    }
+
+    @ViewBuilder
+    private func dockTitleContent(title: String?, visible: Bool, reservesSpace: Bool) -> some View {
+        let showsCheckbox = hasSelectionControl && selectionCheckboxIsVisible(titleAvailable: visible && title != nil)
+        Group {
+            if reservesSpace || showsCheckbox {
+                HStack(spacing: 4) {
+                    if showsCheckbox, !appearance.controlPosition.titleIsTrailing {
+                        selectionCheckbox(titleAvailable: visible && title != nil)
+                    }
+                    if reservesSpace, let title {
+                        titleLabel(title, adaptsToAvailableWidth: true, scrolls: visible)
+                            .if(windowInfo.isWindowlessApp) { $0.italic() }
+                            .opacity(visible ? 1 : 0)
+                    }
+                    if showsCheckbox, appearance.controlPosition.titleIsTrailing {
+                        selectionCheckbox(titleAvailable: visible && title != nil)
+                    }
+                }
+                .font(appearance.windowTitleFontSize.font)
+                .multilineTextAlignment(appearance.controlPosition.titleIsTrailing ? .trailing : .leading)
+                .padding(4)
+                .if(!appearance.disableDockStyleTitles) { $0.materialPill(backgroundAppearance: backgroundAppearance) }
+                .frame(minWidth: 0)
+                .clipped()
+                .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
+                .opacity(visible || (hasSelectionControl && selectionCheckboxIsVisible(titleAvailable: visible && title != nil)) ? 1 : 0)
+                .if(hasSelectionControl) { $0.onHover { isHoveringTitle = $0 } }
+            }
+        }
+        .previewControlVisibilityAnimation(isVisible: showsCheckbox, duration: 0.15, animationsEnabled: appearance.showAnimations)
+    }
 
     private var effectiveTrafficLightButtons: Set<WindowAction> {
         resolvedTrafficLightButtons(
@@ -1024,7 +1163,7 @@ struct WindowPreview: View, Equatable {
     }
 
     static func == (l: Self, r: Self) -> Bool {
-        l.index == r.index && l.isSelected == r.isSelected && l.useLivePreview == r.useLivePreview
+        l.index == r.index && l.isSelected == r.isSelected && l.isChecked == r.isChecked && l.useLivePreview == r.useLivePreview
             && l.skeletonMode == r.skeletonMode && l.dimensions == r.dimensions
             && l.uniformCardRadius == r.uniformCardRadius && l.showAppIconOnly == r.showAppIconOnly
             && l.windowSwitcherActive == r.windowSwitcherActive
@@ -1103,7 +1242,7 @@ struct WindowPreview: View, Equatable {
         Group {
             if skeletonMode {
                 Color.clear
-            } else if useLivePreview && !windowInfo.isWindowlessApp {
+            } else if useLivePreview, !windowInfo.isWindowlessApp {
                 LivePreviewImage(windowID: windowInfo.id, fallbackImage: windowInfo.image, quality: quality, frameRate: frameRate, context: windowSwitcherActive ? .windowSwitcher : .dock, placeholderIcon: windowInfo.image == nil ? windowInfo.app.icon : nil)
             } else if let cgImage = windowInfo.image {
                 Image(decorative: cgImage, scale: 1.0)
@@ -1141,7 +1280,7 @@ struct WindowPreview: View, Equatable {
             dockPosition: dockPosition,
             windowSwitcherActive: windowSwitcherActive
         )
-        .opacity(isSelected ? 1.0 : appearance.unselectedContentOpacity)
+        .opacity(isSelected || isChecked ? 1.0 : appearance.unselectedContentOpacity)
     }
 
     private var spaceBadgeAlignment: Alignment {
@@ -1173,7 +1312,7 @@ struct WindowPreview: View, Equatable {
     private func embeddedWindowSwitcherControls(_ selected: Bool) -> some View {
         EmbeddedSwitcherControlsLayout(
             controlPosition: appearance.controlPosition,
-            hasTitleContent: appearance.showAppHeader,
+            hasTitleContent: appearance.showAppHeader || showsSelectionControl,
             hasControlsContent: hasWindowSwitcherControlContent
         ) { isLeadingControls, showTitle, showControls in
             windowSwitcherContent(
@@ -1207,7 +1346,7 @@ struct WindowPreview: View, Equatable {
             stateLabelHeight: 17 * appearance.trafficLightButtonScale
         )
         let controlsHeight = controlClusterHeight(adjacentControlHeight: configuredAdjacentHeight)
-        let titleIsConfigured = appearance.showWindowTitle && titleToShow != nil
+        let titleIsConfigured = (appearance.showWindowTitle && titleToShow != nil) || showsSelectionControl
         let sharesToolbarRow = switch appearance.controlPosition {
         case .topLeading, .topTrailing, .bottomLeading, .bottomTrailing: true
         default: false
@@ -1218,24 +1357,12 @@ struct WindowPreview: View, Equatable {
                 controlsHeight: controlsHeight
             )
             : (title: 0, controls: 0)
-        let titleTextAlignment: TextAlignment = appearance.controlPosition.titleIsTrailing ? .trailing : .leading
-        let titleContent = Group {
-            if titlePresentation.reservesSpace, let title = titleToShow {
-                titleLabel(title, adaptsToAvailableWidth: true, scrolls: titlePresentation.isVisible)
-                    .if(windowInfo.isWindowlessApp) { $0.italic() }
-                    .font(appearance.windowTitleFontSize.font)
-                    .multilineTextAlignment(titleTextAlignment)
-                    .padding(4)
-                    .if(!appearance.disableDockStyleTitles) { view in
-                        view.materialPill(backgroundAppearance: backgroundAppearance)
-                    }
-                    .frame(minWidth: 0)
-                    .clipped()
-                    .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
-                    .opacity(titlePresentation.isVisible ? 1 : 0)
-            }
-        }
-        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !embeddedControlsAreLeading, enabled: titlePresentation.reservesSpace)
+        let titleContent = dockTitleContent(
+            title: titleToShow,
+            visible: titlePresentation.isVisible,
+            reservesSpace: titlePresentation.reservesSpace
+        )
+        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !embeddedControlsAreLeading, enabled: titlePresentation.reservesSpace || showsSelectionControl)
 
         let controlsContent = controlsWithWindowStateIndicator(
             controlsAreLeading: embeddedControlsAreLeading,
@@ -1280,7 +1407,7 @@ struct WindowPreview: View, Equatable {
             enabled: hasWindowStateIndicator || hasVisibleAdjacentControl
         )
 
-        if titlePresentation.reservesSpace || hasTrafficLights || hasWindowStateIndicator {
+        if titlePresentation.reservesSpace || showsSelectionControl || hasTrafficLights || hasWindowStateIndicator {
             switch appearance.controlPosition {
             case .topLeading, .topTrailing:
                 VStack {
@@ -1484,7 +1611,7 @@ struct WindowPreview: View, Equatable {
         showTitleContent: Bool = true,
         showControlsContent: Bool = true
     ) -> some View {
-        let shouldShowAppHeader = appearance.showAppHeader && showTitleContent
+        let shouldShowAppHeader = (appearance.showAppHeader || showsSelectionControl) && showTitleContent
         let shouldShowControls = showControlsContent && hasWindowSwitcherControlContent
         let shouldShowWindowTitle = appearance.showWindowTitle &&
             (appearance.windowTitleVisibility == .alwaysVisible || selected || isHoveringOverWindowSwitcherPreview)
@@ -1509,7 +1636,7 @@ struct WindowPreview: View, Equatable {
             ? 0
             : WindowTitleFontSize.bodyLineHeight +
             (configuredWindowTitle ? appearance.windowTitleFontSize.measuredLineHeight : 0)
-        let titleHeight = shouldShowAppHeader ? max(appIconSize, labelsHeight) : nil
+        let titleHeight = shouldShowAppHeader ? (appearance.showAppHeader ? max(appIconSize, labelsHeight) : appearance.windowTitleFontSize.measuredLineHeight) : nil
         let controlsHeight = shouldShowControls
             ? controlClusterHeight(adjacentControlHeight: configuredAdjacentHeight)
             : nil
@@ -1519,14 +1646,14 @@ struct WindowPreview: View, Equatable {
         let titleAlignment: HorizontalAlignment = titleOnRight ? .trailing : .leading
         let textAlignment: TextAlignment = titleOnRight ? .trailing : .leading
         let titleAndSubtitleContent = VStack(alignment: titleAlignment, spacing: 0) {
-            if !showAppIconOnly {
+            if !showAppIconOnly, appearance.showAppHeader {
                 Text(windowInfo.app.localizedName ?? "Unknown")
                     .foregroundStyle(.primary)
                     .multilineTextAlignment(textAlignment)
                     .lineLimit(1)
             }
 
-            if let windowTitle, hasWindowTitleLabel {
+            if let windowTitle, hasWindowTitleLabel, appearance.showAppHeader {
                 titleLabel(windowTitle, adaptsToAvailableWidth: true)
                     .if(windowInfo.isWindowlessApp) { $0.italic() }
                     .font(appearance.windowTitleFontSize.font)
@@ -1537,7 +1664,7 @@ struct WindowPreview: View, Equatable {
         .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
 
         let appIconContent = Group {
-            if let appIcon = windowInfo.app.icon {
+            if let appIcon = windowInfo.app.icon, appearance.showAppHeader {
                 PreviewAppIcon(
                     icon: appIcon,
                     bundleURL: windowInfo.app.bundleURL,
@@ -1546,6 +1673,11 @@ struct WindowPreview: View, Equatable {
                     badgeScale: appearance.appIconBadgeScale,
                     mockPreviewActive: mockPreviewActive
                 )
+                .overlay {
+                    if hasSelectionControl { selectionCheckbox(titleAvailable: true, iconSize: appIconSize) }
+                }
+            } else if hasSelectionControl {
+                selectionCheckbox(titleAvailable: false)
             }
         }
 
@@ -1600,6 +1732,7 @@ struct WindowPreview: View, Equatable {
         } labels: {
             titleAndSubtitleContent
         }
+        .if(hasSelectionControl) { $0.onHover { isHoveringTitle = $0 } }
         .layoutPriority(1)
         .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !isLeadingControls, enabled: shouldShowAppHeader)
 
@@ -1662,7 +1795,7 @@ struct WindowPreview: View, Equatable {
             hasTrafficLights: hasTrafficLights,
             stateLabelHeight: 17 * appearance.trafficLightButtonScale
         )
-        let titleIsConfigured = appearance.showWindowTitle && titleToShow != nil && showTitleContent
+        let titleIsConfigured = ((appearance.showWindowTitle && titleToShow != nil) || showsSelectionControl) && showTitleContent
         let controlsHeight = showControlsContent
             ? controlClusterHeight(adjacentControlHeight: configuredAdjacentHeight)
             : nil
@@ -1670,24 +1803,12 @@ struct WindowPreview: View, Equatable {
             titleHeight: titleIsConfigured ? dockTitleControlHeight() : nil,
             controlsHeight: controlsHeight
         )
-        let titleTextAlignment: TextAlignment = appearance.controlPosition.titleIsTrailing ? .trailing : .leading
-        let titleContent = Group {
-            if titlePresentation.reservesSpace, let title = titleToShow {
-                titleLabel(title, adaptsToAvailableWidth: true, scrolls: titlePresentation.isVisible)
-                    .if(windowInfo.isWindowlessApp) { $0.italic() }
-                    .font(appearance.windowTitleFontSize.font)
-                    .multilineTextAlignment(titleTextAlignment)
-                    .padding(4)
-                    .if(!appearance.disableDockStyleTitles) { view in
-                        view.materialPill(backgroundAppearance: backgroundAppearance)
-                    }
-                    .frame(minWidth: 0)
-                    .clipped()
-                    .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
-                    .opacity(titlePresentation.isVisible ? 1 : 0)
-            }
-        }
-        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !isLeadingControls, enabled: titlePresentation.reservesSpace)
+        let titleContent = dockTitleContent(
+            title: titleToShow,
+            visible: titlePresentation.isVisible,
+            reservesSpace: titlePresentation.reservesSpace
+        )
+        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !isLeadingControls, enabled: titlePresentation.reservesSpace || showsSelectionControl)
 
         let controlsContent = controlsWithWindowStateIndicator(
             controlsAreLeading: isLeadingControls,
@@ -1733,7 +1854,7 @@ struct WindowPreview: View, Equatable {
             enabled: showControlsContent && (hasWindowStateIndicator || hasVisibleAdjacentControl)
         )
 
-        if titlePresentation.reservesSpace || (showControlsContent && (hasTrafficLights || hasWindowStateIndicator)) {
+        if titlePresentation.reservesSpace || (showTitleContent && showsSelectionControl) || (showControlsContent && (hasTrafficLights || hasWindowStateIndicator)) {
             if appearance.controlPosition.isCentered {
                 return AnyView(
                     HStack(spacing: 4) {
@@ -1779,7 +1900,7 @@ struct WindowPreview: View, Equatable {
                    appearance.controlPosition.showsOnTop
                 {
                     let config = appearance.controlPosition.topConfiguration
-                    let shouldShowTopToolbar = !windowSwitcherActive || (config.showControls && hasWindowSwitcherControlContent) || (config.showTitle && appearance.showAppHeader)
+                    let shouldShowTopToolbar = !windowSwitcherActive || (config.showControls && hasWindowSwitcherControlContent) || (config.showTitle && (appearance.showAppHeader || showsSelectionControl))
                     if shouldShowTopToolbar {
                         Group {
                             if windowSwitcherActive {
@@ -1816,7 +1937,7 @@ struct WindowPreview: View, Equatable {
                    appearance.controlPosition.showsOnBottom
                 {
                     let config = appearance.controlPosition.bottomConfiguration
-                    let shouldShowBottomToolbar = !windowSwitcherActive || (config.showControls && hasWindowSwitcherControlContent) || (config.showTitle && appearance.showAppHeader)
+                    let shouldShowBottomToolbar = !windowSwitcherActive || (config.showControls && hasWindowSwitcherControlContent) || (config.showTitle && (appearance.showAppHeader || showsSelectionControl))
                     if shouldShowBottomToolbar {
                         Group {
                             if windowSwitcherActive {

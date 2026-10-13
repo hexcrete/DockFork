@@ -259,6 +259,14 @@ struct WindowPreviewInteractionModifier: ViewModifier {
     // MARK: - Tap Handling
 
     private func handleWindowTap() {
+        if Defaults[.enableMultiWindowSelection],
+           !windowInfo.isWindowlessApp,
+           NSEvent.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
+           SharedPreviewWindowCoordinator.activeInstance?.permitsCommandClickSelection == true
+        {
+            performAction(.toggleWindowSelection)
+            return
+        }
         activationTask?.cancel()
         activationTask = nil
         // Avoid activating the target while the temporarily pinned Dock reduces the usable screen area.
