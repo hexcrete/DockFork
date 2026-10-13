@@ -92,17 +92,49 @@ enum DockDoorCommands {
         return .success((window, windowId))
     }
 
-    static func getActiveWindowInfo() -> WindowInfo? {
+    static func getActiveWindowInfo(windows: [WindowInfo]? = nil) -> WindowInfo? {
         guard let frontmostApp = NSWorkspace.shared.frontmostApplication else {
             return nil
         }
 
-        let allWindows = WindowUtil.getAllWindowsOfAllApps()
+        let allWindows = windows ?? WindowUtil.getAllWindowsOfAllApps()
         let appWindows = allWindows
             .filter { $0.app.processIdentifier == frontmostApp.processIdentifier }
             .sorted { $0.lastAccessedTime > $1.lastAccessedTime }
 
         return appWindows.first
+    }
+
+    static func windowIdentifiers(from parameter: Any?) throws -> [String] {
+        if let identifier = parameter as? String { return [identifier] }
+        if let identifiers = parameter as? [String], !identifiers.isEmpty { return identifiers }
+        throw CommandError.invalidParameter("Provide a window ID or a nonempty list of window IDs")
+    }
+
+    static func resolveWindows(_ identifiers: [String]) throws -> [WindowInfo] {
+        let cached = WindowUtil.getAllWindowsOfAllApps()
+        let byID = Dictionary(cached.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let active = identifiers.contains { $0.lowercased() == "active" } ? getActiveWindowInfo(windows: cached) : nil
+        var seen = Set<PreviewWindowIdentity>()
+        return try identifiers.compactMap { identifier in
+            let window: WindowInfo
+            if identifier.lowercased() == "active" {
+                guard let active else { throw CommandError.noActiveWindow }
+                window = active
+            } else {
+                guard let id = UInt32(identifier) else { throw CommandError.invalidParameter("Window ID must be a number or 'active'") }
+                guard let cachedWindow = byID[id] else { throw CommandError.windowNotFound(identifier) }
+                window = cachedWindow
+            }
+            guard !window.isWindowlessApp, !window.app.isTerminated else { throw CommandError.windowNotFound(identifier) }
+            return seen.insert(PreviewWindowIdentity(window)).inserted ? window : nil
+        }
+    }
+
+    static func batchResult(_ result: WindowUtil.PreviewBatchResult) -> String {
+        var seen = Set<PreviewWindowIdentity>()
+        let failures = result.failed.filter { seen.insert($0).inserted }.map { String($0.windowID) }.joined(separator: ", ")
+        return failures.isEmpty ? "ok" : "error: Operation failed for windows \(failures); successful changes were retained"
     }
 
     // MARK: - Preview Commands
@@ -363,6 +395,10 @@ enum DockDoorCommands {
         lines.append("  focus window \"active\"")
         lines.append("  focus window \"12345\"")
         lines.append("  minimize window \"active\"")
+        lines.append("  minimize window {\"12345\", \"67890\"}")
+        lines.append("  hide window {\"12345\", \"67890\"}")
+        lines.append("  position window {\"12345\", \"67890\"} to \"left\"")
+        lines.append("  move window {\"12345\", \"67890\"} to space 3 with switching")
         lines.append("  position window \"active\" to \"left\"")
         lines.append("  position window \"12345\" to \"top-right\"")
         lines.append("  auto tile window \"active\"")
@@ -428,6 +464,40 @@ enum DockDoorCommands {
 }
 
 // MARK: - AppleScript Command Handlers
+
+class AsyncWindowCommand: NSScriptCommand {
+    @MainActor private var hasReplied = false
+    @MainActor private var operationTask: Task<Void, Never>?
+    @MainActor private var deadlineTask: Task<Void, Never>?
+
+    func execute(_ operation: @escaping @MainActor () async throws -> String) -> Any? {
+        suspendExecution()
+        Task { @MainActor in
+            deadlineTask = Task { @MainActor in
+                do { try await Task.sleep(nanoseconds: 15_000_000_000) } catch { return }
+                finish("error: Window operation timed out or was superseded; successful changes were retained")
+            }
+            operationTask = Task { @MainActor in
+                do {
+                    let result = try await operation()
+                    guard !Task.isCancelled else { return }
+                    finish(result)
+                } catch { finish("error: \(error.localizedDescription)") }
+            }
+        }
+        return nil
+    }
+
+    @MainActor private func finish(_ result: String) {
+        guard !hasReplied else { return }
+        hasReplied = true
+        operationTask?.cancel()
+        deadlineTask?.cancel()
+        operationTask = nil
+        deadlineTask = nil
+        resumeExecution(withResult: result)
+    }
+}
 
 @objc(ShowPreviewCommand)
 class ShowPreviewCommand: NSScriptCommand {
@@ -613,19 +683,31 @@ class SwitchToSpaceCommand: NSScriptCommand {
 }
 
 @objc(MoveWindowCommand)
-class MoveWindowCommand: NSScriptCommand {
+class MoveWindowCommand: AsyncWindowCommand {
     @MainActor private var hasReplied = false
     @MainActor private var deadlineTask: Task<Void, Never>?
     @MainActor private var cancelSpaceRequest: (@MainActor () -> Void)?
 
     override func performDefaultImplementation() -> Any? {
-        guard let windowID = directParameter as? String else {
-            return "error: Window ID required"
-        }
+        let identifiers: [String]
+        do { identifiers = try DockDoorCommands.windowIdentifiers(from: directParameter) }
+        catch { return "error: \(error.localizedDescription)" }
         guard let spaceNumber = evaluatedArguments?["spaceNumber"] as? Int, spaceNumber > 0 else {
             return "error: Space number must be a positive integer"
         }
         let switching = evaluatedArguments?["switching"] as? Bool ?? false
+
+        if !(directParameter is String) {
+            return execute {
+                let windows = try DockDoorCommands.resolveWindows(identifiers)
+                let displays = WindowSpaces.managedDisplays()
+                guard let destination = WindowSpaces.destination(forSpaceNumber: spaceNumber, in: displays) else {
+                    return "error: Space \(spaceNumber) does not exist"
+                }
+                return await Self.moveWindows(windows, to: destination, switching: switching)
+            }
+        }
+        let windowID = identifiers[0]
 
         suspendExecution()
         // Resume only after this handler returns; the main actor also owns the reply guard.
@@ -687,59 +769,76 @@ class MoveWindowCommand: NSScriptCommand {
         case .alreadyOnDestination: "Window is already on the destination Space"
         }
     }
+
+    @MainActor
+    private static func moveWindows(_ windows: [WindowInfo], to destination: ManagedSpaceDestination,
+                                    switching: Bool) async -> String
+    {
+        var succeeded = Set<PreviewWindowIdentity>()
+        var pending = Set<PreviewWindowIdentity>()
+        var cancellations: [@MainActor () -> Void] = []
+        defer { for cancel in cancellations {
+            cancel()
+        } }
+        for window in windows {
+            guard !Task.isCancelled else { return "error: Space move cancelled" }
+            let identity = PreviewWindowIdentity(window)
+            pending.insert(identity)
+            if let cancel = WindowUtil.performConfirmedSpaceMove(window, to: destination, dismissPreviews: nil,
+                                                                 switchToDestination: false,
+                                                                 completion: { success in
+                                                                     pending.remove(identity)
+                                                                     if success { succeeded.insert(identity) }
+                                                                 }) { cancellations.append(cancel) }
+        }
+        for _ in 0 ..< 25 where !pending.isEmpty {
+            do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return "error: Space move cancelled" }
+        }
+        for cancel in cancellations {
+            cancel()
+        }
+        cancellations.removeAll()
+        guard !Task.isCancelled else { return "error: Space move cancelled" }
+        var result = WindowUtil.PreviewBatchResult(
+            succeeded: windows.filter { succeeded.contains(PreviewWindowIdentity($0)) },
+            failed: windows.map(PreviewWindowIdentity.init).filter { !succeeded.contains($0) }
+        )
+        if switching, var first = result.succeeded.first {
+            (NSApp.delegate as? AppDelegate)?.dismissPreviews()
+            var revealed = true
+            if first.app.isHidden { revealed = await WindowUtil.setHiddenStateConfirmed(for: first.app, isHidden: false) }
+            if revealed, first.isMinimized || (try? first.axElement.isMinimized()) == true {
+                revealed = await !WindowUtil.setMinimizedWindowsConfirmed([first], isMinimized: false).isEmpty
+                if revealed { first.isMinimized = false }
+            }
+            guard !Task.isCancelled else { return "error: Space move cancelled" }
+            if !WindowSpaces.sourceSpaceIDs(for: first).contains(destination.space.id) { revealed = false }
+            if revealed { revealed = await first.bringToFrontConfirmed() }
+            if !revealed { result.failed.append(PreviewWindowIdentity(first)) }
+        }
+        return DockDoorCommands.batchResult(result)
+    }
 }
 
 @objc(TileWindowsCommand)
-class TileWindowsCommand: NSScriptCommand {
-    @MainActor private var hasReplied = false
-    @MainActor private var operationTask: Task<Void, Never>?
-    @MainActor private var deadlineTask: Task<Void, Never>?
-
+class TileWindowsCommand: AsyncWindowCommand {
     override func performDefaultImplementation() -> Any? {
         let identifiers: [String]?
-        if directParameter == nil { identifiers = nil }
-        else if let id = directParameter as? String { identifiers = [id] }
-        else if let ids = directParameter as? [String], !ids.isEmpty { identifiers = ids }
-        else { return "error: Provide a window ID or a nonempty list of window IDs" }
+        do { identifiers = directParameter == nil ? nil : try DockDoorCommands.windowIdentifiers(from: directParameter) }
+        catch { return "error: \(error.localizedDescription)" }
         let position = evaluatedArguments?["position"] as? String ?? "auto"
         let direction = position.lowercased() == "auto" ? PreviewTilingLayout.Direction.neutral
             : DockDoorCommands.parsePositionAction(position)?.tilingDirection
         guard let direction else { return "error: Invalid tiling direction" }
         let foreground = evaluatedArguments?["bringingToFront"] as? Bool
-
-        suspendExecution()
-        Task { @MainActor in
-            deadlineTask = Task { @MainActor in
-                do { try await Task.sleep(nanoseconds: 15_000_000_000) } catch { return }
-                finish("error: Tiling timed out or was superseded")
-            }
-            operationTask = Task { @MainActor in
-                do {
-                    let requested: [WindowInfo] = if let identifiers {
-                        try identifiers.map { try DockDoorCommands.resolveWindowId($0).get().0 }
-                    } else if let checked = SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(), !checked.isEmpty {
-                        checked
-                    } else { try [DockDoorCommands.resolveWindowId("active").get().0] }
-                    var seen = Set<PreviewWindowIdentity>()
-                    let windows = requested.filter { seen.insert(PreviewWindowIdentity($0)).inserted }
-                    let result = await WindowUtil.tilePreviewWindows(windows, direction: direction, bringToFront: foreground)
-                    guard !Task.isCancelled, !hasReplied else { return }
-                    let failures = result.failed.map { String($0.windowID) }.joined(separator: ", ")
-                    finish(result.failed.isEmpty ? "ok" : "error: Tiling failed for windows \(failures); successful changes were retained")
-                } catch { finish("error: \(error.localizedDescription)") }
-            }
+        return execute {
+            let windows: [WindowInfo] = if let identifiers {
+                try DockDoorCommands.resolveWindows(identifiers)
+            } else if let checked = SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(), !checked.isEmpty {
+                checked
+            } else { try DockDoorCommands.resolveWindows(["active"]) }
+            return await DockDoorCommands.batchResult(WindowUtil.tilePreviewWindows(windows, direction: direction, bringToFront: foreground))
         }
-        return nil
-    }
-
-    @MainActor private func finish(_ result: String) {
-        guard !hasReplied else { return }
-        hasReplied = true
-        operationTask?.cancel()
-        deadlineTask?.cancel()
-        operationTask = nil
-        deadlineTask = nil
-        resumeExecution(withResult: result)
     }
 }
 
@@ -775,11 +874,19 @@ class GetActiveWindowCommand: NSScriptCommand {
 }
 
 @objc(WindowActionCommand)
-class WindowActionCommand: NSScriptCommand {
+class WindowActionCommand: AsyncWindowCommand {
     override func performDefaultImplementation() -> Any? {
-        guard let windowId = directParameter as? String else {
-            return "error: Window ID required"
+        if !(directParameter is String), commandDescription.commandName != "focus window" {
+            let identifiers: [String]
+            do { identifiers = try DockDoorCommands.windowIdentifiers(from: directParameter) }
+            catch { return "error: \(error.localizedDescription)" }
+            guard let action = DockDoorCommands.actionFromCommandName(commandDescription.commandName) else { return "error: Unknown action" }
+            return execute {
+                let windows = try DockDoorCommands.resolveWindows(identifiers)
+                return await DockDoorCommands.batchResult(WindowUtil.performPreviewBatchAction(action, on: windows))
+            }
         }
+        guard let windowId = directParameter as? String else { return "error: Window ID required" }
 
         do {
             // Focus is handled separately since it's not in WindowAction
@@ -798,15 +905,24 @@ class WindowActionCommand: NSScriptCommand {
 }
 
 @objc(PositionWindowCommand)
-class PositionWindowCommand: NSScriptCommand {
+class PositionWindowCommand: AsyncWindowCommand {
     override func performDefaultImplementation() -> Any? {
-        guard let windowId = directParameter as? String else {
-            return "error: Window ID required"
-        }
-
+        let identifiers: [String]
+        do { identifiers = try DockDoorCommands.windowIdentifiers(from: directParameter) }
+        catch { return "error: \(error.localizedDescription)" }
         guard let positionString = evaluatedArguments?["position"] as? String else {
             return "error: Position required. Use: left, right, top, bottom, top-left, top-right, bottom-left, bottom-right"
         }
+        guard let action = DockDoorCommands.parsePositionAction(positionString) else {
+            return "error: \(DockDoorCommands.CommandError.invalidPosition(positionString).localizedDescription)"
+        }
+        if !(directParameter is String) {
+            return execute {
+                let windows = try DockDoorCommands.resolveWindows(identifiers)
+                return await DockDoorCommands.batchResult(WindowUtil.performPreviewBatchAction(action, on: windows))
+            }
+        }
+        let windowId = identifiers[0]
 
         do {
             try DockDoorCommands.positionWindow(windowId, positionString: positionString)

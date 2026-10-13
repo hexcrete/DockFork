@@ -82,11 +82,15 @@
 
         <command name="move window" code="DKDRmvwn" description="Move a window to a numbered Desktop and wait for confirmation. Returns ok or error: followed by an explanation.">
             <cocoa class="MoveWindowCommand"/>
-            <direct-parameter type="text" description="Window ID or 'active' for the frontmost window."/>
+            <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
+                <type type="text"/>
+                <type type="text" list="yes"/>
+            </direct-parameter>
+
             <parameter name="to space" code="spnm" type="integer" description="Positive global Space number from list spaces. Only desktop Spaces can receive windows.">
                 <cocoa key="spaceNumber"/>
             </parameter>
-            <parameter name="switching" code="swsp" type="boolean" optional="yes" description="Switch to the destination after the move. Defaults to false, independently of DockDoor settings.">
+            <parameter name="switching" code="swsp" type="boolean" optional="yes" description="Switch to the destination after confirmation by focusing the first successfully moved member. Defaults to false, independently of DockDoor settings.">
                 <cocoa key="switching"/>
             </parameter>
             <result type="text" description="ok after confirmed movement, or error: followed by a validation, move, cancellation, or timeout explanation."/>
@@ -100,45 +104,73 @@
 
         <command name="minimize window" code="DKDRmnwn" description="Minimize or unminimize a window.">
             <cocoa class="WindowActionCommand"/>
-            <direct-parameter type="text" description="Window ID or 'active' for the frontmost window."/>
+            <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
+                <type type="text"/>
+                <type type="text" list="yes"/>
+            </direct-parameter>
+
             <result type="text" description="Success or error message."/>
         </command>
 
         <command name="close window" code="DKDRclwn" description="Close a window.">
             <cocoa class="WindowActionCommand"/>
-            <direct-parameter type="text" description="Window ID or 'active' for the frontmost window."/>
+            <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
+                <type type="text"/>
+                <type type="text" list="yes"/>
+            </direct-parameter>
+
             <result type="text" description="Success or error message."/>
         </command>
 
         <command name="maximize window" code="DKDRmxwn" description="Maximize a window to fill the screen.">
             <cocoa class="WindowActionCommand"/>
-            <direct-parameter type="text" description="Window ID or 'active' for the frontmost window."/>
+            <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
+                <type type="text"/>
+                <type type="text" list="yes"/>
+            </direct-parameter>
+
             <result type="text" description="Success or error message."/>
         </command>
 
         <command name="hide window" code="DKDRhdwn" description="Hide or unhide the application of a window.">
             <cocoa class="WindowActionCommand"/>
-            <direct-parameter type="text" description="Window ID or 'active' for the frontmost window."/>
+            <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
+                <type type="text"/>
+                <type type="text" list="yes"/>
+            </direct-parameter>
+
             <result type="text" description="Success or error message."/>
         </command>
 
-        <command name="toggle fullscreen" code="DKDRtgfs" description="Toggle fullscreen mode for a window.">
+        <command name="toggle fullscreen" code="DKDRtgfs" description="Toggle fullscreen for one window. With a list, exit fullscreen members only; never enter fullscreen as a group.">
             <cocoa class="WindowActionCommand"/>
-            <direct-parameter type="text" description="Window ID or 'active' for the frontmost window."/>
+            <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
+                <type type="text"/>
+                <type type="text" list="yes"/>
+            </direct-parameter>
+
             <result type="text" description="Success or error message."/>
         </command>
 
         <command name="center window" code="DKDRctwn" description="Center a window on its screen.">
             <cocoa class="WindowActionCommand"/>
-            <direct-parameter type="text" description="Window ID or 'active' for the frontmost window."/>
+            <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
+                <type type="text"/>
+                <type type="text" list="yes"/>
+            </direct-parameter>
+
             <result type="text" description="Success or error message."/>
         </command>
 
         <!-- Window Positioning Commands -->
 
-        <command name="position window" code="DKDRpswn" description="Position a window to a specific screen region.">
+        <command name="position window" code="DKDRpswn" description="Position one window on its display, or tile an ordered window list on the current Desktop using the leading direction.">
             <cocoa class="PositionWindowCommand"/>
-            <direct-parameter type="text" description="Window ID or 'active' for the frontmost window."/>
+            <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
+                <type type="text"/>
+                <type type="text" list="yes"/>
+            </direct-parameter>
+
             <parameter name="to" code="topr" type="text" description="Position: 'left', 'right', 'top', 'bottom', 'top-left', 'top-right', 'bottom-left', 'bottom-right'.">
                 <cocoa key="position"/>
             </parameter>

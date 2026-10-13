@@ -738,3 +738,31 @@ struct PreviewTilingLayoutTests {
         #expect(PreviewTilingLayout.frames(count: 36, in: screen, maximumRows: 6, maximumColumns: 6).compactMap { $0 }.count == 36)
     }
 }
+
+struct ScriptWindowBatchTests {
+    @Test func singleAndOrderedListInputsRemainDistinct() throws {
+        #expect(try DockDoorCommands.windowIdentifiers(from: "active") == ["active"])
+        #expect(try DockDoorCommands.windowIdentifiers(from: ["20", "10", "20"]) == ["20", "10", "20"])
+        #expect(try DockDoorCommands.windowIdentifiers(from: ["active"]) == ["active"])
+    }
+
+    @Test func missingEmptyAndNonTextInputsAreRejected() {
+        for input: Any? in [nil, [String](), 123, ["10", 20] as [Any]] {
+            do {
+                _ = try DockDoorCommands.windowIdentifiers(from: input)
+                Issue.record("Accepted invalid window input")
+            } catch {}
+        }
+    }
+
+    @Test func successfulBatchesRetainTheExistingResultFormat() {
+        #expect(DockDoorCommands.batchResult(WindowUtil.PreviewBatchResult()) == "ok")
+    }
+
+    @Test func failuresAreDeduplicatedWithoutReordering() {
+        let first = PreviewWindowIdentity(pid: 1, windowID: 20)
+        let second = PreviewWindowIdentity(pid: 2, windowID: 10)
+        let result = WindowUtil.PreviewBatchResult(failed: [first, second, first])
+        #expect(DockDoorCommands.batchResult(result) == "error: Operation failed for windows 20, 10; successful changes were retained")
+    }
+}

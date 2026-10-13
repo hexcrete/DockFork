@@ -41,7 +41,7 @@ Validation: 39 isolated selection/policy/geometry tests passed, including format
 
 ## Development: Automatic Tiling
 
-Phase 4 manual verification was reported successful October 13 and the final source review found no blocking issues. This development change is not in the published 0.1.0 release. Auto Tile Selected Windows is available in the shared shortcut/gesture/mouse-action catalog and preview Arrange menus. It uses checked windows, including when keyboard highlighting is absent, and fills a single targeted window when none are checked. Menu-bar Arrange offers Auto Tile Window for its individual target; preview menus also offer Add/Remove from Selection. Half/Quarter actions tile multiple checked windows; individual-window Half/Quarter behavior remains unchanged. Menu-bar window menus remain individual.
+Phase 4 is committed as `6ae187c`; manual verification was reported successful October 13 and the final source review found no blocking issues. This development change is not in the published 0.1.0 release. Auto Tile Selected Windows is available in the shared shortcut/gesture/mouse-action catalog and preview Arrange menus. It uses checked windows, including when keyboard highlighting is absent, and fills a single targeted window when none are checked. Menu-bar Arrange offers Auto Tile Window for its individual target; preview menus also offer Add/Remove from Selection. Half/Quarter actions tile multiple checked windows; individual-window Half/Quarter behavior remains unchanged. Menu-bar window menus remain individual.
 
 Tiling targets the current Desktop and display under the pointer, using its visible frame. The first checked eligible window leads. One fills the display, two use halves, three use a leading half and two opposite quarters, and four use quarters. Half actions choose the leading edge; Quarter actions with two/three windows use quarter cells and leave unused cells empty. Grid constraints take precedence when the requested shape cannot fit the permitted rows/columns. Larger groups use a display-aspect-aware grid with an expanded short final row. Maximum tiling rows/columns are independently configurable from 1 to 6, both default 2. Values above 3 show a display/minimum-size warning. A 1x1 limit still moves without resizing. Overflow repeats the same algorithm in ordered batches up to the configured capacity; a final single member fills the display for Auto Tile or uses the requested half/quarter. macOS may adjust windows during Space assignment, and apps can enforce minimum sizes.
 
@@ -63,6 +63,27 @@ end tell
 ```
 
 The last command requires multi-window selection enabled and an open preview session. Direction defaults to `"auto"`; other directions use the existing position names. The foreground argument is optional and otherwise uses the configured preference. These commands and examples are included in the app's scripting dictionary/generated help. Native command compilation, generated help and invalid single/list/empty-list replies passed on the running signed development build without modifying real windows. The dictionary uses a typed list of text for ID arrays, not an untyped list receiver. Successful real-window scripting and deadline races still require manual verification.
+
+## Development: Ordered AppleScript Window Lists
+
+Implemented in the working tree October 13; agent-operated live verification passed on the current Mac, with user authorization. Existing Minimize, Close, Maximize, Hide, Toggle Fullscreen, Center, Position and Move Window commands accept either their existing text ID or an ordered nonempty list of text IDs. Existing command names, Apple event codes and single-ID paths are preserved. Focus remains single-target. These changes are not in the published 0.1.0 release.
+
+Explicit lists do not require an open preview or checked membership. All identifiers resolve against one cached inventory before any operation starts; unknown IDs abort without changes. Duplicate identities retain their first occurrence. Batch Minimize/Hide use the shared mixed-state policy and app-wide deduplication. Fullscreen lists exit fullscreen members only and never enter fullscreen as a group. Position lists reuse directional tiling on the current Desktop/display under the pointer; a text ID retains individual positioning on its own display.
+
+```applescript
+tell application "DockFork"
+    minimize window {"12345", "67890"}
+    hide window {"12345", "67890"}
+    position window {"12345", "67890"} to "left"
+    move window {"12345", "67890"} to space 3 with switching
+end tell
+```
+
+List-based Space moves confirm each member through the existing keyed move operation. Already-assigned, fullscreen, windowless and multi-Desktop sources remain invalid. Switching defaults to false; when requested, focus the first successfully moved member after confirmation, reveal it if needed and dismiss previews. Failed members return an error listing their IDs; completed changes are retained. Cancellation closes only that command's outstanding move requests.
+
+List actions and tiling share a single-reply asynchronous handler with a 15-second deadline that cancels remaining work. Existing text-ID Space moves retain their three-second deadline and detailed validation replies. There are no new observers, global event taps, recurring timers or discovery scans. Native dictionary help includes list examples.
+
+Validation: 49 isolated regression tests passed, including four input/result tests; three source-extracted success/error/deadline checks passed with a compressed test deadline. Fourteen safe native AppleScript calls verified single/list syntax and invalid/empty-list replies without changing real windows. All existing command names/event codes match the previous dictionary. Signed Debug build and exact-path relaunch passed. Agent-operated live verification passed with two browser windows and a Notes window: mixed-state minimize/restore, mixed-app hide/unhide and app deduplication, ordered directional placement, maximize/center, malformed-ID rejection before mutation, Space movement with following Off/On, partial failure for an already-assigned member, fullscreen exit-only lists, and tiling foreground Off/On. Three overlapping Space-move trials returned bounded replies and preserved the newest destination. Initial focus/fullscreen sampling was transient; settled focused retries and direct WindowServer stacking checks passed. All five recorded windows were restored to their exact original AX frames, minimized/fullscreen/hidden states and Space memberships, with the original Desktop and focused window restored. No windows were closed or apps quit. These checks cover one current display, not exhaustive app/display/OS behavior. The full Xcode suite remains unrun.
 
 ## Reading This Guide
 
