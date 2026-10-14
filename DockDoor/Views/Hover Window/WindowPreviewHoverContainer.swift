@@ -2448,7 +2448,7 @@ private struct PreviewHeaderTextShadow: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .shadow(stacked: 2, radius: 6)
+            .appHeaderTextShadow()
             .background {
                 ZStack {
                     MaterialBlurView(material: .hudWindow)

@@ -41,6 +41,10 @@ struct StackedShadow: ViewModifier {
 }
 
 extension View {
+    func appHeaderTextShadow(color: Color = .black) -> some View {
+        shadow(stacked: 2, radius: 6, color: color)
+    }
+
     func shadow(stacked count: Int, radius: CGFloat = 10, x: CGFloat = 0, y: CGFloat = 0, color: Color = .black) -> some View {
         modifier(StackedShadow(stacked: count, radius: radius, x: x, y: y, color: color))
     }

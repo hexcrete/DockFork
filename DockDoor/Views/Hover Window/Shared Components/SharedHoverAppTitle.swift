@@ -321,7 +321,7 @@ struct SharedHoverAppTitle: View {
                             .mask(baseText)
                             .fontWeight(.medium)
                             .padding(.leading, 4)
-                            .shadow(stacked: 2, radius: 6)
+                            .appHeaderTextShadow()
                             .background(
                                 ZStack {
                                     MaterialBlurView(material: .hudWindow).mask(Ellipse().fill(LinearGradient(gradient: Gradient(colors: [Color.white.opacity(1.0), Color.white.opacity(0.35)]), startPoint: .top, endPoint: .bottom))).blur(radius: 5)
@@ -329,7 +329,7 @@ struct SharedHoverAppTitle: View {
                             )
                             .animation(showAnimations ? .easeInOut(duration: 0.2) : nil, value: trimmedAppName)
                     } else {
-                        baseText.foregroundStyle(Color.primary).shadow(stacked: 2, radius: 6)
+                        baseText.foregroundStyle(Color.primary).appHeaderTextShadow()
                             .background(
                                 ZStack {
                                     MaterialBlurView(material: .hudWindow).mask(Ellipse().fill(LinearGradient(gradient: Gradient(colors: [Color.white.opacity(1.0), Color.white.opacity(0.35)]), startPoint: .top, endPoint: .bottom))).blur(radius: 5)

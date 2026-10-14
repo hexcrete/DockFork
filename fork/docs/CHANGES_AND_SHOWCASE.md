@@ -125,6 +125,12 @@ Close All and Minimize All in the shared Dock/Cmd+Tab App Header are omitted ent
 
 Eight source-extracted eligibility checks and shared render/handler gate checks passed. The hidden-button build passed signed Debug build, exact-path relaunch, signature/binary verification and diff checks; Launch Services required a retry after error -600. User manual verification and final source review passed October 13; the full Xcode suite is unrun. Not included in the published 0.1.0 release.
 
+## Development: Embedded Switcher Title Contrast
+
+Embedded non-compact Window Switcher app/window titles replace their small single shadow with the Shadowed App Header's two centered, six-point-radius shadow layers. One shared helper defines the shadow used by existing Dock header variants and embedded title labels. Embedded titles use black in dark mode and white in light mode; existing Dock header rendering remains unchanged. The header's separate blurred material backdrop is not copied. Non-embedded titles, Compact Mode, icons, other controls and geometry are unchanged, including windowless/missing-image cards using the shared title path.
+
+Eight native SwiftUI rendering checks passed for shared-shadow equality, light/dark color, disabled identity, visible contrast and unchanged layout dimensions. Signed Debug build, exact-path relaunch, signature/binary verification and diff checks passed. User appearance approval and final source review passed October 14. Full Xcode tests remain unrun. Not included in the published 0.1.0 release.
+
 ## Reading This Guide
 
 - [Complete commit ledger](COMMIT_LEDGER.md): every branch-only commit in the audited history, grouped by category.

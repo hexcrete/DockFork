@@ -362,6 +362,20 @@ private struct EmbeddedPreviewContrastShadow: ViewModifier {
     }
 }
 
+private struct EmbeddedSwitcherTitleShadow: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    let isEnabled: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isEnabled {
+            content.appHeaderTextShadow(color: colorScheme == .dark ? .black : .white)
+        } else {
+            content
+        }
+    }
+}
+
 extension View {
     func embeddedPreviewContrastShadow(_ isEnabled: Bool) -> some View {
         modifier(EmbeddedPreviewContrastShadow(isEnabled: isEnabled))
@@ -1679,7 +1693,7 @@ struct WindowPreview: View, Equatable {
                     .multilineTextAlignment(textAlignment)
             }
         }
-        .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
+        .modifier(EmbeddedSwitcherTitleShadow(isEnabled: appearance.usesEmbeddedTitleContrastShadow))
 
         let appIconContent = Group {
             if let appIcon = windowInfo.app.icon, appearance.showAppHeader {
