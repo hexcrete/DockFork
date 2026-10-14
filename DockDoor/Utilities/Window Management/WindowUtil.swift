@@ -5,6 +5,30 @@ import ScreenCaptureKit
 
 let filteredBundleIdentifiers: [String] = ["com.apple.notificationcenterui"] // filters desktop widgets
 
+struct PendingWindowFocusUpdates {
+    private var timestamps: [PreviewWindowIdentity: Date] = [:]
+    private static let lifespan: TimeInterval = 30
+    private static let capacity = 128
+
+    mutating func record(_ identity: PreviewWindowIdentity, at timestamp: Date) {
+        timestamps = timestamps.filter { timestamp.timeIntervalSince($0.value) < Self.lifespan }
+        timestamps[identity] = max(timestamps[identity] ?? .distantPast, timestamp)
+        if timestamps.count > Self.capacity, let oldest = timestamps.min(by: { $0.value < $1.value })?.key {
+            timestamps.removeValue(forKey: oldest)
+        }
+    }
+
+    mutating func take(_ identity: PreviewWindowIdentity, now: Date = Date()) -> Date? {
+        guard let timestamp = timestamps.removeValue(forKey: identity),
+              now.timeIntervalSince(timestamp) < Self.lifespan else { return nil }
+        return timestamp
+    }
+
+    mutating func removeAll(for pid: pid_t) {
+        timestamps = timestamps.filter { $0.key.pid != pid }
+    }
+}
+
 private actor GlobalWindowRefreshGate {
     private var isRunning = false
     private var isRunningFollowUp = false
@@ -697,6 +721,8 @@ enum WindowUtil {
     // Track windows explicitly updated by bringWindowToFront to prevent observer duplication
     private static var timestampUpdates: [AXUIElement: Date] = [:]
     private static let updateTimestampLock = NSLock()
+    private static let pendingFocusLock = NSLock()
+    private static var pendingFocusUpdates = PendingWindowFocusUpdates()
     private static let windowUpdateTimeWindow: TimeInterval = 1.5
     private static var programmaticResizeRefreshDelayMilliseconds: UInt64 = 180
     private static var axResizeRefreshDelayMilliseconds: UInt64 = 360
@@ -867,9 +893,9 @@ extension WindowUtil {
         desktopSpaceWindowCacheManager.updateCache(pid: app.processIdentifier, update: update)
     }
 
-    static func updateWindowDateTime(element: AXUIElement, app: NSRunningApplication) {
+    static func updateWindowDateTime(element: AXUIElement, app: NSRunningApplication, at timestamp: Date = Date()) {
         let windowID = try? element.cgWindowId()
-        let now = Date()
+        let now = timestamp
         updateTimestampLock.lock()
         if let lastUpdate = timestampUpdates[element],
            now.timeIntervalSince(lastUpdate) < windowUpdateTimeWindow
@@ -890,9 +916,14 @@ extension WindowUtil {
                 return cachedWindow.id == windowID
             }) {
                 var updatedWindow = windowSet[index]
+                guard now > updatedWindow.lastAccessedTime else { return }
                 updatedWindow.lastAccessedTime = now
                 windowSet.remove(at: index)
                 windowSet.insert(updatedWindow)
+            } else if let windowID, windowID != 0 {
+                pendingFocusLock.withLock {
+                    pendingFocusUpdates.record(PreviewWindowIdentity(pid: app.processIdentifier, windowID: windowID), at: now)
+                }
             }
         }
     }
@@ -3126,6 +3157,11 @@ extension WindowUtil {
         // DockDoor-owned AX elements synchronously marshal reads to the main thread.
         let shouldRejectImage = shouldRejectCapturedImage(windowInfo.image, for: windowInfo)
         desktopSpaceWindowCacheManager.updateCache(pid: windowInfo.app.processIdentifier) { windowSet in
+            var windowInfo = windowInfo
+            let pendingFocus = pendingFocusLock.withLock { pendingFocusUpdates.take(PreviewWindowIdentity(windowInfo)) }
+            if let pendingFocus {
+                windowInfo.lastAccessedTime = pendingFocus
+            }
             let matchingWindows = windowSet.filter { $0.id == windowInfo.id || $0.axElement == windowInfo.axElement }
             let bestMatch = matchingWindows.reduce(nil as WindowInfo?) { best, window in
                 guard let best else { return window }
@@ -3133,6 +3169,9 @@ extension WindowUtil {
             }
             if let matchingWindow = bestMatch {
                 var matchingWindowCopy = matchingWindow
+                if let pendingFocus {
+                    matchingWindowCopy.lastAccessedTime = max(matchingWindow.lastAccessedTime, pendingFocus)
+                }
                 matchingWindowCopy.windowName = windowInfo.windowName
                 if let newSpaceID = windowInfo.spaceID {
                     matchingWindowCopy.spaceID = newSpaceID
@@ -3255,11 +3294,13 @@ extension WindowUtil {
         AXUIElement.resetWindowScan(for: pid)
         purgeNativeTabSnapshots(for: pid)
         desktopSpaceWindowCacheManager.writeCache(pid: pid, windowSet: [])
+        pendingFocusLock.withLock { pendingFocusUpdates.removeAll(for: pid) }
     }
 
     static func purgeAllCaches() {
         purgeNativeTabSnapshots()
         desktopSpaceWindowCacheManager.purgeAll()
+        pendingFocusLock.withLock { pendingFocusUpdates = PendingWindowFocusUpdates() }
     }
 
     static func cachedWindowCount() -> Int {

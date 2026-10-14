@@ -5,6 +5,74 @@ import Defaults
 import QuartzCore
 import Testing
 
+struct AXResponsivenessBackoffTests {
+    @Test func startupNotReadyIsNotAWindowDiscoveryBackoff() {
+        #expect(!AXResponsiveness.shouldBackOff(after: .cannotComplete, elapsed: 0.001))
+        #expect(!AXResponsiveness.shouldBackOff(after: .cannotComplete, elapsed: 0.499))
+        #expect(AXResponsiveness.shouldBackOff(after: .cannotComplete, elapsed: 0.5))
+        #expect(AXResponsiveness.shouldBackOff(after: .cannotComplete, elapsed: 1))
+    }
+
+    @Test func otherRegistrationResultsDoNotMarkAnAppHung() {
+        for result in [AXError.success, .notificationAlreadyRegistered, .notificationUnsupported, .invalidUIElement] {
+            #expect(!AXResponsiveness.shouldBackOff(after: result, elapsed: 1))
+        }
+    }
+}
+
+struct PendingWindowFocusUpdatesTests {
+    @Test func delayedDiscoveryRetainsObservedOrderAndConsumesOnce() throws {
+        var pending = PendingWindowFocusUpdates()
+        let first = PreviewWindowIdentity(pid: 1, windowID: 10)
+        let second = PreviewWindowIdentity(pid: 2, windowID: 20)
+        let start = Date(timeIntervalSince1970: 100)
+        pending.record(first, at: start)
+        pending.record(second, at: start.addingTimeInterval(1))
+        let discovery = start.addingTimeInterval(5)
+        let firstFocus = pending.take(first, now: discovery)
+        let secondFocus = pending.take(second, now: discovery)
+        #expect(firstFocus == start)
+        #expect(secondFocus == start.addingTimeInterval(1))
+        #expect(try #require(firstFocus) < #require(secondFocus))
+        #expect(pending.take(first, now: discovery) == nil)
+        #expect(pending.take(PreviewWindowIdentity(pid: 3, windowID: 10), now: discovery) == nil)
+    }
+
+    @Test func staleCallbacksDoNotReplaceNewerFocus() {
+        var pending = PendingWindowFocusUpdates()
+        let identity = PreviewWindowIdentity(pid: 1, windowID: 10)
+        let start = Date(timeIntervalSince1970: 100)
+        pending.record(identity, at: start.addingTimeInterval(2))
+        pending.record(identity, at: start)
+        #expect(pending.take(identity, now: start.addingTimeInterval(3)) == start.addingTimeInterval(2))
+    }
+
+    @Test func unavailableWindowsExpireAndStorageIsBounded() {
+        var pending = PendingWindowFocusUpdates()
+        let start = Date(timeIntervalSince1970: 100)
+        let identity = PreviewWindowIdentity(pid: 1, windowID: 1)
+        pending.record(identity, at: start)
+        #expect(pending.take(identity, now: start.addingTimeInterval(30)) == nil)
+        for id in 1 ... 129 {
+            pending.record(PreviewWindowIdentity(pid: 1, windowID: UInt32(id)), at: start.addingTimeInterval(Double(id) / 100))
+        }
+        #expect(pending.take(identity, now: start.addingTimeInterval(2)) == nil)
+        #expect(pending.take(PreviewWindowIdentity(pid: 1, windowID: 129), now: start.addingTimeInterval(2)) != nil)
+    }
+
+    @Test func appTerminationRemovesOnlyItsPendingFocus() {
+        var pending = PendingWindowFocusUpdates()
+        let first = PreviewWindowIdentity(pid: 1, windowID: 10)
+        let second = PreviewWindowIdentity(pid: 2, windowID: 10)
+        let start = Date(timeIntervalSince1970: 100)
+        pending.record(first, at: start)
+        pending.record(second, at: start)
+        pending.removeAll(for: 1)
+        #expect(pending.take(first, now: start) == nil)
+        #expect(pending.take(second, now: start) == start)
+    }
+}
+
 struct DockClickOverridePolicyTests {
     @Test func windowlessAppsAlwaysUseNativeActivation() {
         for action in [DockClickAction.cycleWindows, .minimize, .hide] {

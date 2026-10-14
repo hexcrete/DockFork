@@ -24,6 +24,10 @@ enum AXResponsiveness {
     static let backoff: TimeInterval = 5
     static let hangThreshold: TimeInterval = 0.5
 
+    static func shouldBackOff(after error: AXError, elapsed: TimeInterval) -> Bool {
+        error == .cannotComplete && elapsed >= hangThreshold
+    }
+
     static func markUnresponsive(_ pid: pid_t) {
         guard pid > 0, pid != ProcessInfo.processInfo.processIdentifier else { return }
         lock.lock()
@@ -49,7 +53,7 @@ extension AXUIElement {
         // An instant .cannotComplete means the element isn't ready yet; only a slow one means the app is hung
         case .cannotComplete:
             var pid = pid_t(0)
-            if elapsed >= AXResponsiveness.hangThreshold, AXUIElementGetPid(self, &pid) == .success {
+            if AXResponsiveness.shouldBackOff(after: result, elapsed: elapsed), AXUIElementGetPid(self, &pid) == .success {
                 AXResponsiveness.markUnresponsive(pid)
             }
             throw AxError.runtimeError

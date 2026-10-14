@@ -55,7 +55,6 @@ class WindowManipulationObservers {
     private let debouncedTasksLock = NSLock()
     private var debouncedTasks: [String: Task<Void, Never>] = [:]
     private var cacheUpdateWorkItem: (token: UUID, workItem: DispatchWorkItem, hasStateAdjustment: Bool, needsValidation: Bool)?
-    var updateDateTimeWorkItem: DispatchWorkItem?
     private func debounce(key: String, delay: TimeInterval = windowProcessingDebounceInterval, operation: @escaping () async -> Void) {
         let task = Task {
             do {
@@ -270,10 +269,11 @@ class WindowManipulationObservers {
 
         Self.ensureObserver(for: app)
 
+        let activatedAt = Date()
         let appAX = AXUIElementCreateApplication(app.processIdentifier)
         axObserverWorkQueue.asyncAfter(deadline: .now() + 0.3) {
             if let focusedWindow = try? appAX.focusedWindow() {
-                WindowUtil.updateWindowDateTime(element: focusedWindow, app: app)
+                WindowUtil.updateWindowDateTime(element: focusedWindow, app: app, at: activatedAt)
             }
         }
     }
@@ -303,16 +303,24 @@ class WindowManipulationObservers {
 
         let details = "App: \(app.localizedName ?? "Unknown") (PID: \(pid))"
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            let registrationFailed: Bool = DebugLogger.measure("createObserverForApp", details: details) {
+            let registration = DebugLogger.measure("createObserverForApp", details: details) {
                 let appElement = AXUIElementCreateApplication(pid)
-                return observedAXNotifications.map {
-                    AXObserverAddNotification(observer, appElement, $0 as CFString, UnsafeMutableRawPointer(bitPattern: Int(pid)))
-                }.contains(.cannotComplete)
+                var failed = false
+                var timedOut = false
+                for notification in observedAXNotifications {
+                    let start = CFAbsoluteTimeGetCurrent()
+                    let result = AXObserverAddNotification(observer, appElement, notification as CFString, UnsafeMutableRawPointer(bitPattern: Int(pid)))
+                    failed = failed || result == .cannotComplete
+                    timedOut = timedOut || AXResponsiveness.shouldBackOff(after: result, elapsed: CFAbsoluteTimeGetCurrent() - start)
+                }
+                return (failed: failed, timedOut: timedOut)
             }
-            guard registrationFailed else { return }
-            AXResponsiveness.markUnresponsive(pid)
+            guard registration.failed else { return }
             DispatchQueue.main.async {
                 guard let self, self.observers[pid] === observer else { return }
+                if registration.timedOut {
+                    AXResponsiveness.markUnresponsive(pid)
+                }
                 self.removeObserver(for: pid)
             }
         }
@@ -378,7 +386,9 @@ class WindowManipulationObservers {
                     await WindowUtil.cacheCreatedWindow(axWindow: focusedWindow, app: app)
                 }
             }
-            updateTimestampIfAppActive(element: element, app: app)
+            if app.isActive, let focusedWindow {
+                WindowUtil.updateWindowDateTime(element: focusedWindow, app: app)
+            }
             if let focusedWindowID {
                 WindowUtil.scheduleCachedWindowMetadataReconciliation(pid: pid, windowID: focusedWindowID)
             }
@@ -526,22 +536,6 @@ class WindowManipulationObservers {
         default:
             break
         }
-    }
-
-    private func updateTimestampIfAppActive(element: AXUIElement, app: NSRunningApplication) {
-        guard app.isActive else { return }
-        updateDateTimeWorkItem?.cancel()
-
-        let workItem = DispatchWorkItem {
-            if app.isActive {
-                let appAX = AXUIElementCreateApplication(app.processIdentifier)
-                if let focusedWindow = try? appAX.focusedWindow() {
-                    WindowUtil.updateWindowDateTime(element: focusedWindow, app: app)
-                }
-            }
-        }
-        updateDateTimeWorkItem = workItem
-        axObserverWorkQueue.asyncAfter(deadline: .now() + windowProcessingDebounceInterval, execute: workItem)
     }
 
     private func handleWindowEvent(element: AXUIElement,
