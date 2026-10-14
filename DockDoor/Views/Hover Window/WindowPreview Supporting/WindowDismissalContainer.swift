@@ -107,11 +107,11 @@ class MouseTrackingNSView: NSView {
                 return
             }
             let currentMouseLocation = NSEvent.mouseLocation
-            let windowFrame = window.frame.insetBy(dx: HoverContainerPadding.container, dy: HoverContainerPadding.container)
+            let hoverFrame = window.convertToScreen(convert(bounds, to: nil))
 
             let isMouseOverDockIcon = checkIfMouseIsOverDockIcon()
 
-            if windowFrame.contains(currentMouseLocation) || isMouseOverDockIcon {
+            if hoverFrame.contains(currentMouseLocation) || isMouseOverDockIcon {
                 resetOpacityVisually()
             } else {
                 if fadeOutTimer == nil, window.alphaValue == 1.0 {

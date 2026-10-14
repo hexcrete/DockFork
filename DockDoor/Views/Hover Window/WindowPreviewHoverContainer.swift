@@ -516,6 +516,26 @@ struct WindowPreviewHoverContainer: View {
             activateApp()
         }
         .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .popover && effectiveShowAppName) ? PreviewHeaderLayout.contentReservation(for: .popover) : 0)
+        .overlay {
+            if !mockPreviewActive, !isDragging {
+                WindowDismissalContainer(appName: appName,
+                                         bestGuessMonitor: bestGuessMonitor,
+                                         dockPosition: dockPosition,
+                                         dockItemElement: dockItemElement,
+                                         applicationProcessIdentifier: previewStateCoordinator.windows.first?.app.processIdentifier,
+                                         applicationBundleIdentifier: previewStateCoordinator.windows.first?.app.bundleIdentifier,
+                                         dockItemFrameOverride: dockItemFrameOverride,
+                                         originalMouseLocation: mouseLocation,
+                                         minimizeAllWindowsCallback: { wasAppActiveBeforeClick in
+                                             minimizeAllWindows(wasAppActiveBeforeClick: wasAppActiveBeforeClick)
+                                         })
+                    .padding(PreviewHeaderLayout.dismissalInsets(
+                        appHeaderStyle: !previewStateCoordinator.windowSwitcherActive && effectiveShouldShowHeader ? effectiveAppNameStyle : nil,
+                        selectionSummaryStyle: showsSelectionSummary ? previewStateCoordinator.selectionSummaryStyle : nil
+                    ))
+                    .allowsHitTesting(false)
+            }
+        }
         .onAppear {
             hasAppeared = true
             loadAppIcon()
@@ -664,22 +684,6 @@ struct WindowPreviewHoverContainer: View {
         }
         .overlay(alignment: PreviewHeaderLayout.alignment(for: previewStateCoordinator.selectionSummaryStyle, edge: .bottom)) {
             if showsSelectionSummary { selectionSummary.transition(.opacity) }
-        }
-        .overlay {
-            if !mockPreviewActive, !isDragging {
-                WindowDismissalContainer(appName: appName,
-                                         bestGuessMonitor: bestGuessMonitor,
-                                         dockPosition: dockPosition,
-                                         dockItemElement: dockItemElement,
-                                         applicationProcessIdentifier: previewStateCoordinator.windows.first?.app.processIdentifier,
-                                         applicationBundleIdentifier: previewStateCoordinator.windows.first?.app.bundleIdentifier,
-                                         dockItemFrameOverride: dockItemFrameOverride,
-                                         originalMouseLocation: mouseLocation,
-                                         minimizeAllWindowsCallback: { wasAppActiveBeforeClick in
-                                             minimizeAllWindows(wasAppActiveBeforeClick: wasAppActiveBeforeClick)
-                                         })
-                                         .allowsHitTesting(false)
-            }
         }
         .overlay {
             SelectionReader(selection: previewStateCoordinator.selection) { currIndex in
@@ -2374,6 +2378,14 @@ struct WindowPreviewHoverContainer: View {
 enum PreviewHeaderLayout {
     static let labelSpacing: CGFloat = 6
     static let minimumHeight: CGFloat = 24
+    static let shadowedOuterOverflow: CGFloat = 11.5
+
+    static func dismissalInsets(appHeaderStyle: AppNameStyle?, selectionSummaryStyle: AppNameStyle?) -> EdgeInsets {
+        let inset = HoverContainerPadding.container
+        return EdgeInsets(top: inset - (appHeaderStyle == .shadowed ? shadowedOuterOverflow : 0), leading: inset,
+                          bottom: inset - (selectionSummaryStyle == .shadowed ? shadowedOuterOverflow : 0), trailing: inset)
+    }
+
     static func contentReservation(for style: AppNameStyle) -> CGFloat {
         switch style {
         case .default: 25
@@ -2434,8 +2446,8 @@ private struct PreviewHeader<Label: View, Actions: View>: View {
                 .globalPadding(.leading, 20)
         }
         .if(style == .shadowed) {
-            $0.padding(EdgeInsets(top: edge == .top ? -11.5 : -1.5, leading: 15,
-                                  bottom: edge == .top ? -1.5 : -11.5, trailing: 1.5))
+            $0.padding(EdgeInsets(top: edge == .top ? -PreviewHeaderLayout.shadowedOuterOverflow : -1.5, leading: 15,
+                                  bottom: edge == .top ? -1.5 : -PreviewHeaderLayout.shadowedOuterOverflow, trailing: 1.5))
         }
         .if(style == .popover) {
             $0.offset(y: (edge == .top ? -1 : 1) * PreviewHeaderLayout.contentReservation(for: style))

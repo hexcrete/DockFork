@@ -662,6 +662,20 @@ struct OrderedPreviewSelectionTests {
 }
 
 struct SelectionCheckboxVisibilityTests {
+    @Test func shadowedHeadersExtendOnlyTheirVisibleHoverEdge() {
+        let styles: [AppNameStyle?] = [nil, .default, .popover, .shadowed]
+        for appStyle in styles {
+            for summaryStyle in styles {
+                let insets = PreviewHeaderLayout.dismissalInsets(appHeaderStyle: appStyle, selectionSummaryStyle: summaryStyle)
+                let margin = HoverContainerPadding.container
+                #expect(insets.top == margin - (appStyle == .shadowed ? PreviewHeaderLayout.shadowedOuterOverflow : 0))
+                #expect(insets.bottom == margin - (summaryStyle == .shadowed ? PreviewHeaderLayout.shadowedOuterOverflow : 0))
+                #expect(insets.leading == margin)
+                #expect(insets.trailing == margin)
+            }
+        }
+    }
+
     @Test func headersShareMirroredAlignmentAndReservation() {
         for style in [AppNameStyle.default, .shadowed, .popover] {
             #expect(PreviewHeaderLayout.alignment(for: style, edge: .top) == (style == .popover ? .top : .topLeading))
