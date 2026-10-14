@@ -3,9 +3,11 @@ import Defaults
 import SwiftUI
 
 enum PreviewControlAnimation {
+    static let maximumDuration = 0.5
+
     static func animation(duration: Double, animationsEnabled: Bool, reduceMotion: Bool) -> Animation? {
         guard animationsEnabled, !reduceMotion, duration > 0 else { return nil }
-        return .snappy(duration: min(duration, 0.2))
+        return .snappy(duration: min(duration, maximumDuration))
     }
 }
 

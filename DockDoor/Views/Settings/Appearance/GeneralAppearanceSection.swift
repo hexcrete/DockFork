@@ -78,7 +78,7 @@ struct GeneralAppearanceSection: View {
                     sliderSetting(
                         title: "Traffic Light Buttons Transition Animation Speed",
                         value: $trafficLightTransitionDuration,
-                        range: 0 ... 0.2,
+                        range: 0 ... PreviewControlAnimation.maximumDuration,
                         step: 0.01,
                         unit: "seconds",
                         formatter: NumberFormatter.twoDecimalFormatter

@@ -94,7 +94,8 @@ struct PreviewControlAnimationTests {
         #expect(PreviewControlAnimation.animation(duration: 0, animationsEnabled: true, reduceMotion: false) == nil)
         #expect(PreviewControlAnimation.animation(duration: -0.01, animationsEnabled: true, reduceMotion: false) == nil)
         #expect(PreviewControlAnimation.animation(duration: 0.15, animationsEnabled: true, reduceMotion: false) != nil)
-        #expect(PreviewControlAnimation.animation(duration: 0.5, animationsEnabled: true, reduceMotion: false) == PreviewControlAnimation.animation(duration: 0.2, animationsEnabled: true, reduceMotion: false))
+        #expect(PreviewControlAnimation.animation(duration: 0.5, animationsEnabled: true, reduceMotion: false) != PreviewControlAnimation.animation(duration: 0.2, animationsEnabled: true, reduceMotion: false))
+        #expect(PreviewControlAnimation.animation(duration: 0.8, animationsEnabled: true, reduceMotion: false) == PreviewControlAnimation.animation(duration: 0.5, animationsEnabled: true, reduceMotion: false))
         #expect(Defaults.Keys.trafficLightTransitionDuration.defaultValue == 0.1)
     }
 
