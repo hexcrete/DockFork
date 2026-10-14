@@ -118,6 +118,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     struct TapSnapshot {
         var isVisible = false
         var frame: CGRect = .zero
+        var interactionFrame: CGRect?
         var fullPreviewFrame: CGRect?
         var searchFrame: CGRect?
         var isSearchFocused = false
@@ -133,13 +134,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         func shouldDismissForOutsideClick(at location: CGPoint) -> Bool {
             isVisible && !isNativeMenuTracking &&
-                !frame.insetBy(dx: HoverContainerPadding.container, dy: HoverContainerPadding.container).contains(location) &&
+                !(interactionFrame ?? frame.insetBy(dx: HoverContainerPadding.container, dy: HoverContainerPadding.container)).contains(location) &&
                 !(searchFrame?.contains(location) ?? false)
         }
     }
 
     private let tapSnapshotLock = NSLock()
     private var currentTapSnapshot = TapSnapshot()
+    private weak var previewInteractionView: NSView?
 
     struct ContextMenuShortcutRoutingSnapshot {
         let token: UUID
@@ -217,6 +219,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let snapshot = TapSnapshot(
             isVisible: isVisible,
             frame: frame,
+            interactionFrame: previewInteractionView.flatMap { view in
+                guard view.window === self, !view.bounds.isEmpty else { return nil }
+                return convertToScreen(view.convert(view.bounds, to: nil))
+            },
             fullPreviewFrame: fullPreviewWindow.flatMap { $0.isVisible ? $0.frame : nil },
             searchFrame: searchWindowFrame,
             isSearchFocused: isSearchWindowFocused,
@@ -233,6 +239,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         tapSnapshotLock.lock()
         currentTapSnapshot = snapshot
         tapSnapshotLock.unlock()
+    }
+
+    func updatePreviewInteractionView(_ view: NSView) {
+        guard view.window === self, !view.bounds.isEmpty else { return }
+        let interactionFrame = convertToScreen(view.convert(view.bounds, to: nil))
+        guard previewInteractionView !== view || tapSnapshot.interactionFrame != interactionFrame else { return }
+        previewInteractionView = view
+        publishTapSnapshot()
     }
 
     init() {

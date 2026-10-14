@@ -1,5 +1,7 @@
 # Optional-Feature Resource Audit
 
+October 14 outside-click correction reuses the existing native dismissal tracker for the event-tap interaction region. The coordinator holds a weak view reference and publishes plain screen geometry in its existing lock-protected snapshot. Native attachment/tracking-area callbacks refresh it; existing frame notifications cover moves, and widgets retain their old fallback. No global monitor, observer, timer, polling or AX call is added. Seventeen native/snapshot checks reproduce and correct rejection of Shadowed header/summary clicks, including unchanged, empty and foreign view guards. Unchanged geometry does not republish. The user reports the correction working; the final publication guard has isolated/build validation, not separate manual coverage. This is a targeted review, not full-app profiling.
+
 Checked October 8, 2026, against upstream `0bd2e46`; commit references below follow the current fork history. This is a targeted source audit and a read-only badge-notification probe, not a whole-application performance certification. No new regression tests were added or live preferences reset.
 
 ## Badge Notifications

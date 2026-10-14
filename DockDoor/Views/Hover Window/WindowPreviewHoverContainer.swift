@@ -526,6 +526,7 @@ struct WindowPreviewHoverContainer: View {
                                          applicationBundleIdentifier: previewStateCoordinator.windows.first?.app.bundleIdentifier,
                                          dockItemFrameOverride: dockItemFrameOverride,
                                          originalMouseLocation: mouseLocation,
+                                         reportsInteractionBounds: true,
                                          minimizeAllWindowsCallback: { wasAppActiveBeforeClick in
                                              minimizeAllWindows(wasAppActiveBeforeClick: wasAppActiveBeforeClick)
                                          })

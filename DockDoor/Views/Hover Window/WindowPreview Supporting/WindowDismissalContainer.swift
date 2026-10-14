@@ -10,9 +10,10 @@ struct WindowDismissalContainer: NSViewRepresentable {
     let applicationBundleIdentifier: String?
     let dockItemFrameOverride: CGRect?
     let originalMouseLocation: CGPoint?
+    let reportsInteractionBounds: Bool
     let minimizeAllWindowsCallback: (_ wasAppActiveBeforeClick: Bool) -> Void
 
-    init(appName: String, bestGuessMonitor: NSScreen, dockPosition: DockPosition, dockItemElement: AXUIElement?, applicationProcessIdentifier: pid_t? = nil, applicationBundleIdentifier: String? = nil, dockItemFrameOverride: CGRect? = nil, originalMouseLocation: CGPoint? = nil, minimizeAllWindowsCallback: @escaping (_ wasAppActiveBeforeClick: Bool) -> Void) {
+    init(appName: String, bestGuessMonitor: NSScreen, dockPosition: DockPosition, dockItemElement: AXUIElement?, applicationProcessIdentifier: pid_t? = nil, applicationBundleIdentifier: String? = nil, dockItemFrameOverride: CGRect? = nil, originalMouseLocation: CGPoint? = nil, reportsInteractionBounds: Bool = false, minimizeAllWindowsCallback: @escaping (_ wasAppActiveBeforeClick: Bool) -> Void) {
         self.appName = appName
         self.bestGuessMonitor = bestGuessMonitor
         self.dockPosition = dockPosition
@@ -21,6 +22,7 @@ struct WindowDismissalContainer: NSViewRepresentable {
         self.applicationBundleIdentifier = applicationBundleIdentifier
         self.dockItemFrameOverride = dockItemFrameOverride
         self.originalMouseLocation = originalMouseLocation
+        self.reportsInteractionBounds = reportsInteractionBounds
         self.minimizeAllWindowsCallback = minimizeAllWindowsCallback
     }
 
@@ -33,6 +35,7 @@ struct WindowDismissalContainer: NSViewRepresentable {
                                        applicationBundleIdentifier: applicationBundleIdentifier,
                                        dockItemFrameOverride: dockItemFrameOverride,
                                        originalMouseLocation: originalMouseLocation,
+                                       reportsInteractionBounds: reportsInteractionBounds,
                                        minimizeAllWindowsCallback: minimizeAllWindowsCallback)
         view.resetOpacity()
         return view
@@ -50,13 +53,14 @@ class MouseTrackingNSView: NSView {
     private let applicationBundleIdentifier: String?
     private let dockItemFrameOverride: CGRect?
     private let originalMouseLocation: CGPoint?
+    private let reportsInteractionBounds: Bool
     private let minimizeAllWindowsCallback: (_ wasAppActiveBeforeClick: Bool) -> Void
     private var fadeOutTimer: Timer?
     private let fadeOutDuration: TimeInterval
     private var inactivityCheckTimer: Timer?
     private let inactivityCheckInterval: TimeInterval
 
-    init(appName: String, bestGuessMonitor: NSScreen, dockPosition: DockPosition, dockItemElement: AXUIElement?, applicationProcessIdentifier: pid_t? = nil, applicationBundleIdentifier: String? = nil, dockItemFrameOverride: CGRect? = nil, originalMouseLocation: CGPoint? = nil, minimizeAllWindowsCallback: @escaping (_ wasAppActiveBeforeClick: Bool) -> Void, frame frameRect: NSRect = .zero) {
+    init(appName: String, bestGuessMonitor: NSScreen, dockPosition: DockPosition, dockItemElement: AXUIElement?, applicationProcessIdentifier: pid_t? = nil, applicationBundleIdentifier: String? = nil, dockItemFrameOverride: CGRect? = nil, originalMouseLocation: CGPoint? = nil, reportsInteractionBounds: Bool = false, minimizeAllWindowsCallback: @escaping (_ wasAppActiveBeforeClick: Bool) -> Void, frame frameRect: NSRect = .zero) {
         self.appName = appName
         self.bestGuessMonitor = bestGuessMonitor
         self.dockPosition = dockPosition
@@ -65,6 +69,7 @@ class MouseTrackingNSView: NSView {
         self.applicationBundleIdentifier = applicationBundleIdentifier
         self.dockItemFrameOverride = dockItemFrameOverride
         self.originalMouseLocation = originalMouseLocation
+        self.reportsInteractionBounds = reportsInteractionBounds
         self.minimizeAllWindowsCallback = minimizeAllWindowsCallback
         fadeOutDuration = Defaults[.fadeOutDuration]
         inactivityCheckInterval = TimeInterval(Defaults[.inactivityTimeout])
@@ -77,6 +82,21 @@ class MouseTrackingNSView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateInteractionBounds()
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        updateInteractionBounds()
+    }
+
+    private func updateInteractionBounds() {
+        guard reportsInteractionBounds, let coordinator = window as? SharedPreviewWindowCoordinator else { return }
+        coordinator.updatePreviewInteractionView(self)
     }
 
     private func setupTrackingArea() {
