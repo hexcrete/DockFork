@@ -1,4 +1,5 @@
 import Cocoa
+import Combine
 import Defaults
 @testable import DockDoor
 import QuartzCore
@@ -764,5 +765,57 @@ struct ScriptWindowBatchTests {
         let second = PreviewWindowIdentity(pid: 2, windowID: 10)
         let result = WindowUtil.PreviewBatchResult(failed: [first, second, first])
         #expect(DockDoorCommands.batchResult(result) == "error: Operation failed for windows 20, 10; successful changes were retained")
+    }
+}
+
+struct PreviewDropTilingTests {
+    private let first = PreviewWindowIdentity(pid: 1, windowID: 10)
+    private let second = PreviewWindowIdentity(pid: 2, windowID: 20)
+    private let third = PreviewWindowIdentity(pid: 3, windowID: 30)
+
+    @Test func targetGroupLeadsAndDraggedOrderIsPreserved() {
+        #expect(PreviewDragLayout.tilingOrder(target: first, targetGroup: [first, second], dragged: [third]) == [first, second, third])
+        #expect(PreviewDragLayout.tilingOrder(target: first, targetGroup: [first], dragged: [third, second]) == [first, third, second])
+    }
+
+    @Test func droppingOntoTheDraggedGroupDoesNothing() {
+        #expect(PreviewDragLayout.tilingOrder(target: second, targetGroup: [first, second], dragged: [first, second]).isEmpty)
+        #expect(PreviewDragLayout.tilingOrder(target: first, targetGroup: [first], dragged: [first]).isEmpty)
+    }
+
+    @Test func overlappingGroupsDeduplicateInTargetFirstOrder() {
+        #expect(PreviewDragLayout.tilingOrder(target: first, targetGroup: [second, first], dragged: [third, second]) == [second, first, third])
+        let otherApp = PreviewWindowIdentity(pid: 2, windowID: 10)
+        #expect(PreviewDragLayout.tilingOrder(target: first, targetGroup: [first], dragged: [otherApp]) == [first, otherApp])
+    }
+
+    @MainActor @Test func dragHighlightPublishesOnlyWhenTheTargetChanges() {
+        let state = PreviewStateCoordinator()
+        var updates = 0
+        let subscription = state.selection.$previewDragTarget.dropFirst().sink { _ in updates += 1 }
+        state.setPreviewDragTarget(first)
+        state.setPreviewDragTarget(first)
+        #expect(updates == 1)
+        state.setPreviewDragTarget(second)
+        state.setPreviewDragTarget(nil)
+        state.setPreviewDragTarget(nil)
+        #expect(updates == 3)
+        #expect(state.selection.previewDragTarget == nil)
+        withExtendedLifetime(subscription) {}
+    }
+
+    @MainActor @Test func dropCoordinatesFollowBothScrollAxesAndClipTheViewport() {
+        for vertical in [true, false] {
+            let grid = CardGridScrollView.ContainerView(scrollsVertically: vertical)
+            grid.setFrameSize(CGSize(width: 100, height: 100))
+            grid.contentSize = CGSize(width: 500, height: 500)
+            grid.scroll(to: 200, animated: false)
+            #expect(grid.contentPoint(for: CGPoint(x: 10, y: 20)) == (vertical ? CGPoint(x: 10, y: 220) : CGPoint(x: 210, y: 20)))
+            #expect(grid.contentPoint(for: CGPoint(x: -1, y: 20)) == nil)
+            #expect(grid.contentPoint(for: CGPoint(x: 10, y: 101)) == nil)
+            grid.contentSize = CGSize(width: 120, height: 120)
+            #expect(grid.contentPoint(for: CGPoint(x: 10, y: 20)) == (vertical ? CGPoint(x: 10, y: 40) : CGPoint(x: 30, y: 20)))
+            grid.stopEdgeScroll()
+        }
     }
 }

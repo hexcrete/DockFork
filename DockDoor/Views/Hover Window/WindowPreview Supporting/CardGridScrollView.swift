@@ -124,6 +124,13 @@ struct CardGridScrollView: NSViewRepresentable {
             isInteractive ? super.hitTest(point) : nil
         }
 
+        func contentPoint(for point: CGPoint) -> CGPoint? {
+            guard bounds.contains(point) else { return nil }
+            // Hit targets must follow the live layer offset, including uncommitted edge scrolling.
+            return CGPoint(x: point.x + (scrollsVertically ? 0 : offset),
+                           y: point.y + (scrollsVertically ? offset : 0))
+        }
+
         override func setFrameSize(_ newSize: NSSize) {
             super.setFrameSize(newSize)
             setOffset(offset)
@@ -235,7 +242,7 @@ struct CardGridScrollView: NSViewRepresentable {
         override var isFlipped: Bool { true }
     }
 
-    final class Coordinator {
+    @MainActor final class Coordinator {
         private weak var container: ContainerView?
         private var hostingViews: [FlowItem: NSHostingView<AnyView>] = [:]
         private var frames: [FlowItem: CGRect] = [:]
@@ -272,12 +279,22 @@ struct CardGridScrollView: NSViewRepresentable {
 
         func detach(from detachedContainer: ContainerView) {
             guard container === detachedContainer else { return }
+            if previewCoordinator?.dragTargetGrid === self {
+                previewCoordinator?.dragTargetGrid = nil
+                previewCoordinator?.setPreviewDragTarget(nil)
+            }
             cancellables.removeAll()
             container = nil
         }
 
         func update(representable: CardGridScrollView) {
             guard let container else { return }
+            if representable.isInteractive, representable.layout.appearance.enableWindowDragTiling {
+                previewCoordinator?.dragTargetGrid = self
+            } else if previewCoordinator?.dragTargetGrid === self {
+                previewCoordinator?.dragTargetGrid = nil
+                previewCoordinator?.setPreviewDragTarget(nil)
+            }
             scrolledFromStart = representable.$scrolledFromStart
             scrolledToEnd = representable.$scrolledToEnd
 
@@ -321,6 +338,21 @@ struct CardGridScrollView: NSViewRepresentable {
                     }
                 }
             }
+        }
+
+        func windowForDrop(at screenPoint: CGPoint) -> WindowInfo? {
+            guard let container, container.isInteractive,
+                  let window = container.window, window.isVisible,
+                  let point = container.contentPoint(for: container.convert(window.convertPoint(fromScreen: screenPoint), from: nil)),
+                  let item = frames.first(where: { $0.value.contains(point) })?.key,
+                  case let .window(index) = item,
+                  contentKey.indices.contains(index),
+                  let previewCoordinator, previewCoordinator.windows.indices.contains(index)
+            else { return nil }
+            let target = previewCoordinator.windows[index]
+            let rendered = contentKey[index]
+            guard target.id == rendered.id, target.app.processIdentifier == rendered.pid else { return nil }
+            return target
         }
 
         private func rebuild(in container: ContainerView, representable: CardGridScrollView) {

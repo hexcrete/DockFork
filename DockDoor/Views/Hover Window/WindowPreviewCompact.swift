@@ -33,6 +33,7 @@ struct WindowPreviewCompact: View, Equatable {
     let currentSpaceNumbers: Set<Int>
     var spaceNumber: Int? = nil
     var isChecked = false
+    var dragSelection: SwitcherSelectionState? = nil
 
     @State private var isHovering = false
     @State private var isHoveringIcon = false
@@ -43,6 +44,7 @@ struct WindowPreviewCompact: View, Equatable {
 
     static func == (l: Self, r: Self) -> Bool {
         l.index == r.index && l.isSelected == r.isSelected && l.isChecked == r.isChecked
+            && l.dragSelection === r.dragSelection
             && l.windowSwitcherActive == r.windowSwitcherActive
             && l.uniformCardRadius == r.uniformCardRadius
             && l.widthOverride == r.widthOverride
@@ -320,7 +322,8 @@ struct WindowPreviewCompact: View, Equatable {
             windowSwitcherActive: windowSwitcherActive,
             handleWindowAction: handleWindowAction,
             onTap: onTap,
-            onDragHoverIndexChange: onDragHoverIndexChange
+            onDragHoverIndexChange: onDragHoverIndexChange,
+            dragSelection: dragSelection
         )
         .opacity(isHighlighted || isChecked ? 1.0 : appearance.unselectedContentOpacity)
         .padding(.horizontal, CardRadius.innerPadding)

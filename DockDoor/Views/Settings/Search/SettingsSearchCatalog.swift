@@ -1825,6 +1825,15 @@ enum SettingsSearchCatalog {
             icon: "slider.horizontal.3"
         ),
         SettingsSearchItem(
+            id: "gestures.enableWindowDragTiling",
+            title: String(localized: "Enable dragging windows together to tile them"),
+            description: String(localized: "Drag a window preview onto another preview to tile them on the target window's Desktop. Checked windows are included in selection order. Dragged windows are always brought to the front."),
+            keywords: ["drag", "drop", "tile", "selection", "mouse", "windows"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Mouse Actions"),
+            icon: "rectangle.split.2x2"
+        ),
+        SettingsSearchItem(
             id: "gestures.middleClick",
             title: String(localized: "Middle Click"),
             description: String(localized: "Action performed when middle-clicking on a window preview."),

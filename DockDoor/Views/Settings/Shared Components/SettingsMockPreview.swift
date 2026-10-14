@@ -285,6 +285,7 @@ struct SettingsMockPreview: View {
 
         return PreviewAppearanceSettings(
             enableMultiWindowSelection: false,
+            enableWindowDragTiling: false,
             showWindowSelectionSummary: false,
             showUncheckedSelectionCheckboxes: false,
             selectionCheckboxVisibility: .previewHover,

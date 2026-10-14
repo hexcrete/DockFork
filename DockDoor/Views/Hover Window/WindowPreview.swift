@@ -518,6 +518,7 @@ struct PreviewSelectionCheckbox: View {
 
 struct PreviewAppearanceSettings: Equatable {
     let enableMultiWindowSelection: Bool
+    let enableWindowDragTiling: Bool
     let showWindowSelectionSummary: Bool
     let showUncheckedSelectionCheckboxes: Bool
     let selectionCheckboxVisibility: SelectionCheckboxVisibility
@@ -642,6 +643,7 @@ struct PreviewAppearanceSettings: Equatable {
     static var observedKeys: [Defaults._AnyKey] {
         let keys: [Defaults._AnyKey] = [
             .enableMultiWindowSelection,
+            .enableWindowDragTiling,
             .trafficLightButtonsVisibility, .switcherTrafficLightButtonsVisibility, .cmdTabTrafficLightButtonsVisibility,
             .enabledTrafficLightButtons, .switcherEnabledTrafficLightButtons, .cmdTabEnabledTrafficLightButtons,
             .useMonochromeTrafficLights, .switcherUseMonochromeTrafficLights, .cmdTabUseMonochromeTrafficLights,
@@ -693,6 +695,7 @@ struct PreviewAppearanceSettings: Equatable {
         let selectionEnabled = Defaults[.enableMultiWindowSelection]
         return PreviewAppearanceSettings(
             enableMultiWindowSelection: selectionEnabled,
+            enableWindowDragTiling: Defaults[.enableWindowDragTiling],
             showWindowSelectionSummary: selectionEnabled && Defaults[.showWindowSelectionSummary],
             showUncheckedSelectionCheckboxes: selectionEnabled ? Defaults[.showUncheckedSelectionCheckboxes] : Defaults.Keys.showUncheckedSelectionCheckboxes.defaultValue,
             selectionCheckboxVisibility: selectionEnabled ? Defaults[.selectionCheckboxVisibility] : Defaults.Keys.selectionCheckboxVisibility.defaultValue,
@@ -896,6 +899,7 @@ struct WindowPreview: View, Equatable {
     let currentSpaceNumbers: Set<Int>
     var spaceNumber: Int? = nil
     var isChecked = false
+    var dragSelection: SwitcherSelectionState? = nil
 
     @State private var isHoveringOverDockPeekPreview = false
     @State private var isHoveringOverWindowSwitcherPreview = false
@@ -1177,6 +1181,7 @@ struct WindowPreview: View, Equatable {
 
     static func == (l: Self, r: Self) -> Bool {
         l.index == r.index && l.isSelected == r.isSelected && l.isChecked == r.isChecked && l.useLivePreview == r.useLivePreview
+            && l.dragSelection === r.dragSelection
             && l.skeletonMode == r.skeletonMode && l.dimensions == r.dimensions
             && l.uniformCardRadius == r.uniformCardRadius && l.showAppIconOnly == r.showAppIconOnly
             && l.windowSwitcherActive == r.windowSwitcherActive
@@ -2037,7 +2042,8 @@ struct WindowPreview: View, Equatable {
                 windowSwitcherActive: windowSwitcherActive,
                 handleWindowAction: handleWindowAction,
                 onTap: onTap,
-                onDragHoverIndexChange: onDragHoverIndexChange
+                onDragHoverIndexChange: onDragHoverIndexChange,
+                dragSelection: dragSelection
             )
             .windowPreviewInteractions(
                 windowInfo: windowInfo,

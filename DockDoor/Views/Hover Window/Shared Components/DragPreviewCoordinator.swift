@@ -7,6 +7,14 @@ struct PreviewDragTarget {
 }
 
 enum PreviewDragLayout {
+    static func tilingOrder(target: PreviewWindowIdentity, targetGroup: [PreviewWindowIdentity],
+                            dragged: [PreviewWindowIdentity]) -> [PreviewWindowIdentity]
+    {
+        guard !dragged.contains(target) else { return [] }
+        var seen = Set<PreviewWindowIdentity>()
+        return (targetGroup + dragged).filter { seen.insert($0).inserted }
+    }
+
     // Cached frames use AX coordinates, whose vertical axis is opposite AppKit's.
     static func centers(for frames: [CGRect], at pointer: CGPoint, within visibleFrame: CGRect) -> [CGPoint]? {
         guard frames.allSatisfy({ $0.minX.isFinite && $0.minY.isFinite && $0.width.isFinite && $0.height.isFinite && $0.width > 0 && $0.height > 0 }) else { return nil }

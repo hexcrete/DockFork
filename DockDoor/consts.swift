@@ -1034,6 +1034,7 @@ extension Defaults.Keys {
     // MARK: - Middle Click Action
 
     static let middleClickAction = Key<WindowAction>("middleClickAction", default: .close)
+    static let enableWindowDragTiling = Key<Bool>("enableWindowDragTiling", default: false)
 
     // MARK: - Spaces
 

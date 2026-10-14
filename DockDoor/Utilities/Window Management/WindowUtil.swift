@@ -1015,21 +1015,23 @@ extension WindowUtil {
 
     @MainActor
     static func tilePreviewWindows(_ windows: [WindowInfo], direction: PreviewTilingLayout.Direction,
-                                   bringToFront: Bool? = nil) async -> PreviewBatchResult
+                                   bringToFront: Bool? = nil, destination requestedDestination: ManagedSpaceDestination? = nil,
+                                   on requestedScreen: NSScreen? = nil,
+                                   isRequestActive: @escaping @MainActor () -> Bool = { true }) async -> PreviewBatchResult
     {
         let pointer = NSEvent.mouseLocation
         let topology = WindowSpaces.managedDisplays()
-        guard let screen = pointer.screen(),
-              let spaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: pointer),
+        guard let spaceID = requestedDestination?.space.id ?? WindowSpaces.currentManagedSpaceID(mouseLocation: pointer),
               let destination = WindowSpaces.destination(forSpaceID: spaceID, in: topology),
-              destination.space.kind == .desktop
+              destination.space.kind == .desktop,
+              let screen = requestedScreen ?? (requestedDestination == nil ? pointer.screen() : WindowSpaces.screen(forDisplayIdentifier: destination.display.identifier))
         else { return PreviewBatchResult(failed: windows.map(PreviewWindowIdentity.init)) }
         let maximumRows = Defaults[.maximumTilingRows]
         let maximumColumns = Defaults[.maximumTilingColumns]
         var frames: [CGRect?]?
         return await performWindowGroupPlacement(windows, destination: destination,
                                                  raiseWindows: bringToFront ?? Defaults[.moveResizeBringToForeground],
-                                                 isRequestActive: { true })
+                                                 isRequestActive: isRequestActive)
         { window, index, count in
             if frames == nil {
                 frames = PreviewTilingLayout.frames(count: count, in: screen.visibleFrame, direction: direction,

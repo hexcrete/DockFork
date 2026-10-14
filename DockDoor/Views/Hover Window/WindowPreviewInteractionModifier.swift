@@ -3,6 +3,32 @@ import Defaults
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct PreviewDragTargetHighlight: View {
+    let uniformCardRadius: Bool
+    let paddingMultiplier: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: CardRadius.previewCard(uniform: uniformCardRadius, paddingMultiplier: paddingMultiplier))
+            .fill(Color(nsColor: .controlAccentColor).opacity(0.3))
+            .padding(-CardRadius.innerPadding)
+            .allowsHitTesting(false)
+    }
+}
+
+private struct InternalDragTargetHighlight: View {
+    @ObservedObject var selection: SwitcherSelectionState
+    let identity: PreviewWindowIdentity
+    let externalTargeted: Bool
+    let uniformCardRadius: Bool
+    let paddingMultiplier: CGFloat
+
+    var body: some View {
+        if externalTargeted || selection.previewDragTarget == identity {
+            PreviewDragTargetHighlight(uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier)
+        }
+    }
+}
+
 private struct ExternalDragSpringLoadingModifier: ViewModifier {
     let windowInfo: WindowInfo
     let index: Int
@@ -13,6 +39,7 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
     let handleWindowAction: (WindowAction) -> Void
     let onTap: (() -> Void)?
     let onDragHoverIndexChange: ((Int?) -> Void)?
+    let dragSelection: SwitcherSelectionState?
 
     @State private var isTargeted = false
     @State private var springLoadTask: Task<Void, Never>?
@@ -25,16 +52,12 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .overlay {
-                if isTargeted {
-                    RoundedRectangle(
-                        cornerRadius: CardRadius.previewCard(
-                            uniform: uniformCardRadius,
-                            paddingMultiplier: paddingMultiplier
-                        )
-                    )
-                    .fill(Color(nsColor: .controlAccentColor).opacity(0.3))
-                    .padding(-CardRadius.innerPadding)
-                    .allowsHitTesting(false)
+                if let dragSelection {
+                    InternalDragTargetHighlight(selection: dragSelection, identity: PreviewWindowIdentity(windowInfo),
+                                                externalTargeted: isTargeted, uniformCardRadius: uniformCardRadius,
+                                                paddingMultiplier: paddingMultiplier)
+                } else if isTargeted {
+                    PreviewDragTargetHighlight(uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier)
                 }
             }
             .onDrop(of: [UTType.item], isTargeted: $isTargeted) { _ in
@@ -311,7 +334,8 @@ extension View {
         windowSwitcherActive: Bool,
         handleWindowAction: @escaping (WindowAction) -> Void,
         onTap: (() -> Void)?,
-        onDragHoverIndexChange: ((Int?) -> Void)?
+        onDragHoverIndexChange: ((Int?) -> Void)?,
+        dragSelection: SwitcherSelectionState? = nil
     ) -> some View {
         modifier(ExternalDragSpringLoadingModifier(
             windowInfo: windowInfo,
@@ -322,7 +346,8 @@ extension View {
             keepPreviewOnHoverActivation: appearance.keepPreviewOnHoverActivation,
             handleWindowAction: handleWindowAction,
             onTap: onTap,
-            onDragHoverIndexChange: onDragHoverIndexChange
+            onDragHoverIndexChange: onDragHoverIndexChange,
+            dragSelection: dragSelection
         ))
     }
 

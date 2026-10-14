@@ -44,6 +44,7 @@ struct OrderedPreviewSelection: Equatable {
 final class SwitcherSelectionState: ObservableObject {
     @Published var currIndex: Int = -1
     @Published fileprivate(set) var checkedWindows = OrderedPreviewSelection()
+    @Published fileprivate(set) var previewDragTarget: PreviewWindowIdentity?
 }
 
 /// Pure UI state container for window preview presentation
@@ -67,6 +68,12 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     var tapStateDidChange: (() -> Void)?
+    weak var dragTargetGrid: CardGridScrollView.Coordinator?
+
+    @MainActor
+    func setPreviewDragTarget(_ target: PreviewWindowIdentity?) {
+        if selection.previewDragTarget != target { selection.previewDragTarget = target }
+    }
 
     @Published private(set) var checkedWindowCount = 0
     private(set) var selectionSuppressesRelease = false

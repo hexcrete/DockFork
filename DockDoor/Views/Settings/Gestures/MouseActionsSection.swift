@@ -3,6 +3,7 @@ import SwiftUI
 
 struct MouseActionsSection: View {
     @Default(.middleClickAction) var middleClickAction
+    @Default(.enableWindowDragTiling) private var enableWindowDragTiling
 
     var body: some View {
         SettingsGroup(header: "Mouse Actions") {
@@ -32,6 +33,12 @@ struct MouseActionsSection: View {
                 }
 
                 Text("Action performed when middle-clicking on a window preview.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Enable dragging windows together to tile them", isOn: $enableWindowDragTiling)
+                    .settingsSearchTarget("gestures.enableWindowDragTiling")
+                Text("Drag a window preview onto another preview to tile them on the target window's Desktop. Checked windows are included in selection order. Dragged windows are always brought to the front.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
