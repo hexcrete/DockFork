@@ -256,8 +256,7 @@ class WindowManipulationObservers {
             keepPreviewOnHoverActivation: Defaults[.keepPreviewOnHoverActivation],
             previewHoverAction: Defaults[.previewHoverAction],
             mouseIsWithinPreviewWindow: tapSnapshot.mouseIsWithinPreviewWindow,
-            hasCheckedWindows: tapSnapshot.hasCheckedWindows &&
-                tapSnapshot.isWindowSwitcherActive
+            hasCheckedWindows: previewCoordinator.selectionKeepsPreviewsOpen
         ), !suppressActionDrivenDismissal {
             previewCoordinator.hideWindow()
         }

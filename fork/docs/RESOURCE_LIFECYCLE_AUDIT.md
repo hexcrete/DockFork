@@ -110,3 +110,7 @@ October 13 targeted phase-5 source review: the existing card-grid coordinator re
 ## Select All
 
 October 13 targeted review: selection-summary, preview-action and menu callers share one main-actor coordinator operation using existing filtered indices and cached row eligibility. Ordered insertion deduplicates through the existing membership set, and unchanged selection publishes nothing. A changed operation publishes once and uses existing pinning/layout refresh; it performs no window discovery, AX calls, screenshot refreshes or recurring work. Fifty-four isolated tests and seven source-extracted coordinator checks passed. User manual verification and final source review passed October 13. Full Xcode tests remain unrun. This does not rerun the broader audit.
+
+## Optional Selection Keep-Open
+
+October 13 targeted follow-up: the new default-Off preference gates the existing pin callback, effective release suppression, and selection-based preview retention. Selection keyboard actions skip ownership takeover while Off. The activation-dismissal observer uses the shared retention decision rather than treating all checked sessions as pinned. No new observer, timer, event tap, task or layout measurement is introduced. Eight source-extracted pin checks and 54 isolated regression tests passed without writing live preferences. User verification passed October 13 for held-modifier and swipe modes; final source review passed. Full Xcode tests remain unrun. This is not a broader audit or performance measurement.

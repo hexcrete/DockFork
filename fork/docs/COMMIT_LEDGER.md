@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers sixty-one later commits through `ed767aaf0ff8671e4fc2fccb775b5ad0f646b175`: **253 total, 249 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The approved selection and batch-action commits are recorded. The approved group-drag commit is recorded. The approved tiling commit is recorded. The approved batch-scripting commit is recorded. The approved drop-to-tile commit is recorded. The compact drag-highlight correction is recorded. Uncommitted Select All development is excluded from this explicit coverage boundary. A commit cannot contain its own final hash.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers sixty-two later commits through `4ef5a084541c6228db03f5021a7bd7e4a4de5b0a`: **254 total, 250 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The approved selection and batch-action commits are recorded. The approved group-drag commit is recorded. The approved tiling commit is recorded. The approved batch-scripting commit is recorded. The approved drop-to-tile commit is recorded. The compact drag-highlight correction is recorded. The approved Select All commit is recorded. Uncommitted selection keep-open option development is excluded from this explicit coverage boundary. A commit cannot contain its own final hash.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -425,6 +425,8 @@ Coverage: `9efa1cc..a4150a5`, extended and verified against Git October 13, 2026
 | [`7a6ec7d`](https://github.com/hexcrete/DockFork/commit/7a6ec7d53095a2c683672523f54224a2e410d041) | Optional drop-to-tile using stable target-first ordering, confirmed placement, shared file/preview highlighting and cancellation-safe grid targeting. Manual verification and focused regression checks passed. | Feature | 18 |
 
 | [`ed767aa`](https://github.com/hexcrete/DockFork/commit/ed767aaf0ff8671e4fc2fccb775b5ad0f646b175) | Compact preview/file drag highlights match horizontal row bounds and remain undimmed while preserving existing row dimming. User verification passed. Spaces Bar deferred to a later release. | Fix | 6 |
+
+| [`4ef5a08`](https://github.com/hexcrete/DockFork/commit/4ef5a084541c6228db03f5021a7bd7e4a4de5b0a) | Select All button and assignable action share filtered real-window selection, preserving existing order and outside-view checks. No-highlight shortcut routing, settings helper/search coverage and idempotence tests. User verification passed. | Feature | 13 |
 
 ## Upstream Attribution and Contribution Boundaries
 

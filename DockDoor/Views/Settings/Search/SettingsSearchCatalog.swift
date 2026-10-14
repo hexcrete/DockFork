@@ -1958,8 +1958,17 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.enableMultiWindowSelection",
             title: String(localized: "Enable multi-window selection"),
-            description: String(localized: "Check windows using selection controls or the Toggle Window Selection action. Checked windows keep Window Switcher previews open; Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection. Mixed selections minimize or hide when any applicable target is unminimized or visible; otherwise they restore or unhide. Fullscreen exits all selected fullscreen windows. If none are fullscreen, only the clicked or highlighted window enters fullscreen."),
+            description: String(localized: "Check windows using selection controls or the Toggle Window Selection action. Selecting windows follows the session's normal dismissal behavior unless Keep Window Switcher open when windows are selected is enabled. Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection. Mixed selections minimize or hide when any applicable target is unminimized or visible; otherwise they restore or unhide. Fullscreen exits all selected fullscreen windows. If none are fullscreen, only the clicked or highlighted window enters fullscreen."),
             keywords: ["selection", "multiple", "check", "batch", "escape"],
+            tab: "GesturesKeybinds",
+            section: String(localized: "Window Selection & Tiling"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.keepWindowSwitcherOpenWhenSelected",
+            title: String(localized: "Keep Window Switcher open when windows are selected"),
+            description: String(localized: "Keep selected windows available after releasing the initializer modifier or finishing a swipe. When disabled, selecting windows does not change the session's normal dismissal behavior. Dock and Cmd+Tab previews keep their normal dismissal behavior."),
+            keywords: ["selection", "persistent", "modifier", "release", "swipe", "keep", "open"],
             tab: "GesturesKeybinds",
             section: String(localized: "Window Selection & Tiling"),
             icon: "checkmark.circle"

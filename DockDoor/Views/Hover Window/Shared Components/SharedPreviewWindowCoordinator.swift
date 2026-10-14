@@ -37,7 +37,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     var selectionKeepsPreviewsOpen: Bool {
-        windowSwitcherCoordinator.checkedWindowCount > 0 &&
+        Defaults[.keepWindowSwitcherOpenWhenSelected] &&
+            windowSwitcherCoordinator.checkedWindowCount > 0 &&
             windowSwitcherCoordinator.windowSwitcherActive
     }
 

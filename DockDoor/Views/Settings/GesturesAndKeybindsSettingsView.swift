@@ -26,6 +26,7 @@ private struct WindowSelectionSettingsSection: View {
     @Default(.showUncheckedSelectionCheckboxes) private var showUnchecked
     @Default(.selectionCheckboxVisibility) private var visibility
     @Default(.showWindowSelectionSummary) private var showSummary
+    @Default(.keepWindowSwitcherOpenWhenSelected) private var keepOpenWhenSelected
     @Default(.maximumTilingRows) private var maximumTilingRows
     @Default(.maximumTilingColumns) private var maximumTilingColumns
 
@@ -34,11 +35,17 @@ private struct WindowSelectionSettingsSection: View {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Enable multi-window selection", isOn: $enabled)
                     .settingsSearchTarget("gestures.enableMultiWindowSelection")
-                Text("Check windows using selection controls or the Toggle Window Selection action. Checked windows keep Window Switcher previews open; Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection. Mixed selections minimize or hide when any applicable target is unminimized or visible; otherwise they restore or unhide. Fullscreen exits all selected fullscreen windows. If none are fullscreen, only the clicked or highlighted window enters fullscreen.")
+                Text("Check windows using selection controls or the Toggle Window Selection action. Selecting windows follows the session's normal dismissal behavior unless Keep Window Switcher open when windows are selected is enabled. Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection. Mixed selections minimize or hide when any applicable target is unminimized or visible; otherwise they restore or unhide. Fullscreen exits all selected fullscreen windows. If none are fullscreen, only the clicked or highlighted window enters fullscreen.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 20)
                 if enabled {
+                    Toggle("Keep Window Switcher open when windows are selected", isOn: $keepOpenWhenSelected)
+                        .settingsSearchTarget("gestures.keepWindowSwitcherOpenWhenSelected")
+                    Text("Keep selected windows available after releasing the initializer modifier or finishing a swipe. When disabled, selecting windows does not change the session's normal dismissal behavior. Dock and Cmd+Tab previews keep their normal dismissal behavior.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 20)
                     Toggle("Show selection summary", isOn: $showSummary)
                         .settingsSearchTarget("gestures.showWindowSelectionSummary")
                     Text("Show the selection count with Select All and Clear Selection buttons. Select All adds currently displayed, filtered windows to the selection.")

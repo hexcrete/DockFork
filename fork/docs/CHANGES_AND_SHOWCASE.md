@@ -103,6 +103,12 @@ The optional selection summary now includes Select All alongside Clear Selection
 
 Validation: 54 isolated regression tests and seven source-extracted coordinator checks passed, covering ordering, filtered/empty results, eligibility, retained checks, repeated calls and the disabled setting. These adapter tests do not prove native UI behavior. Signed Debug build, exact-path relaunch, signature/binary verification and diff checks passed; launch required a retry after Launch Services error -600. User manual verification and final source review passed October 13; full Xcode tests remain unrun. Not included in the published 0.1.0 release.
 
+## Development: Optional Selection Keep-Open
+
+Keep Window Switcher open when windows are selected is under Gestures & Keybinds > Window Selection & Tiling and defaults Off. With it disabled, checking windows or Select All does not pin initializer release or take session ownership; held-modifier and swipe sessions retain their normal dismissal behavior. Existing persistent launches remain persistent. Other input-driven ownership rules and configured post-action preferences remain unchanged. Enable the option to retain the earlier selection pinning and selection-based preview-retention behavior. Dock/Cmd+Tab dismissal remains unchanged. Escape and outside-click dismissal remain available. Disabling the option stops selection release suppression but does not retroactively convert an already-persistent launch into a held-modifier session.
+
+Existing keys are retained; no migration or new observer/timer is added. The existing release and dismissal paths read the option. Eight source-extracted pin-state checks and the 54-test isolated regression suite passed. Signed Debug build, exact-path relaunch, signature/source/binary correspondence and diff checks passed. User verification passed October 13 for the held-modifier and swipe modes; final source review passed. Full Xcode tests remain unrun. Not included in the published 0.1.0 release.
+
 ## Reading This Guide
 
 - [Complete commit ledger](COMMIT_LEDGER.md): every branch-only commit in the audited history, grouped by category.

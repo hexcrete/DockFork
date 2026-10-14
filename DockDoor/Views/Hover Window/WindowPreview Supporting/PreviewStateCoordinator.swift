@@ -82,7 +82,10 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @Published private(set) var checkedWindowCount = 0
-    private(set) var selectionSuppressesRelease = false
+    private var selectionPinned = false
+    var selectionSuppressesRelease: Bool {
+        Defaults[.keepWindowSwitcherOpenWhenSelected] && selectionPinned
+    }
     var onSelectionPinned: (() -> Void)?
     private var selectionLayoutGeneration: UInt = 0
 
@@ -111,15 +114,16 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     private func pinCheckedSelectionIfNeeded() {
-        if windowSwitcherActive, !selectionSuppressesRelease, !selection.checkedWindows.identities.isEmpty {
-            selectionSuppressesRelease = true
+        if Defaults[.keepWindowSwitcherOpenWhenSelected], windowSwitcherActive,
+           !selectionPinned, !selection.checkedWindows.identities.isEmpty {
+            selectionPinned = true
             onSelectionPinned?()
         }
     }
 
     @MainActor
     func clearCheckedWindows(resetOwnership: Bool = false) {
-        if resetOwnership { selectionSuppressesRelease = false }
+        if resetOwnership { selectionPinned = false }
         guard checkedWindowCount > 0 else {
             tapStateDidChange?()
             return

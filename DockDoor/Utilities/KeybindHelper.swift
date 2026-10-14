@@ -1801,7 +1801,9 @@ class KeybindHelper {
                 {
                     preventSwitcherHideOnRelease = true
                     return (true, { @MainActor in
-                        self.windowSwitchingCoordinator.takeKeyboardOwnership()
+                        if ![.toggleWindowSelection, .selectAllWindows].contains(action) || Defaults[.keepWindowSwitcherOpenWhenSelected] {
+                            self.windowSwitchingCoordinator.takeKeyboardOwnership()
+                        }
                         let didClosePreviews = self.previewCoordinator.performActionOnCurrentWindow(action: action)
                         if didClosePreviews || self.previewCoordinator.windowSwitcherCoordinator.windows.isEmpty {
                             self.switcherSessionActive = false
