@@ -2,6 +2,17 @@ import AppKit
 import Defaults
 import SwiftUI
 
+private final class BorderlessSearchFieldCell: NSSearchFieldCell {
+    // Borderless fields otherwise let the field editor cover the cancel button.
+    override func edit(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, event: NSEvent?) {
+        super.edit(withFrame: searchTextRect(forBounds: rect), in: controlView, editor: textObj, delegate: delegate, event: event)
+    }
+
+    override func select(withFrame rect: NSRect, in controlView: NSView, editor textObj: NSText, delegate: Any?, start selStart: Int, length selLength: Int) {
+        super.select(withFrame: searchTextRect(forBounds: rect), in: controlView, editor: textObj, delegate: delegate, start: selStart, length: selLength)
+    }
+}
+
 struct SearchFieldView: View {
     let searchField: NSTextField
     @State private var backgroundAppearance: BackgroundAppearance = .resolve()
@@ -13,7 +24,7 @@ struct SearchFieldView: View {
                 .foregroundColor(.secondary)
 
             SearchTextFieldRepresentable(textField: searchField)
-            Spacer(minLength: 0)
+                .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 12)
         .materialPill(backgroundAppearance: backgroundAppearance)
@@ -37,7 +48,7 @@ struct SearchTextFieldRepresentable: NSViewRepresentable {
     func updateNSView(_ nsView: NSTextField, context: Context) {}
 }
 
-class SearchWindow: NSPanel, NSTextFieldDelegate {
+class SearchWindow: NSPanel, NSSearchFieldDelegate {
     static let searchWidth: CGFloat = 300
     static let searchHeight: CGFloat = 40
     // The panel frame sits slightly inside the container edge. The capsule is
@@ -48,7 +59,7 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
         searchHeight + panelEdgeOffset - HoverContainerPadding.container
     )
 
-    private var searchField: NSTextField!
+    private var searchField: NSSearchField!
     private weak var previewCoordinator: PreviewStateCoordinator?
     private var focusRequestID = UUID()
 
@@ -101,9 +112,13 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     }
 
     private func setupSearchField() {
-        searchField = NSTextField()
+        searchField = NSSearchField()
+        searchField.cell = BorderlessSearchFieldCell(textCell: "")
+        searchField.isEditable = true
+        searchField.isSelectable = true
         setSearchPlaceholderVisible(true)
         searchField.isBordered = false
+        searchField.isBezeled = false
         searchField.drawsBackground = false
         searchField.backgroundColor = .clear
         searchField.focusRingType = .none
@@ -111,6 +126,10 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
         searchField.usesSingleLineMode = true
         searchField.maximumNumberOfLines = 1
         searchField.lineBreakMode = .byClipping
+        searchField.sendsSearchStringImmediately = true
+        searchField.target = self
+        searchField.action = #selector(searchFieldAction(_:))
+        (searchField.cell as? NSSearchFieldCell)?.searchButtonCell = nil
         if let cell = searchField.cell as? NSTextFieldCell {
             cell.wraps = false
             cell.usesSingleLineMode = true
@@ -128,7 +147,16 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
 
     func controlTextDidChange(_ obj: Notification) {
         guard let textField = obj.object as? NSTextField else { return }
-        previewCoordinator?.searchQuery = textField.stringValue
+        updateSearchQuery(from: textField)
+    }
+
+    @objc private func searchFieldAction(_ sender: NSSearchField) {
+        updateSearchQuery(from: sender)
+    }
+
+    private func updateSearchQuery(from field: NSTextField) {
+        guard previewCoordinator?.searchQuery != field.stringValue else { return }
+        previewCoordinator?.searchQuery = field.stringValue
     }
 
     func controlTextDidBeginEditing(_ obj: Notification) {
@@ -245,11 +273,10 @@ class SearchWindow: NSPanel, NSTextFieldDelegate {
     }
 
     func hideSearch() {
-        focusRequestID = UUID()
+        unfocusSearchField()
         parent?.removeChildWindow(self)
         orderOut(nil)
         searchField.stringValue = ""
-        setSearchPlaceholderVisible(true)
         previewCoordinator?.searchQuery = ""
     }
 
