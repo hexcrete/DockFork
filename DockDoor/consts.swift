@@ -1046,11 +1046,11 @@ extension Defaults.Keys {
     static let enableSpacesShortcuts = Key<Bool>("enableSpacesShortcuts", default: false)
     static let enableMultiWindowSelection = Key<Bool>("enableMultiWindowSelection", default: false)
     static let keepWindowSwitcherOpenWhenSelected = Key<Bool>("keepWindowSwitcherOpenWhenSelected", default: false)
-    static let showWindowSelectionSummary = Key<Bool>("showWindowSelectionSummary", default: false)
+    static let showWindowSelectionSummary = Key<Bool>("showWindowSelectionSummary", default: true)
     static let showUncheckedSelectionCheckboxes = Key<Bool>("showUncheckedSelectionCheckboxes", default: true)
     static let selectionCheckboxVisibility = Key<SelectionCheckboxVisibility>("selectionCheckboxVisibility", default: .previewHover)
     static let maximumTilingRows = Key<Int>("maximumTilingRows", default: 2)
-    static let maximumTilingColumns = Key<Int>("maximumTilingColumns", default: 2)
+    static let maximumTilingColumns = Key<Int>("maximumTilingColumns", default: 3)
 
     // MARK: - Window Preview Keyboard Shortcuts
 
