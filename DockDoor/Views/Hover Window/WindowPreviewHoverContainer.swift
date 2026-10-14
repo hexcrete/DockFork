@@ -1344,14 +1344,8 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func handleAppHeaderAction(_ action: WindowAction) {
-        guard hasAppHeaderWindowTargets else { return }
-        let selectedIndex = previewStateCoordinator.currIndex
-        let targetIndex = if previewStateCoordinator.windows.indices.contains(selectedIndex) {
-            selectedIndex
-        } else {
-            0
-        }
-        handleWindowAction(action, at: targetIndex)
+        guard !mockPreviewActive, hasAppHeaderWindowTargets else { return }
+        SharedPreviewWindowCoordinator.activeInstance?.performAppHeaderAction(action)
     }
 
     private func minimizeAllWindows(

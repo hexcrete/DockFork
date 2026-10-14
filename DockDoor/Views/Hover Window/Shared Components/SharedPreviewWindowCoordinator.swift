@@ -1787,6 +1787,24 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             return false
         }
 
+        return performPreviewBatchAction(action, on: targets, initiator: initiator, preservePreviews: preservePreviews)
+    }
+
+    @MainActor
+    func performAppHeaderAction(_ action: WindowAction) {
+        guard action == .closeAllWindows || action == .minimizeAllWindows,
+              let app = windowSwitcherCoordinator.windows.first?.app
+        else { return }
+        let targets = WindowUtil.readCachedWindows(for: app.processIdentifier)
+            .filter { !$0.isWindowlessApp && !$0.app.isTerminated }
+        guard let initiator = targets.first else { NSSound.beep(); return }
+        _ = performPreviewBatchAction(action, on: targets, initiator: initiator)
+    }
+
+    @MainActor
+    private func performPreviewBatchAction(_ action: WindowAction, on targets: [WindowInfo], initiator: WindowInfo,
+                                           preservePreviews: Bool = false) -> Bool
+    {
         previewBatchTask?.cancel()
         let token = UUID()
         previewBatchToken = token
