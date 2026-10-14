@@ -530,11 +530,11 @@ struct WindowPreviewHoverContainer: View {
                                          minimizeAllWindowsCallback: { wasAppActiveBeforeClick in
                                              minimizeAllWindows(wasAppActiveBeforeClick: wasAppActiveBeforeClick)
                                          })
-                    .padding(PreviewHeaderLayout.dismissalInsets(
-                        appHeaderStyle: !previewStateCoordinator.windowSwitcherActive && effectiveShouldShowHeader ? effectiveAppNameStyle : nil,
-                        selectionSummaryStyle: showsSelectionSummary ? previewStateCoordinator.selectionSummaryStyle : nil
-                    ))
-                    .allowsHitTesting(false)
+                                         .padding(PreviewHeaderLayout.dismissalInsets(
+                                             appHeaderStyle: !previewStateCoordinator.windowSwitcherActive && effectiveShouldShowHeader ? effectiveAppNameStyle : nil,
+                                             selectionSummaryStyle: showsSelectionSummary ? previewStateCoordinator.selectionSummaryStyle : nil
+                                         ))
+                                         .allowsHitTesting(false)
             }
         }
         .onAppear {
