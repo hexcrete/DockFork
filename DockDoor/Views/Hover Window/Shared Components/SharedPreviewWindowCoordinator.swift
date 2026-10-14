@@ -1802,6 +1802,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @MainActor
+    func tileSelectionSummaryWindows() {
+        guard let targets = windowSwitcherCoordinator.checkedActionTargets(),
+              let initiator = targets.first
+        else { NSSound.beep(); return }
+        _ = performPreviewBatchAction(.autoTileSelectedWindows, on: targets, initiator: initiator)
+    }
+
+    @MainActor
     private func performPreviewBatchAction(_ action: WindowAction, on targets: [WindowInfo], initiator: WindowInfo,
                                            preservePreviews: Bool = false) -> Bool
     {

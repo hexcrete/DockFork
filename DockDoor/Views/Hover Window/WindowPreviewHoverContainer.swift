@@ -498,7 +498,7 @@ struct WindowPreviewHoverContainer: View {
         PreviewSelectionStrip(coordinator: previewStateCoordinator,
                               style: previewStateCoordinator.selectionSummaryStyle,
                               backgroundAppearance: backgroundAppearance)
-            .fixedSize(horizontal: true, vertical: true)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     var body: some View {
@@ -2372,8 +2372,11 @@ struct WindowPreviewHoverContainer: View {
 
 enum PreviewHeaderLayout {
     static let labelSpacing: CGFloat = 6
+    static let horizontalInset: CGFloat = 20
     static let minimumHeight: CGFloat = 24
     static let shadowedOuterOverflow: CGFloat = 11.5
+    static let textFont = NSFont.preferredFont(forTextStyle: .body)
+    static var textHeight: CGFloat { ceil(textFont.ascender - textFont.descender) }
 
     static func dismissalInsets(appHeaderStyle: AppNameStyle?, selectionSummaryStyle: AppNameStyle?) -> EdgeInsets {
         let inset = HoverContainerPadding.container
@@ -2438,7 +2441,7 @@ private struct PreviewHeader<Label: View, Actions: View>: View {
         .if(style == .default) {
             $0.shadow(radius: 2)
                 .globalPadding(edge == .top ? .top : .bottom, 12)
-                .globalPadding(.leading, 20)
+                .globalPadding(.leading, PreviewHeaderLayout.horizontalInset)
         }
         .if(style == .shadowed) {
             $0.padding(EdgeInsets(top: edge == .top ? -PreviewHeaderLayout.shadowedOuterOverflow : -1.5, leading: 15,
@@ -2475,38 +2478,115 @@ private struct PreviewSelectionStrip: View {
     let style: AppNameStyle
     let backgroundAppearance: BackgroundAppearance
 
+    private enum ButtonDisplay { case titles, tileGlyph, allGlyphs }
+
     private var hiddenCount: Int {
         let visible = Set(coordinator.filteredWindowIndices().map { PreviewWindowIdentity(coordinator.windows[$0]) })
         return coordinator.selection.checkedWindows.membership.subtracting(visible).count
     }
 
+    private var selectedWindowPIDs: [pid_t] {
+        coordinator.selection.checkedWindows.identities.map(\.pid)
+    }
+
     var body: some View {
-        let countLabel = String(localized: "\(coordinator.checkedWindowCount) selected")
-        PreviewHeader(style: style, edge: .bottom, backgroundAppearance: backgroundAppearance) {
-            HStack(spacing: PreviewHeaderLayout.labelSpacing) {
-                Text(countLabel)
-                    .fontWeight(.medium)
-                    .if(style == .shadowed) {
-                        $0.modifier(PreviewHeaderTextShadow(labelWidth: measureString(countLabel, fontSize: 14).width))
+        ViewThatFits(in: .horizontal) {
+            if coordinator.windowSwitcherActive {
+                summary(showDescription: true, pids: selectedWindowPIDs)
+            }
+            summary(showDescription: true)
+            summary(showDescription: false)
+            summary(showDescription: false, buttons: .tileGlyph)
+            summary(showDescription: false, buttons: .allGlyphs)
+            PreviewHeader(style: style, edge: .bottom, backgroundAppearance: backgroundAppearance) {
+                ScrollView(.horizontal, showsIndicators: true) {
+                    HStack(spacing: PreviewHeaderLayout.labelSpacing) {
+                        countLabel(showDescription: false)
+                        summaryActions(buttons: .allGlyphs)
                     }
-                if hiddenCount > 0 {
-                    let hiddenLabel = String(localized: "\(hiddenCount) outside view")
-                    Text(hiddenLabel)
-                        .foregroundStyle(.secondary)
-                        .if(style == .shadowed) {
-                            $0.modifier(PreviewHeaderTextShadow(labelWidth: measureString(hiddenLabel, fontSize: 14).width))
-                        }
+                    .fixedSize()
                 }
-            }
+                .frame(height: PreviewHeaderLayout.minimumHeight)
+            } actions: {}
+                .font(.body)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .globalPadding(.trailing, PreviewHeaderLayout.horizontalInset)
+    }
+
+    private func summary(showDescription: Bool, buttons: ButtonDisplay = .titles, pids: [pid_t] = []) -> some View {
+        PreviewHeader(style: style, edge: .bottom, backgroundAppearance: backgroundAppearance) {
+            countLabel(showDescription: showDescription).fixedSize()
         } actions: {
-            HStack(spacing: PreviewHeaderLayout.labelSpacing) {
-                Button(String(localized: "Select All")) { coordinator.selectAllDisplayedWindows() }
-                Button(String(localized: "Clear Selection")) { coordinator.clearCheckedWindows() }
-            }
-            .font(.caption)
-            .buttonStyle(AccentButtonStyle(small: true))
+            summaryActions(buttons: buttons, pids: pids)
         }
         .font(.body)
         .lineLimit(1)
+    }
+
+    private func summaryActions(buttons: ButtonDisplay, pids: [pid_t] = []) -> some View {
+        HStack(spacing: PreviewHeaderLayout.labelSpacing) {
+            selectionButtons(glyphs: buttons == .allGlyphs)
+            Divider().frame(height: PreviewHeaderLayout.textHeight)
+            Button {
+                SharedPreviewWindowCoordinator.activeInstance?.tileSelectionSummaryWindows()
+            } label: {
+                if buttons == .titles { Text(String(localized: "Tile Windows")) }
+                else { Image(systemName: WindowAction.autoTileSelectedWindows.iconName) }
+            }
+            .font(.caption)
+            .buttonStyle(AccentButtonStyle(small: true))
+            .help(String(localized: "Tile Windows"))
+            .accessibilityLabel(String(localized: "Tile Windows"))
+            .fixedSize()
+            if !pids.isEmpty {
+                PreviewSelectedAppIcons(pids: pids, font: PreviewHeaderLayout.textFont)
+                    .frame(minWidth: 0, idealWidth: 0, maxWidth: .infinity)
+                    .frame(height: PreviewHeaderLayout.textHeight)
+                    .layoutPriority(-1)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func countLabel(showDescription: Bool) -> some View {
+        let label = showDescription ? String(localized: "\(coordinator.checkedWindowCount) selected") : coordinator.checkedWindowCount.formatted()
+        HStack(spacing: PreviewHeaderLayout.labelSpacing) {
+            Text(label)
+                .fontWeight(.medium)
+                .if(style == .shadowed) {
+                    $0.modifier(PreviewHeaderTextShadow(labelWidth: measureString(label, fontSize: 14).width))
+                }
+            if showDescription, hiddenCount > 0 {
+                let outsideLabel = String(localized: "\(hiddenCount) outside view")
+                Text(outsideLabel)
+                    .foregroundStyle(.secondary)
+                    .if(style == .shadowed) {
+                        $0.modifier(PreviewHeaderTextShadow(labelWidth: measureString(outsideLabel, fontSize: 14).width))
+                    }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func selectionButtons(glyphs: Bool) -> some View {
+        Group {
+            Button { coordinator.selectAllDisplayedWindows() } label: {
+                if glyphs { Image(systemName: WindowAction.selectAllWindows.iconName) }
+                else { Text(String(localized: "Select All")) }
+            }
+            .help(String(localized: "Select All"))
+            .accessibilityLabel(String(localized: "Select All"))
+            Button { coordinator.clearCheckedWindows() } label: {
+                if glyphs { Image(systemName: "xmark.circle") }
+                else { Text(String(localized: "Clear Selection")) }
+            }
+            .help(String(localized: "Clear Selection"))
+            .accessibilityLabel(String(localized: "Clear Selection"))
+        }
+        .font(.caption)
+        .buttonStyle(AccentButtonStyle(small: true))
+        .fixedSize()
     }
 }

@@ -1976,7 +1976,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.showWindowSelectionSummary",
             title: String(localized: "Show selection summary"),
-            description: String(localized: "Show the selection count with Select All and Clear Selection buttons. Select All adds currently displayed, filtered windows to the selection."),
+            description: String(localized: "Show the selection count with Select All, Clear Selection and Tile Windows buttons. Tile Windows automatically arranges selected windows. Window Switcher also shows selected-app icons. Select All adds currently displayed, filtered windows to the selection."),
             keywords: ["selection", "count", "clear", "header", "all", "filtered"],
             tab: "GesturesKeybinds",
             section: String(localized: "Window Selection & Tiling"),

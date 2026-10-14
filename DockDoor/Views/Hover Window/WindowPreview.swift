@@ -1,6 +1,166 @@
 import Defaults
 import SwiftUI
 
+enum AppIconStripFormatting {
+    static let menuIconSize: CGFloat = 14
+
+    static func width(iconCount: Int, iconSize: CGFloat, font: NSFont) -> CGFloat {
+        let spacing = ("\u{00A0}" as NSString).size(withAttributes: [.font: font]).width
+        return CGFloat(iconCount) * iconSize + CGFloat(max(0, iconCount - 1)) * spacing
+    }
+
+    static func visibleCount(total: Int, availableWidth: CGFloat, iconSize: CGFloat, font: NSFont) -> Int? {
+        guard total > 0, availableWidth > 0 else { return nil }
+        var count = min(total, Int(availableWidth / iconSize))
+        while count >= 0 {
+            let remaining = total - count
+            let suffix = remaining > 0 ? (count > 0 ? " +\(remaining)" : "+\(remaining)") : ""
+            let required = width(iconCount: count, iconSize: iconSize, font: font) +
+                (suffix as NSString).size(withAttributes: [.font: font]).width
+            if required <= availableWidth { return count }
+            count -= 1
+        }
+        return nil
+    }
+
+    static func attributedIcons(_ icons: [NSImage], iconSize: CGFloat = menuIconSize,
+                                maximumVisible: Int, leadingSpaces: Int = 2) -> NSAttributedString
+    {
+        let result = NSMutableAttributedString()
+        let visible = min(icons.count, max(0, maximumVisible))
+        for (index, image) in icons.prefix(visible).enumerated() {
+            result.append(NSAttributedString(string: String(repeating: "\u{00A0}", count: index == 0 ? leadingSpaces : 1)))
+            let attachment = NSTextAttachment()
+            attachment.image = image.resizedToFit(in: NSSize(width: iconSize, height: iconSize))
+            attachment.bounds = NSRect(x: 0, y: -3 * iconSize / menuIconSize, width: iconSize, height: iconSize)
+            result.append(NSAttributedString(attachment: attachment))
+        }
+        let hidden = icons.count - visible
+        if hidden > 0 {
+            result.append(NSAttributedString(string: "\(visible > 0 || leadingSpaces > 0 ? " " : "")+\(hidden)"))
+        }
+        return result
+    }
+}
+
+struct PreviewSelectedAppIcons: NSViewRepresentable {
+    let pids: [pid_t]
+    let font: NSFont
+
+    func makeNSView(context: Context) -> SelectedAppIconStripView { SelectedAppIconStripView() }
+
+    func updateNSView(_ nsView: SelectedAppIconStripView, context: Context) {
+        nsView.configure(pids: pids, font: font)
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: SelectedAppIconStripView, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 0, height: ceil(font.ascender - font.descender))
+    }
+}
+
+final class SelectedAppIconStripView: NSView {
+    private let label = NSTextField(labelWithString: "")
+    private let separator = NSBox()
+    private var windowPIDs: [pid_t] = []
+    private var icons: [NSImage] = []
+    private var textFont: NSFont?
+    private var visibleIconCount: Int?
+    private var fullIconText = NSAttributedString(string: "")
+    private var fullIconWidth: CGFloat = 0
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        separator.boxType = .separator
+        separator.isHidden = true
+        label.alignment = .right
+        label.lineBreakMode = .byClipping
+        label.maximumNumberOfLines = 1
+        label.isSelectable = false
+        label.isEditable = false
+        label.setAccessibilityElement(false)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.image)
+        addSubview(separator)
+        addSubview(label)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: textFont.map { ceil($0.ascender - $0.descender) } ?? 0)
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override func setFrameSize(_ newSize: NSSize) {
+        let previousSize = frame.size
+        super.setFrameSize(newSize)
+        if previousSize != newSize { needsLayout = true }
+    }
+
+    func configure(pids: [pid_t], font: NSFont) {
+        guard windowPIDs != pids || textFont != font else { return }
+        windowPIDs = pids
+        textFont = font
+        label.font = font
+        var appIcons: [pid_t: NSImage] = [:]
+        var appNames: [pid_t: String] = [:]
+        for pid in Set(pids) {
+            guard let app = NSRunningApplication(processIdentifier: pid) else { continue }
+            appIcons[pid] = app.icon
+            appNames[pid] = app.localizedName
+        }
+        let fallbackIcon = NSImage(named: NSImage.applicationIconName) ?? NSImage()
+        icons = pids.map { appIcons[$0] ?? fallbackIcon }
+        setAccessibilityLabel(String(localized: "Selected windows"))
+        setAccessibilityValue(pids.compactMap { appNames[$0] }.joined(separator: ", "))
+        fullIconText = formattedIcons(count: icons.count, font: font)
+        fullIconWidth = fullIconText.size().width
+        visibleIconCount = nil
+        label.attributedStringValue = NSAttributedString(string: "")
+        needsLayout = true
+    }
+
+    override func layout() {
+        super.layout()
+        guard let font = textFont else { return }
+        let size = ceil(font.ascender - font.descender)
+        let separatorWidth: CGFloat = 1
+        label.frame = bounds
+        let fullWidth = label.cell?.drawingRect(forBounds: label.bounds).width ?? label.bounds.width
+        let overflows = fullIconWidth > fullWidth
+        if overflows {
+            let labelX = separatorWidth + PreviewHeaderLayout.labelSpacing
+            label.frame = NSRect(x: labelX, y: 0, width: max(0, bounds.width - labelX), height: bounds.height)
+        }
+        separator.frame = NSRect(x: 0, y: (bounds.height - size) / 2, width: separatorWidth, height: size)
+        let availableWidth = label.cell?.drawingRect(forBounds: label.bounds).width ?? label.bounds.width
+        let count = overflows
+            ? AppIconStripFormatting.visibleCount(total: icons.count, availableWidth: availableWidth, iconSize: size, font: font)
+            : (icons.isEmpty ? nil : icons.count)
+        if count != visibleIconCount {
+            visibleIconCount = count
+            if let count {
+                label.attributedStringValue = count == icons.count ? fullIconText : formattedIcons(count: count, font: font)
+            } else {
+                label.attributedStringValue = NSAttributedString(string: "")
+            }
+        }
+        separator.isHidden = !overflows || count == nil
+    }
+
+    private func formattedIcons(count: Int, font: NSFont) -> NSAttributedString {
+        let size = ceil(font.ascender - font.descender)
+        let text = NSMutableAttributedString(attributedString: AppIconStripFormatting.attributedIcons(icons, iconSize: size, maximumVisible: count, leadingSpaces: 0))
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .right
+        paragraph.lineBreakMode = .byClipping
+        text.addAttributes([.font: font, .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph], range: NSRange(location: 0, length: text.length))
+        return text
+    }
+}
+
 @MainActor
 final class SpaceMoveMenuController: NSObject {
     static let shared = SpaceMoveMenuController()
@@ -198,7 +358,7 @@ final class SpaceMoveMenuController: NSObject {
         func appendImage(_ image: NSImage, usesPrimaryColor: Bool = false) {
             result.append(NSAttributedString(string: attachmentCount == 0 ? "\u{00A0}\u{00A0}" : "\u{00A0}"))
             let attachment = NSTextAttachment()
-            let resizedImage = image.resizedToFit(in: NSSize(width: 14, height: 14))
+            let resizedImage = image.resizedToFit(in: NSSize(width: AppIconStripFormatting.menuIconSize, height: AppIconStripFormatting.menuIconSize))
             var attachmentImage = resizedImage
             if usesPrimaryColor {
                 appearance.performAsCurrentDrawingAppearance {
@@ -206,7 +366,7 @@ final class SpaceMoveMenuController: NSObject {
                 }
             }
             attachment.image = attachmentImage
-            attachment.bounds = NSRect(x: 0, y: -3, width: 14, height: 14)
+            attachment.bounds = NSRect(x: 0, y: -3, width: AppIconStripFormatting.menuIconSize, height: AppIconStripFormatting.menuIconSize)
             result.append(NSAttributedString(attachment: attachment))
             attachmentCount += 1
         }
@@ -218,14 +378,7 @@ final class SpaceMoveMenuController: NSObject {
         }
 
         let appIcons = apps.compactMap(\.icon)
-        let visibleAppIcons = appIcons.prefix(max(0, 5 - attachmentCount))
-        for image in visibleAppIcons {
-            appendImage(image)
-        }
-        let hiddenAppIconCount = appIcons.count - visibleAppIcons.count
-        if hiddenAppIconCount > 0 {
-            result.append(NSAttributedString(string: " +\(hiddenAppIconCount)"))
-        }
+        result.append(AppIconStripFormatting.attributedIcons(appIcons, maximumVisible: max(0, 5 - attachmentCount), leadingSpaces: attachmentCount == 0 ? 2 : 1))
         return result
     }
 

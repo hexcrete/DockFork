@@ -48,7 +48,7 @@ private struct WindowSelectionSettingsSection: View {
                         .padding(.leading, 20)
                     Toggle("Show selection summary", isOn: $showSummary)
                         .settingsSearchTarget("gestures.showWindowSelectionSummary")
-                    Text("Show the selection count with Select All and Clear Selection buttons. Select All adds currently displayed, filtered windows to the selection.")
+                    Text("Show the selection count with Select All, Clear Selection and Tile Windows buttons. Tile Windows automatically arranges selected windows. Window Switcher also shows selected-app icons. Select All adds currently displayed, filtered windows to the selection.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)
