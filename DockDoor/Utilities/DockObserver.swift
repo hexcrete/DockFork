@@ -37,6 +37,22 @@ func handleSelectedDockItemChangedNotification(observer _: AXObserver, element _
     }
 }
 
+enum DockClickOverridePolicy {
+    static func shouldOverride(_ action: DockClickAction, isFrontmost: Bool, isHidden: Bool,
+                               windowCount: Int, minimizableWindowCount: Int = 0,
+                               allMinimizableWindowsMinimized: Bool = false) -> Bool {
+        guard windowCount > 0 else { return false }
+        switch action {
+        case .cycleWindows:
+            return isFrontmost && !isHidden && windowCount > 1
+        case .hide:
+            return isFrontmost || isHidden
+        case .minimize:
+            return minimizableWindowCount > 0 && (isFrontmost || isHidden || allMinimizableWindowsMinimized)
+        }
+    }
+}
+
 final class DockObserver {
     private final class CycleClickTracker {
         struct Press {
@@ -134,9 +150,6 @@ final class DockObserver {
     // Dock click behavior state
     private struct DockClickState {
         var currentClickedAppPID: pid_t?
-        var lastHoveredPID: pid_t?
-        var lastHoveredAppWasFrontmost = false
-        var lastHoveredAppHadWindows = false
     }
 
     private let dockClickStateLock = NSLock()
@@ -521,12 +534,6 @@ final class DockObserver {
         cachedWindows = WindowUtil.collapseNativeTabsIfNeeded(cachedWindows)
 
         HangDiagnostics.record("dock cache ready pid=\(currentApp.processIdentifier) windows=\(cachedWindows.count)")
-
-        updateDockClickHoverState(
-            pid: currentApp.processIdentifier,
-            wasFrontmost: NSWorkspace.shared.frontmostApplication?.processIdentifier == currentApp.processIdentifier,
-            hadWindows: !cachedWindows.isEmpty
-        )
 
         if WindowFetchContext.dockPreview.shouldIgnoreAppsWithSingleWindow, cachedWindows.count == 1 {
             cachedWindows = []
@@ -1004,7 +1011,8 @@ final class DockObserver {
                !previewCoordinator.containsQuartzPoint(event.location),
                isPointNearDock(event.location),
                case let .success(app) = getDockItemAppStatusUnderMouse().status,
-               app.processIdentifier == press.processIdentifier
+               app.processIdentifier == press.processIdentifier,
+               canCycleWindows(of: app)
             {
                 currentClickedAppPID = app.processIdentifier
                 Task { @MainActor [weak self] in
@@ -1014,6 +1022,9 @@ final class DockObserver {
                     cycleThroughWindows(of: app)
                 }
                 return nil
+            }
+            DispatchQueue.main.async { [weak self] in
+                self?.prepareForNativeDockClick()
             }
             press.event.tapPostEvent(proxy)
             return Unmanaged.passUnretained(event)
@@ -1070,13 +1081,6 @@ final class DockObserver {
             return nil
         }
 
-        if type == .leftMouseDown, appUnderMouse.dockItemElement != nil {
-            DispatchQueue.main.async { [weak self] in
-                self?.previewCoordinator.cancelPendingShow()
-                self?.previewCoordinator.restoreDockAutoHideState()
-            }
-        }
-
         if case let .success(app) = appUnderMouse.status {
             if type == .rightMouseDown, event.flags.contains(.maskCommand), Defaults[.enableCmdRightClickQuit] {
                 handleCmdRightClickQuit(app: app, event: event)
@@ -1093,8 +1097,13 @@ final class DockObserver {
             if type == .leftMouseDown {
                 if windowCyclingEnabled,
                    app.bundleIdentifier != Bundle.main.bundleIdentifier,
+                   canCycleWindows(of: app),
                    cycleClicks?.begin(app: app, event: event) == true
                 {
+                    DispatchQueue.main.async { [weak self] in
+                        self?.previewCoordinator.cancelPendingShow()
+                        self?.previewCoordinator.restoreDockAutoHideState()
+                    }
                     return nil
                 }
                 let shouldIntercept = handleDockClick(app: app)
@@ -1104,6 +1113,11 @@ final class DockObserver {
             }
         }
 
+        if type == .leftMouseDown, appUnderMouse.dockItemElement != nil {
+            DispatchQueue.main.async { [weak self] in
+                self?.prepareForNativeDockClick()
+            }
+        }
         return Unmanaged.passUnretained(event)
     }
 
@@ -1197,9 +1211,6 @@ final class DockObserver {
 
         let isFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == pid
         let wasHiddenAtClickTime = app.isHidden
-        let hoverState = dockClickStateSnapshot()
-        let hasValidHoverState = hoverState.lastHoveredPID == pid
-        let wasFrontmostOnHover = hasValidHoverState ? hoverState.lastHoveredAppWasFrontmost : isFrontmost
         let action = Defaults[.dockClickAction]
 
         guard Defaults[.shouldHideOnDockItemClick] else { return false }
@@ -1211,28 +1222,17 @@ final class DockObserver {
             break
         }
 
-        let cachedWindows = WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
+        let cachedWindows = cachedDockClickWindows(of: app)
         let cachedMinimizableWindows = cachedWindows.filter { $0.isFullscreen != true }
         let allCachedWindowsMinimized = !cachedMinimizableWindows.isEmpty &&
             cachedMinimizableWindows.allSatisfy(\.isMinimized)
-        let shouldUseNativeActivation = !wasFrontmostOnHover &&
-            !wasHiddenAtClickTime &&
-            (action == .hide || !allCachedWindowsMinimized)
-        if shouldUseNativeActivation {
-            clearLastHoveredDockApp()
-            return false
-        }
+        guard DockClickOverridePolicy.shouldOverride(
+            action, isFrontmost: isFrontmost, isHidden: wasHiddenAtClickTime,
+            windowCount: cachedWindows.count, minimizableWindowCount: cachedMinimizableWindows.count,
+            allMinimizableWindowsMinimized: allCachedWindowsMinimized
+        )
+        else { return false }
 
-        if action == .minimize,
-           hasValidHoverState,
-           !hoverState.lastHoveredAppHadWindows,
-           !wasHiddenAtClickTime
-        {
-            clearLastHoveredDockApp()
-            return false
-        }
-
-        clearLastHoveredDockApp()
         Task { @MainActor [weak self] in
             self?.scheduleDockClickAction(
                 app: app,
@@ -1247,7 +1247,6 @@ final class DockObserver {
 
     @MainActor
     private func prepareForWindowCycle(of app: NSRunningApplication) {
-        clearLastHoveredDockApp()
         previewCoordinator.cancelPendingShow()
         if !previewCoordinator.canPreserveDockPreviewsForWindowCycle(of: app.processIdentifier) {
             previewCoordinator.hideWindow()
@@ -1313,24 +1312,29 @@ final class DockObserver {
         dockClickActionTasks[pid] = PendingDockClickAction(token: token, task: task)
     }
 
-    private func updateDockClickHoverState(pid: pid_t, wasFrontmost: Bool, hadWindows: Bool) {
-        dockClickStateLock.lock()
-        dockClickState.lastHoveredPID = pid
-        dockClickState.lastHoveredAppWasFrontmost = wasFrontmost
-        dockClickState.lastHoveredAppHadWindows = hadWindows
-        dockClickStateLock.unlock()
+    private func cachedDockClickWindows(of app: NSRunningApplication) -> [WindowInfo] {
+        WindowUtil.readCachedWindows(for: app.processIdentifier).filter { !$0.isWindowlessApp && !$0.app.isTerminated }
     }
 
-    private func dockClickStateSnapshot() -> DockClickState {
-        dockClickStateLock.lock()
-        defer { dockClickStateLock.unlock() }
-        return dockClickState
+    private func canCycleWindows(of app: NSRunningApplication) -> Bool {
+        let isFrontmost = NSWorkspace.shared.frontmostApplication?.processIdentifier == app.processIdentifier
+        guard isFrontmost, !app.isHidden, !app.isTerminated else { return false }
+        return DockClickOverridePolicy.shouldOverride(
+            .cycleWindows, isFrontmost: isFrontmost, isHidden: false,
+            windowCount: cachedDockClickWindows(of: app).count
+        )
     }
 
-    private func clearLastHoveredDockApp() {
-        dockClickStateLock.lock()
-        dockClickState.lastHoveredPID = nil
-        dockClickStateLock.unlock()
+    @MainActor
+    private func prepareForNativeDockClick() {
+        cancelDockPreviewDiscovery()
+        previewCoordinator.cancelPendingShow()
+        previewCoordinator.restoreDockAutoHideState()
+        resetWindowCycleHover()
+        if !previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive,
+           !previewCoordinator.tapSnapshot.isCmdTabPreview {
+            previewCoordinator.hideWindow()
+        }
     }
 
     @MainActor
@@ -1351,18 +1355,8 @@ final class DockObserver {
     @MainActor
     private func cycleThroughWindows(of app: NSRunningApplication) {
         let hoverGeneration = updateWindowCycleHover(for: app.processIdentifier)
-        let cachedWindows = WindowUtil.readCachedWindows(for: app.processIdentifier)
-            .filter { !$0.isWindowlessApp }
-
-        if cachedWindows.isEmpty {
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                let windows = await (try? WindowUtil.getActiveWindows(of: app, ignoreSingleWindowFilter: true)) ?? []
-                activateNextWindow(of: app, from: windows, hoverGeneration: hoverGeneration)
-            }
-        } else {
-            activateNextWindow(of: app, from: cachedWindows, hoverGeneration: hoverGeneration)
-        }
+        let cachedWindows = cachedDockClickWindows(of: app)
+        activateNextWindow(of: app, from: cachedWindows, hoverGeneration: hoverGeneration)
     }
 
     @MainActor
@@ -1377,9 +1371,9 @@ final class DockObserver {
             .filter { !$0.isWindowlessApp }
             .sorted { $0.lastAccessedTime > $1.lastAccessedTime }
 
-        guard !windowsByRecentUse.isEmpty else {
+        guard windowsByRecentUse.count > 1 else {
             windowCycleState = nil
-            WindowUtil.activateWindowlessApp(app: app)
+            previewCoordinator.hideWindow()
             return
         }
 

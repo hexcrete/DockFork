@@ -5,6 +5,55 @@ import Defaults
 import QuartzCore
 import Testing
 
+struct DockClickOverridePolicyTests {
+    @Test func windowlessAppsAlwaysUseNativeActivation() {
+        for action in [DockClickAction.cycleWindows, .minimize, .hide] {
+            for isFrontmost in [false, true] {
+                for isHidden in [false, true] {
+                    #expect(!DockClickOverridePolicy.shouldOverride(
+                        action, isFrontmost: isFrontmost, isHidden: isHidden, windowCount: 0
+                    ))
+                }
+            }
+        }
+    }
+
+    @Test func cyclingRequiresAnActiveVisibleAppWithMultipleWindows() {
+        for count in [0, 1, 2, 5] {
+            for isFrontmost in [false, true] {
+                for isHidden in [false, true] {
+                    #expect(DockClickOverridePolicy.shouldOverride(
+                        .cycleWindows, isFrontmost: isFrontmost, isHidden: isHidden, windowCount: count
+                    ) == (isFrontmost && !isHidden && count > 1))
+                }
+            }
+        }
+    }
+
+    @Test func hideRequiresAnActiveAppButAllowsHiddenAppRestoration() {
+        #expect(!DockClickOverridePolicy.shouldOverride(.hide, isFrontmost: false, isHidden: false, windowCount: 2))
+        #expect(DockClickOverridePolicy.shouldOverride(.hide, isFrontmost: true, isHidden: false, windowCount: 1))
+        #expect(DockClickOverridePolicy.shouldOverride(.hide, isFrontmost: false, isHidden: true, windowCount: 1))
+    }
+
+    @Test func minimizePreservesRestorationAndExcludesFullscreenOnlyApps() {
+        for isFrontmost in [false, true] {
+            for isHidden in [false, true] {
+                for allMinimized in [false, true] {
+                    #expect(!DockClickOverridePolicy.shouldOverride(
+                        .minimize, isFrontmost: isFrontmost, isHidden: isHidden,
+                        windowCount: 2, minimizableWindowCount: 0, allMinimizableWindowsMinimized: allMinimized
+                    ))
+                    #expect(DockClickOverridePolicy.shouldOverride(
+                        .minimize, isFrontmost: isFrontmost, isHidden: isHidden,
+                        windowCount: 2, minimizableWindowCount: 1, allMinimizableWindowsMinimized: allMinimized
+                    ) == (isFrontmost || isHidden || allMinimized))
+                }
+            }
+        }
+    }
+}
+
 struct NumericPreferenceSafetyTests {
     @Test func resizeDelaysStayWithinTheSupportedRange() {
         let cases: [(CGFloat, UInt64)] = [
