@@ -8,6 +8,12 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 Preparation reviewed October 14 through `dd28db3`. Version 0.2.0 is selected for the next prerelease; no Release candidate, tag or upload is recorded yet. See the [0.2.0 draft notes and publication gate](RELEASE_NOTES_0.2.0.md). Current development includes all five selection/action/dragging/tiling phases, ordered AppleScript window lists, Select All, optional selection keep-open behavior, and the later search, startup, Dock-click and header-hover fixes. The published 0.1.0 assets remain unchanged. Detailed phase records below distinguish implementation and historical validation; they are not fresh Release certification.
 
+## Development: App Header Action Fallbacks
+
+October 14 refinement: Dock/Cmd+Tab App Header Close All and Minimize All now fit as text, then shared action glyphs, then a horizontally scrolling glyph group. Only the action group scrolls; the app icon/name stay outside it. The selection summary and header reuse the same small action-button renderer and horizontal-scroll wrapper, including tooltips and accessibility labels. Existing hover tracking, header styles, update controls, windowless gating and app-wide action scope remain unchanged. No setting, observer, timer or discovery work is added.
+
+612 offscreen native header-layout checks passed at 100-600 point widths across all three header styles, short/long names and icon-only mode, with geometry-only decorative adapters. The 510 shared summary-layout checks and app-wide-action/header-hit-bound regressions passed. Signed Debug build/relaunch, signature and exact installed-binary checks passed. The user reports the fallback working. This does not establish exhaustive hover/click/scroll, VoiceOver, multi-display or Release coverage.
+
 ## Development: Adaptive Selection Summary
 
 Committed as `d89cbc5`; app-wide header routing is `dc77296` and the requested defaults are `ec1e9fa`.

@@ -1057,26 +1057,24 @@ struct WindowPreviewHoverContainer: View {
     @ViewBuilder
     func massOperations(_ shouldDisplay: Bool) -> some View {
         if shouldDisplay, hasAppHeaderWindowTargets {
-            Group {
-                Button {
-                    handleAppHeaderAction(.closeAllWindows)
-                } label: {
-                    Text("Close All")
-                        .font(.caption)
-                        .lineLimit(1)
-                }
-                .buttonStyle(AccentButtonStyle(small: true))
-
-                Button {
-                    handleAppHeaderAction(.minimizeAllWindows)
-                } label: {
-                    Text("Minimize All")
-                        .font(.caption)
-                        .lineLimit(1)
-                }
-                .buttonStyle(AccentButtonStyle(small: true))
+            ViewThatFits(in: .horizontal) {
+                appHeaderActionButtons(glyphs: false)
+                appHeaderActionButtons(glyphs: true)
+                PreviewHeaderScrollRow { appHeaderActionButtons(glyphs: true) }
             }
         }
+    }
+
+    private func appHeaderActionButtons(glyphs: Bool) -> some View {
+        HStack(spacing: PreviewHeaderLayout.labelSpacing) {
+            PreviewHeaderActionButton(title: String(localized: "Close All"), symbol: WindowAction.closeAllWindows.iconName, glyphs: glyphs) {
+                handleAppHeaderAction(.closeAllWindows)
+            }
+            PreviewHeaderActionButton(title: String(localized: "Minimize All"), symbol: WindowAction.minimizeAllWindows.iconName, glyphs: glyphs) {
+                handleAppHeaderAction(.minimizeAllWindows)
+            }
+        }
+        .fixedSize()
     }
 
     private var hasAppHeaderWindowTargets: Bool {
@@ -2473,6 +2471,34 @@ private struct PreviewHeaderTextShadow: ViewModifier {
     }
 }
 
+private struct PreviewHeaderActionButton: View {
+    let title: String
+    let symbol: String
+    let glyphs: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            if glyphs { Image(systemName: symbol) }
+            else { Text(title).lineLimit(1) }
+        }
+        .font(.caption)
+        .buttonStyle(AccentButtonStyle(small: true))
+        .help(title)
+        .accessibilityLabel(title)
+        .fixedSize()
+    }
+}
+
+private struct PreviewHeaderScrollRow<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: true) { content.fixedSize() }
+            .frame(height: PreviewHeaderLayout.minimumHeight)
+    }
+}
+
 private struct PreviewSelectionStrip: View {
     @ObservedObject var coordinator: PreviewStateCoordinator
     let style: AppNameStyle
@@ -2499,14 +2525,12 @@ private struct PreviewSelectionStrip: View {
             summary(showDescription: false, buttons: .tileGlyph)
             summary(showDescription: false, buttons: .allGlyphs)
             PreviewHeader(style: style, edge: .bottom, backgroundAppearance: backgroundAppearance) {
-                ScrollView(.horizontal, showsIndicators: true) {
+                PreviewHeaderScrollRow {
                     HStack(spacing: PreviewHeaderLayout.labelSpacing) {
                         countLabel(showDescription: false)
                         summaryActions(buttons: .allGlyphs)
                     }
-                    .fixedSize()
                 }
-                .frame(height: PreviewHeaderLayout.minimumHeight)
             } actions: {}
                 .font(.body)
                 .lineLimit(1)
@@ -2529,17 +2553,9 @@ private struct PreviewSelectionStrip: View {
         HStack(spacing: PreviewHeaderLayout.labelSpacing) {
             selectionButtons(glyphs: buttons == .allGlyphs)
             Divider().frame(height: PreviewHeaderLayout.textHeight)
-            Button {
+            PreviewHeaderActionButton(title: String(localized: "Tile Windows"), symbol: WindowAction.autoTileSelectedWindows.iconName, glyphs: buttons != .titles) {
                 SharedPreviewWindowCoordinator.activeInstance?.tileSelectionSummaryWindows()
-            } label: {
-                if buttons == .titles { Text(String(localized: "Tile Windows")) }
-                else { Image(systemName: WindowAction.autoTileSelectedWindows.iconName) }
             }
-            .font(.caption)
-            .buttonStyle(AccentButtonStyle(small: true))
-            .help(String(localized: "Tile Windows"))
-            .accessibilityLabel(String(localized: "Tile Windows"))
-            .fixedSize()
             if !pids.isEmpty {
                 PreviewSelectedAppIcons(pids: pids, font: PreviewHeaderLayout.textFont)
                     .frame(minWidth: 0, idealWidth: 0, maxWidth: .infinity)
@@ -2572,21 +2588,12 @@ private struct PreviewSelectionStrip: View {
     @ViewBuilder
     private func selectionButtons(glyphs: Bool) -> some View {
         Group {
-            Button { coordinator.selectAllDisplayedWindows() } label: {
-                if glyphs { Image(systemName: WindowAction.selectAllWindows.iconName) }
-                else { Text(String(localized: "Select All")) }
+            PreviewHeaderActionButton(title: String(localized: "Select All"), symbol: WindowAction.selectAllWindows.iconName, glyphs: glyphs) {
+                coordinator.selectAllDisplayedWindows()
             }
-            .help(String(localized: "Select All"))
-            .accessibilityLabel(String(localized: "Select All"))
-            Button { coordinator.clearCheckedWindows() } label: {
-                if glyphs { Image(systemName: "xmark.circle") }
-                else { Text(String(localized: "Clear Selection")) }
+            PreviewHeaderActionButton(title: String(localized: "Clear Selection"), symbol: "xmark.circle", glyphs: glyphs) {
+                coordinator.clearCheckedWindows()
             }
-            .help(String(localized: "Clear Selection"))
-            .accessibilityLabel(String(localized: "Clear Selection"))
         }
-        .font(.caption)
-        .buttonStyle(AccentButtonStyle(small: true))
-        .fixedSize()
     }
 }
