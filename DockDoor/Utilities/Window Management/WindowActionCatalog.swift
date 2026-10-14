@@ -82,7 +82,7 @@ extension WindowAction {
         var actions: [WindowAction] {
             switch self {
             case .window:
-                [.toggleWindowSelection, .openAppWindow, .openNewWindow, .minimize, .hide, .maximize, .toggleFullScreen, .bringToCurrentSpace]
+                [.toggleWindowSelection, .selectAllWindows, .openAppWindow, .openNewWindow, .minimize, .hide, .maximize, .toggleFullScreen, .bringToCurrentSpace]
             case .arrange:
                 [.autoTileSelectedWindows, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
                  .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center]
@@ -97,7 +97,7 @@ extension WindowAction {
     {
         Group.allCases.compactMap { group in
             let actions = group.actions.filter {
-                ($0 != .toggleWindowSelection || includeSelectionActions) &&
+                (![.toggleWindowSelection, .selectAllWindows].contains($0) || includeSelectionActions) &&
                     (($0 == .toggleFullScreen && batchTargets?.contains(where: { $0.isFullscreen == true }) == true) || $0.isAvailable(for: window))
             }
             return actions.isEmpty ? nil : WindowActionGroup(id: group, actions: actions)
@@ -112,7 +112,7 @@ extension WindowAction {
         }
 
         switch self {
-        case .toggleWindowSelection:
+        case .toggleWindowSelection, .selectAllWindows:
             return Defaults[.enableMultiWindowSelection]
         case .autoTileSelectedWindows:
             return true

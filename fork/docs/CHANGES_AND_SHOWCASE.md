@@ -97,6 +97,12 @@ Validation: ordering and self/overlap checks passed in the expanded 53-test isol
 
 Compact drag-target follow-up: preview and external-file highlights now use the compact card's horizontal-only expansion instead of expanding vertically beyond the row. Regular cards retain all-edge expansion. Compact row dimming now precedes the shared drag overlay, so both layouts use the undimmed system-accent highlight at 30% opacity. Existing row/content dimming remains unchanged; material versus screenshot backgrounds can still affect the perceived color. This is a rendering-only change; target lookup, spring-loading and drop operations are unchanged. Signed Debug build, exact-path relaunch, signature verification and diff checks passed October 13. The opacity follow-up also passed build/signature checks and binary correspondence; launch succeeded on retry after Launch Services error -600. User manual verification of the corrected compact shape and undimmed highlight passed October 13.
 
+## Development: Select All Displayed Windows
+
+The optional selection summary now includes Select All alongside Clear Selection, with matching settings helper/search text. Select All is also an assignable preview action and a selection-enabled preview context-menu action. Both use one coordinator operation: add eligible real windows from the currently displayed, search-filtered list in display order, preserving earlier checked order and outside-view checks. Windowless and terminated rows are excluded; repeat invocation is idempotent. The action works without a highlighted preview, including Cmd+Tab, and uses existing standalone selection pinning; Dock/Cmd+Tab hover dismissal is unchanged. Multi-window selection must be enabled. No new discovery, capture, timer or setting is added.
+
+Validation: 54 isolated regression tests and seven source-extracted coordinator checks passed, covering ordering, filtered/empty results, eligibility, retained checks, repeated calls and the disabled setting. These adapter tests do not prove native UI behavior. Signed Debug build, exact-path relaunch, signature/binary verification and diff checks passed; launch required a retry after Launch Services error -600. User manual verification and final source review passed October 13; full Xcode tests remain unrun. Not included in the published 0.1.0 release.
+
 ## Reading This Guide
 
 - [Complete commit ledger](COMMIT_LEDGER.md): every branch-only commit in the audited history, grouped by category.

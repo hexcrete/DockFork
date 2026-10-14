@@ -41,6 +41,10 @@ private struct WindowSelectionSettingsSection: View {
                 if enabled {
                     Toggle("Show selection summary", isOn: $showSummary)
                         .settingsSearchTarget("gestures.showWindowSelectionSummary")
+                    Text("Show the selection count with Select All and Clear Selection buttons. Select All adds currently displayed, filtered windows to the selection.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 20)
                     Toggle("Show unchecked selection checkboxes", isOn: $showUnchecked)
                         .settingsSearchTarget("gestures.showUncheckedSelectionCheckboxes")
                     if showUnchecked {

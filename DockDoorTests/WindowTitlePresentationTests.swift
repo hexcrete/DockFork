@@ -473,6 +473,21 @@ struct HeldSwitcherConflictTests {
 }
 
 struct OrderedPreviewSelectionTests {
+    @Test func selectAllAppendsMissingIdentitiesAndPreservesExistingOrder() {
+        let first = PreviewWindowIdentity(pid: 1, windowID: 10)
+        let second = PreviewWindowIdentity(pid: 1, windowID: 11)
+        let outsideView = PreviewWindowIdentity(pid: 2, windowID: 12)
+        var selection = OrderedPreviewSelection()
+        selection.select([outsideView, second])
+        selection.select([first, second, first])
+        #expect(selection.identities == [outsideView, second, first])
+        #expect(selection.membership == Set(selection.identities))
+        let previous = selection
+        selection.select([first, second])
+        selection.select([])
+        #expect(selection == previous)
+    }
+
     @Test func checkedWindowsPreventImplicitActivationDismissal() {
         for isKeybindSessionActive in [false, true] {
             #expect(!WindowManipulationObservers.shouldDismissPreviewOnAppActivation(

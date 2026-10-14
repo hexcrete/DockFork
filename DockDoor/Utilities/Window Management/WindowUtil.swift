@@ -144,6 +144,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     case fillBottomRightQuarter
     case center
     case toggleWindowSelection
+    case selectAllWindows
     case autoTileSelectedWindows
 
     /// No action
@@ -193,6 +194,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             String(localized: "Center Window", comment: "Window action")
         case .toggleWindowSelection:
             String(localized: "Toggle Window Selection", comment: "Window action")
+        case .selectAllWindows:
+            String(localized: "Select All", comment: "Window selection action")
         case .autoTileSelectedWindows:
             String(localized: "Auto Tile Selected Windows", comment: "Window action")
         case .none:
@@ -223,6 +226,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .fillBottomRightQuarter: "rectangle.split.2x2.fill"
         case .center: "rectangle.center.inset.filled"
         case .toggleWindowSelection: "checkmark.circle"
+        case .selectAllWindows: "checkmark.circle.fill"
         case .autoTileSelectedWindows: "rectangle.split.2x2"
         case .none: "nosign"
         }
@@ -230,7 +234,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
     /// Actions that can be assigned to preview shortcuts, gestures, and mouse interactions.
     static let assignablePreviewActions: [WindowAction] = [
-        .none, .toggleWindowSelection, .autoTileSelectedWindows, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
+        .none, .toggleWindowSelection, .selectAllWindows, .autoTileSelectedWindows, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
         .minimize, .minimizeAllWindows, .maximize, .toggleFullScreen, .bringToCurrentSpace, .hide, .quit,
         .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
         .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center,
@@ -268,7 +272,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center:
             return .movingAndResizing
-        case .openAppWindow, .toggleWindowSelection, .none:
+        case .openAppWindow, .toggleWindowSelection, .selectAllWindows, .none:
             return nil
         }
     }
@@ -284,7 +288,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             !window.isMinimized
         case .minimizeAllWindows:
             category == .hiding
-        case .openAppWindow, .hide, .close, .quit, .closeAllWindows, .toggleWindowSelection, .none:
+        case .openAppWindow, .hide, .close, .quit, .closeAllWindows, .toggleWindowSelection, .selectAllWindows, .none:
             false
         }
     }
@@ -331,7 +335,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .autoTileSelectedWindows, .quit, .close, .openAppWindow, .openNewWindow, .closeAllWindows, .bringToCurrentSpace,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
-             .center, .toggleWindowSelection, .none:
+             .center, .toggleWindowSelection, .selectAllWindows, .none:
             return false
         }
     }
@@ -364,7 +368,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             true
         case .toggleFullScreen:
             true
-        case .autoTileSelectedWindows, .toggleWindowSelection, .none:
+        case .autoTileSelectedWindows, .toggleWindowSelection, .selectAllWindows, .none:
             false
         }
     }
@@ -376,7 +380,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .autoTileSelectedWindows, .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
-             .center, .toggleWindowSelection, .none:
+             .center, .toggleWindowSelection, .selectAllWindows, .none:
             false
         }
     }
@@ -388,7 +392,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .autoTileSelectedWindows, .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
-             .center, .toggleWindowSelection, .none:
+             .center, .toggleWindowSelection, .selectAllWindows, .none:
             false
         }
     }
@@ -565,7 +569,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             }
             return .noChange
 
-        case .toggleWindowSelection, .none:
+        case .toggleWindowSelection, .selectAllWindows, .none:
             return .noChange
         }
     }

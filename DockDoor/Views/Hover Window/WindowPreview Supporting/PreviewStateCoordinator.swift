@@ -35,6 +35,12 @@ struct OrderedPreviewSelection: Equatable {
         identities.removeAll { removed.contains($0) }
     }
 
+    mutating func select(_ added: [PreviewWindowIdentity]) {
+        for identity in added where membership.insert(identity).inserted {
+            identities.append(identity)
+        }
+    }
+
     func actionIdentities(for initiator: PreviewWindowIdentity) -> [PreviewWindowIdentity]? {
         membership.contains(initiator) ? identities : nil
     }
@@ -86,11 +92,29 @@ class PreviewStateCoordinator: ObservableObject {
         let identity = PreviewWindowIdentity(window)
         guard windows.contains(where: { PreviewWindowIdentity($0) == identity }) else { return }
         selection.checkedWindows.toggle(identity)
+        publishCheckedSelection()
+    }
+
+    @MainActor
+    func selectAllDisplayedWindows() {
+        guard Defaults[.enableMultiWindowSelection] else { return }
+        let identities = filteredWindowIndices().compactMap { index -> PreviewWindowIdentity? in
+            let window = windows[index]
+            return window.isWindowlessApp || window.app.isTerminated ? nil : PreviewWindowIdentity(window)
+        }
+        var updated = selection.checkedWindows
+        updated.select(identities)
+        guard updated != selection.checkedWindows else { return }
+        selection.checkedWindows = updated
+        publishCheckedSelection()
+    }
+
+    @MainActor
+    private func pinCheckedSelectionIfNeeded() {
         if windowSwitcherActive, !selectionSuppressesRelease, !selection.checkedWindows.identities.isEmpty {
             selectionSuppressesRelease = true
             onSelectionPinned?()
         }
-        publishCheckedSelection()
     }
 
     @MainActor
@@ -106,6 +130,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     private func publishCheckedSelection() {
+        pinCheckedSelectionIfNeeded()
         let newCount = selection.checkedWindows.identities.count
         let changedSize = (checkedWindowCount == 0) != (newCount == 0)
         checkedWindowCount = newCount

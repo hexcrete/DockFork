@@ -1413,6 +1413,10 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func handleWindowAction(_ action: WindowAction, at index: Int) {
+        if action == .selectAllWindows {
+            if !mockPreviewActive { previewStateCoordinator.selectAllDisplayedWindows() }
+            return
+        }
         guard index < previewStateCoordinator.windows.count else { return }
         let window = previewStateCoordinator.windows[index]
         if action == .toggleWindowSelection {
@@ -2226,7 +2230,9 @@ struct WindowPreviewHoverContainer: View {
 
             let isSelected = index == currIndex
             let handleCardAction: (WindowAction) -> Void = { action in
-                if action == .toggleWindowSelection {
+                if action == .selectAllWindows {
+                    if !mockPreviewActive { previewStateCoordinator.selectAllDisplayedWindows() }
+                } else if action == .toggleWindowSelection {
                     if !mockPreviewActive { previewStateCoordinator.toggleCheckedWindow(windowInfo) }
                 } else if !mockPreviewActive,
                           SharedPreviewWindowCoordinator.activeInstance?.performCheckedWindowAction(action, on: windowInfo) != nil
@@ -2469,9 +2475,12 @@ private struct PreviewSelectionStrip: View {
                 }
             }
         } actions: {
-            Button(String(localized: "Clear Selection")) { coordinator.clearCheckedWindows() }
-                .font(.caption)
-                .buttonStyle(AccentButtonStyle(small: true))
+            HStack(spacing: PreviewHeaderLayout.labelSpacing) {
+                Button(String(localized: "Select All")) { coordinator.selectAllDisplayedWindows() }
+                Button(String(localized: "Clear Selection")) { coordinator.clearCheckedWindows() }
+            }
+            .font(.caption)
+            .buttonStyle(AccentButtonStyle(small: true))
         }
         .font(.body)
         .lineLimit(1)

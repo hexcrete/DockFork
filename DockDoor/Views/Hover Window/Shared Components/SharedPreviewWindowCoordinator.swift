@@ -1527,6 +1527,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     @discardableResult
     func performActionOnCurrentWindow(action: WindowAction, preservePreviews: Bool = false) -> Bool {
         let coordinator = windowSwitcherCoordinator
+        if action == .selectAllWindows {
+            coordinator.selectAllDisplayedWindows()
+            return false
+        }
         if action == .autoTileSelectedWindows {
             guard let first = coordinator.checkedActionTargets()?.first ?? coordinator.getCurrentWindow() else { NSSound.beep(); return false }
             return performCheckedWindowAction(action, on: first, preservePreviews: preservePreviews) ?? false
@@ -1752,7 +1756,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     @MainActor
     // nil delegates to single-window handling; the Bool reports immediate preview dismissal.
     func performCheckedWindowAction(_ action: WindowAction, on initiator: WindowInfo, preservePreviews: Bool = false) -> Bool? {
-        guard action != .toggleWindowSelection, action != .none,
+        guard action != .toggleWindowSelection, action != .selectAllWindows, action != .none,
               let targets = action == .autoTileSelectedWindows
               ? windowSwitcherCoordinator.checkedActionTargets() ?? [initiator]
               : windowSwitcherCoordinator.checkedActionTargets(for: initiator),
