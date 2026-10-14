@@ -1051,7 +1051,7 @@ struct WindowPreviewHoverContainer: View {
 
     @ViewBuilder
     func massOperations(_ shouldDisplay: Bool) -> some View {
-        if shouldDisplay {
+        if shouldDisplay, hasAppHeaderWindowTargets {
             Group {
                 Button {
                     handleAppHeaderAction(.closeAllWindows)
@@ -1072,6 +1072,10 @@ struct WindowPreviewHoverContainer: View {
                 .buttonStyle(AccentButtonStyle(small: true))
             }
         }
+    }
+
+    private var hasAppHeaderWindowTargets: Bool {
+        previewStateCoordinator.windows.contains { !$0.isWindowlessApp && !$0.app.isTerminated }
     }
 
     @ViewBuilder
@@ -1335,7 +1339,7 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func handleAppHeaderAction(_ action: WindowAction) {
-        guard !previewStateCoordinator.windows.isEmpty else { return }
+        guard hasAppHeaderWindowTargets else { return }
         let selectedIndex = previewStateCoordinator.currIndex
         let targetIndex = if previewStateCoordinator.windows.indices.contains(selectedIndex) {
             selectedIndex

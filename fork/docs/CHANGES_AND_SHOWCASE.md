@@ -119,6 +119,12 @@ The existing Focus and use previews tutorial now saves its existing seen flag af
 
 Eight source-extracted acknowledgement checks passed, including single-write behavior and exclusion cases. Signed Debug build, exact-path relaunch, signature/binary verification and diff checks passed; Launch Services required a retry after error -600. User manual verification and final source review passed October 13; the full Xcode suite is unrun. No live tutorial flag or other preference was reset for testing. Not included in the published 0.1.0 release.
 
+## Development: Windowless App Header Actions
+
+Close All and Minimize All in the shared Dock/Cmd+Tab App Header are omitted entirely when the displayed app has no live real-window rows. Their execution path uses the same eligibility check. Windowless placeholders and terminated rows do not show them; minimized, hidden and fullscreen real windows still count, with existing operation-specific safety checks unchanged. Compact/full-size previews and all header styles share this rule. Update availability and other app-level controls are unchanged. No discovery, AX query, observer or timer is added.
+
+Eight source-extracted eligibility checks and shared render/handler gate checks passed. The hidden-button build passed signed Debug build, exact-path relaunch, signature/binary verification and diff checks; Launch Services required a retry after error -600. User manual verification and final source review passed October 13; the full Xcode suite is unrun. Not included in the published 0.1.0 release.
+
 ## Reading This Guide
 
 - [Complete commit ledger](COMMIT_LEDGER.md): every branch-only commit in the audited history, grouped by category.
