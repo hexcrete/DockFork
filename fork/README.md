@@ -14,6 +14,16 @@ Application features stay in the existing DockDoor source locations. **Upstream 
 
 Follow the [required documentation maintenance instructions](../AGENTS.md#fork-documentation-maintenance-required) after changes. The ledger has an explicit coverage tip, including fork-only commits; the showcase guide describes current behavior, while the capture checklist tracks candidates without implying media or tests were completed. Keep roadmap, resource audits, contribution gates, packaging guidance, and preset privacy notes current when affected. Ledger maintenance commits receive their exact hash in the next update; do not claim coverage through an unrecorded commit.
 
+## Next Prerelease: 0.2.0
+
+Version 0.2.0 is selected for the next prerelease. Preparation covers application changes through `dd28db3`, including ordered selection, batch actions, group dragging, tiling, ordered AppleScript window lists, Select All, search clearing and the recent Dock-click/startup/header-hover fixes. Read the [draft release notes and publication gate](docs/RELEASE_NOTES_0.2.0.md).
+
+The published [0.1.0 prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) remains unchanged. No 0.2.0 Release package, tag or upload is recorded. Existing local Release ZIPs are 0.1.0 candidates, not builds of the latest features. Commit the reviewed version and preparation records before building a new Release candidate. Do not distribute the certificate-signed development app.
+
+The optional preset remains the reviewed 237-preference October 11 export. It is not automatically imported, and it does not enable the new default-Off selection and drag-to-tile settings. Review it separately before replacing it. A fresh privacy audit and actual Release-candidate testing are required before publication; past Debug or 0.1.0 results are not substitutes.
+
+New 0.2.0 defaults: Show selection summary is On, gated by enabled selection and checked windows; maximum tiling rows is 2 and columns is 3. Existing saved choices are preserved.
+
 ## Build a DockFork Package
 
 The packaging script is a fork-only CLI distribution workflow, not a replacement for upstream's Xcode development instructions. Building requires macOS 27 and Xcode 27 or later, with Xcode selected as the active developer directory. Initial dependency resolution requires network access. No Apple account is required for this ad-hoc-signing workflow.
@@ -36,7 +46,7 @@ The resulting app uses `DockFork.app`, executable `DockFork`, and bundle/prefere
 
 ### Fork and Upstream Versions
 
-`version.json` keeps four independent fields: `forkVersion`, `upstreamRelease`, `upstreamReleaseCommit`, and `upstreamCommit`. The initial DockFork prerelease version is `0.1.0`; the current base is DockDoor release `1.40.7` plus upstream changes through `7be384b`. Upstream's Xcode project still says `1.18.3`; it is not the published release version and is no longer used as DockFork's default version.
+`version.json` keeps four independent fields: `forkVersion`, `upstreamRelease`, `upstreamReleaseCommit`, and `upstreamCommit`. The record now selects `0.2.0` for the next prerelease; the published first prerelease remains `0.1.0`. The current base is DockDoor release `1.40.7` plus upstream changes through `7be384b`. Upstream's Xcode project still says `1.18.3`; it is not the published release version and is no longer used as DockFork's default version.
 
 Support > Updates displays the DockFork version and a separate `Based on DockDoor 1.40.7 + upstream changes · 7be384b` line. The full base hash is available by hovering over that line. An exact release base omits `+ upstream changes`. These values are embedded during packaging, not fetched at runtime. Standard DockDoor builds remain unchanged.
 

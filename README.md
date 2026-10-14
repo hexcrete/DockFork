@@ -10,6 +10,8 @@ Based on **[DockDoor by ejbills](https://github.com/ejbills/DockDoor)**, with ad
 
 **Early public testing:** [DockFork is a public fork](https://github.com/hexcrete/DockFork) with source and [DockFork 0.1.0 prerelease downloads](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0). The Apple Silicon build is ad-hoc signed and not notarized; macOS 27 testing by local transfer passed, while downloaded/quarantined installation remains unverified. Fork screenshots and recordings will be added as testers provide feedback; they are not required to begin testing. See the [build and installation guide](fork/README.md#build-a-dockfork-package). The original README below describes DockDoor; its screenshots, downloads, update links, commercial app, and support links belong to upstream, not DockFork.
 
+**Next prerelease:** [0.2.0 is in preparation](fork/docs/RELEASE_NOTES_0.2.0.md), with ordered multi-window selection, group actions/dragging, automatic and directional tiling, ordered AppleScript inputs and further UI/reliability fixes. These are development changes, not updates to the published 0.1.0 assets. No 0.2.0 Release package or publication is recorded yet.
+
 ---
 
 <a id="readme-top"></a>

@@ -48,3 +48,5 @@ File exclusions alone do not make a feature upstream-ready. Preference/default c
 ## Submission Order
 
 Start with a small reproducible correctness fix the maintainer agrees is useful. Extract its minimal dependencies, adapt preferences and defaults, and validate that exact patch. Discuss larger feature families separately after this first contribution, rather than treating the showcase or exhaustive commit ledger as a proposed merge request.
+
+October 14 preparation candidates, not submitted PRs: the fast AX-not-ready observer backoff correction in `a308aed` can be discussed independently of pending-window recency. That commit contains both changes and fork records, so extract the agreed portion rather than cherry-picking it wholesale. The header hover-bound fix in `4ff8ddd` depends on fork header/selection layout helpers; adapt the app-header issue to upstream's actual layout and omit selection-specific behavior unless explicitly agreed. No new upstream fetch, compatibility certification or submission was performed during 0.2.0 preparation.

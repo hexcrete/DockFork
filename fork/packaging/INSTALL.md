@@ -1,6 +1,6 @@
 # Installing DockFork
 
-This initial Apple Silicon package is ad-hoc signed, not Developer ID signed or notarized. It contains no automatic updater. Download future versions manually from the fork's releases. Do not treat a successful code-signature verification as Apple approval or malware scanning.
+This Apple Silicon package is ad-hoc signed, not Developer ID signed or notarized. It contains no automatic updater. Download future versions manually from the fork's releases. Do not treat a successful code-signature verification as Apple approval or malware scanning.
 
 1. Download the ZIP from the reviewed release and compare its SHA-256 with the published checksum. A checksum checks integrity, not trust in its publisher.
 2. Unzip and move `DockFork.app` to Applications. Quit any other running DockDoor/DockFork instance first: separate identities do not prevent competing global shortcuts or Dock monitoring.
@@ -15,6 +15,12 @@ This initial Apple Silicon package is ad-hoc signed, not Developer ID signed or 
 - Existing DockDoor/Dev preferences and diagnostics are not migrated or modified by packaging.
 - The source project and Swift module retain DockDoor naming. Some inherited UI, scripting terminology, donation links, and acknowledgments still refer to the upstream project.
 - AppleScript can address the installed app as `tell application "DockFork"`; existing command names and event codes are unchanged. Permission prompts and automation must be tested on the installed build.
+
+## Upgrading and New Optional Features
+
+Before replacing an installed version, export a settings backup and quit every running DockDoor/DockFork instance. Keep the DockFork name, bundle ID and installation path consistent. Existing DockFork preferences are not reset by packaging, but a rebuilt ad-hoc release can require granting permissions again.
+
+The 0.2.0 feature set includes multi-window selection under **Gestures & Keybinds > Window Selection & Tiling**. Selection and selection-driven keep-open behavior default Off. Show selection summary defaults On, but appears only after enabling selection and checking windows. Maximum tiling rows defaults to 2; columns defaults to 3. Drag-to-tile is a separate default-Off option under **Mouse Actions**. Neither installation nor importing the existing showcase preset automatically turns these on. Check the release notes for the version you actually downloaded; local development documentation does not establish that a package contains later features.
 
 Support > Updates shows DockFork's own version and its incorporated DockDoor release/commit separately. `+ upstream changes` means the base includes commits after that release, not that newer upstream releases are automatically installed. `BUILD-METADATA.json` accompanies release assets with the full upstream and source hashes. These values describe the built package and require no online check.
 
