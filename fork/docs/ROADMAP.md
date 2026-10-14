@@ -17,6 +17,8 @@ The public source fork is established at [hexcrete/DockFork](https://github.com/
 
 ## Spaces Bar in Window Switcher
 
+Deferred to a later release. Current work prioritizes polishing and fixing the completed selection, tiling and dragging features.
+
 - A horizontal Space-pill container, grouped by display, with names/numbers, resident app icons, per-app window counts, and fullscreen indicators.
 - Optional app-icon activation, Space filtering, activation on double click, search integration, and recent/sequential ordering.
 - Keyboard focus and forward/backward cycling, optional direct invocation with the bar focused, and selection on modifier release.

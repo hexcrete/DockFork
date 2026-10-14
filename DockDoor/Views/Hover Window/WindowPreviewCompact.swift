@@ -314,6 +314,7 @@ struct WindowPreviewCompact: View, Equatable {
             activeBorderColor: appearance.activeAppIndicatorColor,
             backgroundAppearance: backgroundAppearance
         )
+        .opacity(isHighlighted || isChecked ? 1.0 : appearance.unselectedContentOpacity)
         .externalDragSpringLoading(
             windowInfo: windowInfo,
             index: index,
@@ -323,9 +324,9 @@ struct WindowPreviewCompact: View, Equatable {
             handleWindowAction: handleWindowAction,
             onTap: onTap,
             onDragHoverIndexChange: onDragHoverIndexChange,
-            dragSelection: dragSelection
+            dragSelection: dragSelection,
+            expansionEdges: .horizontal
         )
-        .opacity(isHighlighted || isChecked ? 1.0 : appearance.unselectedContentOpacity)
         .padding(.horizontal, CardRadius.innerPadding)
         .contentShape(Rectangle())
         .onContinuousHover { phase in

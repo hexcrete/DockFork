@@ -6,11 +6,12 @@ import UniformTypeIdentifiers
 private struct PreviewDragTargetHighlight: View {
     let uniformCardRadius: Bool
     let paddingMultiplier: CGFloat
+    let expansionEdges: Edge.Set
 
     var body: some View {
         RoundedRectangle(cornerRadius: CardRadius.previewCard(uniform: uniformCardRadius, paddingMultiplier: paddingMultiplier))
             .fill(Color(nsColor: .controlAccentColor).opacity(0.3))
-            .padding(-CardRadius.innerPadding)
+            .padding(expansionEdges, -CardRadius.innerPadding)
             .allowsHitTesting(false)
     }
 }
@@ -21,10 +22,12 @@ private struct InternalDragTargetHighlight: View {
     let externalTargeted: Bool
     let uniformCardRadius: Bool
     let paddingMultiplier: CGFloat
+    let expansionEdges: Edge.Set
 
     var body: some View {
         if externalTargeted || selection.previewDragTarget == identity {
-            PreviewDragTargetHighlight(uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier)
+            PreviewDragTargetHighlight(uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier,
+                                       expansionEdges: expansionEdges)
         }
     }
 }
@@ -34,6 +37,7 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
     let index: Int
     let uniformCardRadius: Bool
     let paddingMultiplier: CGFloat
+    let expansionEdges: Edge.Set
     let windowSwitcherActive: Bool
     let keepPreviewOnHoverActivation: Bool
     let handleWindowAction: (WindowAction) -> Void
@@ -55,9 +59,10 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
                 if let dragSelection {
                     InternalDragTargetHighlight(selection: dragSelection, identity: PreviewWindowIdentity(windowInfo),
                                                 externalTargeted: isTargeted, uniformCardRadius: uniformCardRadius,
-                                                paddingMultiplier: paddingMultiplier)
+                                                paddingMultiplier: paddingMultiplier, expansionEdges: expansionEdges)
                 } else if isTargeted {
-                    PreviewDragTargetHighlight(uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier)
+                    PreviewDragTargetHighlight(uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier,
+                                               expansionEdges: expansionEdges)
                 }
             }
             .onDrop(of: [UTType.item], isTargeted: $isTargeted) { _ in
@@ -335,13 +340,15 @@ extension View {
         handleWindowAction: @escaping (WindowAction) -> Void,
         onTap: (() -> Void)?,
         onDragHoverIndexChange: ((Int?) -> Void)?,
-        dragSelection: SwitcherSelectionState? = nil
+        dragSelection: SwitcherSelectionState? = nil,
+        expansionEdges: Edge.Set = .all
     ) -> some View {
         modifier(ExternalDragSpringLoadingModifier(
             windowInfo: windowInfo,
             index: index,
             uniformCardRadius: uniformCardRadius,
             paddingMultiplier: appearance.globalPaddingMultiplier,
+            expansionEdges: expansionEdges,
             windowSwitcherActive: windowSwitcherActive,
             keepPreviewOnHoverActivation: appearance.keepPreviewOnHoverActivation,
             handleWindowAction: handleWindowAction,

@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers fifty-nine later commits through `d5bdb48d588a2b3cdd0714dc33f9091d8fbc7924`: **251 total, 247 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The approved selection and batch-action commits are recorded. The approved group-drag commit is recorded. The approved tiling commit is recorded. The approved batch-scripting commit is recorded. Uncommitted drop-to-tile development is excluded from this explicit coverage boundary. A commit cannot contain its own final hash.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation below covers sixty later commits through `7a6ec7d53095a2c683672523f54224a2e410d041`: **252 total, 248 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at this explicit tip. The approved selection and batch-action commits are recorded. The approved group-drag commit is recorded. The approved tiling commit is recorded. The approved batch-scripting commit is recorded. The approved drop-to-tile commit is recorded. The uncommitted compact drag-highlight correction is excluded from this explicit coverage boundary. A commit cannot contain its own final hash.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -421,6 +421,8 @@ Coverage: `9efa1cc..a4150a5`, extended and verified against Git October 13, 2026
 | [`6ae187c`](https://github.com/hexcrete/DockFork/commit/6ae187c438167dcc4320627cceec43ff8cc91f53) | Configurable automatic/directional ordered-group tiling, repeated overflow layouts, single-window Auto Tile, foreground raising, shared placement worker and native tiling/selection scripting. User manual verification and final source review passed. | Feature | 18 |
 
 | [`d5bdb48`](https://github.com/hexcrete/DockFork/commit/d5bdb48d588a2b3cdd0714dc33f9091d8fbc7924) | Existing AppleScript window actions accept ordered ID lists using shared batch/tiling/confirmed-move operations; preserve text-ID paths and event codes. Shared bounded reply handler, input/result tests and authorized live verification with exact window restoration. | Feature | 8 |
+
+| [`7a6ec7d`](https://github.com/hexcrete/DockFork/commit/7a6ec7d53095a2c683672523f54224a2e410d041) | Optional drop-to-tile using stable target-first ordering, confirmed placement, shared file/preview highlighting and cancellation-safe grid targeting. Manual verification and focused regression checks passed. | Feature | 18 |
 
 ## Upstream Attribution and Contribution Boundaries
 
