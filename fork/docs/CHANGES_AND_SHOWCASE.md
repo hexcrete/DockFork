@@ -113,6 +113,12 @@ Existing keys are retained; no migration or new observer/timer is added. The exi
 
 Traffic Light Buttons Transition Animation Speed now accepts 0-0.5 seconds instead of 0-0.2 seconds across preview modes. The existing key, 0.1-second default, 0.01-second step, zero-duration disablement and Reduce Motion handling remain unchanged. The slider and runtime clamp share one maximum-duration constant; no new background work is added. Updated regression checks verify durations above 0.2 seconds, the 0.5-second cap, and existing animation/Reduce Motion gates. The 54-test isolated regression suite passed, including the updated animation checks. Signed Debug build, exact-path relaunch, signature/binary verification and diff checks passed; Launch Services required a retry after error -600. The full Xcode suite is unrun and no manual visual test is claimed. Not included in the published 0.1.0 release.
 
+## Development: One-Time Cmd+Tab Focus Hint
+
+The existing Focus and use previews tutorial now saves its existing seen flag after the first valid preview focus, including mouse highlighting and containers that appear already focused. Previously only the preview-cycle keyboard shortcut saved it, so mouse users saw it again between selections and on later sessions. This is inherited from upstream's keyboard-only acknowledgement path. One shared view-lifecycle handler now records actual visible preview use; the old shortcut-specific write is removed. Gaps, invalid indices, disabled enhancements, Dock/Window Switcher and settings mock previews do not acknowledge the hint. Existing preferences and the initial unfocused tutorial remain unchanged.
+
+Eight source-extracted acknowledgement checks passed, including single-write behavior and exclusion cases. Signed Debug build, exact-path relaunch, signature/binary verification and diff checks passed; Launch Services required a retry after error -600. User manual verification and final source review passed October 13; the full Xcode suite is unrun. No live tutorial flag or other preference was reset for testing. Not included in the published 0.1.0 release.
+
 ## Reading This Guide
 
 - [Complete commit ledger](COMMIT_LEDGER.md): every branch-only commit in the audited history, grouped by category.

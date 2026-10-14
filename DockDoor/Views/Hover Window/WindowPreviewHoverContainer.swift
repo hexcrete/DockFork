@@ -683,17 +683,21 @@ struct WindowPreviewHoverContainer: View {
         }
         .overlay {
             SelectionReader(selection: previewStateCoordinator.selection) { currIndex in
-                if dockPosition == .cmdTab,
-                   Defaults[.enableCmdTabEnhancements],
-                   !Defaults[.hasSeenCmdTabFocusHint],
-                   !previewStateCoordinator.windowSwitcherActive,
-                   currIndex < 0
-                {
-                    CmdTabFocusFullOverlayView()
-                        .transition(.opacity)
-                        .allowsHitTesting(false)
-                        .clipShape(RoundedRectangle(cornerRadius: radii.container, style: .continuous))
+                Group {
+                    if dockPosition == .cmdTab,
+                       Defaults[.enableCmdTabEnhancements],
+                       !Defaults[.hasSeenCmdTabFocusHint],
+                       !previewStateCoordinator.windowSwitcherActive,
+                       currIndex < 0
+                    {
+                        CmdTabFocusFullOverlayView()
+                            .transition(.opacity)
+                            .allowsHitTesting(false)
+                            .clipShape(RoundedRectangle(cornerRadius: radii.container, style: .continuous))
+                    }
                 }
+                .onAppear { recordCmdTabFocusHintUsage(at: currIndex) }
+                .onChange(of: currIndex) { recordCmdTabFocusHintUsage(at: $0) }
             }
         }
         .measure($edgeScrollHoverSize)
@@ -711,6 +715,15 @@ struct WindowPreviewHoverContainer: View {
             }
         }
         .onDisappear { edgeScrollRequest = nil }
+    }
+
+    private func recordCmdTabFocusHintUsage(at index: Int) {
+        guard !mockPreviewActive, dockPosition == .cmdTab,
+              Defaults[.enableCmdTabEnhancements], !previewStateCoordinator.windowSwitcherActive,
+              previewStateCoordinator.windows.indices.contains(index),
+              !Defaults[.hasSeenCmdTabFocusHint]
+        else { return }
+        Defaults[.hasSeenCmdTabFocusHint] = true
     }
 
     private func handleWindowDrop(at location: CGPoint, for window: WindowInfo, token: UUID) {

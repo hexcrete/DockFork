@@ -31,6 +31,12 @@ These candidates require the new development build, not the published 0.1.0 rele
 
 | [ ] | MT02 | Video: drag previews onto previews to tile | Enable dragging windows together to tile them in Mouse Actions. Test single-window drops with multi-selection Off; enable multi-selection for groups. In regular/Compact Dock, Cmd+Tab and Window Switcher, drag one unchecked window onto another, a checked group onto an unchecked target, and an unchecked window onto a checked target group. Show target-first order, self-drop no-op, 1x1 move-only, off-Space target Desktop/display selection, both scroll axes and edge-scroll release coordinates. Verify unavailable/windowless targets chime without dismissing. Compare preview/file target highlights, including compact rows with matching background bounds and undimmed drag feedback when unselected-content opacity is reduced; verify clearing on release/Escape/new sessions, no self/group highlight, and no file spring-loading during preview dragging. Drag foregrounding ignores the resize foreground preference. Feature Off retains free placement; ordinary drag-away and Aero Shake remain unchanged. | `7a6ec7d`; compact highlight follow-up passed user verification October 13; capture pending |
 
+## Cmd+Tab First-Use Hint
+
+| Pick | ID | Capture | Setup and visible result | Commits |
+|---|---|---|---|---|
+| [ ] | CT01 | Video: one-time preview-focus hint | On a disposable fresh profile, open native Cmd+Tab previews while unfocused, then hover a preview and move into a gap. The tutorial must not return. Compare preview-cycle keyboard focus and reopening; settings mock previews must not acknowledge live onboarding. Do not reset the author's live preferences for a capture. | Development fix; user verification and review passed October 13; capture pending |
+
 ## Compact and Windowless Cards
 
 | Pick | ID | Capture | Setup and visible result | Commits |

@@ -1126,7 +1126,6 @@ class KeybindHelper {
                                     if !hasSelection {
                                         // First activation: select first preview
                                         self.previewCoordinator.windowSwitcherCoordinator.setIndex(to: 0, source: .keyboard)
-                                        Defaults[.hasSeenCmdTabFocusHint] = true
                                     } else if isShift {
                                         // Cmd+Shift+A: cycle backward
                                         let newIndex = currentIndex > 0 ? currentIndex - 1 : windowCount - 1
