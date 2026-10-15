@@ -497,7 +497,7 @@ extension WindowInfo {
     }
 
     @discardableResult
-    private func applyWindowFrame(_ targetFrame: CGRect, on screen: NSScreen) -> Bool {
+    private func applyWindowFrame(_ targetFrame: CGRect, on screen: NSScreen, refreshPreview: Bool = true) -> Bool {
         let primaryScreenMaxY = NSScreen.screens.first?.frame.maxY ?? screen.frame.maxY
         let axY = primaryScreenMaxY - targetFrame.maxY
         let newPosition = CGPoint(x: targetFrame.origin.x, y: axY)
@@ -509,11 +509,26 @@ extension WindowInfo {
             return false
         }
 
+        let enhancedUIAttribute = "AXEnhancedUserInterface"
+        let restoreEnhancedUI = (try? appAxElement.attribute(enhancedUIAttribute, Bool.self)) == true
+        // Some apps apply this write despite reporting an error; always restore the prior state.
+        if restoreEnhancedUI { try? appAxElement.setAttribute(enhancedUIAttribute, false) }
+        defer {
+            if restoreEnhancedUI { try? appAxElement.setAttribute(enhancedUIAttribute, true) }
+        }
+
+        // Either write can be constrained by the old frame; finish resizing at the new position if needed.
+        var sizeApplied = (try? axElement.size()) == newSize ||
+            (try? axElement.setAttribute(kAXSizeAttribute, sizeValue)) != nil
         let positionApplied = (try? axElement.setAttribute(kAXPositionAttribute, positionValue)) != nil
-        let sizeApplied = (try? axElement.setAttribute(kAXSizeAttribute, sizeValue)) != nil
+        if positionApplied, let actualSize = try? axElement.size(), actualSize != newSize {
+            sizeApplied = (try? axElement.setAttribute(kAXSizeAttribute, sizeValue)) != nil
+        }
 
         guard positionApplied || sizeApplied else { return false }
-        WindowUtil.refreshCachedPreviewAfterProgrammaticResize(self, targetScreenIdentifier: screen.uniqueIdentifier())
+        if refreshPreview || !positionApplied || !sizeApplied {
+            WindowUtil.refreshCachedPreviewAfterProgrammaticResize(self, targetScreenIdentifier: screen.uniqueIdentifier())
+        }
         return positionApplied && sizeApplied
     }
 
@@ -527,6 +542,38 @@ extension WindowInfo {
         }
 
         return applyWindowFrame(targetFrame, on: screen)
+    }
+
+    @MainActor
+    func setWindowFrameConfirmed(_ targetFrame: CGRect, on screen: NSScreen,
+                                 isRequestActive: @escaping @MainActor () -> Bool) async -> Bool
+    {
+        guard !Task.isCancelled, isRequestActive() else { return false }
+        var actualFrame: CGRect?
+        let applied = applyWindowFrame(targetFrame, on: screen, refreshPreview: false)
+        defer {
+            if applied, !Task.isCancelled, isRequestActive() {
+                WindowUtil.refreshCachedPreviewAfterProgrammaticResize(self, targetScreenIdentifier: screen.uniqueIdentifier())
+            }
+        }
+        if applied {
+            for check in 0 ..< 2 {
+                if check == 1 {
+                    do { try await Task.sleep(nanoseconds: 100_000_000) }
+                    catch { return false }
+                }
+                guard !Task.isCancelled, isRequestActive() else { return false }
+                actualFrame = currentWindowFrame()
+                if let actualFrame,
+                   abs(actualFrame.minX - targetFrame.minX) <= 1,
+                   abs(actualFrame.minY - targetFrame.minY) <= 1,
+                   abs(actualFrame.width - targetFrame.width) <= 1,
+                   abs(actualFrame.height - targetFrame.height) <= 1
+                { return true }
+            }
+        }
+        DebugLogger.log("WindowPlacement", details: "PID: \(app.processIdentifier), window: \(id), target: \(targetFrame), actual: \(String(describing: actualFrame)), confirmed: false")
+        return false
     }
 
     private func positionWindow(rect: WindowPositionRect) -> Bool {
@@ -706,7 +753,7 @@ extension WindowInfo {
                         request.finish(false)
                         return
                     }
-                    try window.axElement.setAttribute(kAXMainWindowAttribute, true)
+                    try window.axElement.setAttribute(kAXMainAttribute, true)
                     guard !request.isCancelled else {
                         request.finish(false)
                         return
@@ -717,6 +764,7 @@ extension WindowInfo {
                 } catch {
                     guard !request.isCancelled else { return }
                     print("Attempt \(attempt + 1) failed to bring window to front: \(error)")
+                    DebugLogger.log("WindowActivation", details: "PID: \(window.app.processIdentifier), window: \(window.id), attempt: \(attempt + 1), failed: \(error)")
                     if error is AxError {
                         WindowUtil.removeWindowFromDesktopSpaceCache(with: window.id, in: window.app.processIdentifier)
                     }

@@ -1073,14 +1073,14 @@ extension WindowUtil {
                                                     maximumRows: maximumRows, maximumColumns: maximumColumns)
             }
             guard let frame = frames?[index] else { return true }
-            return window.setWindowFrame(frame, on: screen)
+            return await window.setWindowFrameConfirmed(frame, on: screen, isRequestActive: isRequestActive)
         }
     }
 
     @MainActor
     private static func performWindowGroupPlacement(_ windows: [WindowInfo], destination: ManagedSpaceDestination,
                                                     raiseWindows: Bool, isRequestActive: @escaping @MainActor () -> Bool,
-                                                    place: (WindowInfo, Int, Int) -> Bool) async -> PreviewBatchResult
+                                                    place: (WindowInfo, Int, Int) async -> Bool) async -> PreviewBatchResult
     {
         var result = PreviewBatchResult()
         let topology = WindowSpaces.managedDisplays()
@@ -1137,7 +1137,9 @@ extension WindowUtil {
         }
         for (index, window) in revealedWindows.enumerated() {
             guard !Task.isCancelled, isRequestActive() else { return result }
-            if place(window, index, revealedWindows.count) { result.succeeded.append(window) }
+            let placed = await place(window, index, revealedWindows.count)
+            guard !Task.isCancelled, isRequestActive() else { return result }
+            if placed { result.succeeded.append(window) }
             else { result.failed.append(PreviewWindowIdentity(window)) }
             await Task.yield()
         }
@@ -4320,7 +4322,7 @@ extension WindowUtil {
 // MARK: - Private Helper Methods
 
 extension WindowUtil {
-    /// Makes a window key by posting a synthetic left-click (down then up) to the Window Server.
+    /// Makes a window key by posting a synthetic left-mouse-down to the Window Server.
     /// Ported from https://github.com/Hammerspoon/hammerspoon/issues/370#issuecomment-545545468
     static func makeKeyWindow(_ psn: inout ProcessSerialNumber, windowID: CGWindowID) {
         var bytes = [UInt8](repeating: 0, count: 0x100)
@@ -4328,12 +4330,10 @@ extension WindowUtil {
         bytes[0x3A] = 0x10
         var wid = UInt32(windowID)
         memcpy(&bytes[0x3C], &wid, MemoryLayout<UInt32>.size)
-        // Click just outside the frame: makes the window key without hit-testing content (top-left would close Chrome PWA shims).
-        var point = CGPoint(x: -1, y: -1)
+        // Stay far outside resize grips; a mouse-up could complete an unintended click.
+        var point = CGPoint(x: 300_000, y: 300_000)
         memcpy(&bytes[0x20], &point, MemoryLayout<CGPoint>.size)
         bytes[0x08] = 0x01
-        _ = SLPSPostEventRecordTo(&psn, &bytes)
-        bytes[0x08] = 0x02
         _ = SLPSPostEventRecordTo(&psn, &bytes)
     }
 }

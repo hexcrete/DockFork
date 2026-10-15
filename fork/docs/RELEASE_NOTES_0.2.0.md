@@ -20,6 +20,8 @@ Multi-window selection, selection-driven keep-open behavior and drop-to-tile def
 
 ### Fixes and UI Polish
 
+- Confirm tiled window frames, finish resizing after moving when the old position constrained the size, avoid animated AX frame-write races with scoped accessibility-state restoration, and use the correct native main-window attribute when foregrounding. Refused placements report failure. Keep synthetic key-window events away from native resize grips and omit mouse-up to avoid rapid focus unexpectedly expanding windows.
+
 - Adapt preview toolbars to narrow widths: shorten/omit title text, progressively overflow rightmost traffic-light actions and consolidate Space/state controls into native More menus, then reuse the selection-control location while preserving app icons and selected-state outlines. Preview and menu-bar action menus share Space/state information, with Move to Space before Arrange. Shared selection controls expose native selected-state accessibility metadata.
 
 - Keep Shadowed app headers and their mouse-safe zone below the menu bar when preview panels reach the top of the screen.
