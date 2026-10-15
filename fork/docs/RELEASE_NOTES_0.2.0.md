@@ -20,7 +20,7 @@ Multi-window selection, selection-driven keep-open behavior and drop-to-tile def
 
 ### Fixes and UI Polish
 
-- Adapt preview toolbars to narrow widths: shorten/omit title text, consolidate actions and Space/state controls into native More menus, then reuse the selection-control location while preserving app icons and selected-state outlines.
+- Adapt preview toolbars to narrow widths: shorten/omit title text, consolidate actions and Space/state controls into native More menus, then reuse the selection-control location while preserving app icons and selected-state outlines. Preview and menu-bar action menus share Space/state information, with Move to Space before Arrange.
 
 - Keep Shadowed app headers and their mouse-safe zone below the menu bar when preview panels reach the top of the screen.
 

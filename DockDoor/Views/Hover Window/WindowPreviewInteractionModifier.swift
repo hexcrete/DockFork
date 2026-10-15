@@ -460,19 +460,9 @@ final class WindowActionMenuBuilder: NSObject {
             }
             if overflow.includesIndicator {
                 addSeparatorIfNeeded(to: menu)
-                if let number = overflow.spaceNumber {
-                    let item = NSMenuItem(title: String(localized: "Space \(number)"), action: nil, keyEquivalent: "")
-                    item.isEnabled = false
-                    menu.addItem(item)
-                }
-                for label in WindowStateSymbolResolver.labels(for: window) {
-                    let item = NSMenuItem(title: label, action: nil, keyEquivalent: "")
-                    item.isEnabled = false
-                    menu.addItem(item)
-                }
-                if overflow.allowsSpaceMoving, !window.isWindowlessApp {
-                    addSpaceSubmenu(for: window, to: menu, dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints)
-                }
+                addSpaceControls(for: window, spaceNumber: overflow.spaceNumber,
+                                 allowsSpaceMoving: overflow.allowsSpaceMoving, to: menu,
+                                 dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints)
             }
             return menu
         }
@@ -494,6 +484,8 @@ final class WindowActionMenuBuilder: NSObject {
 
         if !window.isWindowlessApp {
             addSeparatorIfNeeded(to: menu)
+            addSpaceControls(for: window, spaceNumber: window.spaceNumber, allowsSpaceMoving: true,
+                             to: menu, dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints)
             if let actions = groups.first(where: { $0.id == .arrange })?.actions {
                 let arrangeItem = NSMenuItem(
                     title: WindowAction.Group.arrange.localizedName,
@@ -519,8 +511,6 @@ final class WindowActionMenuBuilder: NSObject {
                 arrangeItem.submenu = arrangeMenu
                 menu.addItem(arrangeItem)
             }
-
-            addSpaceSubmenu(for: window, to: menu, dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints)
         }
 
         if let actions = groups.first(where: { $0.id == .app })?.actions {
@@ -540,7 +530,20 @@ final class WindowActionMenuBuilder: NSObject {
         return menu
     }
 
-    private func addSpaceSubmenu(for window: WindowInfo, to menu: NSMenu, dismissPreviews: (() -> Void)?, showShortcutHints: Bool) {
+    private func addSpaceControls(for window: WindowInfo, spaceNumber: Int?, allowsSpaceMoving: Bool,
+                                  to menu: NSMenu, dismissPreviews: (() -> Void)?, showShortcutHints: Bool)
+    {
+        if let spaceNumber {
+            let item = NSMenuItem(title: String(localized: "Space \(spaceNumber)"), action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+        }
+        for label in WindowStateSymbolResolver.labels(for: window) {
+            let item = NSMenuItem(title: label, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            menu.addItem(item)
+        }
+        guard allowsSpaceMoving, !window.isWindowlessApp else { return }
         let moveItem = NSMenuItem(
             title: String(localized: "Move to Space", comment: "Space destination submenu title"),
             action: nil,
