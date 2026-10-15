@@ -1030,6 +1030,17 @@ extension Defaults.Keys {
     static let trackpadSwitcherSwipeDirection = Key<TrackpadSwipeDirection>("trackpadSwitcherSwipeDirection", default: .horizontal)
     static let reverseTrackpadSwipeSelectionDirection = Key<Bool>("reverseTrackpadSwipeSelectionDirection", default: false)
     static let selectWindowOnPersistentSwitcherSwipe = Key<Bool>("selectWindowOnPersistentSwitcherSwipe", default: true)
+    static let trackpadSwitcherSwipeSensitivity = Key<CGFloat>("trackpadSwitcherSwipeSensitivity", default: 1)
+
+    // MARK: - Window Gestures
+
+    static let enableWindowGestures = Key<Bool>("enableWindowGestures", default: false)
+    static let windowGesturesDisabled = Key<Set<WindowGesture>>("windowGesturesDisabled", default: [])
+    static let windowGestureSensitivity = Key<CGFloat>("windowGestureSensitivity", default: 1)
+    static let windowGestureHaptics = Key<Bool>("windowGestureHaptics", default: true)
+    static let windowGestureLivePreview = Key<Bool>("windowGestureLivePreview", default: true)
+    static let customDockReservationEdge = Key<ScreenReservationEdge>("customDockReservationEdge", default: .none)
+    static let customDockReservationThickness = Key<CGFloat>("customDockReservationThickness", default: 70)
 
     // MARK: - Middle Click Action
 

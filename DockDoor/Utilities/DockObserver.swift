@@ -780,34 +780,35 @@ final class DockObserver {
         return dockChildren
     }
 
+    private func applicationDockItems() -> [(element: AXUIElement, url: URL, bundleIdentifier: String)] {
+        (getAllDockItemChildren() ?? []).compactMap { item in
+            guard (try? item.subrole()) == "AXApplicationDockItem",
+                  let url = try? item.attribute(kAXURLAttribute, NSURL.self)?.absoluteURL,
+                  let bundleIdentifier = Bundle(url: url)?.bundleIdentifier
+            else { return nil }
+            return (item, url, bundleIdentifier)
+        }
+    }
+
+    func runningApplicationsInDockOrder() -> [NSRunningApplication] {
+        var seen = Set<pid_t>()
+        return applicationDockItems().compactMap { item -> NSRunningApplication? in
+            guard (try? item.element.appIsRunning()) == true else { return nil }
+            let app = LauncherShortcutResolver.runningApplications(forBundleAt: item.url, bundleIdentifier: item.bundleIdentifier)
+                .first { !seen.contains($0.processIdentifier) }
+            if let app {
+                seen.insert(app.processIdentifier)
+            }
+            return app
+        }
+    }
+
     /// Finds the instance index of a hovered dock item among all dock items with the same bundle identifier.
     /// This is used to correctly identify which instance of a multi-instance app is being hovered.
     private func findDockItemInstanceIndex(_ hoveredItem: AXUIElement, bundleIdentifier: String) -> Int {
-        guard let allDockItems = getAllDockItemChildren() else {
-            return 0
-        }
-
-        // Filter to only AXApplicationDockItems with the same bundle ID
-        var matchingItems: [AXUIElement] = []
-        for item in allDockItems {
-            guard (try? item.subrole()) == "AXApplicationDockItem",
-                  let itemURL = try? item.attribute(kAXURLAttribute, NSURL.self)?.absoluteURL,
-                  let itemBundle = Bundle(url: itemURL),
-                  itemBundle.bundleIdentifier == bundleIdentifier
-            else {
-                continue
-            }
-            matchingItems.append(item)
-        }
-
-        // Find the index of the hovered item among matching items
-        for (index, item) in matchingItems.enumerated() {
-            if CFEqual(item, hoveredItem) {
-                return index
-            }
-        }
-
-        return 0
+        applicationDockItems()
+            .filter { $0.bundleIdentifier == bundleIdentifier }
+            .firstIndex { CFEqual($0.element, hoveredItem) } ?? 0
     }
 
     func getDockItemAppStatusUnderMouse() -> ApplicationReturnType {
@@ -926,9 +927,10 @@ final class DockObserver {
         eventTapContext = nil
     }
 
-    private static let dockProximityBand: CGFloat = 220
+    static let dockProximityBand: CGFloat = 220
+    private static let dockItemHoverSlop: CGFloat = 8
 
-    private func isPointNearDock(_ point: CGPoint) -> Bool {
+    func isPointNearDock(_ point: CGPoint, band: CGFloat = DockObserver.dockProximityBand) -> Bool {
         let position = DockUtils.getDockPosition()
         var displayCount: UInt32 = 0
         var displays = [CGDirectDisplayID](repeating: 0, count: 16)
@@ -937,14 +939,27 @@ final class DockObserver {
             let bounds = CGDisplayBounds(display)
             guard bounds.contains(point) else { continue }
             switch position {
-            case .left: return point.x - bounds.minX <= Self.dockProximityBand
-            case .right: return bounds.maxX - point.x <= Self.dockProximityBand
-            case .bottom: return bounds.maxY - point.y <= Self.dockProximityBand
-            case .top: return point.y - bounds.minY <= Self.dockProximityBand
+            case .left: return point.x - bounds.minX <= band
+            case .right: return bounds.maxX - point.x <= band
+            case .bottom: return bounds.maxY - point.y <= band
+            case .top: return point.y - bounds.minY <= band
             default: return true
             }
         }
         return false
+    }
+
+    func isPointOverDockItem(_ point: CGPoint, item: AXUIElement) -> Bool {
+        guard let position = try? item.position(), let size = try? item.size() else { return true }
+        let frame = CGRect(origin: position, size: size).insetBy(dx: -Self.dockItemHoverSlop, dy: -Self.dockItemHoverSlop)
+        switch DockUtils.getDockPosition() {
+        case .left, .right:
+            return point.y >= frame.minY && point.y <= frame.maxY && isPointNearDock(point, band: frame.width)
+        case .top, .bottom:
+            return point.x >= frame.minX && point.x <= frame.maxX && isPointNearDock(point, band: frame.height)
+        default:
+            return true
+        }
     }
 
     private func setupEventTap() {
@@ -1054,11 +1069,11 @@ final class DockObserver {
         }
 
         if type == .scrollWheel {
-            if Defaults[.enableTitleBarScrollGesture], handleTitleBarScroll(event) {
+            if Defaults[.enableTitleBarScrollGesture], !Defaults[.enableWindowGestures], handleTitleBarScroll(event) {
                 return nil
             }
 
-            guard Defaults[.enableDockScrollGesture], isPointNearDock(event.location) else {
+            guard Defaults[.enableDockScrollGesture], !Defaults[.enableWindowGestures], isPointNearDock(event.location) else {
                 return Unmanaged.passUnretained(event)
             }
 

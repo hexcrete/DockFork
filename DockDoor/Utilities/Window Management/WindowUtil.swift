@@ -1069,7 +1069,7 @@ extension WindowUtil {
                                                  isRequestActive: isRequestActive)
         { window, index, count in
             if frames == nil {
-                frames = PreviewTilingLayout.frames(count: count, in: screen.visibleFrame, direction: direction,
+                frames = PreviewTilingLayout.frames(count: count, in: screen.snappingFrame, direction: direction,
                                                     maximumRows: maximumRows, maximumColumns: maximumColumns)
             }
             guard let frame = frames?[index] else { return true }
@@ -2348,6 +2348,25 @@ extension WindowUtil {
         }
         // Unknown membership: only keep previews open when same-Space activation is known.
         return true
+    }
+
+    static func windowInfo(for axWindow: AXUIElement, app: NSRunningApplication, windowID: CGWindowID? = nil) -> WindowInfo? {
+        guard let windowID = windowID ?? (try? axWindow.cgWindowId()) else { return nil }
+        if let cached = readCachedWindows(for: app.processIdentifier).first(where: { $0.id == windowID }) {
+            return cached
+        }
+        return WindowInfo(
+            windowProvider: AXFallbackProvider(cgID: windowID),
+            app: app,
+            image: nil,
+            axElement: axWindow,
+            appAxElement: AXUIElementCreateApplication(app.processIdentifier),
+            closeButton: try? axWindow.closeButton(),
+            lastAccessedTime: Date(),
+            isMinimized: (try? axWindow.isMinimized()) ?? false,
+            isHidden: app.isHidden,
+            readsAXTitle: false
+        )
     }
 
     /// Returns whether a single window belongs to one of the given active Spaces.
@@ -4259,14 +4278,18 @@ extension WindowUtil {
     }
 
     static func openNewWindow(app: NSRunningApplication) {
-        let source = CGEventSource(stateID: .combinedSessionState)
-        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x2D, keyDown: true)
-        keyDown?.flags = .maskCommand
-        keyDown?.postToPid(app.processIdentifier)
+        postCommandShortcut(0x2D, to: app.processIdentifier)
+    }
 
-        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x2D, keyDown: false)
+    static func postCommandShortcut(_ keyCode: CGKeyCode, to pid: pid_t) {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true)
+        keyDown?.flags = .maskCommand
+        keyDown?.postToPid(pid)
+
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false)
         keyUp?.flags = .maskCommand
-        keyUp?.postToPid(app.processIdentifier)
+        keyUp?.postToPid(pid)
     }
 
     static func activateAndOpenNewWindow(app: NSRunningApplication) {

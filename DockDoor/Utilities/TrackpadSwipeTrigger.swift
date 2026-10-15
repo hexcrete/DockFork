@@ -11,13 +11,14 @@ enum TrackpadSwipeEvent: Equatable {
     case cycleForward
     case cycleBackward
     case release
+    case cancel
 
     func reversingSelection(if enabled: Bool) -> Self {
         guard enabled else { return self }
         switch self {
         case .cycleForward: return .cycleBackward
         case .cycleBackward: return .cycleForward
-        case .open, .release: return self
+        case .open, .release, .cancel: return self
         }
     }
 }
@@ -28,13 +29,16 @@ struct TrackpadSwipeDetector {
     static let cycleDistance: CGFloat = 0.04
     static let maxOffAxisDistance: CGFloat = 0.1
     static let axisDominanceRatio: CGFloat = 1.5
+    static let sensitivityRange: ClosedRange<CGFloat> = 0.5 ... 2
 
     private var startPositions: [Int: CGPoint] = [:]
     private var isSpent = false
     private var hasCycled = false
     private(set) var isSwitching = false
 
-    mutating func handle(_ touches: [SwipeTouch], fingers: Int, horizontal: Bool) -> TrackpadSwipeEvent? {
+    mutating func handle(_ touches: [SwipeTouch], fingers: Int, horizontal: Bool, sensitivity: CGFloat = 1) -> TrackpadSwipeEvent? {
+        let distanceScale = 1 / min(max(sensitivity, Self.sensitivityRange.lowerBound), Self.sensitivityRange.upperBound)
+
         if isSwitching {
             if touches.count < fingers {
                 isSwitching = false
@@ -44,7 +48,7 @@ struct TrackpadSwipeDetector {
             }
             guard let deltas = travel(touches) else { return nil }
             let averageAlong = deltas.map { horizontal ? $0.x : $0.y }.reduce(0, +) / CGFloat(deltas.count)
-            let threshold = hasCycled ? Self.cycleDistance : Self.firstCycleDistance
+            let threshold = (hasCycled ? Self.cycleDistance : Self.firstCycleDistance) * distanceScale
             guard abs(averageAlong) >= threshold else { return nil }
             hasCycled = true
             rebase(touches)
@@ -77,8 +81,9 @@ struct TrackpadSwipeDetector {
             isSpent = true
             return nil
         }
-        let allPositive = alongAxis.allSatisfy { $0 >= Self.openDistance }
-        let allNegative = alongAxis.allSatisfy { $0 <= -Self.openDistance }
+        let openDistance = Self.openDistance * distanceScale
+        let allPositive = alongAxis.allSatisfy { $0 >= openDistance }
+        let allNegative = alongAxis.allSatisfy { $0 <= -openDistance }
         guard allPositive || allNegative else { return nil }
         guard zip(alongAxis.map(abs), acrossAxis).allSatisfy({ $0 > $1 * Self.axisDominanceRatio }) else { return nil }
 
@@ -188,7 +193,8 @@ final class TrackpadSwipeTrigger {
 
         let fingers = min(max(Defaults[.trackpadSwitcherSwipeFingers], 3), 4)
         let horizontal = Defaults[.trackpadSwitcherSwipeDirection] == .horizontal
-        guard let event = detector.handle(swipeTouches, fingers: fingers, horizontal: horizontal) else { return }
+        let sensitivity = Defaults[.trackpadSwitcherSwipeSensitivity]
+        guard let event = detector.handle(swipeTouches, fingers: fingers, horizontal: horizontal, sensitivity: sensitivity) else { return }
 
         let onSwipe = onSwipe
         Task { @MainActor in

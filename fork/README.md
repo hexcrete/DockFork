@@ -46,9 +46,9 @@ The resulting app uses `DockFork.app`, executable `DockFork`, and bundle/prefere
 
 ### Fork and Upstream Versions
 
-`version.json` keeps four independent fields: `forkVersion`, `upstreamRelease`, `upstreamReleaseCommit`, and `upstreamCommit`. The record now selects `0.2.0` for the next prerelease; the published first prerelease remains `0.1.0`. The current base is DockDoor release `1.40.7` plus upstream changes through `7be384b`. Upstream's Xcode project still says `1.18.3`; it is not the published release version and is no longer used as DockFork's default version.
+`version.json` keeps four independent fields: `forkVersion`, `upstreamRelease`, `upstreamReleaseCommit`, and `upstreamCommit`. The record now selects `0.2.0` for the next prerelease; the published first prerelease remains `0.1.0`. The current base is DockDoor release `1.41.0` plus upstream changes through `3e08721`. Upstream's Xcode project still says `1.18.3`; it is not the published release version and is no longer used as DockFork's default version.
 
-Support > Updates displays the DockFork version and a separate `Based on DockDoor 1.40.7 + upstream changes · 7be384b` line. The full base hash is available by hovering over that line. An exact release base omits `+ upstream changes`. These values are embedded during packaging, not fetched at runtime. Standard DockDoor builds remain unchanged.
+Support > Updates displays the DockFork version and a separate `Based on DockDoor 1.41.0 + upstream changes · 3e08721` line. The full base hash is available by hovering over that line. An exact release base omits `+ upstream changes`. These values are embedded during packaging, not fetched at runtime. Standard DockDoor builds remain unchanged.
 
 After an upstream merge:
 
@@ -57,7 +57,7 @@ After an upstream merge:
 3. Keep `forkVersion` independent. Update it for a fork release, or use `--version X.Y.Z` for a one-build override without editing the record.
 4. Review the diff, run `ruby fork/packaging/tests/version_metadata_test.rb`, build, and verify the displayed base before publishing.
 
-Packaging requires complete local Git history and the pinned release tag. If a clone lacks that tag, fetch it from the official repository (for the current record: `git fetch https://github.com/ejbills/DockDoor.git tag 1.40.7`). The validator checks release-tag identity, release-to-base and base-to-build ancestry, and any newer included stable tags. If a remote points to the official DockDoor repository and has a `main` tracking ref, it also checks that the recorded base matches the merged remote history; fetching unmerged upstream changes does not change the label. Without such a remote, ancestry/tag checks still run offline, but confirming freshness of the base remains part of merge review. Shallow clones may need their history completed.
+Packaging requires complete local Git history and the pinned release tag. If a clone lacks that tag, fetch it from the official repository (for the current record: `git fetch https://github.com/ejbills/DockDoor.git tag 1.41.0`). The validator checks release-tag identity, release-to-base and base-to-build ancestry, and any newer included stable tags. If a remote points to the official DockDoor repository and has a `main` tracking ref, it also checks that the recorded base matches the merged remote history; fetching unmerged upstream changes does not change the label. Without such a remote, ancestry/tag checks still run offline, but confirming freshness of the base remains part of merge review. Shallow clones may need their history completed.
 
 Release mode reads the record from committed HEAD; local test/development mode reads the working record. The existing source-only exclusion still applies to untracked app files, but packaging explicitly uses its current fork-only assets, including this record and the validator. Commit and review those assets before a release. The script embeds version/base values in the isolated app's Info.plist and verifies them after building, without changing the source project. `BUILD-METADATA.json` records the effective fork version, upstream release/base hashes, source commit, and whether later upstream commits are included.
 
@@ -87,6 +87,8 @@ Changing from ad-hoc signing may require granting permissions once again. Later 
 Development mode creates no release ZIP and must not be distributed; its signature identifies your development account. Run the ordinary packaging command separately for the initial ad-hoc release workflow.
 
 The certificate-signed Debug workflow, nested signature checks, fixed-path replacement and exact-path launch have passed, including the October 15 tiling/activation fixes. Its designated requirement is certificate-based, not tied to a binary hash. Permission retention across subsequent builds still needs verification after granting access to this signed build.
+
+The October 15 integration includes DockDoor 1.41.0 and later upstream metadata through `3e08721`. Settings now separate Gestures from Keybinds. No new Release package has been built; the updated showcase export and build authorization are still awaited.
 
 ### Release Assets and Validation
 
@@ -155,7 +157,7 @@ The envelope intentionally retains `"app": "DockDoor"` because the current impor
 
 ### Behavior to Review Before Importing
 
-This is an opinionated showcase configuration, not a recommended setup for everyone. In particular, it configures Left Option + Tab, side-specific Command double taps, preview action shortcuts (including Close and Quit), numbered Spaces shortcuts, and trackpad swipe launching. Review **Gestures & Keybinds** after import and resolve conflicts with macOS gestures or other applications. Some appearance choices use newer macOS capabilities; results can differ by system version, display configuration, and Reduce Motion settings.
+This is an opinionated showcase configuration, not a recommended setup for everyone. In particular, it configures Left Option + Tab, side-specific Command double taps, preview action shortcuts (including Close and Quit), numbered Spaces shortcuts, and trackpad swipe launching. Review **Gestures** and **Keybinds** after import and resolve conflicts with macOS gestures or other applications. Some appearance choices use newer macOS capabilities; results can differ by system version, display configuration, and Reduce Motion settings.
 
 Privacy and import-format checks do not prove every interaction is appropriate on another person's Mac. Re-exported preferences must be reviewed again before publication: exports can include new private state and system metadata.
 

@@ -34,6 +34,8 @@ October 14 App Header scope restoration: header actions resolve the app's cached
 
 Checked October 8, 2026, against upstream `0bd2e46`; commit references below follow the current fork history. This is a targeted source audit and a read-only badge-notification probe, not a whole-application performance certification. No new regression tests were added or live preferences reset.
 
+October 15 upstream integration review: Window Gestures constructs its controller, executor, HUD and dedicated event-tap thread only when enabled, default Off. Snap-registry frame callbacks are setting-gated. ScreenReservations starts one independent distributed-notification observer for custom docks/scripts; it is not covered by the disabled-gesture zero-resource claim. Existing per-window placement confirmation and cancellation remain intact. This integration review does not rerun the older whole-app audit or establish latency measurements.
+
 ## Badge Notifications
 
 The local macOS 27 Dock exposed 22 application items, including one badged item. All 22 rejected both `AXValueChanged` and `AXTitleChanged` registrations with `notificationUnsupported` (-25207), while the existing Dock-list selection notification registered successfully. The probe removed registrations and did not alter badges, print their contents, or request additional permissions.

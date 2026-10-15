@@ -127,6 +127,22 @@ extension WindowAction {
         }
     }
 
+    var positionRect: WindowInfo.WindowPositionRect? {
+        switch self {
+        case .maximize: .full
+        case .fillLeftHalf: .leftHalf
+        case .fillRightHalf: .rightHalf
+        case .fillTopHalf: .topHalf
+        case .fillBottomHalf: .bottomHalf
+        case .fillTopLeftQuarter: .topLeftQuarter
+        case .fillTopRightQuarter: .topRightQuarter
+        case .fillBottomLeftQuarter: .bottomLeftQuarter
+        case .fillBottomRightQuarter: .bottomRightQuarter
+        case .center: .center
+        default: nil
+        }
+    }
+
     func menuTitle(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> String {
         if self == .toggleWindowSelection {
             return batchTargets == nil ? String(localized: "Add to Selection") : String(localized: "Remove from Selection")

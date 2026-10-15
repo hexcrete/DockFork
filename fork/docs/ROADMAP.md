@@ -15,6 +15,8 @@ The public source fork is established at [hexcrete/DockFork](https://github.com/
 - Prepare small, dependency-aware upstream proposals only after discussing scope with the maintainer. Follow upstream's contribution and AI-disclosure rules; the human author reviews and writes submission text.
 - Apply the [upstream contribution gates](UPSTREAM_CONTRIBUTIONS.md) to each proposed PR. Preserve upstream preferences/defaults, validate in Xcode, and require human-authored submission text; the complete fork is not a single upstream contribution.
 
+Upstream is incorporated through `3e08721`, including stable 1.41.0. Its window gestures and screen reservations are inherited capabilities, not additions to the fork roadmap. The next Release candidate must include this integration and separate Debug/manual validation.
+
 ## Spaces Bar in Window Switcher
 
 Deferred to a later release. Current work prioritizes polishing and fixing the completed selection, tiling and dragging features.

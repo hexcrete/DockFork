@@ -4,6 +4,16 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 **Publication:** [DockFork 0.1.0](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) is published as a prerelease from `36e635e`. The user reported successful testing on additional Macs running macOS 27 after local transfer. Downloaded/quarantined installation validation remains pending. Local development uses certificate-signed DockFork at the fixed, gitignored `fork/dist/dev/DockFork.app` path. Historical candidate checks below do not describe later development builds.
 
+## October 15 Upstream 1.41.0 Integration
+
+Incorporates upstream through `3e08721ec56c6747dba04561ab57b03ec254d785`, including published stable release 1.41.0 at `3d6a3cbaa9bbee17959122da7f0a349ca43056d0`. These are upstream capabilities, not fork additions: optional two-finger window gestures on title bars, Dock icons and the menu bar; window snap/restore support; custom-dock screen reservations and the `reserve screen edge` AppleScript command; swipe-switcher sensitivity; stricter final Dock-hover validation; and updated translations.
+
+Settings are now split into **Gestures** and **Keybinds**. Trackpad and preview gestures are under Gestures. Shortcuts, Spaces, selection/tiling and Mouse Actions are under Keybinds. Older dated records retain their former tab names. Search targets retain their identities and route to the new tabs without duplicate swipe entries.
+
+The merge retains confirmed tiling, scoped accessibility-state restoration, the off-content focus event, multi-selection and persistent/held/swipe session ownership. Gesture snapping uses the shared guarded frame writer without adding focus to neighbor resizing; completed gesture snaps explicitly foreground their target. Batch tiling uses the same reserved usable area as individual snaps. Window Gestures remains default Off and its controller/event tap is constructed only when enabled. Upstream's screen-reservation observer is independent of that gesture toggle and supports scripts/custom docks.
+
+Release packaging remains paused for the updated showcase export and build authorization. No preset import, Release build, tag, upload or publication is part of this merge. Debug validation and manual regression status are recorded separately below after validation.
+
 ## Next Prerelease: 0.2.0
 
 Functional changes reviewed October 15 through `c15292f`; formatting-only cleanup is committed as `5819ee4`. The approved documentation commit is recorded in the next ledger update. Version 0.2.0 is selected for the next prerelease; no Release candidate, tag or upload is recorded yet. The [draft notes and publication gate](RELEASE_NOTES_0.2.0.md) summarize the release and remaining checks. The published 0.1.0 assets remain unchanged. Detailed phase records below distinguish implementation and historical validation; they are not fresh Release certification.

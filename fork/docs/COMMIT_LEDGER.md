@@ -2,9 +2,9 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **88 later commits through `5819ee492adfc194c406da104e367136817ea4f4`: 280 total, 276 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **89 later commits through `766b77e55cfa6a7f5b70f894bd53f4b98e3973c2`: 281 total, 277 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
 
-The latest records include the tiling/activation reliability fix and the separate formatting-only cleanup. The approved documentation commit containing this ledger update is outside the coverage boundary and is not included in these totals. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The discarded header selection-scoping experiment was never committed.
+The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The pending upstream integration and its incoming commits are outside this coverage boundary until the merge has a final hash. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The discarded header selection-scoping experiment was never committed.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -341,7 +341,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..5819ee4`, extended and verified against Git October 15, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes four newly integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..766b77e`, extended and verified against Git October 15, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes four newly integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -481,6 +481,8 @@ Coverage: `9efa1cc..5819ee4`, extended and verified against Git October 15, 2026
 | [`c15292f`](https://github.com/hexcrete/DockFork/commit/c15292feaf7105c711a8e9e767e11ffe9da60f1a) | Confirm actual tiled frames, complete old-position-constrained resizing, preserve partial-write refresh, restore scoped accessibility state and use AXMain. Avoid macOS 27 focus-triggered expansion with a far off-content mouse-down only. Signed Debug, source/model checks and authorized scripted group/Space tests passed within the documented limits. | Fix / Reliability | 7 |
 
 | [`5819ee4`](https://github.com/hexcrete/DockFork/commit/5819ee492adfc194c406da104e367136817ea4f4) | Apply four formatter-only corrections to Dock click guards and preview-selection declarations. Non-whitespace source content is unchanged; changed-source lint and the signed Debug rebuild/relaunch passed. | Maintenance | 2 |
+
+| [`766b77e`](https://github.com/hexcrete/DockFork/commit/766b77e55cfa6a7f5b70f894bd53f4b98e3973c2) | Refresh 0.2.0 release preparation, preserve historical candidate records, clarify the pending configuration/build gate and document the reviewed tiling/activation work. No Release package or publication. | Documentation | 10 |
 
 ## Upstream Attribution and Contribution Boundaries
 

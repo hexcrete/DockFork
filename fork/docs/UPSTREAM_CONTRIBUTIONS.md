@@ -18,6 +18,8 @@ Publishing DockFork and submitting changes to DockDoor are separate activities. 
 
 File exclusions alone do not make a feature upstream-ready. Preference/default compatibility, dependency adaptation, disabled-feature cost, maintainer scope approval, and testing still apply.
 
+The October 15 merge includes upstream 1.41.0 through `3e08721`, including its new gesture subsystem and split Gestures/Keybinds settings. Do not propose these inherited features as fork work. A focused tiling contribution must account for upstream's snapping/reservation APIs while retaining the required confirmation/activation fixes.
+
 ## Scope and Compatibility Gates
 
 - Discuss one proposed feature with the maintainer in an issue before preparing its contribution. Our existing implementation is a prototype for that discussion, not evidence of prior scope approval. Bug reports use the issue template too.

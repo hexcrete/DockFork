@@ -10,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowSeeder: WindowSeeder?
     private var previewCoordinator: SharedPreviewWindowCoordinator?
     private var keybindHelper: KeybindHelper?
+    private var windowGestureController: WindowGestureController?
     private var activeAppIndicator: ActiveAppIndicatorCoordinator?
     private var dockLocker: DockLocker?
     private var statusBarItem: NSStatusItem?
@@ -83,6 +84,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         observeMenuBarInteractionSettings()
 
         MediaRemoteService.shared.activate()
+        ScreenReservations.shared.start()
 
         if !Defaults[.launched] {
             handleFirstTimeLaunch()
@@ -108,6 +110,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                 }
             )
+            if Defaults[.enableWindowGestures] {
+                windowGestureController = WindowGestureController(previewCoordinator: currentPreviewCoordinator) { [weak self] event in
+                    self?.keybindHelper?.handleGestureSwitcher(event)
+                }
+            }
 
             if Defaults[.showActiveAppIndicator] {
                 activeAppIndicator = ActiveAppIndicatorCoordinator()
@@ -417,6 +424,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         keybindHelper?.recover()
         appClosureObserver?.reset()
         dockLocker?.reset()
+        windowGestureController?.reset()
     }
 
     @objc func openSettingsWindow(_ sender: Any?) {

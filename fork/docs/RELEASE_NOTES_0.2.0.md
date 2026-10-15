@@ -18,7 +18,11 @@ DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). T
 - Auto Tile Selected Windows and directional Half/Quarter actions arrange groups in selection order. Configure row/column limits up to 6, with default limits of 2 rows and 3 columns. Overflow is arranged in repeated batches; a single-window Auto Tile fills the display. Applications can enforce minimum sizes.
 - Existing AppleScript window actions accept an ordered list of window IDs where applicable. Batch scripts do not require UI selection; existing single-window syntax remains supported. Tile Windows exposes ordered tiling directly.
 
-Multi-window selection, selection-driven keep-open behavior and drop-to-tile default Off. Show selection summary defaults On, but appears only with selection enabled and at least one checked window. Enable selection under **Gestures & Keybinds > Window Selection & Tiling**. Configure drag-to-tile under **Mouse Actions**. Existing saved settings and the optional showcase preset are not changed automatically.
+Multi-window selection, selection-driven keep-open behavior and drop-to-tile default Off. Show selection summary defaults On, but appears only with selection enabled and at least one checked window. Enable selection under **Keybinds > Window Selection & Tiling**. Configure drag-to-tile under **Mouse Actions**. Existing saved settings and the optional showcase preset are not changed automatically.
+
+### Included From Upstream 1.41.0
+
+Optional two-finger window gestures, swipe-switcher sensitivity, custom-dock screen reservations with AppleScript access, stricter Dock-hover validation and updated translations. Gesture settings now have their own Gestures tab; shortcuts, Spaces and selection/tiling are under Keybinds. These capabilities come from DockDoor; fork selection, confirmed placement and session behavior are preserved.
 
 ### Fixes and UI Polish
 

@@ -12,6 +12,8 @@ Use a build that includes the features being shown and record its source/version
 
 October 14 default update: Show selection summary is On once selection is enabled and windows are checked; maximum tiling rows is 2 and columns is 3. Existing saved values are preserved. For M01/M02 and MT01, distinguish fresh defaults from deliberately configured demonstration layouts.
 
+Upstream 1.41.0 integration: configure trackpad gestures and sensitivity under Gestures, not Keybinds. Existing fork capture IDs and approval state are unchanged. For MT01, optionally demonstrate that group tiling honors the same custom-dock reservation as individual snaps. Attribute the base window-gesture feature to upstream rather than presenting it as a fork addition.
+
 ## Capture Conventions
 
 - Use harmless sample window titles, files, browser pages, events, and music. Hide notifications and redact usernames, license details, logs, and app-specific private data.

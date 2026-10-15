@@ -1,6 +1,6 @@
 {
   "forkVersion": "0.2.0",
-  "upstreamRelease": "1.40.7",
-  "upstreamReleaseCommit": "398eba45f799add838e026d7103e7a4cf52a19a1",
-  "upstreamCommit": "7be384b46da66f380bf3a9bb24ee6c6476bbd0dc"
+  "upstreamRelease": "1.41.0",
+  "upstreamReleaseCommit": "3d6a3cbaa9bbee17959122da7f0a349ca43056d0",
+  "upstreamCommit": "3e08721ec56c6747dba04561ab57b03ec254d785"
 }
