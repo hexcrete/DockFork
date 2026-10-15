@@ -40,7 +40,8 @@ func handleSelectedDockItemChangedNotification(observer _: AXObserver, element _
 enum DockClickOverridePolicy {
     static func shouldOverride(_ action: DockClickAction, isFrontmost: Bool, isHidden: Bool,
                                windowCount: Int, minimizableWindowCount: Int = 0,
-                               allMinimizableWindowsMinimized: Bool = false) -> Bool {
+                               allMinimizableWindowsMinimized: Bool = false) -> Bool
+    {
         guard windowCount > 0 else { return false }
         switch action {
         case .cycleWindows:
@@ -1332,7 +1333,8 @@ final class DockObserver {
         previewCoordinator.restoreDockAutoHideState()
         resetWindowCycleHover()
         if !previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive,
-           !previewCoordinator.tapSnapshot.isCmdTabPreview {
+           !previewCoordinator.tapSnapshot.isCmdTabPreview
+        {
             previewCoordinator.hideWindow()
         }
     }

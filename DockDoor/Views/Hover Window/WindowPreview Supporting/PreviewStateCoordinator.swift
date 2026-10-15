@@ -86,6 +86,7 @@ class PreviewStateCoordinator: ObservableObject {
     var selectionSuppressesRelease: Bool {
         Defaults[.keepWindowSwitcherOpenWhenSelected] && selectionPinned
     }
+
     var onSelectionPinned: (() -> Void)?
     private var selectionLayoutGeneration: UInt = 0
 
@@ -115,7 +116,8 @@ class PreviewStateCoordinator: ObservableObject {
     @MainActor
     private func pinCheckedSelectionIfNeeded() {
         if Defaults[.keepWindowSwitcherOpenWhenSelected], windowSwitcherActive,
-           !selectionPinned, !selection.checkedWindows.identities.isEmpty {
+           !selectionPinned, !selection.checkedWindows.identities.isEmpty
+        {
             selectionPinned = true
             onSelectionPinned?()
         }
