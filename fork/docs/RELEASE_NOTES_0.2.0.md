@@ -20,6 +20,8 @@ Multi-window selection, selection-driven keep-open behavior and drop-to-tile def
 
 ### Fixes and UI Polish
 
+- Keep pending cache validation separate for each app so large multi-app close groups do not cancel one another's stale-window cleanup.
+
 - Correct Compact Mode drag-target shapes and highlight opacity.
 - Extend the configurable traffic-light transition duration to 0.5 seconds while preserving Reduce Motion behavior.
 - Acknowledge the one-time Cmd+Tab focus hint after actual preview focus. Hide app-header window actions when an app has no real windows.

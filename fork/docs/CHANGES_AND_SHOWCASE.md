@@ -8,7 +8,16 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 Preparation reviewed October 14 through `dd28db3`. Version 0.2.0 is selected for the next prerelease; no Release candidate, tag or upload is recorded yet. See the [0.2.0 draft notes and publication gate](RELEASE_NOTES_0.2.0.md). Current development includes all five selection/action/dragging/tiling phases, ordered AppleScript window lists, Select All, optional selection keep-open behavior, and the later search, startup, Dock-click and header-hover fixes. The published 0.1.0 assets remain unchanged. Detailed phase records below distinguish implementation and historical validation; they are not fresh Release certification.
 
+## Development: Multi-App Close Reconciliation
+
+October 15 correction: AX cache-update coalescing is now keyed by application PID. Previously, a focus or destroy event from one app could cancel another app's pending validation and inherit its validation flag. The diagnostic log's multi-app close burst shows that pattern. This shared-slot behavior also exists in the incorporated upstream code; multi-selection makes it easier to trigger.
+
+Each affected app now retains its own pending update while events from the same app still coalesce. State-adjustment preservation, latest-token cleanup, the serial AX work queue and weak observer captures remain unchanged. No polling, global rediscovery, screenshot capture or optimistic close removal is added. Existing fullscreen/off-Space retention and AX-unresponsive backoff rules are untouched. A successful close-button press is still not a guarantee of closure, such as when an app presents a save prompt.
+
+Source-extracted fake-AX/Dispatch checks reproduce the previous cross-app cancellation and validation leakage, then verify the fix, a 20-app close burst, 100 same-app events coalescing to one validation, preserved state adjustments, slot cleanup and observer teardown. These do not operate on user windows. The signed Debug build/relaunch, signature verification and installed-binary comparison passed. The user reports the multi-app close test working October 15. Exhaustive mixed-state/Space, app save-prompt and performance-profile coverage are not claimed.
+
 ## Development: Narrow App Headers
+
 
 October 15 refinement: Dock/Cmd+Tab app headers in all three styles honor Long title overflow while space remains for a readable name. A native ViewThatFits label falls back to the existing 24-point app icon when less than a short name segment fits, without retaining the name gap. The minimum name width is capped at twice the icon height or the full name width for short names. The full app name remains on the icon tooltip/accessibility label. Explicit icon-only headers remain icon-only. The existing action-glyph/scroll fallbacks, app-wide action routing and header hover tracking are unchanged.
 

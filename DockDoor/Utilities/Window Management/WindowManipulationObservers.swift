@@ -54,7 +54,7 @@ class WindowManipulationObservers {
     private var runningApplicationsObservation: NSKeyValueObservation?
     private let debouncedTasksLock = NSLock()
     private var debouncedTasks: [String: Task<Void, Never>] = [:]
-    private var cacheUpdateWorkItem: (token: UUID, workItem: DispatchWorkItem, hasStateAdjustment: Bool, needsValidation: Bool)?
+    private var cacheUpdateWorkItems: [pid_t: (token: UUID, workItem: DispatchWorkItem, hasStateAdjustment: Bool, needsValidation: Bool)] = [:]
     private func debounce(key: String, delay: TimeInterval = windowProcessingDebounceInterval, operation: @escaping () async -> Void) {
         let task = Task {
             do {
@@ -544,10 +544,11 @@ class WindowManipulationObservers {
                                    validate: Bool = false,
                                    prepareStateAdjustment: CacheStateAdjustmentPreparation? = nil)
     {
-        let inheritedValidation = cacheUpdateWorkItem?.needsValidation ?? false
+        let pid = app.processIdentifier
+        let inheritedValidation = cacheUpdateWorkItems[pid]?.needsValidation ?? false
 
-        if cacheUpdateWorkItem?.hasStateAdjustment != true {
-            cacheUpdateWorkItem?.workItem.cancel()
+        if cacheUpdateWorkItems[pid]?.hasStateAdjustment != true {
+            cacheUpdateWorkItems[pid]?.workItem.cancel()
         }
 
         let effectiveValidate = validate || inheritedValidation
@@ -583,11 +584,11 @@ class WindowManipulationObservers {
                     WindowUtil.quitAppOnLastWindowCloseIfNeeded(app: app)
                 }
             }
-            if cacheUpdateWorkItem?.token == token {
-                cacheUpdateWorkItem = nil
+            if cacheUpdateWorkItems[pid]?.token == token {
+                cacheUpdateWorkItems.removeValue(forKey: pid)
             }
         }
-        cacheUpdateWorkItem = (token, workItem, hasStateAdjustment, effectiveValidate)
+        cacheUpdateWorkItems[pid] = (token, workItem, hasStateAdjustment, effectiveValidate)
         axObserverWorkQueue.asyncAfter(deadline: .now() + windowProcessingDebounceInterval, execute: workItem)
     }
 
