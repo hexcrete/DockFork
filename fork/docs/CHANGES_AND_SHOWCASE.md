@@ -8,6 +8,12 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 Preparation reviewed October 14 through `dd28db3`. Version 0.2.0 is selected for the next prerelease; no Release candidate, tag or upload is recorded yet. See the [0.2.0 draft notes and publication gate](RELEASE_NOTES_0.2.0.md). Current development includes all five selection/action/dragging/tiling phases, ordered AppleScript window lists, Select All, optional selection keep-open behavior, and the later search, startup, Dock-click and header-hover fixes. The published 0.1.0 assets remain unchanged. Detailed phase records below distinguish implementation and historical validation; they are not fresh Release certification.
 
+## Development: Popover Header and Summary Alignment
+
+October 14 corrections: Dock/Cmd+Tab selection summaries in Popover style are centered without the one-sided trailing inset used by Default and Shadowed styles. The Popover app header also has a full-width centered outer wrapper so hover-revealed actions do not determine its overlay anchor. The visible pill and hover handler remain content-sized. Both changes apply in compact and regular layouts; Window Switcher retains its Default-style summary. No measurements, state or background work are added.
+
+Thirty-six offscreen native summary-wrapper checks passed across three styles, four widths and three spacing scales. Seventy-five isolated native header layout/update cases passed, including repeated hover changes at 200-point widths. These fixtures check wrapper geometry, not the complete live panel/window pipeline. Signed Debug builds/relaunches, signatures and installed-binary comparisons passed. The user reports both corrections working. Exhaustive style/width, accessibility and Release verification are not claimed. Extremely narrow 100-point container layout is outside this fix.
+
 ## Development: App Header Action Fallbacks
 
 October 14 refinement: Dock/Cmd+Tab App Header Close All and Minimize All now fit as text, then shared action glyphs, then a horizontally scrolling glyph group. Only the action group scrolls; the app icon/name stay outside it. The selection summary and header reuse the same small action-button renderer and horizontal-scroll wrapper, including tooltips and accessibility labels. Existing hover tracking, header styles, update controls, windowless gating and app-wide action scope remain unchanged. No setting, observer, timer or discovery work is added.

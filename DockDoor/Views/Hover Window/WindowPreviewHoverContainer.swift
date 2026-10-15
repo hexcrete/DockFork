@@ -1024,6 +1024,9 @@ struct WindowPreviewHoverContainer: View {
                     massOperations(hoveringAppIcon && !updateAvailable && showMassActionButtons)
                 }
             }
+            .if(effectiveAppNameStyle == .popover) {
+                $0.frame(maxWidth: .infinity, alignment: .center)
+            }
         }
     }
 
@@ -2535,8 +2538,8 @@ private struct PreviewSelectionStrip: View {
                 .font(.body)
                 .lineLimit(1)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .globalPadding(.trailing, PreviewHeaderLayout.horizontalInset)
+        .frame(maxWidth: .infinity, alignment: style == .popover ? .center : .leading)
+        .globalPadding(.trailing, style == .popover ? 0 : PreviewHeaderLayout.horizontalInset)
     }
 
     private func summary(showDescription: Bool, buttons: ButtonDisplay = .titles, pids: [pid_t] = []) -> some View {
