@@ -5,8 +5,9 @@ import SwiftUI
 struct TrafficLightButtons: View {
     static let actionOrder: [WindowAction] = [.quit, .close, .minimize, .toggleFullScreen, .maximize, .bringToCurrentSpace, .openNewWindow]
 
-    private static let buttonFrameSize: CGFloat = 17
-    private static let contentPadding: CGFloat = 4
+    static let buttonFrameSize: CGFloat = 17
+    static let contentPadding: CGFloat = 4
+    private static let buttonSpacing: CGFloat = 6
 
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -24,7 +25,7 @@ struct TrafficLightButtons: View {
     var body: some View {
         Group {
             if displayMode != .never {
-                HStack(spacing: 6) {
+                HStack(spacing: Self.buttonSpacing) {
                     ForEach(Self.actionOrder.filter(enabledButtons.contains), id: \.self) { action in
                         switch action {
                         case .quit:
@@ -119,6 +120,24 @@ struct TrafficLightButtons: View {
     static func controlHeight(buttonScale: CGFloat, pillStyling: Bool) -> CGFloat {
         let contentHeight = buttonFrameSize * buttonScale + 2 * contentPadding
         return contentHeight + (pillStyling ? 2 * MaterialPillStyle.verticalPadding : 0)
+    }
+
+    static func controlWidth(buttonCount: Int, buttonScale: CGFloat, pillStyling: Bool) -> CGFloat {
+        CGFloat(buttonCount) * buttonFrameSize * buttonScale + CGFloat(max(0, buttonCount - 1)) * buttonSpacing +
+            2 * contentPadding + (pillStyling ? 2 * MaterialPillStyle.horizontalPadding : 0)
+    }
+
+    static func partialOverflowCounts(for actions: Set<WindowAction>, buttonScale: CGFloat,
+                                      pillStyling: Bool, spacing: CGFloat) -> [Int]
+    {
+        let count = actionOrder.filter(actions.contains).count
+        guard count > 1 else { return [] }
+        let fullWidth = controlWidth(buttonCount: count, buttonScale: buttonScale, pillStyling: pillStyling)
+        let menuWidth = controlWidth(buttonCount: 1, buttonScale: buttonScale, pillStyling: pillStyling)
+        // A separate More control must save space before it becomes a fitting candidate.
+        return stride(from: count - 1, through: 1, by: -1).filter {
+            controlWidth(buttonCount: $0, buttonScale: buttonScale, pillStyling: pillStyling) + spacing + menuWidth < fullWidth
+        }
     }
 }
 

@@ -505,12 +505,35 @@ enum WindowStateSymbolResolver {
     }
 }
 
-enum PreviewToolbarStage: Int {
+enum PreviewToolbarStage: Hashable {
     case full, titlesOmitted, actionsMenu, actionsMenuWithoutTitles, indicatorsMenu, indicatorsMenuWithoutTitles, combined
+    case partialActions(count: Int, showsTitles: Bool)
 
-    var showsTitles: Bool { self == .full || self == .actionsMenu || self == .indicatorsMenu }
-    var overflowsActions: Bool { rawValue >= Self.actionsMenu.rawValue }
-    var overflowsIndicators: Bool { rawValue >= Self.indicatorsMenu.rawValue }
+    var showsTitles: Bool {
+        if case let .partialActions(_, showsTitles) = self { return showsTitles }
+        return self == .full || self == .actionsMenu || self == .indicatorsMenu
+    }
+
+    private var visibleActionCount: Int? {
+        switch self {
+        case .full, .titlesOmitted: nil
+        case let .partialActions(count, _): count
+        default: 0
+        }
+    }
+
+    var overflowsActions: Bool { visibleActionCount != nil }
+    var showsTrafficLights: Bool { visibleActionCount != 0 }
+    var overflowsIndicators: Bool { self == .indicatorsMenu || self == .indicatorsMenuWithoutTitles || self == .combined }
+
+    func visibleActions(in actions: Set<WindowAction>) -> Set<WindowAction> {
+        guard let visibleActionCount else { return actions }
+        return Set(TrafficLightButtons.actionOrder.filter(actions.contains).prefix(visibleActionCount))
+    }
+
+    func overflowActions(in actions: Set<WindowAction>) -> Set<WindowAction> {
+        actions.subtracting(visibleActions(in: actions))
+    }
 }
 
 private struct PreviewToolbarStageKey: PreferenceKey {
@@ -526,6 +549,7 @@ struct PreviewAdaptiveToolbar<Content: View>: View {
     @State private var stage: PreviewToolbarStage?
 
     var allowsTitleOmission = false
+    var partialActionCounts: [Int] = []
     let controlsVisible: Bool
     let animationDuration: Double
     let animationsEnabled: Bool
@@ -536,6 +560,10 @@ struct PreviewAdaptiveToolbar<Content: View>: View {
         ViewThatFits(in: .horizontal) {
             measuredRow(.full)
             if allowsTitleOmission { measuredRow(.titlesOmitted) }
+            ForEach(partialActionCounts, id: \.self) { count in
+                measuredRow(.partialActions(count: count, showsTitles: true))
+                if allowsTitleOmission { measuredRow(.partialActions(count: count, showsTitles: false)) }
+            }
             measuredRow(.actionsMenu)
             if allowsTitleOmission { measuredRow(.actionsMenuWithoutTitles) }
             measuredRow(.indicatorsMenu)
@@ -603,13 +631,13 @@ struct PreviewControlOverflow {
 struct PreviewControlReplacement<Controls: View, Replacement: View>: View {
     let controlsVisible: Bool
     let replacementVisible: Bool
-    var alignment: Alignment = .trailing
+    let spacing: CGFloat
     var usesControlsContrastShadow = false
     @ViewBuilder let controls: () -> Controls
     @ViewBuilder let replacement: () -> Replacement
 
     var body: some View {
-        ZStack(alignment: alignment) {
+        HStack(spacing: controlsVisible && replacementVisible ? spacing : 0) {
             controls().previewControlVisibility(isVisible: controlsVisible)
                 .embeddedPreviewContrastShadow(usesControlsContrastShadow)
             replacement().previewControlVisibility(isVisible: replacementVisible)
@@ -640,9 +668,9 @@ struct PreviewOverflowButton: View {
                 .font(.system(size: circularDiameter.map { $0 * 0.55 } ?? 13 * appearance.trafficLightButtonScale, weight: .bold))
                 .opacity(circularDiameter == nil && !mockPreviewActive && !isHovering &&
                     (appearance.trafficLightVisibility == .dimmedOnPreviewHover || appearance.trafficLightVisibility == .dimmedUntilButtonHover) ? 0.25 : 1)
-                .frame(width: circularDiameter ?? 17 * appearance.trafficLightButtonScale,
-                       height: circularDiameter ?? 17 * appearance.trafficLightButtonScale)
-                .padding(circularDiameter == nil ? 4 : 0)
+                .frame(width: circularDiameter ?? TrafficLightButtons.buttonFrameSize * appearance.trafficLightButtonScale,
+                       height: circularDiameter ?? TrafficLightButtons.buttonFrameSize * appearance.trafficLightButtonScale)
+                .padding(circularDiameter == nil ? TrafficLightButtons.contentPadding : 0)
                 .if(circularDiameter != nil) {
                     $0.background {
                         if usesCircularMaterial { Color.clear.materialPill(backgroundAppearance: backgroundAppearance) }
@@ -920,6 +948,12 @@ struct PreviewAppearanceSettings: Equatable {
 
     var controlElementSpacing: CGFloat {
         disableDockStyleTrafficLights ? 6 : 8
+    }
+
+    func partialTrafficLightCounts(for actions: Set<WindowAction>, isVisible: Bool) -> [Int] {
+        guard isVisible else { return [] }
+        return TrafficLightButtons.partialOverflowCounts(for: actions, buttonScale: trafficLightButtonScale,
+                                                         pillStyling: !disableDockStyleTrafficLights, spacing: controlElementSpacing)
     }
 
     func resolvedSwitcherAppIconSize(windowTitleIsVisible: Bool) -> CGFloat {
@@ -1345,7 +1379,7 @@ struct WindowPreview: View, Equatable {
         let hovered = isSelected || isHoveringOverDockPeekPreview || isHoveringOverWindowSwitcherPreview
         return PreviewOverflowButton(window: windowInfo, appearance: appearance, backgroundAppearance: backgroundAppearance,
                                      overflow: PreviewControlOverflow(
-                                         actions: canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: hovered) ? effectiveTrafficLightButtons : [],
+                                         actions: canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: hovered) ? stage.overflowActions(in: effectiveTrafficLightButtons) : [],
                                          includesIndicator: stage.overflowsIndicators && (hasWindowStateIndicator || visibleWindowStateLabel != nil),
                                          includesSelection: includesSelection && appearance.enableMultiWindowSelection,
                                          spaceNumber: appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : nil,
@@ -1729,9 +1763,11 @@ struct WindowPreview: View, Equatable {
                                        showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View
     {
         let appIcon = windowInfo.app.icon
+        let controlsVisible = canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: selected || isHoveringOverWindowSwitcherPreview)
         return PreviewAdaptiveToolbar(
             allowsTitleOmission: showTitleContent && appearance.showAppHeader && (!showAppIconOnly || appearance.showWindowTitle),
-            controlsVisible: canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: selected || isHoveringOverWindowSwitcherPreview),
+            partialActionCounts: appearance.partialTrafficLightCounts(for: effectiveTrafficLightButtons, isVisible: showControlsContent && controlsVisible),
+            controlsVisible: controlsVisible,
             animationDuration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations
         ) { stage, isMeasuring in
             windowSwitcherRow(selected, isLeadingControls: isLeadingControls,
@@ -1840,9 +1876,9 @@ struct WindowPreview: View, Equatable {
         ) {
             if canRenderTrafficLightButtons {
                 PreviewControlReplacement(
-                    controlsVisible: !stage.overflowsActions && showTrafficLights,
+                    controlsVisible: stage.showsTrafficLights && showTrafficLights,
                     replacementVisible: stage.overflowsActions && (showTrafficLights || (stage.overflowsIndicators && (hasWindowStateIndicator || visibleWindowStateLabel != nil))),
-                    alignment: isLeadingControls ? .leading : .trailing,
+                    spacing: appearance.controlElementSpacing,
                     usesControlsContrastShadow: appearance.usesEmbeddedTrafficLightContrastShadow
                 ) {
                     TrafficLightButtons(
@@ -1850,7 +1886,7 @@ struct WindowPreview: View, Equatable {
                         hoveringOverParentWindow: selected || isHoveringOverWindowSwitcherPreview,
                         onWindowAction: handleWindowAction,
                         mockPreviewActive: mockPreviewActive,
-                        enabledButtons: effectiveTrafficLightButtons,
+                        enabledButtons: stage.visibleActions(in: effectiveTrafficLightButtons),
                         backgroundAppearance: backgroundAppearance
                     )
                 } replacement: {
@@ -1931,9 +1967,11 @@ struct WindowPreview: View, Equatable {
     private func dockPreviewContent(_ selected: Bool, isLeadingControls: Bool,
                                     showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View
     {
-        PreviewAdaptiveToolbar(
+        let controlsVisible = canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: selected || isHoveringOverDockPeekPreview)
+        return PreviewAdaptiveToolbar(
             allowsTitleOmission: showTitleContent && appearance.showWindowTitle && previewTitle != nil,
-            controlsVisible: canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: selected || isHoveringOverDockPeekPreview),
+            partialActionCounts: appearance.partialTrafficLightCounts(for: effectiveTrafficLightButtons, isVisible: showControlsContent && controlsVisible),
+            controlsVisible: controlsVisible,
             animationDuration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations
         ) { stage, isMeasuring in
             dockPreviewRow(selected, isLeadingControls: isLeadingControls,
@@ -2002,9 +2040,9 @@ struct WindowPreview: View, Equatable {
         ) {
             if hasTrafficLights {
                 PreviewControlReplacement(
-                    controlsVisible: !stage.overflowsActions && showTrafficLights,
+                    controlsVisible: stage.showsTrafficLights && showTrafficLights,
                     replacementVisible: stage.overflowsActions && (showTrafficLights || (stage.overflowsIndicators && (hasWindowStateIndicator || visibleWindowStateLabel != nil))),
-                    alignment: isLeadingControls ? .leading : .trailing,
+                    spacing: appearance.controlElementSpacing,
                     usesControlsContrastShadow: appearance.usesEmbeddedTrafficLightContrastShadow
                 ) {
                     TrafficLightButtons(
@@ -2012,7 +2050,7 @@ struct WindowPreview: View, Equatable {
                         hoveringOverParentWindow: selected || isHoveringOverDockPeekPreview,
                         onWindowAction: handleWindowAction,
                         mockPreviewActive: mockPreviewActive,
-                        enabledButtons: effectiveTrafficLightButtons,
+                        enabledButtons: stage.visibleActions(in: effectiveTrafficLightButtons),
                         backgroundAppearance: backgroundAppearance
                     )
                 } replacement: {

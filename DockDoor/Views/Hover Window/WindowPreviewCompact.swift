@@ -158,7 +158,7 @@ struct WindowPreviewCompact: View, Equatable {
     }
 
     @ViewBuilder
-    private var trafficLightButtons: some View {
+    private func trafficLightButtons(_ stage: PreviewToolbarStage) -> some View {
         if !appearance.compactModeHideTrafficLights,
            canRenderTrafficLightButtons
         {
@@ -167,7 +167,7 @@ struct WindowPreviewCompact: View, Equatable {
                 hoveringOverParentWindow: isSelected || isHovering,
                 onWindowAction: handleWindowAction,
                 mockPreviewActive: mockPreviewActive,
-                enabledButtons: effectiveTrafficLightButtons,
+                enabledButtons: stage.visibleActions(in: effectiveTrafficLightButtons),
                 backgroundAppearance: backgroundAppearance
             )
         }
@@ -189,6 +189,7 @@ struct WindowPreviewCompact: View, Equatable {
         )
         PreviewAdaptiveToolbar(
             allowsTitleOmission: appearance.showAppHeader,
+            partialActionCounts: appearance.partialTrafficLightCounts(for: effectiveTrafficLightButtons, isVisible: hasVisibleTrafficLightButtons),
             controlsVisible: hasVisibleTrafficLightButtons,
             animationDuration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations
         ) { stage, isMeasuring in compactRow(stage, appIcon: appIcon, isMeasuring: isMeasuring) }
@@ -401,10 +402,11 @@ struct WindowPreviewCompact: View, Equatable {
     private func adaptiveTrafficLights(_ stage: PreviewToolbarStage, isVisible: Bool) -> some View {
         if !appearance.compactModeHideTrafficLights, canRenderTrafficLightButtons {
             PreviewControlReplacement(
-                controlsVisible: !stage.overflowsActions && isVisible,
-                replacementVisible: stage.overflowsActions && (isVisible || (stage.overflowsIndicators && (hasWindowStateIndicator || spaceNumber != nil || secondaryStateIndicator != nil)))
+                controlsVisible: stage.showsTrafficLights && isVisible,
+                replacementVisible: stage.overflowsActions && (isVisible || (stage.overflowsIndicators && (hasWindowStateIndicator || spaceNumber != nil || secondaryStateIndicator != nil))),
+                spacing: appearance.controlElementSpacing
             ) {
-                trafficLightButtons
+                trafficLightButtons(stage)
             } replacement: {
                 overflowButton(stage)
             }
@@ -417,7 +419,7 @@ struct WindowPreviewCompact: View, Equatable {
         let lightsVisible = !appearance.compactModeHideTrafficLights && canRenderTrafficLightButtons &&
             appearance.trafficLightVisibility.isVisible(hoveringOverParentWindow: isSelected || isHovering)
         return PreviewOverflowButton(window: windowInfo, appearance: appearance, backgroundAppearance: backgroundAppearance,
-                                     overflow: PreviewControlOverflow(actions: lightsVisible ? effectiveTrafficLightButtons : [],
+                                     overflow: PreviewControlOverflow(actions: lightsVisible ? stage.overflowActions(in: effectiveTrafficLightButtons) : [],
                                                                       includesIndicator: stage.overflowsIndicators && (hasWindowStateIndicator || spaceNumber != nil || secondaryStateIndicator != nil),
                                                                       includesSelection: circular && appearance.enableMultiWindowSelection,
                                                                       spaceNumber: appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : spaceNumber,
