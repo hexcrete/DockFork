@@ -660,6 +660,8 @@ struct PreviewOverflowButton: View {
         .onHover { isHovering = $0 }
         .previewControlVisibilityAnimation(isVisible: isHovering, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
         .help(String(localized: "More window actions"))
+        .accessibilityLabel(String(localized: "More window actions"))
+        .accessibilityAddTraits(isChecked && overflow.includesSelection ? .isSelected : [])
         .fixedSize()
         .allowsHitTesting(!mockPreviewActive)
     }
@@ -852,6 +854,7 @@ struct PreviewSelectionCheckbox: View {
                 .buttonStyle(.plain)
                 .scaleEffect(drawingScale)
                 .accessibilityLabel(isChecked ? String(localized: "Remove window from selection") : String(localized: "Add window to selection"))
+                .accessibilityAddTraits(isChecked ? .isSelected : [])
                 .transition(.opacity)
             }
         }
