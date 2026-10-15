@@ -262,6 +262,10 @@ struct WindowPreviewHoverContainer: View {
         return effectiveShowAppName
     }
 
+    var appHeaderStyleForPlacement: AppNameStyle? {
+        effectiveShouldShowHeader ? effectiveAppNameStyle : nil
+    }
+
     private var resolvedAppearance: PreviewAppearanceSettings {
         appearanceOverride ?? cachedAppearance ?? PreviewAppearanceSettings.resolve(
             windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
@@ -2417,6 +2421,12 @@ enum PreviewHeaderLayout {
         let inset = HoverContainerPadding.container
         return EdgeInsets(top: inset - (appHeaderStyle == .shadowed ? shadowedOuterOverflow : 0), leading: inset,
                           bottom: inset - (selectionSummaryStyle == .shadowed ? shadowedOuterOverflow : 0), trailing: inset)
+    }
+
+    static func constrainHeaderTop(_ origin: CGPoint, windowSize: CGSize, visibleFrame: CGRect, appHeaderStyle: AppNameStyle?) -> CGPoint {
+        guard appHeaderStyle == .shadowed else { return origin }
+        let topInset = dismissalInsets(appHeaderStyle: appHeaderStyle, selectionSummaryStyle: nil).top
+        return CGPoint(x: origin.x, y: min(origin.y, visibleFrame.maxY + topInset - windowSize.height))
     }
 
     static func contentReservation(for style: AppNameStyle) -> CGFloat {

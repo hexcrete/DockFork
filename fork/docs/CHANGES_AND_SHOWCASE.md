@@ -8,7 +8,14 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 Preparation reviewed October 14 through `dd28db3`. Version 0.2.0 is selected for the next prerelease; no Release candidate, tag or upload is recorded yet. See the [0.2.0 draft notes and publication gate](RELEASE_NOTES_0.2.0.md). Current development includes all five selection/action/dragging/tiling phases, ordered AppleScript window lists, Select All, optional selection keep-open behavior, and the later search, startup, Dock-click and header-hover fixes. The published 0.1.0 assets remain unchanged. Detailed phase records below distinguish implementation and historical validation; they are not fresh Release certification.
 
+## Development: Shadowed Header Top Boundary
+
+October 15 correction: a displayed Shadowed Dock/Cmd+Tab app header uses the top of its existing invisible mouse-safe zone as the screen-top boundary. Placement reuses the shared dismissal inset, keeping that zone below the destination display's visible-frame top. The adjustment only moves a panel downward when necessary; horizontal placement and bottom-edge behavior are unchanged. It applies to initial placement, anchored resizing, regular previews and Compact Mode. Hidden headers, Default/Popover styles, standalone Window Switcher and standalone widgets retain their existing placement behavior.
+
+No internal padding, observers, polling or new geometry measurements are added. The actual hosted preview supplies its effective header style, avoiding another independent mode/settings resolver. A source-extracted fixture passed 432 top-boundary cases covering different display origins, menu-bar heights, panel sizes, unchanged in-bounds positions and repeated application. It also checks the five placement callers and the widget type gate; these checks do not replace live pointer/multi-display validation. The signed Debug build/relaunch, signature verification and installed-binary comparison passed. The user reports the top-boundary correction working October 15. Exhaustive multi-display, menu-bar auto-hide and accessibility coverage are not claimed.
+
 ## Development: Multi-App Close Reconciliation
+
 
 October 15 correction: AX cache-update coalescing is now keyed by application PID. Previously, a focus or destroy event from one app could cancel another app's pending validation and inherit its validation flag. The diagnostic log's multi-app close burst shows that pattern. This shared-slot behavior also exists in the incorporated upstream code; multi-selection makes it easier to trigger.
 

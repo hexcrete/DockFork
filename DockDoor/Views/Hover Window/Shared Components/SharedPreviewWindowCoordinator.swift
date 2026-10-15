@@ -755,7 +755,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var origin = panelAnchor.origin(size)
         origin.x = max(screenFrame.minX, min(origin.x, screenFrame.maxX - size.width))
         origin.y = max(screenFrame.minY, min(origin.y, screenFrame.maxY - size.height))
-        return origin
+        return constrainHeaderTop(origin, windowSize: size, screen: panelAnchor.screen)
     }
 
     @objc private func panelDidResize() {
@@ -1099,7 +1099,13 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             yPosition = max(placementFrame.minY, min(yPosition, placementFrame.maxY - size.height))
         }
 
-        return CGPoint(x: xPosition, y: yPosition)
+        return constrainHeaderTop(CGPoint(x: xPosition, y: yPosition), windowSize: size, screen: screen)
+    }
+
+    private func constrainHeaderTop(_ origin: CGPoint, windowSize: CGSize, screen: NSScreen) -> CGPoint {
+        let headerStyle = (contentView as? NSHostingView<WindowPreviewHoverContainer>)?.rootView.appHeaderStyleForPlacement
+        return PreviewHeaderLayout.constrainHeaderTop(origin, windowSize: windowSize,
+                                                      visibleFrame: screen.visibleFrame, appHeaderStyle: headerStyle)
     }
 
     private var reservesWindowSwitcherSearchSpace: Bool {
@@ -1129,7 +1135,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         xPosition = max(screenFrame.minX, min(xPosition, screenFrame.maxX - windowSize.width))
         yPosition = max(screenFrame.minY, min(yPosition, screenFrame.maxY - windowSize.height))
 
-        return CGPoint(x: xPosition, y: yPosition)
+        return constrainHeaderTop(CGPoint(x: xPosition, y: yPosition), windowSize: windowSize, screen: screen)
     }
 
     private func calculateWindowPosition(mouseLocation: CGPoint?, windowSize: CGSize, screen: NSScreen, dockIconRect: CGRect, dockPositionOverride: DockPosition? = nil) -> CGPoint {
@@ -1179,7 +1185,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         xPosition = max(screenFrame.minX, min(xPosition, screenFrame.maxX - windowSize.width))
         yPosition = max(screenFrame.minY, min(yPosition, screenFrame.maxY - windowSize.height))
 
-        return CGPoint(x: xPosition, y: yPosition)
+        return constrainHeaderTop(CGPoint(x: xPosition, y: yPosition), windowSize: windowSize, screen: screen)
     }
 
     private func calculateWindowPositionFromFrame(mouseLocation: CGPoint?, windowSize: CGSize, screen: NSScreen, dockItemFrame: CGRect, dockPositionOverride: DockPosition? = nil) -> CGPoint {
@@ -1227,7 +1233,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         xPosition = max(screenFrame.minX, min(xPosition, screenFrame.maxX - windowSize.width))
         yPosition = max(screenFrame.minY, min(yPosition, screenFrame.maxY - windowSize.height))
 
-        return CGPoint(x: xPosition, y: yPosition)
+        return constrainHeaderTop(CGPoint(x: xPosition, y: yPosition), windowSize: windowSize, screen: screen)
     }
 
     @MainActor
