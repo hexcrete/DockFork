@@ -1006,17 +1006,19 @@ struct WindowPreviewHoverContainer: View {
             PreviewHeader(style: effectiveAppNameStyle, edge: .top,
                           backgroundAppearance: backgroundAppearance, onHover: handleAppHeaderHover)
             {
-                HStack(spacing: PreviewHeaderLayout.labelSpacing) {
-                    if let appIcon {
-                        Image(nsImage: appIcon)
-                            .resizable()
-                            .scaledToFit()
-                            .zIndex(1)
-                            .frame(width: PreviewHeaderLayout.minimumHeight, height: PreviewHeaderLayout.minimumHeight)
-                    } else {
-                        ProgressView().frame(width: PreviewHeaderLayout.minimumHeight, height: PreviewHeaderLayout.minimumHeight)
+                if effectiveShowAppIconOnly {
+                    appHeaderIcon
+                } else {
+                    let minimumTitleWidth = min(labelSize.width, PreviewHeaderLayout.minimumHeight * 2)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: PreviewHeaderLayout.labelSpacing) {
+                            appHeaderIcon
+                            hoverTitleLabelView(labelSize: labelSize)
+                                .frame(minWidth: minimumTitleWidth, idealWidth: minimumTitleWidth, maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxWidth: PreviewHeaderLayout.minimumHeight + PreviewHeaderLayout.labelSpacing + labelSize.width)
+                        appHeaderIcon
                     }
-                    if !effectiveShowAppIconOnly { hoverTitleLabelView(labelSize: labelSize) }
                 }
             } actions: {
                 Group {
@@ -1028,6 +1030,22 @@ struct WindowPreviewHoverContainer: View {
                 $0.frame(maxWidth: .infinity, alignment: .center)
             }
         }
+    }
+
+    private var appHeaderIcon: some View {
+        Group {
+            if let appIcon {
+                Image(nsImage: appIcon)
+                    .resizable()
+                    .scaledToFit()
+                    .zIndex(1)
+            } else {
+                ProgressView()
+            }
+        }
+        .frame(width: PreviewHeaderLayout.minimumHeight, height: PreviewHeaderLayout.minimumHeight)
+        .help(appName)
+        .accessibilityLabel(appName)
     }
 
     @ViewBuilder
@@ -1087,7 +1105,7 @@ struct WindowPreviewHoverContainer: View {
     @ViewBuilder
     private func hoverTitleLabelView(labelSize: CGSize) -> some View {
         let trimmedAppName = appName.trimmingCharacters(in: .whitespaces)
-        let baseText = Text(trimmedAppName)
+        let baseText = appHeaderText(trimmedAppName)
 
         let rainbowGradientColors: [Color] = [.red, .orange, .yellow, .green, .blue, .purple, .pink]
         let rainbowGradientHighlights: [Color] = [.white.opacity(0.45), .yellow.opacity(0.35), .pink.opacity(0.4)]
@@ -1104,7 +1122,8 @@ struct WindowPreviewHoverContainer: View {
                         speed: rainbowGradientSpeed,
                         blur: defaultBlur
                     )
-                    .frame(width: labelSize.width, height: labelSize.height)
+                    .frame(maxWidth: labelSize.width)
+                    .frame(height: labelSize.height)
                     .mask(baseText)
                     .fontWeight(.medium)
                     .padding(.leading, 4)
@@ -1122,7 +1141,8 @@ struct WindowPreviewHoverContainer: View {
                         speed: rainbowGradientSpeed,
                         blur: defaultBlur
                     )
-                    .frame(width: labelSize.width, height: labelSize.height)
+                    .frame(maxWidth: labelSize.width)
+                    .frame(height: labelSize.height)
                     .mask(baseText)
                 } else {
                     baseText
@@ -1131,6 +1151,20 @@ struct WindowPreviewHoverContainer: View {
             }
         }
         .lineLimit(1)
+    }
+
+    @ViewBuilder
+    private func appHeaderText(_ text: String) -> some View {
+        switch resolvedAppearance.titleOverflowStyle {
+        case .marquee:
+            MarqueeText(text: text, startDelay: 1, adaptsToAvailableWidth: true)
+        case .truncateTail:
+            Text(text).truncationMode(.tail)
+        case .truncateMiddle:
+            Text(text).truncationMode(.middle)
+        case .truncateHead:
+            Text(text).truncationMode(.head)
+        }
     }
 
     @ViewBuilder

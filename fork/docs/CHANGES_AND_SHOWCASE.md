@@ -8,7 +8,14 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 Preparation reviewed October 14 through `dd28db3`. Version 0.2.0 is selected for the next prerelease; no Release candidate, tag or upload is recorded yet. See the [0.2.0 draft notes and publication gate](RELEASE_NOTES_0.2.0.md). Current development includes all five selection/action/dragging/tiling phases, ordered AppleScript window lists, Select All, optional selection keep-open behavior, and the later search, startup, Dock-click and header-hover fixes. The published 0.1.0 assets remain unchanged. Detailed phase records below distinguish implementation and historical validation; they are not fresh Release certification.
 
+## Development: Narrow App Headers
+
+October 15 refinement: Dock/Cmd+Tab app headers in all three styles honor Long title overflow while space remains for a readable name. A native ViewThatFits label falls back to the existing 24-point app icon when less than a short name segment fits, without retaining the name gap. The minimum name width is capped at twice the icon height or the full name width for short names. The full app name remains on the icon tooltip/accessibility label. Explicit icon-only headers remain icon-only. The existing action-glyph/scroll fallbacks, app-wide action routing and header hover tracking are unchanged.
+
+The label uses native width proposals, without geometry observers, measured-size state or custom timers. Marquee uses the existing component only for the selected overflow mode. A source-extracted fixture passed 1,080 native layout cases across three style adapters, four overflow modes, short/long names, icon-only settings, hover changes and 100-600 point widths. The fixture uses real button/marquee views with geometry-only header chrome; it does not establish live scrolling animation, tooltip or pointer coverage. Six additional native label-width checks confirm the title view is removed below the readable minimum and restored above it. Signed Debug build/relaunch, signature verification and installed-binary comparison passed. The user reports the refinement working October 15. Exhaustive live animation, tooltip, accessibility and Release coverage are not claimed. This does not attempt to repair every layout at extreme 100-point container widths.
+
 ## Development: Popover Header and Summary Alignment
+
 
 October 14 corrections: Dock/Cmd+Tab selection summaries in Popover style are centered without the one-sided trailing inset used by Default and Shadowed styles. The Popover app header also has a full-width centered outer wrapper so hover-revealed actions do not determine its overlay anchor. The visible pill and hover handler remain content-sized. Both changes apply in compact and regular layouts; Window Switcher retains its Default-style summary. No measurements, state or background work are added.
 
