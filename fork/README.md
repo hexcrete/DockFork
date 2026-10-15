@@ -88,7 +88,7 @@ Development mode creates no release ZIP and must not be distributed; its signatu
 
 The certificate-signed Debug workflow, nested signature checks, fixed-path replacement and exact-path launch have passed, including the October 15 tiling/activation fixes. Its designated requirement is certificate-based, not tied to a binary hash. Permission retention across subsequent builds still needs verification after granting access to this signed build.
 
-The October 15 integration includes DockDoor 1.41.0 and later upstream metadata through `3e08721`. Settings now separate Gestures from Keybinds. No new Release package has been built; the updated showcase export and build authorization are still awaited.
+The October 15 integration includes DockDoor 1.41.0 and later upstream metadata through `3e08721`. Settings now separate Gestures from Keybinds. The signed Debug build/relaunch, source-overlay/binary/signature correspondence, 84 isolated gesture/swipe/frame/reservation cases and 19 version cases passed after adapting gesture minimization to the existing confirmed-state helper. New manual gesture/display testing remains pending. No new Release package has been built; the updated showcase export and build authorization are still awaited.
 
 ### Release Assets and Validation
 

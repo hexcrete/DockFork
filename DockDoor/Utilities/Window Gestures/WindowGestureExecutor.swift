@@ -96,7 +96,9 @@ final class WindowGestureExecutor {
         let screenIdentifier = screen.uniqueIdentifier()
         let windows = WindowUtil.filterWindowsByCurrentSpace(WindowUtil.getAllWindowsIgnoringSwitcherFilters())
             .filter { !$0.isHidden && !$0.isWindowlessApp && $0.screenIdentifier == screenIdentifier }
-        WindowUtil.minimizeWindowsAsync(windows)
+        Task { @MainActor in
+            _ = await WindowUtil.setMinimizedStateConfirmed(windows, isMinimized: true)
+        }
     }
 
     private func restoreAll(on screen: NSScreen) {

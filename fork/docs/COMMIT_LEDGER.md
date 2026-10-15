@@ -2,9 +2,9 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **89 later commits through `766b77e55cfa6a7f5b70f894bd53f4b98e3973c2`: 281 total, 277 non-merge and 4 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **100 later commits through `229d38a2d4c4f6e96e3ed6c9581922277f599894`: 292 total, 287 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
 
-The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The pending upstream integration and its incoming commits are outside this coverage boundary until the merge has a final hash. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The discarded header selection-scoping experiment was never committed.
+The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The latest upstream integration and its ten incoming commits are included. The follow-up integration-fix/documentation commit recording validation is outside this explicit boundary and must be added in the next update. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The discarded header selection-scoping experiment was never committed.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -341,7 +341,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..766b77e`, extended and verified against Git October 15, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes four newly integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..229d38a`, extended and verified against Git October 15, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -484,9 +484,21 @@ Coverage: `9efa1cc..766b77e`, extended and verified against Git October 15, 2026
 
 | [`766b77e`](https://github.com/hexcrete/DockFork/commit/766b77e55cfa6a7f5b70f894bd53f4b98e3973c2) | Refresh 0.2.0 release preparation, preserve historical candidate records, clarify the pending configuration/build gate and document the reviewed tiling/activation work. No Release package or publication. | Documentation | 10 |
 
+| [`993182b`](https://github.com/ejbills/DockDoor/commit/993182bb60fbd08383f5743b9966c5cfb2d4af17) | Add trackpad switcher swipe sensitivity with settings and detector tests. | Upstream feature | 6 |
+| [`4e7d18d`](https://github.com/ejbills/DockDoor/commit/4e7d18df12a9dc52658c7e697dee72c82341a975) | Introduce optional title-bar, Dock and menu-bar trackpad window gestures and their recognition/resolution tests. | Upstream feature | 28 |
+| [`2541cf9`](https://github.com/ejbills/DockDoor/commit/2541cf9c4d5691dadad49c58b7d268eae4b4d2d2) | Refine window gestures, add custom-dock screen reservations and scripting, and split Gestures from Keybinds. | Upstream feature / Settings | 33 |
+| [`d24faab`](https://github.com/ejbills/DockDoor/commit/d24faab5a0857dd1fbb6a863b153460dc70caa95) | Reuse shared window operations, snapping, gesture-zone and observer infrastructure. | Upstream refactor | 25 |
+| [`306aa35`](https://github.com/ejbills/DockDoor/commit/306aa350c4fd9f70cdd8a24f8aa97e9cdb835a80) | Require the pointer to remain within the expected Dock icon before delayed previews are presented. | Upstream fix | 2 |
+| [`0d43f6b`](https://github.com/ejbills/DockDoor/commit/0d43f6b6d49c3cb08e56d448e15f9a0329bcc448) | Add the window-gesture section and demonstration media to the upstream website. | Upstream website | 3 |
+| [`4a41290`](https://github.com/ejbills/DockDoor/commit/4a412904fcfc16b2bf0c04a150402fe8dc21c84d) | Emphasize that window gestures are opt-in. | Upstream website | 1 |
+| [`3d6a3cb`](https://github.com/ejbills/DockDoor/commit/3d6a3cbaa9bbee17959122da7f0a349ca43056d0) | Synchronize macOS translations from Crowdin; tagged source of stable DockDoor 1.41.0. | Upstream localization | 1 |
+| [`985d3f7`](https://github.com/ejbills/DockDoor/commit/985d3f70d909cad73708a69ad83fd28135eb25c4) | Update the upstream appcast for 1.41.0; DockFork continues using manual fork updates. | Upstream metadata | 1 |
+| [`3e08721`](https://github.com/ejbills/DockDoor/commit/3e08721ec56c6747dba04561ab57b03ec254d785) | Record the 1.41.0 upstream changelog. | Upstream documentation | 1 |
+| [`229d38a`](https://github.com/hexcrete/DockFork/commit/229d38a2d4c4f6e96e3ed6c9581922277f599894) | Integrate upstream 1.41.0 through 3e08721, retain confirmed placement/activation and selection/session ownership, adapt gesture snapping and settings search, and pin the upstream version record. Changed-file count is against the first parent. Validation details are in the integration record. | Merge | 52 |
+
 ## Upstream Attribution and Contribution Boundaries
 
-The original three merge entries and the later continuation merge integrate upstream capabilities and fix merge interactions; they are not ownership claims over upstream's contributions. In particular, the base swipe launcher and latest JSON backup/import support came from upstream. Attribution in the guide distinguishes those from fork refinements.
+The original three merge entries and the two later continuation merges integrate upstream capabilities and fix merge interactions; they are not ownership claims over upstream's contributions. In particular, the base swipe launcher and latest JSON backup/import support came from upstream. Attribution in the guide distinguishes those from fork refinements.
 
 Preserve this history in the public fork. When proposing upstream contributions, prepare small dependency-aware branches after agreeing scope; do not assume an early commit can be cherry-picked onto current main unchanged. Existing upstream contribution instructions require human review, testing, and AI disclosure.
 

@@ -1,6 +1,6 @@
 # DockFork 0.2.0 Prerelease Draft
 
-Status: preparation only, October 15, 2026. Application changes are reviewed through `c15292feaf7105c711a8e9e767e11ffe9da60f1a`. Formatting-only cleanup is committed as `5819ee4`; the approved documentation commit is recorded in the next ledger update. No 0.2.0 Release candidate, tag, upload or publication is recorded.
+Status: preparation only, October 15, 2026. Includes upstream 1.41.0 integration `229d38a`, with a follow-up adapting gesture minimization to the existing confirmed-state pipeline. No 0.2.0 Release candidate, tag, upload or publication is recorded.
 
 **Release packaging is on hold until the updated showcase configuration is supplied and reviewed, and the user authorizes the build.** The existing preset is unchanged. Screenshots and recordings are deferred and are not a release gate.
 
@@ -54,13 +54,13 @@ Report problems through this fork's Issues page. Review diagnostic logs for priv
 
 ## Preparation Checks
 
-October 15 preparation is checked against `c15292f`, with no new functional code changes. The earlier October 14 checks covered `dd28db3`; they are not the current release boundary.
+October 15 preparation now includes upstream integration `229d38a` and its gesture-minimization adapter. Earlier tiling/activation and formatting checks retain their stated scope; they do not establish manual verification of the new upstream gestures.
 
 | Area | Current evidence and remaining work |
 |---|---|
-| Source and documentation | Git confirms exact-once coverage of 280 commits through 5819ee4 and all recorded changed-file counts. All 30 Swift files changed since 0.1.0 pass formatter lint. The eight added settings have matching UI search targets and catalog entries; local documentation links resolve. Source cleanup is proven formatting-only and committed separately. Final preparation review passed; this documentation commit remains outside the ledger coverage boundary. |
-| Version metadata | All 19 validator cases pass. The current record selects DockFork 0.2.0 and validates the incorporated upstream ancestry locally. This is not an upstream freshness check. |
-| Debug validation | The formatting-only cleanup passed the certificate-signed Debug rebuild/relaunch, source-snapshot and installed-binary comparisons, signature verification and exact running-path check. No Release ZIP was created. No new full Xcode suite or whole-app performance run is claimed. |
+| Source and documentation | Git confirms exact-once coverage of 292 commits through 229d38a and all recorded changed-file counts. Incoming changed-source formatting, unique search IDs, split-tab routing, AppleScript command codes, project registrations and packaging overlay checks pass. This follow-up commit remains outside the explicit ledger coverage boundary. |
+| Version metadata | All 19 validator cases pass. Fetched upstream main is 3e08721, and included published stable release 1.41.0 resolves to 3d6a3cba. The record keeps DockFork 0.2.0 separate and validates committed ancestry. |
+| Debug validation | The final signed Debug build/relaunch, exact running path, deep/strict signature, embedded upstream metadata, reviewed source overlay and installed/built binaries were verified. The first build caught an integration-only minimize-helper mismatch, corrected by reusing confirmed minimization. All 84 isolated gesture/swipe/session/frame/reservation tests, 19 version cases and retained placement/focus checks pass. No full Xcode suite, new manual gesture/display validation, performance run or Release ZIP is claimed. |
 | Latest tiling/focus sweep | 27 scripted tiling calls with three expected minimum-size refusals, four rapid-focus pairs and four cross-Space focus checks passed without unexpected failures. Frames, Spaces, accessibility flags and original focus were restored. The later partial-write refresh correction has focused regression and signed Debug validation, not another full live sweep. |
 | Showcase configuration | Await the updated export. Keep the current reviewed 237-preference preset unchanged until the replacement is sanitized and reviewed. Do not import it into live preferences automatically. |
 | Release candidate and privacy | Not built. Audit the actual app, source archive and sidecars after the final preset and preparation commits. Existing 0.1.0 audits do not certify 0.2.0 assets. |
@@ -81,4 +81,4 @@ The ledger coverage boundary is explicit in [COMMIT_LEDGER.md](COMMIT_LEDGER.md)
 
 Do not block publication on showcase media alone. Do not replace missing Release tests with screenshots or earlier Debug results.
 
-The current upstream record remains DockDoor 1.40.7 plus incorporated changes through `7be384b46da66f380bf3a9bb24ee6c6476bbd0dc`. No upstream fetch or merge is part of this preparation.
+The current upstream record is DockDoor 1.41.0 plus changes through `3e08721ec56c6747dba04561ab57b03ec254d785`. Upstream main and tags were fetched for this integration; the published stable release and its included tag were verified. No fork Release build or publication is included.
