@@ -12,7 +12,7 @@ This Apple Silicon package is ad-hoc signed, not Developer ID signed or notarize
 
 - Application: `DockFork.app`; bundle ID and preference domain: `io.github.hexcrete.DockFork`.
 - Diagnostics: `~/Library/Application Support/DockFork/Diagnostics`.
-- Existing DockDoor/Dev preferences and diagnostics are not migrated or modified by packaging.
+- Existing DockDoor preferences and diagnostics are not migrated or modified by packaging.
 - The source project and Swift module retain DockDoor naming. Some inherited UI, scripting terminology, donation links, and acknowledgments still refer to the upstream project.
 - AppleScript can address the installed app as `tell application "DockFork"`; existing command names and event codes are unchanged. Permission prompts and automation must be tested on the installed build.
 
@@ -20,7 +20,7 @@ This Apple Silicon package is ad-hoc signed, not Developer ID signed or notarize
 
 Before replacing an installed version, export a settings backup and quit every running DockDoor/DockFork instance. Keep the DockFork name, bundle ID and installation path consistent. Existing DockFork preferences are not reset by packaging, but a rebuilt ad-hoc release can require granting permissions again.
 
-The 0.2.0 feature set includes multi-window selection under **Gestures & Keybinds > Window Selection & Tiling**. Selection and selection-driven keep-open behavior default Off. Show selection summary defaults On, but appears only after enabling selection and checking windows. Maximum tiling rows defaults to 2; columns defaults to 3. Drag-to-tile is a separate default-Off option under **Mouse Actions**. Neither installation nor importing the existing showcase preset automatically turns these on. Check the release notes for the version you actually downloaded; local development documentation does not establish that a package contains later features.
+The 0.2.0 feature set includes multi-window selection under **Gestures & Keybinds > Window Selection & Tiling**. Selection and selection-driven keep-open behavior default Off. Show selection summary defaults On, but appears only after enabling selection and checking windows. Maximum tiling rows defaults to 2; columns defaults to 3. Drag-to-tile is a separate default-Off option under **Mouse Actions**. Installation does not enable these default-Off features. An optional preset can enable them, so review the supplied configuration before importing it; the preset is never applied automatically. Check the release notes for the version you actually downloaded; local development documentation does not establish that a package contains later features.
 
 Support > Updates shows DockFork's own version and its incorporated DockDoor release/commit separately. `+ upstream changes` means the base includes commits after that release, not that newer upstream releases are automatically installed. `BUILD-METADATA.json` accompanies release assets with the full upstream and source hashes. These values describe the built package and require no online check.
 

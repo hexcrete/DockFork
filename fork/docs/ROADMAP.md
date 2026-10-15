@@ -4,7 +4,7 @@ This document separates completed development milestones, release preparation an
 
 ## Publication First
 
-The public source fork is established at [hexcrete/DockFork](https://github.com/hexcrete/DockFork). [The first prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) is published. Version 0.2.0 prerelease preparation is now the priority; its Release package is not yet built or published. See the [draft notes and publication gate](RELEASE_NOTES_0.2.0.md). Downloaded/quarantined installation testing and broader user feedback remain pending; showcase media can follow during testing.
+The public source fork is established at [hexcrete/DockFork](https://github.com/hexcrete/DockFork). [The first prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) is published. Version 0.2.0 prerelease preparation is now the priority; its Release package is not yet built or published. The October 15 review covers `c15292f`. Wait for the updated showcase export and build authorization before packaging; screenshots and recordings are deferred and do not block the release. See the [draft notes and publication gate](RELEASE_NOTES_0.2.0.md). Downloaded/quarantined installation testing and broader user feedback remain pending; showcase media can follow during testing.
 
 - Publish as a clearly attributed DockDoor fork while retaining original history and GPL-3.0 licensing.
 - Validate the [isolated DockFork packaging script](../README.md#build-a-dockfork-package), including its distinct identity, signing, and installation; retain internal DockDoor naming.
@@ -36,6 +36,8 @@ Completed development sequence, implemented in separately reviewed commits with 
 5. Drop-to-tile. Manual verification and final source review passed October 13. The independent Mouse Actions toggle defaults Off; preview targeting reuses the file-drop highlight. The target window/group comes first in its existing selection order, followed by the dragged group; deduplicate identities. Use the target Desktop/display. Dropping a group onto itself does nothing. A 1x1 configuration moves without tiling.
 
 Batch actions and group dragging are committed development changes. Tiling passed user manual verification and final source review October 13; drop-to-tile passed manual verification and final source review October 13. All five selection/tiling prerequisites are complete. Validate and package 0.2.0 before resuming Spaces Bar feasibility and staged planning. The separate scripting follow-up below is committed as `d5bdb48`. None of this selection development is included in the published 0.1.0 release. A dedicated selection-action popup and Spaces Bar remain later work.
+
+October 15 tiling reliability follow-up, `c15292f`: confirm actual frames before foregrounding, finish resizing constrained by the previous position, preserve partial-write reconciliation and prevent native focus events from expanding tiled windows. Signed Debug and authorized scripted 2-8-window/Space checks passed within the limits in the changes guide. Genuine minimum-size refusals remain failures; another display, older macOS and exhaustive accessibility checks were not established by that sweep. Narrow preview controls, header/summary fitting and the shared Space-information menus are also complete development work, not Spaces Bar implementation.
 
 ## Pinned Floating Windows
 

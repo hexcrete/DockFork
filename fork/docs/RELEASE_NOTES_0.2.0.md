@@ -1,6 +1,8 @@
 # DockFork 0.2.0 Prerelease Draft
 
-Status: preparation only, October 14, 2026. No 0.2.0 tag, Release candidate or publication is recorded. The implementation review boundary is `dd28db3f3c016b9afeee616088a612f06eefbec8`; packaging must use committed HEAD after these preparation records are reviewed and committed.
+Status: preparation only, October 15, 2026. Application changes are reviewed through `c15292feaf7105c711a8e9e767e11ffe9da60f1a`. Formatting-only cleanup is committed as `5819ee4`; the approved documentation commit is recorded in the next ledger update. No 0.2.0 Release candidate, tag, upload or publication is recorded.
+
+**Release packaging is on hold until the updated showcase configuration is supplied and reviewed, and the user authorizes the build.** The existing preset is unchanged. Screenshots and recordings are deferred and are not a release gate.
 
 ## Release Notes
 
@@ -20,14 +22,10 @@ Multi-window selection, selection-driven keep-open behavior and drop-to-tile def
 
 ### Fixes and UI Polish
 
-- Confirm tiled window frames, finish resizing after moving when the old position constrained the size, avoid animated AX frame-write races with scoped accessibility-state restoration, and use the correct native main-window attribute when foregrounding. Refused placements report failure. Keep synthetic key-window events away from native resize grips and omit mouse-up to avoid rapid focus unexpectedly expanding windows.
-
+- Make tiling and foregrounding more reliable: confirm actual placement, finish resizes constrained by the old window position, and prevent rapid focus from unexpectedly expanding a tiled window. Applications' minimum-size restrictions are reported rather than treated as successful placement.
 - Adapt preview toolbars to narrow widths: shorten/omit title text, progressively overflow rightmost traffic-light actions and consolidate Space/state controls into native More menus, then reuse the selection-control location while preserving app icons and selected-state outlines. Preview and menu-bar action menus share Space/state information, with Move to Space before Arrange. Shared selection controls expose native selected-state accessibility metadata.
-
 - Keep Shadowed app headers and their mouse-safe zone below the menu bar when preview panels reach the top of the screen.
-
 - Keep pending cache validation separate for each app so large multi-app close groups do not cancel one another's stale-window cleanup.
-
 - Correct Compact Mode drag-target shapes and highlight opacity.
 - Extend the configurable traffic-light transition duration to 0.5 seconds while preserving Reduce Motion behavior.
 - Acknowledge the one-time Cmd+Tab focus hint after actual preview focus. Hide app-header window actions when an app has no real windows.
@@ -36,29 +34,47 @@ Multi-window selection, selection-driven keep-open behavior and drop-to-tile def
 - Avoid false five-second AX backoff during app startup and preserve explicitly identified window focus timestamps through discovery.
 - Include Shadowed headers and selection summaries in hover and outside-click interaction bounds, without changing their appearance or adding timers. Header/summary button clicks no longer fall into the fixed transparent-margin exclusion; user verification of this latest correction passed, with final no-change publication guards checked in isolation and by a signed Debug build.
 
-These are highlights, not the complete list. See the [changes guide](CHANGES_AND_SHOWCASE.md) and [commit ledger](COMMIT_LEDGER.md). Screenshots and recordings remain optional and have not been marked captured.
+These are highlights, not the complete list. See the [changes guide](CHANGES_AND_SHOWCASE.md) and [commit ledger](COMMIT_LEDGER.md). Screenshots and recordings will follow during testing; none are marked captured or approved.
 
 ### Installation and Limitations
 
 - Planned distribution: Apple Silicon, ad-hoc signed, not notarized, with manual updates. Follow the [installation guide](../packaging/INSTALL.md); do not disable Gatekeeper.
 - Quit other DockDoor/DockFork instances before launching. Export settings before upgrading or importing the optional preset. Import replaces settings. A rebuilt ad-hoc release can require permission approval again.
 - Partial batch failures are reported; successful members are not rolled back. Fullscreen and multi-Desktop sources have operation-specific restrictions. Overflow batches intentionally overlap earlier batches.
+- Smaller displays or apps with large minimum sizes can prevent a requested grid from fitting. Row/column limits are upper bounds, not a guarantee that every app supports that layout.
 - Spaces Bar, pinned floating windows and the slide-out switcher are not included. Experimental full-size-preview container fading remains Off by default with known hover limitations.
 - Development testing covers signed Debug builds, focused native/model checks and user-reported verification. The 0.2.0 Release build, downloaded/quarantined installation and older-macOS compatibility are not yet verified. Earlier 0.1.0 testing does not certify this release.
+- The latest tiling/focus regression sweep used one display on macOS 27. Additional displays and exhaustive accessibility coverage remain unverified for that follow-up; Window Switcher VoiceOver navigation out of search was not completed.
 
 Report problems through this fork's Issues page. Review diagnostic logs for private information before attaching them.
 
 ## Preparation Checks
 
-October 14: the 0.2.0 certificate-signed Debug build passed signature verification and is running from the fixed development location. Its binary matches the new build. All 19 version-metadata cases and formatter lint on the six touched Swift files passed; local Markdown file links and diff formatting passed. Git verification confirms exact-once ledger coverage of 268 commits through `dd28db3`. The showcase preset is byte-for-byte unchanged. User-reported summary/icon/header checks are recorded in the changes guide; these preparation checks add no manual feature or Release installation tests. The preparation commit itself is outside the ledger boundary and will be recorded in the next update.
+October 15 preparation is checked against `c15292f`, with no new functional code changes. The earlier October 14 checks covered `dd28db3`; they are not the current release boundary.
+
+| Area | Current evidence and remaining work |
+|---|---|
+| Source and documentation | Git confirms exact-once coverage of 280 commits through 5819ee4 and all recorded changed-file counts. All 30 Swift files changed since 0.1.0 pass formatter lint. The eight added settings have matching UI search targets and catalog entries; local documentation links resolve. Source cleanup is proven formatting-only and committed separately. Final preparation review passed; this documentation commit remains outside the ledger coverage boundary. |
+| Version metadata | All 19 validator cases pass. The current record selects DockFork 0.2.0 and validates the incorporated upstream ancestry locally. This is not an upstream freshness check. |
+| Debug validation | The formatting-only cleanup passed the certificate-signed Debug rebuild/relaunch, source-snapshot and installed-binary comparisons, signature verification and exact running-path check. No Release ZIP was created. No new full Xcode suite or whole-app performance run is claimed. |
+| Latest tiling/focus sweep | 27 scripted tiling calls with three expected minimum-size refusals, four rapid-focus pairs and four cross-Space focus checks passed without unexpected failures. Frames, Spaces, accessibility flags and original focus were restored. The later partial-write refresh correction has focused regression and signed Debug validation, not another full live sweep. |
+| Showcase configuration | Await the updated export. Keep the current reviewed 237-preference preset unchanged until the replacement is sanitized and reviewed. Do not import it into live preferences automatically. |
+| Release candidate and privacy | Not built. Audit the actual app, source archive and sidecars after the final preset and preparation commits. Existing 0.1.0 audits do not certify 0.2.0 assets. |
+| Installation and media | Release upgrade/import and browser-quarantine/Gatekeeper testing remain pending. Screenshots and recordings are deliberately deferred. |
+
+The ledger coverage boundary is explicit in [COMMIT_LEDGER.md](COMMIT_LEDGER.md); an uncommitted preparation or future commit is not silently included. No preferences were reset and no showcase media or Release validation is inferred from these checks.
 
 ## Publication Gate
 
-- Review and commit preparation changes, including `fork/version.json`; then build with `./fork/package.sh` from committed HEAD.
+- Receive the updated configuration, remove private/system state, review nested shortcut records and retain only intended showcase preferences. Review the sanitized difference and keep a backup before any later import test.
+- Review and commit the approved preset and preparation changes. Keep `fork/version.json` at the agreed 0.2.0 prerelease version unless a new decision is made.
+- Obtain authorization to build, then use `./fork/package.sh` from the exact committed candidate. Do not package the working tree or distribute the development app.
 - Record the exact source commit and final package directory. Verify version/base metadata, app identity, ZIP integrity, source/patch correspondence, nested signatures and every allowlisted asset checksum.
 - Run a fresh privacy audit of the actual app, source archive and sidecar assets. Keep development signing identities, build logs, local paths and private notes out of distributed assets.
 - Test the actual Release candidate, including preview modes, selection, batch actions, tiling, dragging, AppleScript, fresh-launch recency, search and header hover dismissal. Record test gaps rather than inferring them from Debug results.
-- Obtain explicit upload/publication authorization. Tag the reviewed candidate commit, create a draft prerelease, verify uploaded assets, then publish. Do not retag or replace the tested 0.1.0 assets.
+- Obtain explicit push/upload/publication authorization for hexcrete/DockFork. Tag the reviewed candidate commit, create a draft prerelease, verify uploaded assets, then publish. Do not push the complete fork upstream or retag/replace the tested 0.1.0 assets.
 - After publication, separately test a browser-downloaded, quarantined ZIP on another Mac, including Gatekeeper, first launch, permissions, upgrade and settings import.
+
+Do not block publication on showcase media alone. Do not replace missing Release tests with screenshots or earlier Debug results.
 
 The current upstream record remains DockDoor 1.40.7 plus incorporated changes through `7be384b46da66f380bf3a9bb24ee6c6476bbd0dc`. No upstream fetch or merge is part of this preparation.
