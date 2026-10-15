@@ -481,6 +481,15 @@ func resolvedTrafficLightButtons(
 }
 
 enum WindowStateSymbolResolver {
+    static func labels(for window: WindowInfo) -> [String] {
+        var labels: [String] = []
+        if window.isWindowlessApp { labels.append(String(localized: "No Open Windows")) }
+        if window.isMinimized { labels.append(String(localized: "Minimized")) }
+        if window.isEffectivelyHiddenForUI { labels.append(String(localized: "Hidden")) }
+        if window.isFullscreen == true { labels.append(String(localized: "Full Screen")) }
+        return labels
+    }
+
     static func symbols(
         for windowInfo: WindowInfo,
         isEffectivelyHidden: Bool
@@ -493,6 +502,166 @@ enum WindowStateSymbolResolver {
             return ["arrow.up.left.and.arrow.down.right"]
         }
         return []
+    }
+}
+
+enum PreviewToolbarStage: Int {
+    case full, titlesOmitted, actionsMenu, actionsMenuWithoutTitles, indicatorsMenu, indicatorsMenuWithoutTitles, combined
+
+    var showsTitles: Bool { self == .full || self == .actionsMenu || self == .indicatorsMenu }
+    var overflowsActions: Bool { rawValue >= Self.actionsMenu.rawValue }
+    var overflowsIndicators: Bool { rawValue >= Self.indicatorsMenu.rawValue }
+}
+
+private struct PreviewToolbarStageKey: PreferenceKey {
+    static var defaultValue: PreviewToolbarStage? { nil }
+
+    static func reduce(value: inout PreviewToolbarStage?, nextValue: () -> PreviewToolbarStage?) {
+        value = nextValue() ?? value
+    }
+}
+
+struct PreviewAdaptiveToolbar<Content: View>: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var stage: PreviewToolbarStage?
+
+    var allowsTitleOmission = false
+    let controlsVisible: Bool
+    let animationDuration: Double
+    let animationsEnabled: Bool
+    @ViewBuilder let content: (_ stage: PreviewToolbarStage, _ isMeasuring: Bool) -> Content
+
+    var body: some View {
+        // Measure current content separately without replacing the rendered row.
+        ViewThatFits(in: .horizontal) {
+            measuredRow(.full)
+            if allowsTitleOmission { measuredRow(.titlesOmitted) }
+            measuredRow(.actionsMenu)
+            if allowsTitleOmission { measuredRow(.actionsMenuWithoutTitles) }
+            measuredRow(.indicatorsMenu)
+            if allowsTitleOmission { measuredRow(.indicatorsMenuWithoutTitles) }
+            measuredRow(.combined)
+        }
+        .hidden()
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+        .transaction { $0.disablesAnimations = true }
+        .overlay {
+            if let stage { content(stage, false) }
+        }
+        .onPreferenceChange(PreviewToolbarStageKey.self) { newStage in
+            guard let newStage, newStage != stage else { return }
+            let animation = stage == nil ? nil : PreviewControlAnimation.animation(
+                duration: animationDuration, animationsEnabled: animationsEnabled, reduceMotion: reduceMotion
+            )
+            withAnimation(animation) { stage = newStage }
+        }
+        .previewControlVisibilityAnimation(isVisible: controlsVisible, duration: animationDuration, animationsEnabled: animationsEnabled)
+    }
+
+    private func measuredRow(_ stage: PreviewToolbarStage) -> some View {
+        content(stage, true).preference(key: PreviewToolbarStageKey.self, value: stage)
+    }
+}
+
+struct PreviewToolbarTitle<Content: View>: View {
+    var font: Font = .body
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        PreviewToolbarTitleLayout {
+            content()
+            Text(verbatim: "\u{2026}").fixedSize().hidden().accessibilityHidden(true)
+        }
+        .font(font)
+    }
+}
+
+private struct PreviewToolbarTitleLayout: Layout {
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let minimum = subviews[1].sizeThatFits(.unspecified).width
+        let naturalWidth = subviews[0].sizeThatFits(.unspecified).width
+        // Fitting tests need only an ellipsis; finite proposals retain the title's intrinsic width.
+        let width = proposal.width.map { max(minimum, min($0, naturalWidth)) } ?? minimum
+        let size = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: proposal.height))
+        return CGSize(width: width, height: size.height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
+    }
+}
+
+struct PreviewControlOverflow {
+    let actions: Set<WindowAction>
+    let includesIndicator: Bool
+    let includesSelection: Bool
+    let spaceNumber: Int?
+    let allowsSpaceMoving: Bool
+}
+
+struct PreviewControlReplacement<Controls: View, Replacement: View>: View {
+    let controlsVisible: Bool
+    let replacementVisible: Bool
+    var alignment: Alignment = .trailing
+    var usesControlsContrastShadow = false
+    @ViewBuilder let controls: () -> Controls
+    @ViewBuilder let replacement: () -> Replacement
+
+    var body: some View {
+        ZStack(alignment: alignment) {
+            controls().previewControlVisibility(isVisible: controlsVisible)
+                .embeddedPreviewContrastShadow(usesControlsContrastShadow)
+            replacement().previewControlVisibility(isVisible: replacementVisible)
+        }
+    }
+}
+
+struct PreviewOverflowButton: View {
+    @State private var isHovering = false
+
+    let window: WindowInfo
+    let appearance: PreviewAppearanceSettings
+    let backgroundAppearance: BackgroundAppearance
+    let overflow: PreviewControlOverflow
+    let circularDiameter: CGFloat?
+    var usesCircularMaterial = true
+    let isChecked: Bool
+    let mockPreviewActive: Bool
+    let handleWindowAction: (WindowAction) -> Void
+    let dismissPreviews: (() -> Void)?
+
+    var body: some View {
+        Button {
+            PreviewContextMenuController.shared.presentOverflow(for: window, overflow: overflow,
+                                                                handleWindowAction: handleWindowAction, dismissPreviews: dismissPreviews)
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.system(size: circularDiameter.map { $0 * 0.55 } ?? 13 * appearance.trafficLightButtonScale, weight: .bold))
+                .opacity(circularDiameter == nil && !mockPreviewActive && !isHovering &&
+                    (appearance.trafficLightVisibility == .dimmedOnPreviewHover || appearance.trafficLightVisibility == .dimmedUntilButtonHover) ? 0.25 : 1)
+                .frame(width: circularDiameter ?? 17 * appearance.trafficLightButtonScale,
+                       height: circularDiameter ?? 17 * appearance.trafficLightButtonScale)
+                .padding(circularDiameter == nil ? 4 : 0)
+                .if(circularDiameter != nil) {
+                    $0.background {
+                        if usesCircularMaterial { Color.clear.materialPill(backgroundAppearance: backgroundAppearance) }
+                    }
+                    .clipShape(Circle())
+                    .overlay { if isChecked { Circle().strokeBorder(appearance.activeAppIndicatorColor, lineWidth: 2.5) } }
+                    .contentShape(Circle())
+                }
+                .if(circularDiameter == nil && !appearance.disableDockStyleTrafficLights) {
+                    $0.materialPill(backgroundAppearance: backgroundAppearance)
+                }
+                .embeddedPreviewContrastShadow(appearance.usesEmbeddedTrafficLightContrastShadow)
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
+        .previewControlVisibilityAnimation(isVisible: isHovering, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
+        .help(String(localized: "More window actions"))
+        .fixedSize()
+        .allowsHitTesting(!mockPreviewActive)
     }
 }
 
@@ -530,6 +699,13 @@ private struct EmbeddedSwitcherTitleShadow: ViewModifier {
 }
 
 extension View {
+    func previewControlVisibility(isVisible: Bool) -> some View {
+        frame(width: isVisible ? nil : 0)
+            .clipped()
+            .opacity(isVisible ? 1 : 0)
+            .allowsHitTesting(isVisible)
+    }
+
     func embeddedPreviewContrastShadow(_ isEnabled: Bool) -> some View {
         modifier(EmbeddedPreviewContrastShadow(isEnabled: isEnabled))
     }
@@ -738,6 +914,10 @@ struct PreviewAppearanceSettings: Equatable {
     let showFullSizeWindowlessPreviews: Bool
     let showWindowlessAppQuitButton: Bool
     let titleOverflowStyle: TitleOverflowStyle
+
+    var controlElementSpacing: CGFloat {
+        disableDockStyleTrafficLights ? 6 : 8
+    }
 
     func resolvedSwitcherAppIconSize(windowTitleIsVisible: Bool) -> CGFloat {
         if switcherAppIconSize > 0 {
@@ -1115,21 +1295,31 @@ struct WindowPreview: View, Equatable {
     }
 
     @ViewBuilder
-    private func dockTitleContent(title: String?, visible: Bool, reservesSpace: Bool) -> some View {
-        let showsCheckbox = hasSelectionControl && selectionCheckboxIsVisible(titleAvailable: visible && title != nil)
+    private func dockTitleContent(title: String?, visible: Bool, reservesSpace: Bool, stage: PreviewToolbarStage,
+                                  combinesControls: Bool, isMeasuring: Bool) -> some View
+    {
+        let titleAvailable = visible && title != nil && stage.showsTitles
+        let showsCheckbox = hasSelectionControl && selectionCheckboxIsVisible(titleAvailable: titleAvailable)
+        let showsTitle = reservesSpace && stage.showsTitles
         Group {
-            if reservesSpace || showsCheckbox {
+            if showsTitle || showsCheckbox || combinesControls {
                 HStack(spacing: 4) {
-                    if showsCheckbox, !appearance.controlPosition.titleIsTrailing {
-                        selectionCheckbox(titleAvailable: visible && title != nil)
+                    if combinesControls {
+                        overflowButton(stage: stage, includesSelection: true,
+                                       circularDiameter: appearance.windowTitleFontSize.measuredLineHeight * 1.2,
+                                       usesCircularMaterial: false)
+                    } else if showsCheckbox, !appearance.controlPosition.titleIsTrailing {
+                        selectionCheckbox(titleAvailable: titleAvailable)
                     }
-                    if reservesSpace, let title {
-                        titleLabel(title, adaptsToAvailableWidth: true, scrolls: visible)
-                            .if(windowInfo.isWindowlessApp) { $0.italic() }
-                            .opacity(visible ? 1 : 0)
+                    if showsTitle, let title {
+                        PreviewToolbarTitle(font: appearance.windowTitleFontSize.font) {
+                            titleLabel(title, adaptsToAvailableWidth: true, scrolls: visible, isMeasuring: isMeasuring)
+                                .if(windowInfo.isWindowlessApp) { $0.italic() }
+                                .opacity(visible ? 1 : 0)
+                        }
                     }
-                    if showsCheckbox, appearance.controlPosition.titleIsTrailing {
-                        selectionCheckbox(titleAvailable: visible && title != nil)
+                    if !combinesControls, showsCheckbox, appearance.controlPosition.titleIsTrailing {
+                        selectionCheckbox(titleAvailable: titleAvailable)
                     }
                 }
                 .font(appearance.windowTitleFontSize.font)
@@ -1139,11 +1329,28 @@ struct WindowPreview: View, Equatable {
                 .frame(minWidth: 0)
                 .clipped()
                 .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
-                .opacity(visible || (hasSelectionControl && selectionCheckboxIsVisible(titleAvailable: visible && title != nil)) ? 1 : 0)
+                .opacity(combinesControls || visible || showsCheckbox ? 1 : 0)
                 .if(hasSelectionControl) { $0.onHover { isHoveringTitle = $0 } }
             }
         }
-        .previewControlVisibilityAnimation(isVisible: showsCheckbox, duration: 0.15, animationsEnabled: appearance.showAnimations)
+        .previewControlVisibilityAnimation(isVisible: showsCheckbox, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
+    }
+
+    private func overflowButton(stage: PreviewToolbarStage, includesSelection: Bool = false,
+                                circularDiameter: CGFloat? = nil, usesCircularMaterial: Bool = true) -> some View
+    {
+        let hovered = isSelected || isHoveringOverDockPeekPreview || isHoveringOverWindowSwitcherPreview
+        return PreviewOverflowButton(window: windowInfo, appearance: appearance, backgroundAppearance: backgroundAppearance,
+                                     overflow: PreviewControlOverflow(
+                                         actions: canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: hovered) ? effectiveTrafficLightButtons : [],
+                                         includesIndicator: stage.overflowsIndicators && (hasWindowStateIndicator || visibleWindowStateLabel != nil),
+                                         includesSelection: includesSelection && appearance.enableMultiWindowSelection,
+                                         spaceNumber: appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : nil,
+                                         allowsSpaceMoving: appearance.enableSpaceIndicatorWindowMoving && appearance.showSpaceNumberIndicator
+                                     ),
+                                     circularDiameter: circularDiameter, usesCircularMaterial: usesCircularMaterial, isChecked: isChecked,
+                                     mockPreviewActive: mockPreviewActive, handleWindowAction: handleWindowAction,
+                                     dismissPreviews: onTap)
     }
 
     private var effectiveTrafficLightButtons: Set<WindowAction> {
@@ -1216,13 +1423,6 @@ struct WindowPreview: View, Equatable {
         return nil
     }
 
-    private var embeddedControlsAreLeading: Bool {
-        let topConfiguration = appearance.controlPosition.topConfiguration
-        return topConfiguration.showControls
-            ? topConfiguration.isLeadingControls
-            : appearance.controlPosition.bottomConfiguration.isLeadingControls
-    }
-
     @ViewBuilder
     private var windowStateIndicator: some View {
         let stateSymbols = movesWindowStateToIndicator ? windowStateSymbols : []
@@ -1259,8 +1459,10 @@ struct WindowPreview: View, Equatable {
         hasAdjacentControl: Bool,
         adjacentControlHeight: CGFloat?,
         spacing: CGFloat = 8,
+        includesIndicator: Bool = true,
         @ViewBuilder content: () -> some View
     ) -> some View {
+        let hasWindowStateIndicator = includesIndicator && hasWindowStateIndicator
         let swapsIndicators = appearance.swapTrafficLightsAndWindowStateIndicator && !appearance.limitIndicatorSwapToCompactMode
         let controlsComeFirst = controlsAreLeading != swapsIndicators
         let stateIndicatorIsOutermost = hasWindowStateIndicator &&
@@ -1279,9 +1481,9 @@ struct WindowPreview: View, Equatable {
         HStack(spacing: spacing) {
             if controlsComeFirst {
                 content()
-                windowStateIndicator
+                if includesIndicator { windowStateIndicator }
             } else {
-                windowStateIndicator
+                if includesIndicator { windowStateIndicator }
                 content()
             }
         }
@@ -1316,7 +1518,7 @@ struct WindowPreview: View, Equatable {
     private func controlsSpacing(hasAdjacentControl: Bool, hasVisibleTrafficLights: Bool) -> CGFloat {
         // Hover-hidden buttons retain a zero-width view, but must not leave a gap.
         guard hasAdjacentControl else { return 0 }
-        return hasVisibleTrafficLights && appearance.disableDockStyleTrafficLights ? 6 : 8
+        return hasVisibleTrafficLights ? appearance.controlElementSpacing : 8
     }
 
     private func configuredAdjacentControlHeight(
@@ -1389,31 +1591,35 @@ struct WindowPreview: View, Equatable {
     }
 
     @ViewBuilder
-    private func titleLabel(_ text: String, adaptsToAvailableWidth: Bool = false, scrolls: Bool = true) -> some View {
-        switch appearance.titleOverflowStyle {
-        case .marquee:
-            MarqueeText(text: text, startDelay: 1, enableScrolling: scrolls, adaptsToAvailableWidth: adaptsToAvailableWidth)
-        case .truncateTail:
-            MarqueeText(
-                text: text,
-                truncationMode: .tail,
-                enableScrolling: false,
-                adaptsToAvailableWidth: adaptsToAvailableWidth
-            )
-        case .truncateMiddle:
-            MarqueeText(
-                text: text,
-                truncationMode: .middle,
-                enableScrolling: false,
-                adaptsToAvailableWidth: adaptsToAvailableWidth
-            )
-        case .truncateHead:
-            MarqueeText(
-                text: text,
-                truncationMode: .head,
-                enableScrolling: false,
-                adaptsToAvailableWidth: adaptsToAvailableWidth
-            )
+    private func titleLabel(_ text: String, adaptsToAvailableWidth: Bool = false, scrolls: Bool = true, isMeasuring: Bool = false) -> some View {
+        if isMeasuring {
+            Text(verbatim: "\u{2026}").fixedSize()
+        } else {
+            switch appearance.titleOverflowStyle {
+            case .marquee:
+                MarqueeText(text: text, startDelay: 1, enableScrolling: scrolls, adaptsToAvailableWidth: adaptsToAvailableWidth)
+            case .truncateTail:
+                MarqueeText(
+                    text: text,
+                    truncationMode: .tail,
+                    enableScrolling: false,
+                    adaptsToAvailableWidth: adaptsToAvailableWidth
+                )
+            case .truncateMiddle:
+                MarqueeText(
+                    text: text,
+                    truncationMode: .middle,
+                    enableScrolling: false,
+                    adaptsToAvailableWidth: adaptsToAvailableWidth
+                )
+            case .truncateHead:
+                MarqueeText(
+                    text: text,
+                    truncationMode: .head,
+                    enableScrolling: false,
+                    adaptsToAvailableWidth: adaptsToAvailableWidth
+                )
+            }
         }
     }
 
@@ -1486,10 +1692,6 @@ struct WindowPreview: View, Equatable {
             embeddedWindowSwitcherControls(selected)
         } else {
             embeddedDockPreviewControls(selected)
-                .previewControlVisibilityAnimation(
-                    isVisible: canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: selected || isHoveringOverDockPeekPreview),
-                    duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations
-                )
         }
     }
 
@@ -1511,293 +1713,42 @@ struct WindowPreview: View, Equatable {
 
     @ViewBuilder
     private func embeddedDockPreviewControls(_ selected: Bool) -> some View {
-        let titleToShow = previewTitle
-
-        let titlePresentation = WindowTitlePresentation.resolve(
-            title: titleToShow,
-            showWindowTitle: appearance.showWindowTitle,
-            visibility: appearance.windowTitleVisibility,
-            isHighlighted: selected
-        )
-
-        let hasTrafficLights = canRenderTrafficLightButtons
-        let showTrafficLights = shouldShowTrafficLightButtons(
-            parentHovered: selected || isHoveringOverDockPeekPreview
-        )
-        let hasVisibleAdjacentControl = (hasTrafficLights && showTrafficLights) ||
-            (!hasTrafficLights && visibleWindowStateLabel != nil && appearance.trafficLightVisibility != .never)
-        let configuredAdjacentHeight = configuredAdjacentControlHeight(
-            hasTrafficLights: hasTrafficLights,
-            stateLabelHeight: 17 * appearance.trafficLightButtonScale
-        )
-        let controlsHeight = controlClusterHeight(adjacentControlHeight: configuredAdjacentHeight)
-        let titleIsConfigured = (appearance.showWindowTitle && titleToShow != nil) || showsSelectionControl
-        let sharesToolbarRow = switch appearance.controlPosition {
-        case .topLeading, .topTrailing, .bottomLeading, .bottomTrailing: true
-        default: false
-        }
-        let edgeInsets = sharesToolbarRow
-            ? rowEdgeInsets(
-                titleHeight: titleIsConfigured ? dockTitleControlHeight() : nil,
-                controlsHeight: controlsHeight
-            )
-            : (title: 0, controls: 0)
-        let titleContent = dockTitleContent(
-            title: titleToShow,
-            visible: titlePresentation.isVisible,
-            reservesSpace: titlePresentation.reservesSpace
-        )
-        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !embeddedControlsAreLeading, enabled: titlePresentation.reservesSpace || showsSelectionControl)
-
-        let controlsContent = controlsWithWindowStateIndicator(
-            controlsAreLeading: embeddedControlsAreLeading,
-            hasAdjacentControl: hasVisibleAdjacentControl,
-            adjacentControlHeight: configuredAdjacentHeight,
-            spacing: controlsSpacing(
-                hasAdjacentControl: hasVisibleAdjacentControl,
-                hasVisibleTrafficLights: hasTrafficLights && showTrafficLights
-            )
-        ) {
-            if hasTrafficLights {
-                TrafficLightButtons(
-                    previewAppearance: appearance,
-                    hoveringOverParentWindow: selected || isHoveringOverDockPeekPreview,
-                    onWindowAction: handleWindowAction,
-                    mockPreviewActive: mockPreviewActive,
-                    enabledButtons: effectiveTrafficLightButtons,
-                    backgroundAppearance: backgroundAppearance
-                )
-                .frame(width: showTrafficLights ? nil : 0)
-                .clipped()
-                .embeddedPreviewContrastShadow(appearance.usesEmbeddedTrafficLightContrastShadow)
-            } else if let stateLabel = visibleWindowStateLabel,
-                      appearance.trafficLightVisibility != .never
-            {
-                Text(stateLabel)
-                    .font(appearance.windowTitleFontSize.font)
-                    .italic()
-                    .foregroundStyle(.secondary)
-                    .frame(height: 17 * appearance.trafficLightButtonScale)
-                    .padding(4)
-                    .if(!appearance.disableDockStyleTitles) { view in
-                        view.materialPill(backgroundAppearance: backgroundAppearance)
-                            .frame(height: 34)
-                    }
-                    .embeddedPreviewContrastShadow(appearance.usesEmbeddedTitleContrastShadow)
-            }
-        }
-        .previewOuterEdgePadding(
-            edgeInsets.controls,
-            onLeadingEdge: embeddedControlsAreLeading,
-            enabled: hasWindowStateIndicator || hasVisibleAdjacentControl
-        )
-
-        if titlePresentation.reservesSpace || showsSelectionControl || hasTrafficLights || hasWindowStateIndicator {
-            switch appearance.controlPosition {
-            case .topLeading, .topTrailing:
-                VStack {
-                    HStack(spacing: 0) {
-                        if appearance.controlPosition == .topLeading {
-                            titleContent
-                            Spacer(minLength: 8)
-                            controlsContent
-                        } else {
-                            controlsContent
-                            Spacer(minLength: 8)
-                            titleContent
-                        }
-                    }
-                    .padding(8)
-                    Spacer()
-                }
-            case .bottomLeading, .bottomTrailing:
-                VStack {
-                    Spacer()
-                    HStack(spacing: 0) {
-                        if appearance.controlPosition == .bottomLeading {
-                            titleContent
-                            Spacer(minLength: 8)
-                            controlsContent
-                        } else {
-                            controlsContent
-                            Spacer(minLength: 8)
-                            titleContent
-                        }
-                    }
-                    .padding(8)
-                }
-            case .centeredTitleTopControlsBottom:
-                VStack {
-                    HStack {
-                        Spacer()
-                        titleContent
-                        Spacer()
-                    }
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        controlsContent
-                        Spacer()
-                    }
-                    .padding(.bottom, 8)
-                }
-            case .centeredControlsTopTitleBottom:
-                VStack {
-                    HStack {
-                        Spacer()
-                        controlsContent
-                        Spacer()
-                    }
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        titleContent
-                        Spacer()
-                    }
-                    .padding(.bottom, 8)
-                }
-            case .diagonalTopLeftBottomRight:
-                VStack {
-                    HStack {
-                        titleContent
-                        Spacer()
-                    }
-                    .padding(.leading, 8)
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        controlsContent
-                    }
-                    .padding(.trailing, 8)
-                    .padding(.bottom, 8)
-                }
-            case .diagonalTopRightBottomLeft:
-                VStack {
-                    HStack {
-                        Spacer()
-                        titleContent
-                    }
-                    .padding(.trailing, 8)
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        controlsContent
-                        Spacer()
-                    }
-                    .padding(.leading, 8)
-                    .padding(.bottom, 8)
-                }
-            case .diagonalBottomLeftTopRight:
-                VStack {
-                    HStack {
-                        Spacer()
-                        controlsContent
-                    }
-                    .padding(.trailing, 8)
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        titleContent
-                        Spacer()
-                    }
-                    .padding(.leading, 8)
-                    .padding(.bottom, 8)
-                }
-            case .diagonalBottomRightTopLeft:
-                VStack {
-                    HStack {
-                        controlsContent
-                        Spacer()
-                    }
-                    .padding(.leading, 8)
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        titleContent
-                    }
-                    .padding(.trailing, 8)
-                    .padding(.bottom, 8)
-                }
-            case .parallelTopLeftBottomLeft:
-                VStack {
-                    HStack {
-                        titleContent
-                        Spacer()
-                    }
-                    .padding(.leading, 8)
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        controlsContent
-                        Spacer()
-                    }
-                    .padding(.leading, 8)
-                    .padding(.bottom, 8)
-                }
-            case .parallelTopRightBottomRight:
-                VStack {
-                    HStack {
-                        Spacer()
-                        titleContent
-                    }
-                    .padding(.trailing, 8)
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        controlsContent
-                    }
-                    .padding(.trailing, 8)
-                    .padding(.bottom, 8)
-                }
-            case .parallelBottomLeftTopLeft:
-                VStack {
-                    HStack {
-                        controlsContent
-                        Spacer()
-                    }
-                    .padding(.leading, 8)
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        titleContent
-                        Spacer()
-                    }
-                    .padding(.leading, 8)
-                    .padding(.bottom, 8)
-                }
-            case .parallelBottomRightTopRight:
-                VStack {
-                    HStack {
-                        Spacer()
-                        controlsContent
-                    }
-                    .padding(.trailing, 8)
-                    .padding(.top, 8)
-                    Spacer()
-                    HStack {
-                        Spacer()
-                        titleContent
-                    }
-                    .padding(.trailing, 8)
-                    .padding(.bottom, 8)
-                }
-            }
+        EmbeddedSwitcherControlsLayout(
+            controlPosition: appearance.controlPosition,
+            hasTitleContent: appearance.showWindowTitle || showsSelectionControl,
+            hasControlsContent: canRenderTrafficLightButtons || hasWindowStateIndicator || visibleWindowStateLabel != nil
+        ) { leading, title, controls in
+            dockPreviewContent(selected, isLeadingControls: leading, showTitleContent: title, showControlsContent: controls)
         }
     }
 
-    private func windowSwitcherContent(
+    private func windowSwitcherContent(_ selected: Bool, isLeadingControls: Bool,
+                                       showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View
+    {
+        let appIcon = windowInfo.app.icon
+        return PreviewAdaptiveToolbar(
+            allowsTitleOmission: showTitleContent && appearance.showAppHeader && (!showAppIconOnly || appearance.showWindowTitle),
+            controlsVisible: canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: selected || isHoveringOverWindowSwitcherPreview),
+            animationDuration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations
+        ) { stage, isMeasuring in
+            windowSwitcherRow(selected, isLeadingControls: isLeadingControls,
+                              showTitleContent: showTitleContent, showControlsContent: showControlsContent, stage: stage, appIcon: appIcon, isMeasuring: isMeasuring)
+        }
+        .frame(width: appearance.useEmbeddedElements ? nil : dimensions.size.width)
+    }
+
+    private func windowSwitcherRow(
         _ selected: Bool,
         isLeadingControls: Bool,
         showTitleContent: Bool = true,
-        showControlsContent: Bool = true
+        showControlsContent: Bool = true,
+        stage: PreviewToolbarStage,
+        appIcon: NSImage?,
+        isMeasuring: Bool
     ) -> some View {
-        let shouldShowAppHeader = (appearance.showAppHeader || showsSelectionControl) && showTitleContent
-        let shouldShowControls = showControlsContent && hasWindowSwitcherControlContent
+        let combinesControls = stage == .combined && showTitleContent && showControlsContent && hasWindowSwitcherControlContent
+        let shouldShowAppHeader = (appearance.showAppHeader || showsSelectionControl || combinesControls) && showTitleContent
+        let shouldShowControls = showControlsContent && hasWindowSwitcherControlContent && !combinesControls
         let shouldShowWindowTitle = appearance.showWindowTitle &&
             (appearance.windowTitleVisibility == .alwaysVisible || selected || isHoveringOverWindowSwitcherPreview)
         let showTrafficLights = shouldShowTrafficLightButtons(
@@ -1830,37 +1781,45 @@ struct WindowPreview: View, Equatable {
         let titleOnRight = appearance.controlPosition.titleIsTrailing
         let titleAlignment: HorizontalAlignment = titleOnRight ? .trailing : .leading
         let textAlignment: TextAlignment = titleOnRight ? .trailing : .leading
-        let titleAndSubtitleContent = VStack(alignment: titleAlignment, spacing: 0) {
-            if !showAppIconOnly, appearance.showAppHeader {
-                Text(windowInfo.app.localizedName ?? "Unknown")
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(textAlignment)
-                    .lineLimit(1)
-            }
+        let titleAndSubtitleContent = PreviewToolbarTitle {
+            VStack(alignment: titleAlignment, spacing: 0) {
+                if !showAppIconOnly, appearance.showAppHeader, stage.showsTitles {
+                    titleLabel(windowInfo.app.localizedName ?? "Unknown", adaptsToAvailableWidth: true, isMeasuring: isMeasuring)
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(textAlignment)
+                        .lineLimit(1)
+                }
 
-            if let windowTitle, hasWindowTitleLabel, appearance.showAppHeader {
-                titleLabel(windowTitle, adaptsToAvailableWidth: true)
-                    .if(windowInfo.isWindowlessApp) { $0.italic() }
-                    .font(appearance.windowTitleFontSize.font)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(textAlignment)
+                if let windowTitle, hasWindowTitleLabel, appearance.showAppHeader, stage.showsTitles {
+                    titleLabel(windowTitle, adaptsToAvailableWidth: true, isMeasuring: isMeasuring)
+                        .if(windowInfo.isWindowlessApp) { $0.italic() }
+                        .font(appearance.windowTitleFontSize.font)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(textAlignment)
+                }
             }
         }
         .modifier(EmbeddedSwitcherTitleShadow(isEnabled: appearance.usesEmbeddedTitleContrastShadow))
 
         let appIconContent = Group {
-            if let appIcon = windowInfo.app.icon, appearance.showAppHeader {
+            if appearance.showAppHeader {
                 PreviewAppIcon(
                     icon: appIcon,
                     bundleURL: windowInfo.app.bundleURL,
                     size: appIconSize,
-                    showBadge: windowSwitcherActive && appearance.showAppIconBadges,
+                    showBadge: !isMeasuring && windowSwitcherActive && appearance.showAppIconBadges,
                     badgeScale: appearance.appIconBadgeScale,
                     mockPreviewActive: mockPreviewActive
                 )
                 .overlay {
-                    if hasSelectionControl { selectionCheckbox(titleAvailable: true, iconSize: appIconSize) }
+                    if combinesControls {
+                        overflowButton(stage: stage, includesSelection: true,
+                                       circularDiameter: PreviewSelectionCheckbox.iconDiameter(for: appIconSize))
+                    } else if hasSelectionControl { selectionCheckbox(titleAvailable: true, iconSize: appIconSize) }
                 }
+            } else if combinesControls {
+                overflowButton(stage: stage, includesSelection: true,
+                               circularDiameter: appearance.windowTitleFontSize.measuredLineHeight * 1.2)
             } else if hasSelectionControl {
                 selectionCheckbox(titleAvailable: false)
             }
@@ -1873,21 +1832,30 @@ struct WindowPreview: View, Equatable {
             spacing: controlsSpacing(
                 hasAdjacentControl: hasVisibleAdjacentControl,
                 hasVisibleTrafficLights: canRenderTrafficLightButtons && showTrafficLights
-            )
+            ),
+            includesIndicator: !stage.overflowsIndicators
         ) {
             if canRenderTrafficLightButtons {
-                TrafficLightButtons(
-                    previewAppearance: appearance,
-                    hoveringOverParentWindow: selected || isHoveringOverWindowSwitcherPreview,
-                    onWindowAction: handleWindowAction,
-                    mockPreviewActive: mockPreviewActive,
-                    enabledButtons: effectiveTrafficLightButtons,
-                    backgroundAppearance: backgroundAppearance
-                )
-                .frame(width: showTrafficLights ? nil : 0)
-                .clipped()
-                .embeddedPreviewContrastShadow(appearance.usesEmbeddedTrafficLightContrastShadow)
-            } else if let stateLabel = visibleWindowStateLabel,
+                PreviewControlReplacement(
+                    controlsVisible: !stage.overflowsActions && showTrafficLights,
+                    replacementVisible: stage.overflowsActions && (showTrafficLights || (stage.overflowsIndicators && (hasWindowStateIndicator || visibleWindowStateLabel != nil))),
+                    alignment: isLeadingControls ? .leading : .trailing,
+                    usesControlsContrastShadow: appearance.usesEmbeddedTrafficLightContrastShadow
+                ) {
+                    TrafficLightButtons(
+                        previewAppearance: appearance,
+                        hoveringOverParentWindow: selected || isHoveringOverWindowSwitcherPreview,
+                        onWindowAction: handleWindowAction,
+                        mockPreviewActive: mockPreviewActive,
+                        enabledButtons: effectiveTrafficLightButtons,
+                        backgroundAppearance: backgroundAppearance
+                    )
+                } replacement: {
+                    overflowButton(stage: stage)
+                }
+            } else if stage.overflowsIndicators, hasWindowStateIndicator || visibleWindowStateLabel != nil {
+                overflowButton(stage: stage)
+            } else if !stage.overflowsIndicators, let stateLabel = visibleWindowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
                 Text(stateLabel)
@@ -1910,12 +1878,16 @@ struct WindowPreview: View, Equatable {
             enabled: shouldShowControls && (hasWindowStateIndicator || hasVisibleAdjacentControl)
         )
 
-        let controlsGap: CGFloat = (canRenderTrafficLightButtons && showTrafficLights) ? 0 : 8
+        let hasVisibleControls = hasWindowStateIndicator || hasVisibleAdjacentControl ||
+            (stage.overflowsIndicators && visibleWindowStateLabel != nil)
+        let controlsGap: CGFloat = shouldShowControls && shouldShowAppHeader && hasVisibleControls ? appearance.controlElementSpacing : 0
 
         let titleContent = PreviewTitleCluster(iconOnRight: titleOnRight) {
             appIconContent
         } labels: {
-            titleAndSubtitleContent
+            if stage.showsTitles, appearance.showAppHeader, !showAppIconOnly || hasWindowTitleLabel {
+                titleAndSubtitleContent
+            }
         }
         .if(hasSelectionControl) { $0.onHover { isHoveringTitle = $0 } }
         .layoutPriority(1)
@@ -1925,16 +1897,15 @@ struct WindowPreview: View, Equatable {
             return AnyView(EmptyView())
         } else if appearance.controlPosition.isCentered {
             return AnyView(
-                HStack(spacing: 4) {
+                HStack(spacing: 0) {
                     Spacer(minLength: 0)
-                    if shouldShowAppHeader {
-                        titleContent
+                    HStack(spacing: controlsGap) {
+                        if shouldShowAppHeader { titleContent }
+                        if shouldShowControls { controlsContent }
                     }
-                    if shouldShowControls { controlsContent }
                     Spacer(minLength: 0)
                 }
-                .frame(width: dimensions.size.width)
-                .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
+                .frame(maxWidth: .infinity)
             )
         } else {
             return AnyView(
@@ -1949,18 +1920,35 @@ struct WindowPreview: View, Equatable {
                         if shouldShowControls { controlsContent }
                     }
                 }
-                .frame(width: dimensions.size.width)
-                .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
+                .frame(maxWidth: .infinity)
             )
         }
     }
 
-    private func dockPreviewContent(
+    private func dockPreviewContent(_ selected: Bool, isLeadingControls: Bool,
+                                    showTitleContent: Bool = true, showControlsContent: Bool = true) -> some View
+    {
+        PreviewAdaptiveToolbar(
+            allowsTitleOmission: showTitleContent && appearance.showWindowTitle && previewTitle != nil,
+            controlsVisible: canRenderTrafficLightButtons && shouldShowTrafficLightButtons(parentHovered: selected || isHoveringOverDockPeekPreview),
+            animationDuration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations
+        ) { stage, isMeasuring in
+            dockPreviewRow(selected, isLeadingControls: isLeadingControls,
+                           showTitleContent: showTitleContent, showControlsContent: showControlsContent, stage: stage, isMeasuring: isMeasuring)
+        }
+        .frame(width: appearance.useEmbeddedElements ? nil : dimensions.size.width)
+    }
+
+    private func dockPreviewRow(
         _ selected: Bool,
         isLeadingControls: Bool,
         showTitleContent: Bool = true,
-        showControlsContent: Bool = true
+        showControlsContent: Bool = true,
+        stage: PreviewToolbarStage,
+        isMeasuring: Bool
     ) -> some View {
+        let combinesControls = stage == .combined && showTitleContent && showControlsContent && (canRenderTrafficLightButtons || hasWindowStateIndicator)
+        let displaysControls = showControlsContent && !combinesControls
         let titleToShow = previewTitle
 
         let titlePresentation = WindowTitlePresentation.resolve(
@@ -1968,6 +1956,9 @@ struct WindowPreview: View, Equatable {
             showWindowTitle: appearance.showWindowTitle && showTitleContent,
             visibility: appearance.windowTitleVisibility,
             isHighlighted: selected
+        )
+        let showsTitleSelectionControl = hasSelectionControl && selectionCheckboxIsVisible(
+            titleAvailable: titlePresentation.isVisible && stage.showsTitles
         )
 
         let hasTrafficLights = canRenderTrafficLightButtons
@@ -1980,8 +1971,8 @@ struct WindowPreview: View, Equatable {
             hasTrafficLights: hasTrafficLights,
             stateLabelHeight: 17 * appearance.trafficLightButtonScale
         )
-        let titleIsConfigured = ((appearance.showWindowTitle && titleToShow != nil) || showsSelectionControl) && showTitleContent
-        let controlsHeight = showControlsContent
+        let titleIsConfigured = ((stage.showsTitles && appearance.showWindowTitle && titleToShow != nil) || showsTitleSelectionControl || combinesControls) && showTitleContent
+        let controlsHeight = displaysControls
             ? controlClusterHeight(adjacentControlHeight: configuredAdjacentHeight)
             : nil
         let edgeInsets = rowEdgeInsets(
@@ -1991,9 +1982,10 @@ struct WindowPreview: View, Equatable {
         let titleContent = dockTitleContent(
             title: titleToShow,
             visible: titlePresentation.isVisible,
-            reservesSpace: titlePresentation.reservesSpace
+            reservesSpace: titlePresentation.reservesSpace,
+            stage: stage, combinesControls: combinesControls, isMeasuring: isMeasuring
         )
-        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !isLeadingControls, enabled: titlePresentation.reservesSpace || showsSelectionControl)
+        .previewOuterEdgePadding(edgeInsets.title, onLeadingEdge: !isLeadingControls, enabled: (stage.showsTitles && titlePresentation.reservesSpace) || showsTitleSelectionControl || combinesControls)
 
         let controlsContent = controlsWithWindowStateIndicator(
             controlsAreLeading: isLeadingControls,
@@ -2002,21 +1994,30 @@ struct WindowPreview: View, Equatable {
             spacing: controlsSpacing(
                 hasAdjacentControl: hasVisibleAdjacentControl,
                 hasVisibleTrafficLights: hasTrafficLights && showTrafficLights
-            )
+            ),
+            includesIndicator: !stage.overflowsIndicators
         ) {
             if hasTrafficLights {
-                TrafficLightButtons(
-                    previewAppearance: appearance,
-                    hoveringOverParentWindow: selected || isHoveringOverDockPeekPreview,
-                    onWindowAction: handleWindowAction,
-                    mockPreviewActive: mockPreviewActive,
-                    enabledButtons: effectiveTrafficLightButtons,
-                    backgroundAppearance: backgroundAppearance
-                )
-                .frame(width: showTrafficLights ? nil : 0)
-                .clipped()
-                .embeddedPreviewContrastShadow(appearance.usesEmbeddedTrafficLightContrastShadow)
-            } else if let stateLabel = visibleWindowStateLabel,
+                PreviewControlReplacement(
+                    controlsVisible: !stage.overflowsActions && showTrafficLights,
+                    replacementVisible: stage.overflowsActions && (showTrafficLights || (stage.overflowsIndicators && (hasWindowStateIndicator || visibleWindowStateLabel != nil))),
+                    alignment: isLeadingControls ? .leading : .trailing,
+                    usesControlsContrastShadow: appearance.usesEmbeddedTrafficLightContrastShadow
+                ) {
+                    TrafficLightButtons(
+                        previewAppearance: appearance,
+                        hoveringOverParentWindow: selected || isHoveringOverDockPeekPreview,
+                        onWindowAction: handleWindowAction,
+                        mockPreviewActive: mockPreviewActive,
+                        enabledButtons: effectiveTrafficLightButtons,
+                        backgroundAppearance: backgroundAppearance
+                    )
+                } replacement: {
+                    overflowButton(stage: stage)
+                }
+            } else if stage.overflowsIndicators, hasWindowStateIndicator || visibleWindowStateLabel != nil {
+                overflowButton(stage: stage)
+            } else if !stage.overflowsIndicators, let stateLabel = visibleWindowStateLabel,
                       appearance.trafficLightVisibility != .never
             {
                 Text(stateLabel)
@@ -2039,33 +2040,31 @@ struct WindowPreview: View, Equatable {
             enabled: showControlsContent && (hasWindowStateIndicator || hasVisibleAdjacentControl)
         )
 
-        if titlePresentation.reservesSpace || (showTitleContent && showsSelectionControl) || (showControlsContent && (hasTrafficLights || hasWindowStateIndicator)) {
+        if titlePresentation.reservesSpace || (showTitleContent && showsTitleSelectionControl) || (showControlsContent && (hasTrafficLights || hasWindowStateIndicator)) {
             if appearance.controlPosition.isCentered {
                 return AnyView(
                     HStack(spacing: 4) {
                         Spacer(minLength: 0)
                         if showTitleContent { titleContent }
-                        if showControlsContent { controlsContent }
+                        if displaysControls { controlsContent }
                         Spacer(minLength: 0)
                     }
-                    .frame(width: dimensions.size.width)
-                    .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
+                    .frame(maxWidth: .infinity)
                 )
             } else {
                 return AnyView(
                     HStack(spacing: 0) {
                         if isLeadingControls {
-                            if showControlsContent { controlsContent }
-                            Spacer(minLength: 8)
+                            if displaysControls { controlsContent }
+                            Spacer(minLength: displaysControls && (stage.showsTitles || showsTitleSelectionControl) ? 8 : 0)
                             if showTitleContent { titleContent }
                         } else {
                             if showTitleContent { titleContent }
-                            Spacer(minLength: 8)
-                            if showControlsContent { controlsContent }
+                            Spacer(minLength: displaysControls && (stage.showsTitles || showsTitleSelectionControl) ? 8 : 0)
+                            if displaysControls { controlsContent }
                         }
                     }
-                    .frame(width: dimensions.size.width)
-                    .previewControlVisibilityAnimation(isVisible: canRenderTrafficLightButtons && showTrafficLights, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
+                    .frame(maxWidth: .infinity)
                 )
             }
         } else {

@@ -158,7 +158,7 @@ struct WindowPreviewCompact: View, Equatable {
     }
 
     @ViewBuilder
-    private func trafficLightButtons(isVisible: Bool) -> some View {
+    private var trafficLightButtons: some View {
         if !appearance.compactModeHideTrafficLights,
            canRenderTrafficLightButtons
         {
@@ -170,12 +170,11 @@ struct WindowPreviewCompact: View, Equatable {
                 enabledButtons: effectiveTrafficLightButtons,
                 backgroundAppearance: backgroundAppearance
             )
-            .frame(width: isVisible ? nil : 0)
-            .clipped()
         }
     }
 
     var body: some View {
+        let appIcon = windowInfo.app.icon
         let showTrafficLightButtons = appearance.trafficLightVisibility.isVisible(
             hoveringOverParentWindow: isSelected || isHovering
         )
@@ -188,24 +187,111 @@ struct WindowPreviewCompact: View, Equatable {
             hasTrafficLightButtons: hasVisibleTrafficLightButtons,
             windowStateIndicatorIsOutermost: windowStateIndicatorIsOutermost
         )
+        PreviewAdaptiveToolbar(
+            allowsTitleOmission: appearance.showAppHeader,
+            controlsVisible: hasVisibleTrafficLightButtons,
+            animationDuration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations
+        ) { stage, isMeasuring in compactRow(stage, appIcon: appIcon, isMeasuring: isMeasuring) }
+            .padding(.vertical, 8)
+            .frame(width: rowWidth, height: appearance.compactRowHeight(hasWindowStateIndicator: hasWindowStateIndicator), alignment: .leading)
+            .clipShape(CompactRowContentClip(trailingOverflow: max(0, -controlsTrailingInset)))
+            .previewCardChrome(
+                uniformCardRadius: uniformCardRadius,
+                paddingMultiplier: appearance.globalPaddingMultiplier,
+                expansionEdges: .horizontal,
+                hideBackground: appearance.hidePreviewCardBackground,
+                isHighlighted: isHighlighted,
+                isActiveWindow: isActiveWindow,
+                highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+                highlightOpacity: appearance.selectionOpacity,
+                activeBorderColor: appearance.activeAppIndicatorColor,
+                backgroundAppearance: backgroundAppearance
+            )
+            .opacity(isHighlighted || isChecked ? 1.0 : appearance.unselectedContentOpacity)
+            .externalDragSpringLoading(
+                windowInfo: windowInfo,
+                index: index,
+                uniformCardRadius: uniformCardRadius,
+                appearance: appearance,
+                windowSwitcherActive: windowSwitcherActive,
+                handleWindowAction: handleWindowAction,
+                onTap: onTap,
+                onDragHoverIndexChange: onDragHoverIndexChange,
+                dragSelection: dragSelection,
+                expansionEdges: .horizontal
+            )
+            .padding(.horizontal, CardRadius.innerPadding)
+            .contentShape(Rectangle())
+            .onContinuousHover { phase in
+                let setHoverState: (Bool) -> Void = { newState in
+                    if appearance.showAnimations {
+                        withAnimation(.snappy(duration: 0.175)) { isHovering = newState }
+                    } else {
+                        isHovering = newState
+                    }
+                }
+
+                switch phase {
+                case let .active(location):
+                    let shouldShowHover = onHoverIndexChange?(index, location) ?? true
+                    if isHovering != shouldShowHover { setHoverState(shouldShowHover) }
+                case .ended:
+                    _ = onHoverIndexChange?(nil, nil)
+                    if isHovering { setHoverState(false) }
+                }
+            }
+            .windowPreviewInteractions(
+                windowInfo: windowInfo,
+                windowSwitcherActive: windowSwitcherActive,
+                dockPosition: dockPosition,
+                useCompactMode: true,
+                pointerHoverActive: isHovering,
+                handleWindowAction: handleWindowAction,
+                onTap: onTap
+            )
+            .allowsHitTesting(!mockPreviewActive)
+    }
+
+    @ViewBuilder
+    private func compactRow(_ stage: PreviewToolbarStage, appIcon: NSImage?, isMeasuring: Bool) -> some View {
+        let showTrafficLightButtons = appearance.trafficLightVisibility.isVisible(
+            hoveringOverParentWindow: isSelected || isHovering
+        )
+        let hasVisibleTrafficLightButtons = !appearance.compactModeHideTrafficLights &&
+            canRenderTrafficLightButtons && showTrafficLightButtons
+        let windowStateIndicatorIsOutermost = hasWindowStateIndicator &&
+            (!hasVisibleTrafficLightButtons || appearance.swapTrafficLightsAndWindowStateIndicator)
+        let controlsTrailingInset = appearance.compactControlAlignmentEdgeInset(
+            hasWindowStateIndicator: hasWindowStateIndicator,
+            hasTrafficLightButtons: hasVisibleTrafficLightButtons,
+            windowStateIndicatorIsOutermost: windowStateIndicatorIsOutermost
+        )
+        let controlElementSpacing = appearance.controlElementSpacing
+        let hasTitle = appearance.showAppHeader && stage.showsTitles
+        let showsStateLabel = !stage.showsTitles && !stage.overflowsIndicators && secondaryStateIndicator != nil
+        let hasControlGroup = stage != .combined && (hasWindowStateIndicator || hasVisibleTrafficLightButtons ||
+            (stage.overflowsIndicators && (spaceNumber != nil || secondaryStateIndicator != nil)))
+        let hasControls = hasControlGroup || (spaceNumber != nil && !stage.overflowsIndicators)
         let controlsSpacing: CGFloat = if hasWindowStateIndicator, hasVisibleTrafficLightButtons {
-            appearance.disableDockStyleTrafficLights ? 6 : 8
+            controlElementSpacing
         } else {
             0
         }
 
         HStack(spacing: 10) {
             PreviewAppIcon(
-                icon: windowInfo.app.icon,
+                icon: appIcon,
                 bundleURL: windowInfo.app.bundleURL,
                 size: appearance.compactModeItemSize.iconSize,
-                showBadge: windowSwitcherActive && appearance.showCompactAppIconBadges,
+                showBadge: !isMeasuring && windowSwitcherActive && appearance.showCompactAppIconBadges,
                 badgeScale: appearance.appIconBadgeScale,
                 mockPreviewActive: mockPreviewActive
             )
             .overlay {
-                if appearance.enableMultiWindowSelection, !mockPreviewActive, !windowInfo.isWindowlessApp,
-                   appearance.showUncheckedSelectionCheckboxes || isChecked
+                if stage == .combined {
+                    overflowButton(stage, circular: true)
+                } else if appearance.enableMultiWindowSelection, !mockPreviewActive, !windowInfo.isWindowlessApp,
+                          appearance.showUncheckedSelectionCheckboxes || isChecked
                 {
                     PreviewSelectionCheckbox(
                         isChecked: isChecked,
@@ -225,7 +311,7 @@ struct WindowPreviewCompact: View, Equatable {
                 }
             }
 
-            .if(appearance.enableMultiWindowSelection && appearance.showUncheckedSelectionCheckboxes &&
+            .if(!isMeasuring && appearance.enableMultiWindowSelection && appearance.showUncheckedSelectionCheckboxes &&
                 appearance.selectionCheckboxVisibility == .titleHover && !mockPreviewActive && !windowInfo.isWindowlessApp)
             { view in
                 view.onContinuousHover { phase in
@@ -240,142 +326,128 @@ struct WindowPreviewCompact: View, Equatable {
                 .onDisappear { isHoveringIcon = false }
             }
 
-            if appearance.showAppHeader {
-                // Title content based on format
-                VStack(alignment: .leading, spacing: 2) {
-                    switch appearance.compactModeTitleFormat {
-                    case .appNameAndTitle:
-                        titleText(appName, isPrimary: true)
-                        if windowInfo.isWindowlessApp, let state = secondaryStateIndicator {
-                            stateText(state)
-                        } else if let title = windowTitle {
-                            HStack(spacing: 0) {
+            HStack(spacing: 0) {
+                if hasTitle {
+                    PreviewToolbarTitle(font: appearance.compactModeItemSize.primaryFont) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            switch appearance.compactModeTitleFormat {
+                            case .appNameAndTitle:
+                                titleText(appName, isPrimary: true, isMeasuring: isMeasuring)
+                                if windowInfo.isWindowlessApp, let state = secondaryStateIndicator {
+                                    stateText(state)
+                                } else if let title = windowTitle {
+                                    HStack(spacing: 0) {
+                                        if let state = secondaryStateIndicator {
+                                            stateText(state)
+                                            Text("  \u{2022}  ")
+                                                .font(appearance.compactModeItemSize.secondaryFont)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        titleText(title, isPrimary: false, isMeasuring: isMeasuring)
+                                    }
+                                } else if let state = secondaryStateIndicator {
+                                    stateText(state)
+                                }
+
+                            case .titleOnly:
+                                titleText(windowInfo.isWindowlessApp ? appName : windowTitle ?? appName, isPrimary: true, isMeasuring: isMeasuring)
                                 if let state = secondaryStateIndicator {
                                     stateText(state)
-                                    Text("  \u{2022}  ")
-                                        .font(appearance.compactModeItemSize.secondaryFont)
-                                        .foregroundStyle(.secondary)
                                 }
-                                titleText(title, isPrimary: false)
+
+                            case .appNameOnly:
+                                titleText(appName, isPrimary: true, isMeasuring: isMeasuring)
+                                if let state = secondaryStateIndicator {
+                                    stateText(state)
+                                }
                             }
-                        } else if let state = secondaryStateIndicator {
-                            stateText(state)
-                        }
-
-                    case .titleOnly:
-                        titleText(windowInfo.isWindowlessApp ? appName : windowTitle ?? appName, isPrimary: true)
-                        if let state = secondaryStateIndicator {
-                            stateText(state)
-                        }
-
-                    case .appNameOnly:
-                        titleText(appName, isPrimary: true)
-                        if let state = secondaryStateIndicator {
-                            stateText(state)
                         }
                     }
                 }
-            }
 
-            Spacer(minLength: 0)
+                if showsStateLabel, let state = secondaryStateIndicator {
+                    stateText(state).fixedSize()
+                }
 
-            if let spaceNumber {
-                SpaceNumberBadge(
-                    number: spaceNumber,
-                    font: appearance.compactModeItemSize.secondaryFont,
-                    backgroundAppearance: backgroundAppearance
-                )
-            }
+                Spacer(minLength: (hasTitle || showsStateLabel) && hasControls ? controlElementSpacing : 0)
 
-            HStack(spacing: controlsSpacing) {
-                if appearance.swapTrafficLightsAndWindowStateIndicator {
-                    trafficLightButtons(isVisible: showTrafficLightButtons)
-                    windowStateIndicator
-                } else {
-                    windowStateIndicator
-                    trafficLightButtons(isVisible: showTrafficLightButtons)
+                HStack(spacing: hasControlGroup ? controlElementSpacing : 0) {
+                    if let spaceNumber, !stage.overflowsIndicators {
+                        SpaceNumberBadge(
+                            number: spaceNumber,
+                            font: appearance.compactModeItemSize.secondaryFont,
+                            backgroundAppearance: backgroundAppearance
+                        )
+                    }
+
+                    if stage != .combined {
+                        HStack(spacing: controlsSpacing) {
+                            if appearance.swapTrafficLightsAndWindowStateIndicator {
+                                adaptiveTrafficLights(stage, isVisible: showTrafficLightButtons)
+                                if !stage.overflowsIndicators { windowStateIndicator }
+                            } else {
+                                if !stage.overflowsIndicators { windowStateIndicator }
+                                adaptiveTrafficLights(stage, isVisible: showTrafficLightButtons)
+                            }
+                        }
+                        .padding(.trailing, controlsTrailingInset)
+                    }
                 }
             }
-            .padding(.trailing, controlsTrailingInset)
         }
-        .previewControlVisibilityAnimation(isVisible: hasVisibleTrafficLightButtons, duration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations)
-        .padding(.vertical, 8)
-        .frame(width: rowWidth, height: appearance.compactRowHeight(hasWindowStateIndicator: hasWindowStateIndicator), alignment: .leading)
-        .clipShape(CompactRowContentClip(trailingOverflow: max(0, -controlsTrailingInset)))
-        .previewCardChrome(
-            uniformCardRadius: uniformCardRadius,
-            paddingMultiplier: appearance.globalPaddingMultiplier,
-            expansionEdges: .horizontal,
-            hideBackground: appearance.hidePreviewCardBackground,
-            isHighlighted: isHighlighted,
-            isActiveWindow: isActiveWindow,
-            highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
-            highlightOpacity: appearance.selectionOpacity,
-            activeBorderColor: appearance.activeAppIndicatorColor,
-            backgroundAppearance: backgroundAppearance
-        )
-        .opacity(isHighlighted || isChecked ? 1.0 : appearance.unselectedContentOpacity)
-        .externalDragSpringLoading(
-            windowInfo: windowInfo,
-            index: index,
-            uniformCardRadius: uniformCardRadius,
-            appearance: appearance,
-            windowSwitcherActive: windowSwitcherActive,
-            handleWindowAction: handleWindowAction,
-            onTap: onTap,
-            onDragHoverIndexChange: onDragHoverIndexChange,
-            dragSelection: dragSelection,
-            expansionEdges: .horizontal
-        )
-        .padding(.horizontal, CardRadius.innerPadding)
-        .contentShape(Rectangle())
-        .onContinuousHover { phase in
-            let setHoverState: (Bool) -> Void = { newState in
-                if appearance.showAnimations {
-                    withAnimation(.snappy(duration: 0.175)) { isHovering = newState }
-                } else {
-                    isHovering = newState
-                }
-            }
-
-            switch phase {
-            case let .active(location):
-                let shouldShowHover = onHoverIndexChange?(index, location) ?? true
-                if isHovering != shouldShowHover { setHoverState(shouldShowHover) }
-            case .ended:
-                _ = onHoverIndexChange?(nil, nil)
-                if isHovering { setHoverState(false) }
-            }
-        }
-        .windowPreviewInteractions(
-            windowInfo: windowInfo,
-            windowSwitcherActive: windowSwitcherActive,
-            dockPosition: dockPosition,
-            useCompactMode: true,
-            pointerHoverActive: isHovering,
-            handleWindowAction: handleWindowAction,
-            onTap: onTap
-        )
-        .allowsHitTesting(!mockPreviewActive)
     }
 
     @ViewBuilder
-    private func titleText(_ text: String, isPrimary: Bool) -> some View {
+    private func adaptiveTrafficLights(_ stage: PreviewToolbarStage, isVisible: Bool) -> some View {
+        if !appearance.compactModeHideTrafficLights, canRenderTrafficLightButtons {
+            PreviewControlReplacement(
+                controlsVisible: !stage.overflowsActions && isVisible,
+                replacementVisible: stage.overflowsActions && (isVisible || (stage.overflowsIndicators && (hasWindowStateIndicator || spaceNumber != nil || secondaryStateIndicator != nil)))
+            ) {
+                trafficLightButtons
+            } replacement: {
+                overflowButton(stage)
+            }
+        } else if stage.overflowsIndicators, hasWindowStateIndicator || spaceNumber != nil || secondaryStateIndicator != nil {
+            overflowButton(stage)
+        }
+    }
+
+    private func overflowButton(_ stage: PreviewToolbarStage, circular: Bool = false) -> some View {
+        let lightsVisible = !appearance.compactModeHideTrafficLights && canRenderTrafficLightButtons &&
+            appearance.trafficLightVisibility.isVisible(hoveringOverParentWindow: isSelected || isHovering)
+        return PreviewOverflowButton(window: windowInfo, appearance: appearance, backgroundAppearance: backgroundAppearance,
+                                     overflow: PreviewControlOverflow(actions: lightsVisible ? effectiveTrafficLightButtons : [],
+                                                                      includesIndicator: stage.overflowsIndicators && (hasWindowStateIndicator || spaceNumber != nil || secondaryStateIndicator != nil),
+                                                                      includesSelection: circular && appearance.enableMultiWindowSelection,
+                                                                      spaceNumber: appearance.showSpaceNumberIndicator ? windowInfo.spaceNumber : spaceNumber,
+                                                                      allowsSpaceMoving: appearance.enableSpaceIndicatorWindowMoving && appearance.showSpaceNumberIndicator),
+                                     circularDiameter: circular ? PreviewSelectionCheckbox.iconDiameter(for: appearance.compactModeItemSize.iconSize) : nil,
+                                     isChecked: isChecked, mockPreviewActive: mockPreviewActive,
+                                     handleWindowAction: handleWindowAction, dismissPreviews: onTap)
+    }
+
+    @ViewBuilder
+    private func titleText(_ text: String, isPrimary: Bool, isMeasuring: Bool) -> some View {
         let font = isPrimary ? appearance.compactModeItemSize.primaryFont : appearance.compactModeItemSize.secondaryFont
-        switch appearance.titleOverflowStyle {
-        case .marquee:
-            MarqueeText(text: text, startDelay: 1, adaptsToAvailableWidth: true)
-                .font(font)
-                .foregroundStyle(isPrimary ? .primary : .secondary)
-        case .truncateTail:
-            Text(text).font(font).foregroundStyle(isPrimary ? .primary : .secondary)
-                .lineLimit(1).truncationMode(.tail)
-        case .truncateMiddle:
-            Text(text).font(font).foregroundStyle(isPrimary ? .primary : .secondary)
-                .lineLimit(1).truncationMode(.middle)
-        case .truncateHead:
-            Text(text).font(font).foregroundStyle(isPrimary ? .primary : .secondary)
-                .lineLimit(1).truncationMode(.head)
+        if isMeasuring {
+            Text(verbatim: "\u{2026}").font(font)
+        } else {
+            switch appearance.titleOverflowStyle {
+            case .marquee:
+                MarqueeText(text: text, startDelay: 1, adaptsToAvailableWidth: true)
+                    .font(font)
+                    .foregroundStyle(isPrimary ? .primary : .secondary)
+            case .truncateTail:
+                Text(text).font(font).foregroundStyle(isPrimary ? .primary : .secondary)
+                    .lineLimit(1).truncationMode(.tail)
+            case .truncateMiddle:
+                Text(text).font(font).foregroundStyle(isPrimary ? .primary : .secondary)
+                    .lineLimit(1).truncationMode(.middle)
+            case .truncateHead:
+                Text(text).font(font).foregroundStyle(isPrimary ? .primary : .secondary)
+                    .lineLimit(1).truncationMode(.head)
+            }
         }
     }
 

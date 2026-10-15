@@ -399,7 +399,8 @@ final class WindowActionMenuBuilder: NSObject {
         shortcutKeybind: UserKeyBind? = nil,
         showShortcutHints: Bool,
         handleWindowAction: @escaping (WindowAction) -> Void,
-        dismissPreviews: (() -> Void)? = nil
+        dismissPreviews: (() -> Void)? = nil,
+        overflow: PreviewControlOverflow? = nil
     ) -> (menu: NSMenu, shortcuts: [UInt16: WindowAction]) {
         let keybind = shortcutKeybind ?? Defaults[.UserKeybind]
         var shortcutByAction: [WindowAction: CmdShortcut] = [:]
@@ -422,7 +423,8 @@ final class WindowActionMenuBuilder: NSObject {
             shortcutByAction: shortcutByAction,
             displayedShortcuts: &displayedShortcuts,
             handleWindowAction: handleWindowAction,
-            dismissPreviews: dismissPreviews
+            dismissPreviews: dismissPreviews,
+            overflow: overflow
         )
         return (menu, displayedShortcuts)
     }
@@ -434,10 +436,47 @@ final class WindowActionMenuBuilder: NSObject {
         shortcutByAction: [WindowAction: CmdShortcut],
         displayedShortcuts: inout [UInt16: WindowAction],
         handleWindowAction: @escaping (WindowAction) -> Void,
-        dismissPreviews: (() -> Void)?
+        dismissPreviews: (() -> Void)?,
+        overflow: PreviewControlOverflow?
     ) -> NSMenu {
         let menu = NSMenu()
         let batchTargets = showShortcutHints ? SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(for: window) : nil
+
+        if let overflow {
+            if overflow.includesSelection, WindowAction.toggleWindowSelection.isAvailable(for: window) {
+                add([.toggleWindowSelection], for: window, batchTargets: batchTargets, to: menu,
+                    shortcutKeybind: shortcutKeybind, shortcutByAction: shortcutByAction,
+                    displayedShortcuts: &displayedShortcuts, handler: handleWindowAction)
+            }
+            let actions = TrafficLightButtons.actionOrder.filter {
+                overflow.actions.contains($0) && ($0.isAvailable(for: window) ||
+                    ($0 == .toggleFullScreen && batchTargets?.contains { $0.isFullscreen == true } == true))
+            }
+            if !actions.isEmpty {
+                addSeparatorIfNeeded(to: menu)
+                add(actions, for: window, batchTargets: batchTargets, to: menu,
+                    shortcutKeybind: shortcutKeybind, shortcutByAction: shortcutByAction,
+                    displayedShortcuts: &displayedShortcuts, handler: handleWindowAction)
+            }
+            if overflow.includesIndicator {
+                addSeparatorIfNeeded(to: menu)
+                if let number = overflow.spaceNumber {
+                    let item = NSMenuItem(title: String(localized: "Space \(number)"), action: nil, keyEquivalent: "")
+                    item.isEnabled = false
+                    menu.addItem(item)
+                }
+                for label in WindowStateSymbolResolver.labels(for: window) {
+                    let item = NSMenuItem(title: label, action: nil, keyEquivalent: "")
+                    item.isEnabled = false
+                    menu.addItem(item)
+                }
+                if overflow.allowsSpaceMoving, !window.isWindowlessApp {
+                    addSpaceSubmenu(for: window, to: menu, dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints)
+                }
+            }
+            return menu
+        }
+
         let groups = WindowAction.availableGroups(for: window, batchTargets: batchTargets, includeSelectionActions: showShortcutHints)
 
         if let actions = groups.first(where: { $0.id == .window })?.actions {
@@ -481,22 +520,7 @@ final class WindowActionMenuBuilder: NSObject {
                 menu.addItem(arrangeItem)
             }
 
-            let moveItem = NSMenuItem(
-                title: String(localized: "Move to Space", comment: "Space destination submenu title"),
-                action: nil,
-                keyEquivalent: ""
-            )
-            moveItem.image = NSImage(
-                systemSymbolName: "rectangle.on.rectangle",
-                accessibilityDescription: nil
-            )
-            forceImageVisibility(for: moveItem)
-            moveItem.submenu = SpaceMoveMenuController.shared.makeMenu(
-                for: window,
-                dismissPreviews: dismissPreviews,
-                showShortcutHints: showShortcutHints
-            )
-            menu.addItem(moveItem)
+            addSpaceSubmenu(for: window, to: menu, dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints)
         }
 
         if let actions = groups.first(where: { $0.id == .app })?.actions {
@@ -514,6 +538,25 @@ final class WindowActionMenuBuilder: NSObject {
         }
 
         return menu
+    }
+
+    private func addSpaceSubmenu(for window: WindowInfo, to menu: NSMenu, dismissPreviews: (() -> Void)?, showShortcutHints: Bool) {
+        let moveItem = NSMenuItem(
+            title: String(localized: "Move to Space", comment: "Space destination submenu title"),
+            action: nil,
+            keyEquivalent: ""
+        )
+        moveItem.image = NSImage(
+            systemSymbolName: "rectangle.on.rectangle",
+            accessibilityDescription: nil
+        )
+        forceImageVisibility(for: moveItem)
+        moveItem.submenu = SpaceMoveMenuController.shared.makeMenu(
+            for: window,
+            dismissPreviews: dismissPreviews,
+            showShortcutHints: showShortcutHints
+        )
+        menu.addItem(moveItem)
     }
 
     private func add(
@@ -612,17 +655,38 @@ final class PreviewContextMenuController: NSObject {
             handleWindowAction: handleWindowAction,
             dismissPreviews: dismissPreviews
         )
+        present(builtMenu, keybind: shortcutKeybind, event: event, sourceView: sourceView)
+    }
+
+    func presentOverflow(for window: WindowInfo, overflow: PreviewControlOverflow,
+                         handleWindowAction: @escaping (WindowAction) -> Void, dismissPreviews: (() -> Void)?)
+    {
+        let event = NSApp.currentEvent
+        let keybind = effectiveShortcutKeybind()
+        let menu = WindowActionMenuBuilder.shared.makeMenu(for: window, shortcutKeybind: keybind,
+                                                           showShortcutHints: true, handleWindowAction: handleWindowAction,
+                                                           dismissPreviews: dismissPreviews, overflow: overflow)
+        present(menu, keybind: keybind, event: event, sourceView: event?.window?.contentView)
+    }
+
+    private func present(_ builtMenu: (menu: NSMenu, shortcuts: [UInt16: WindowAction]), keybind: UserKeyBind,
+                         event: NSEvent?, sourceView: NSView?)
+    {
         let menu = builtMenu.menu
         guard !menu.items.isEmpty else { return }
 
         dismiss()
         activeMenu = menu
         let routingToken = SharedPreviewWindowCoordinator.activeInstance?.beginContextMenuShortcutRouting(
-            keybind: shortcutKeybind,
+            keybind: keybind,
             actionsByKeyCode: builtMenu.shortcuts
         )
         activeRoutingToken = routingToken
-        NSMenu.popUpContextMenu(menu, with: event, for: sourceView)
+        if let event, let sourceView {
+            NSMenu.popUpContextMenu(menu, with: event, for: sourceView)
+        } else {
+            menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+        }
         if activeMenu === menu {
             activeMenu = nil
         }
