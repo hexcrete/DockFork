@@ -149,6 +149,13 @@ checks = <<~'SWIFT'
 @main struct Checks {
  @MainActor static func main() async {
   setbuf(stdout, nil)
+  precondition(WindowSnapRegistry.existing == nil)
+  Defaults.links = false
+  let disabledApp = App(-10)
+  let initial = WindowInfo(id: 99999, app: disabledApp, axElement: FakeAX(-10, 99999, CGRect(x: 30, y: 40, width: 420, height: 320)))
+  _ = await WindowUtil.tilePreviewWindows([initial], direction: .neutral)
+  precondition(WindowSnapRegistry.existing == nil && initial.axElement.reads == 0)
+  Defaults.links = true
   let registry = WindowSnapRegistry.shared
   var nextID: UInt32 = 0
   func windows(_ count: Int) -> [WindowInfo] {
@@ -190,7 +197,9 @@ checks = <<~'SWIFT'
                       CGRect(x: original.minX, y: original.minY, width: original.width - 20, height: original.height),
                       CGRect(x: original.minX, y: original.minY + 20, width: original.width, height: original.height - 20),
                       CGRect(x: original.minX, y: original.minY, width: original.width, height: original.height - 20)]
-    for candidate in candidates {
+    let interior = [original.minX > bounds.minX + 1, original.maxX < bounds.maxX - 1,
+                    original.minY > bounds.minY + 1, original.maxY < bounds.maxY - 1]
+    for (edge, candidate) in candidates.enumerated() {
      let changed = WindowSnapRegistry.linkedFrames(ordered, movingFirstTo: candidate)
      let actual = ordered.enumerated().map { changed[$0.offset] ?? $0.element }
      for i in actual.indices { for j in actual.indices where i < j {
@@ -198,11 +207,15 @@ checks = <<~'SWIFT'
       precondition(overlap.isNull || overlap.width < 0.001 || overlap.height < 0.001)
      } }
      precondition(actual.allSatisfy { $0.width >= 100 && $0.height >= 100 })
+     if interior[edge] {
+      let area = actual.reduce(CGFloat.zero) { $0 + $1.width * $1.height }
+      precondition(abs(area - bounds.width * bounds.height) < 0.001, "Internal resize must not leave a gap")
+     }
      boundaryCases += 1
     }
    }
   }
-  print("PASS connected boundaries: \(boundaryCases) edge resizes across 2...36-window grids without overlapping neighbors")
+  print("PASS connected boundaries: \(boundaryCases) edge resizes across 2...36-window grids without overlaps or interior gaps")
   for count in 1...36 {
    Model.reset(); let group = windows(count); let originals = group.map { $0.axElement.frame }
    let result = await WindowUtil.tilePreviewWindows(group, direction: .neutral)
@@ -243,8 +256,18 @@ checks = <<~'SWIFT'
   Defaults.links = true
   Model.reset(); Defaults.rows = 1; Defaults.columns = 1; let noop = windows(2)
   _ = await WindowUtil.tilePreviewWindows(noop, direction: .neutral)
-  precondition(Model.placements == 0 && noop.allSatisfy { registry.record(for: $0) == nil })
+  precondition(Model.placements == 0 && noop.allSatisfy { $0.axElement.reads == 0 && registry.record(for: $0) == nil })
   Defaults.rows = 2; Defaults.columns = 3
+  Model.reset(); let stale = windows(6); Model.active = false
+  _ = await WindowUtil.tilePreviewWindows(stale, direction: .neutral, isRequestActive: { Model.active })
+  precondition(Model.placements == 0 && stale.allSatisfy { $0.axElement.reads == 0 && registry.record(for: $0) == nil })
+  Model.reset(); let taskCancelled = windows(6)
+  let cancelledTask = Task { @MainActor in
+   withUnsafeCurrentTask { $0?.cancel() }
+   return await WindowUtil.tilePreviewWindows(taskCancelled, direction: .neutral)
+  }
+  _ = await cancelledTask.value
+  precondition(Model.placements == 0 && taskCancelled.allSatisfy { $0.axElement.reads == 0 })
   print("PASS failures/cancellation: partial results, stale request, toggle-off mid-request, cross-Space reveal and 1x1 no-resize")
   Model.reset(); let measured = windows(6)
   // Simulated 2ms frame reads isolate synchronous bookkeeping, not real app latency.

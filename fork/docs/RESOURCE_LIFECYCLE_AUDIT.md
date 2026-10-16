@@ -36,6 +36,10 @@ Checked October 8, 2026, against upstream `0bd2e46`; commit references below fol
 
 October 15 upstream integration review: Window Gestures constructs its controller, executor, HUD and dedicated event-tap thread only when enabled, default Off. Snap-registry frame callbacks are setting-gated. ScreenReservations starts one independent distributed-notification observer for custom docks/scripts; it is not covered by the disabled-gesture zero-resource claim. Existing per-window placement confirmation and cancellation remain intact. Gesture-driven display minimization reuses the existing confirmed-state worker rather than restoring the removed optimistic helper; fullscreen windows are excluded and cache state is published after confirmation. The final signed Debug build and 84 isolated gesture/swipe/session/frame/reservation checks passed. This integration review does not rerun the older whole-app audit or establish latency measurements.
 
+## Tiling Bookkeeping Audit, October 15
+
+A source-adapter regression confirmed unnecessary pre-placement frame reads for the 1×1 no-resize mode and requests already superseded before entry. Early request validation and the existing clamped grid capacity now skip those reads. No background task, extra cache, polling or delayed validation was added. Enabled normal tiling still captures original frames and reads confirmed placement for registration; those synchronous action-time AX reads remain a native-latency testing item, not silently treated as zero cost. The change does not alter existing saved preferences or native placement/focus behavior.
+
 ## Linked Tiling Queue Audit, October 15
 
 The checked-in `fork/tests/linked_tiling.rb` runner uses production placement/registry code with simulated external APIs. It reproduces replacement-generation notification loss under a deliberately blocked worker. Generation-keyed coalescing fixes that loss while retaining one pending entry per identity. Tests also cover termination cleanup, invalid metadata and weak screenshot release. This is not Thread Sanitizer, a native AX latency measurement or a whole-app leak certification.

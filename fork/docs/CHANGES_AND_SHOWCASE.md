@@ -4,13 +4,19 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 **Publication:** [DockFork 0.1.0](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) is published as a prerelease from `36e635e`. The user reported successful testing on additional Macs running macOS 27 after local transfer. Downloaded/quarantined installation validation remains pending. Local development uses certificate-signed DockFork at the fixed, gitignored `fork/dist/dev/DockFork.app` path. Historical candidate checks below do not describe later development builds.
 
+## Tiling Bookkeeping Fast Paths
+
+Already-cancelled or superseded tiling requests now return before destination lookup and optional restore-frame collection. A 1×1 tiling limit still moves/reveals/raises as configured without resizing, and no longer collects linked-resize restore frames or creates snap records. These are action-time fast paths, not a new feature or a claim of faster native AX responses. The production-source runner asserts zero bookkeeping frame reads for these paths and for linking disabled; ordinary multi-window tiling retains confirmation and restore-size validation.
+
+The second signed Debug build/relaunch, exact-path/signature/binary/source-overlay checks, expanded adapter tests, source lint and documentation links passed. The ledger includes the preceding queue fix `dc077d1` exactly once with its six-file count; the bookkeeping commit containing this record remains outside that explicit coverage boundary until the next ledger update. Native interaction and real AX latency measurement remain pending. The existing capture checklist, roadmap, upstream exclusions, installation instructions and release gate need no behavior changes for these follow-ups; no media or native testing is marked complete.
+
 ## Linked Tiling Follow-up Checks
 
 A production-source adapter now exercises complete tiling and registry integration without touching live windows. Run `ruby fork/tests/linked_tiling.rb` on macOS with Xcode command-line tools. The runner compiles temporary Swift code, uses simulated window/Space APIs and removes its build outputs afterward. It covers 11,664 layouts across all directions and 1–36 windows, 2,660 shared-edge resize cases, complete tiling/retiling for 1–36 windows, restore sizes, overflow isolation, foreground ordering/preferences, partial placement failure, supersession, a setting change during placement, cross-Space reveal and cleanup. Native macOS behavior remains a separate manual check.
 
 The queue test reproduced a missed-resize race introduced by generation-based snap records: an old queued notification could suppress the replacement record's first notification. Pending work is now coalesced by identity and generation. No timer, observer, scan or AX operation was added. The regression fails on the previous source and passes with the fix.
 
-The signed Debug build/relaunch, exact executable path, nested signature and installed-binary comparison passed. All 90 isolated gesture/swipe/geometry tests and the earlier full-registry adapter also pass. No Release package was built or published, and no live settings or curated preset changed. The untracked test runner was executed directly; it is not application source and is intentionally absent from the build snapshot.
+The signed Debug build/relaunch, exact executable path, nested signature and installed-binary comparison passed. All 90 isolated gesture/swipe/geometry tests and the earlier full-registry adapter also pass. No Release package was built or published, and no live settings or curated preset changed. The fork-only test runner executes separately from the application build.
 
 ## Linked Tiling Integration: Step 4
 

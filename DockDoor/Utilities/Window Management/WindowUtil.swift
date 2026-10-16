@@ -1054,6 +1054,7 @@ extension WindowUtil {
                                    on requestedScreen: NSScreen? = nil,
                                    isRequestActive: @escaping @MainActor () -> Bool = { true }) async -> PreviewBatchResult
     {
+        guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult() }
         let pointer = NSEvent.mouseLocation
         let topology = WindowSpaces.managedDisplays()
         guard let spaceID = requestedDestination?.space.id ?? WindowSpaces.currentManagedSpaceID(mouseLocation: pointer),
@@ -1063,14 +1064,14 @@ extension WindowUtil {
         else { return PreviewBatchResult(failed: windows.map(PreviewWindowIdentity.init)) }
         let maximumRows = Defaults[.maximumTilingRows]
         let maximumColumns = Defaults[.maximumTilingColumns]
-        let linksEnabled = Defaults[.linkTiledWindowsWhenResizing]
+        let capacity = min(6, max(1, maximumRows)) * min(6, max(1, maximumColumns))
+        let linksEnabled = Defaults[.linkTiledWindowsWhenResizing] && capacity > 1
         var restoreFrames: [PreviewWindowIdentity: CGRect] = [:]
         if linksEnabled {
             for window in windows where !window.isWindowlessApp && !window.app.isTerminated {
                 restoreFrames[PreviewWindowIdentity(window)] = WindowSnapRegistry.existing?.liveRecord(for: window)?.restoreFrame ?? window.currentWindowFrame()
             }
         }
-        let capacity = min(6, max(1, maximumRows)) * min(6, max(1, maximumColumns))
         var batches: [Int: UUID] = [:]
         var registrations: [(WindowInfo, CGRect, UUID)] = []
         var frames: [CGRect?]?
