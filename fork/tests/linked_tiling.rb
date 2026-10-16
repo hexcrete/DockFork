@@ -49,6 +49,7 @@ final class FakeAX {
  var spaces: Set<UInt64> = [1], frame: CGRect
  var minimized = false, full = false, refuses = false, focusFails = false
  var writes = 0, reads = 0, stateReads = 0
+ var minimumWidth: CGFloat = 0
  var readDelay: TimeInterval = 0
  var frameReadHook: (() -> Void)?
  init(_ pid: pid_t, _ id: CGWindowID, _ frame: CGRect) { self.pid = pid; self.id = id; self.frame = frame }
@@ -88,16 +89,16 @@ struct WindowInfo {
  func applyFrame(_ frame: CGRect) -> Bool {
   axElement.writes += 1
   guard !axElement.refuses else { return false }
-  axElement.frame = frame; return true
+  axElement.frame = frame; axElement.frame.size.width = max(frame.width, axElement.minimumWidth); return true
  }
- @MainActor func setWindowFrameConfirmed(_ frame: CGRect, on screen: NSScreen, isRequestActive: @escaping @MainActor () -> Bool) async -> Bool {
+ @MainActor func setWindowFrameResult(_ frame: CGRect, on screen: NSScreen, isRequestActive: @escaping @MainActor () -> Bool) async -> WindowFramePlacementResult {
   await Task.yield()
-  guard !Task.isCancelled, isRequestActive() else { return false }
+  guard !Task.isCancelled, isRequestActive() else { return .failed }
   WindowSnapRegistry.existing?.remove(PreviewWindowIdentity(self))
   let ok = applyFrame(frame)
   Model.placements += 1
   Model.afterPlacement?(Model.placements)
-  return ok
+  return !ok ? .failed : axElement.frame == frame ? .confirmed : .unconfirmed
  }
  @MainActor func bringToFrontConfirmed() async -> Bool { Model.focus.append(id); return !axElement.focusFails }
 }
@@ -143,7 +144,7 @@ SWIFT
 util = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowUtil.swift")
 info = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowInfo.swift")
 registry = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowSnapRegistry.swift").gsub(/^import .*\n/, '')
-source = stubs + block(util, '    struct PreviewBatchResult') + "\n" + block(util, '    @MainActor\n    static func tilePreviewWindows('.gsub('\\n', "\n")) + "\n" + block(util, '    @MainActor\n    private static func performWindowGroupPlacement('.gsub('\\n', "\n")) + "\n}\n" + registry + "\n" + block(info, 'enum PreviewTilingLayout {')
+source = stubs + block(util, '    struct PreviewBatchResult') + "\n" + block(util, '    @MainActor\n    static func tilePreviewWindows('.gsub('\\n', "\n")) + "\n" + block(util, '    @MainActor\n    private static func performWindowGroupPlacement('.gsub('\\n', "\n")) + "\n}\n" + registry + "\n" + block(info, 'enum PreviewTilingLayout {') + "\n" + block(info, 'enum WindowFramePlacementResult {')
 
 checks = <<~'SWIFT'
 @main struct Checks {
@@ -234,9 +235,24 @@ checks = <<~'SWIFT'
    clear(group)
   }
   print("PASS integration: 36 complete tiling/retiling requests, original restore sizes, overflow isolation and foreground preference")
+  Model.reset(); let constrained = windows(2); constrained[0].axElement.minimumWidth = 1000
+  let constrainedResult = await WindowUtil.tilePreviewWindows(constrained, direction: .neutral)
+  precondition(constrainedResult.failed == [PreviewWindowIdentity(constrained[0])])
+  precondition(Model.focus == constrained.reversed().map(\.id), "An accepted but constrained placement must still honor foregrounding")
+  precondition(registry.record(for: constrained[0]) == nil)
+  clear(constrained)
+  Model.reset(); constrained[0].axElement.focusFails = true
+  let constrainedFocusFailure = await WindowUtil.tilePreviewWindows(constrained, direction: .neutral)
+  precondition(constrainedFocusFailure.failed.filter { $0 == PreviewWindowIdentity(constrained[0]) }.count == 1)
+  clear(constrained)
+  Model.reset(); _ = await WindowUtil.tilePreviewWindows(constrained, direction: .neutral, bringToFront: false)
+  precondition(Model.focus.isEmpty)
+  clear(constrained)
+  print("PASS constrained placement: foreground preference honored, no linked enrollment or false success, failures unique")
   Model.reset(); let failed = windows(4); failed[1].axElement.refuses = true
   let partial = await WindowUtil.tilePreviewWindows(failed, direction: .neutral)
   precondition(partial.succeeded.count == 3 && partial.failed.count == 1 && registry.record(for: failed[1]) == nil)
+  precondition(!Model.focus.contains(failed[1].id))
   clear(failed)
   Model.reset(); let cancelled = windows(4); Model.afterPlacement = { _ in Model.active = false }
   _ = await WindowUtil.tilePreviewWindows(cancelled, direction: .neutral, isRequestActive: { Model.active })

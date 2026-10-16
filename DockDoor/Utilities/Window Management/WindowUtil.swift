@@ -1043,8 +1043,8 @@ extension WindowUtil {
         return await performWindowGroupPlacement(targets.map(\.window), destination: destination,
                                                  raiseWindows: true, isRequestActive: isRequestActive)
         { window, _, _ in
-            guard let center = centerByIdentity[PreviewWindowIdentity(window)] else { return false }
-            return placeWindowCentered(window, at: center, on: screen) != nil
+            guard let center = centerByIdentity[PreviewWindowIdentity(window)] else { return .failed }
+            return placeWindowCentered(window, at: center, on: screen) != nil ? .confirmed : .failed
         }
     }
 
@@ -1083,15 +1083,15 @@ extension WindowUtil {
                 frames = PreviewTilingLayout.frames(count: count, in: screen.snappingFrame, direction: direction,
                                                     maximumRows: maximumRows, maximumColumns: maximumColumns)
             }
-            guard let frame = frames?[index] else { return true }
-            let placed = await window.setWindowFrameConfirmed(frame, on: screen, isRequestActive: isRequestActive)
-            if placed, linksEnabled, let restoreFrame = restoreFrames[PreviewWindowIdentity(window)] {
+            guard let frame = frames?[index] else { return .confirmed }
+            let placement = await window.setWindowFrameResult(frame, on: screen, isRequestActive: isRequestActive)
+            if placement == .confirmed, linksEnabled, let restoreFrame = restoreFrames[PreviewWindowIdentity(window)] {
                 let batch = index / capacity
                 let token = batches[batch] ?? UUID()
                 batches[batch] = token
                 registrations.append((window, restoreFrame, token))
             }
-            return placed
+            return placement
         }
         if !Task.isCancelled, isRequestActive(), Defaults[.linkTiledWindowsWhenResizing], !registrations.isEmpty {
             let registry = WindowSnapRegistry.shared
@@ -1105,7 +1105,7 @@ extension WindowUtil {
     @MainActor
     private static func performWindowGroupPlacement(_ windows: [WindowInfo], destination: ManagedSpaceDestination,
                                                     raiseWindows: Bool, isRequestActive: @escaping @MainActor () -> Bool,
-                                                    place: (WindowInfo, Int, Int) async -> Bool) async -> PreviewBatchResult
+                                                    place: (WindowInfo, Int, Int) async -> WindowFramePlacementResult) async -> PreviewBatchResult
     {
         var result = PreviewBatchResult()
         let topology = WindowSpaces.managedDisplays()
@@ -1160,19 +1160,24 @@ extension WindowUtil {
             if revealed { revealedWindows.append(window) }
             else { result.failed.append(PreviewWindowIdentity(window)) }
         }
+        var windowsToRaise: [WindowInfo] = []
         for (index, window) in revealedWindows.enumerated() {
             guard !Task.isCancelled, isRequestActive() else { return result }
-            let placed = await place(window, index, revealedWindows.count)
+            let placement = await place(window, index, revealedWindows.count)
             guard !Task.isCancelled, isRequestActive() else { return result }
-            if placed { result.succeeded.append(window) }
+            if placement == .confirmed { result.succeeded.append(window) }
             else { result.failed.append(PreviewWindowIdentity(window)) }
+            if placement != .failed { windowsToRaise.append(window) }
             await Task.yield()
         }
         if raiseWindows {
             // Raise in reverse check order so the leading checked window finishes in front.
-            for window in result.succeeded.reversed() {
+            for window in windowsToRaise.reversed() {
                 guard !Task.isCancelled, isRequestActive() else { return result }
-                if await !window.bringToFrontConfirmed() { result.failed.append(PreviewWindowIdentity(window)) }
+                if await !window.bringToFrontConfirmed() {
+                    let identity = PreviewWindowIdentity(window)
+                    if !result.failed.contains(identity) { result.failed.append(identity) }
+                }
             }
         }
         return result

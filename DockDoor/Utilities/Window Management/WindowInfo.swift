@@ -83,6 +83,13 @@ enum PreviewTilingLayout {
     }
 }
 
+enum WindowFramePlacementResult {
+    case confirmed
+    // AX accepted the writes, but the actual frame did not match the request.
+    case unconfirmed
+    case failed
+}
+
 enum WindowActivationResult {
     case succeeded
     case failed
@@ -554,10 +561,10 @@ extension WindowInfo {
     }
 
     @MainActor
-    func setWindowFrameConfirmed(_ targetFrame: CGRect, on screen: NSScreen,
-                                 isRequestActive: @escaping @MainActor () -> Bool) async -> Bool
+    func setWindowFrameResult(_ targetFrame: CGRect, on screen: NSScreen,
+                              isRequestActive: @escaping @MainActor () -> Bool) async -> WindowFramePlacementResult
     {
-        guard !Task.isCancelled, isRequestActive() else { return false }
+        guard !Task.isCancelled, isRequestActive() else { return .failed }
         var actualFrame: CGRect?
         let applied = applyWindowFrame(targetFrame, on: screen, refreshPreview: false)
         defer {
@@ -569,20 +576,20 @@ extension WindowInfo {
             for check in 0 ..< 2 {
                 if check == 1 {
                     do { try await Task.sleep(nanoseconds: 100_000_000) }
-                    catch { return false }
+                    catch { return .failed }
                 }
-                guard !Task.isCancelled, isRequestActive() else { return false }
+                guard !Task.isCancelled, isRequestActive() else { return .failed }
                 actualFrame = currentWindowFrame()
                 if let actualFrame,
                    abs(actualFrame.minX - targetFrame.minX) <= 1,
                    abs(actualFrame.minY - targetFrame.minY) <= 1,
                    abs(actualFrame.width - targetFrame.width) <= 1,
                    abs(actualFrame.height - targetFrame.height) <= 1
-                { return true }
+                { return .confirmed }
             }
         }
         DebugLogger.log("WindowPlacement", details: "PID: \(app.processIdentifier), window: \(id), target: \(targetFrame), actual: \(String(describing: actualFrame)), confirmed: false")
-        return false
+        return applied && actualFrame != nil ? .unconfirmed : .failed
     }
 
     @discardableResult
