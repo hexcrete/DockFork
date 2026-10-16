@@ -27,6 +27,7 @@ enum Defaults {
  static subscript<T>(_ key: Key<T>) -> T { key.value }
 }
 extension Key where T == Bool {
+ static var debugMode: Self { Self(value: false) }
  static var enableWindowGestures: Self { Self(value: Defaults.gestures) }
  static var linkTiledWindowsWhenResizing: Self { Self(value: Defaults.links) }
  static var moveResizeBringToForeground: Self { Self(value: true) }
@@ -145,6 +146,12 @@ util = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowUtil.swift"
 info = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowInfo.swift")
 registry = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowSnapRegistry.swift").gsub(/^import .*\n/, '')
 source = stubs + block(util, '    struct PreviewBatchResult') + "\n" + block(util, '    @MainActor\n    static func tilePreviewWindows('.gsub('\\n', "\n")) + "\n" + block(util, '    @MainActor\n    private static func performWindowGroupPlacement('.gsub('\\n', "\n")) + "\n}\n" + registry + "\n" + block(info, 'enum PreviewTilingLayout {') + "\n" + block(info, 'enum WindowFramePlacementResult {')
+drag = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/DragPreviewCoordinator.swift")
+abort 'A new drag must cancel the prior released drop' unless block(drag, '    func startDragging(').include?('cancelPendingDrop()')
+abort 'Ghost cleanup must not cancel a released drop' if block(drag, '    func endDragging(').include?('cancelPendingDrop()')
+source += "\n@MainActor final class DragPreviewCoordinator {\nprivate var dropToken: UUID?\nprivate var dropTask: Task<Void, Never>?\n"
+%w[isCompletingDrop completeDrop].each { |name| source += block(drag, "    func #{name}(") + "\n" }
+source += block(drag, '    private func cancelPendingDrop(') + "\n}\n"
 
 checks = <<~'SWIFT'
 @main struct Checks {
@@ -368,6 +375,38 @@ checks = <<~'SWIFT'
   registry.removeAll(for: imageWindow.app.processIdentifier)
   precondition(!registry.hasRecords)
   print("PASS cleanup: hidden/minimized/fullscreen metadata, no screenshot retention and termination removal")
+  Model.reset(); Defaults.links = false
+  let dropped = windows(4), drops = DragPreviewCoordinator(), dropToken = UUID()
+  var previewVisible = true, completed = false
+  Model.afterPlacement = { _ in previewVisible = false }
+  drops.completeDrop(token: dropToken, operation: {
+   await WindowUtil.tilePreviewWindows(dropped, direction: .neutral, bringToFront: true,
+                                      isRequestActive: { drops.isCompletingDrop(token: dropToken) })
+  }, completion: { result in
+   precondition(result.succeeded.count == 4 && result.failed.isEmpty)
+   precondition(!drops.isCompletingDrop(token: dropToken))
+   completed = true
+  })
+  for _ in 0..<200 where !completed { try? await Task.sleep(nanoseconds: 5_000_000) }
+  precondition(completed && !previewVisible && Model.focus == dropped.reversed().map(\.id))
+  var resumeOld: CheckedContinuation<Void, Never>?, oldReplied = false, newReplied = false
+  let oldToken = UUID(), newToken = UUID()
+  drops.completeDrop(token: oldToken, operation: {
+   await withCheckedContinuation { resumeOld = $0 }
+   return WindowUtil.PreviewBatchResult()
+  }, completion: { _ in oldReplied = true })
+  for _ in 0..<200 where resumeOld == nil { try? await Task.sleep(nanoseconds: 5_000_000) }
+  precondition(resumeOld != nil)
+  drops.completeDrop(token: newToken, operation: { WindowUtil.PreviewBatchResult() }, completion: { _ in newReplied = true })
+  resumeOld?.resume()
+  for _ in 0..<200 where !newReplied { try? await Task.sleep(nanoseconds: 5_000_000) }
+  precondition(newReplied && !oldReplied && !drops.isCompletingDrop(token: newToken))
+  var staleStarted = false, finalReplied = false
+  drops.completeDrop(token: UUID(), operation: { staleStarted = true; return WindowUtil.PreviewBatchResult() }, completion: { _ in preconditionFailure("Superseded drop replied") })
+  drops.completeDrop(token: UUID(), operation: { WindowUtil.PreviewBatchResult() }, completion: { _ in finalReplied = true })
+  for _ in 0..<200 where !finalReplied { try? await Task.sleep(nanoseconds: 5_000_000) }
+  precondition(finalReplied && !staleStarted)
+  print("PASS released drops: preview closure does not interrupt four-window foregrounding; newer requests cancel stale work and replies; completed task/token cleared")
   print("PASS all production-flow checks; OS calls are simulated, native interaction remains a separate test")
  }
 }

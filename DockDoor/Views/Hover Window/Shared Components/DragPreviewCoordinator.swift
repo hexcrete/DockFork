@@ -34,6 +34,8 @@ final class DragPreviewCoordinator {
     private var previewWindow: NSWindow?
     private var registeredWindowID: CGWindowID?
     private var sessionToken: UUID?
+    private var dropToken: UUID?
+    private var dropTask: Task<Void, Never>?
     private var initialWindowFrame: CGRect?
     private var dragStartLocation: CGPoint?
     private let previewScale: CGFloat = 0.2
@@ -49,6 +51,7 @@ final class DragPreviewCoordinator {
         at location: CGPoint,
         token: UUID
     ) {
+        cancelPendingDrop()
         endDragging()
 
         sessionToken = token
@@ -163,6 +166,32 @@ final class DragPreviewCoordinator {
 
     func isActive(token: UUID) -> Bool {
         sessionToken == token
+    }
+
+    func isCompletingDrop(token: UUID) -> Bool {
+        dropToken == token
+    }
+
+    // A released drop must survive the preview disappearing during placement or activation.
+    func completeDrop(token: UUID, operation: @escaping @MainActor () async -> WindowUtil.PreviewBatchResult,
+                      completion: @escaping @MainActor (WindowUtil.PreviewBatchResult) -> Void)
+    {
+        cancelPendingDrop()
+        dropToken = token
+        dropTask = Task { @MainActor in
+            guard !Task.isCancelled, dropToken == token else { return }
+            let result = await operation()
+            guard !Task.isCancelled, dropToken == token else { return }
+            dropTask = nil
+            dropToken = nil
+            completion(result)
+        }
+    }
+
+    private func cancelPendingDrop() {
+        dropTask?.cancel()
+        dropTask = nil
+        dropToken = nil
     }
 
     func endDragging(token: UUID? = nil) {

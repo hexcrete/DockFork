@@ -1108,6 +1108,12 @@ extension WindowUtil {
                                                     place: (WindowInfo, Int, Int) async -> WindowFramePlacementResult) async -> PreviewBatchResult
     {
         var result = PreviewBatchResult()
+        var raised = 0
+        defer {
+            if Defaults[.debugMode] {
+                DebugLogger.log("WindowGroupPlacement", details: "requested: \(windows.map(\.id)), foreground: \(raiseWindows), raised: \(raised), cancelled: \(Task.isCancelled || !isRequestActive())")
+            }
+        }
         let topology = WindowSpaces.managedDisplays()
         var ready = Set<PreviewWindowIdentity>()
         var pending = Set<PreviewWindowIdentity>()
@@ -1177,7 +1183,7 @@ extension WindowUtil {
                 if await !window.bringToFrontConfirmed() {
                     let identity = PreviewWindowIdentity(window)
                     if !result.failed.contains(identity) { result.failed.append(identity) }
-                }
+                } else { raised += 1 }
             }
         }
         return result
