@@ -90,7 +90,7 @@ The certificate-signed Debug workflow, nested signature checks, fixed-path repla
 
 The October 15 integration includes DockDoor 1.41.0 and later upstream metadata through `3e08721`. Settings now separate Gestures from Keybinds. The signed Debug build/relaunch, source-overlay/binary/signature correspondence, 84 isolated gesture/swipe/frame/reservation cases and 19 version cases passed after adapting gesture minimization to the existing confirmed-state helper. New manual gesture/display testing remains pending. No new Release package has been built; the updated showcase export and build authorization are still awaited.
 
-The pending 0.2.0 code also includes default-Off linked resizing under Keybinds > Window Selection & Tiling. It works without enabling multi-selection or Window Gestures and applies only within layouts tiled together. The Mac was locked during integration: script help worked, but window enumeration was empty, so native gestures, linked drags and multiple displays await manual verification.
+The pending 0.2.0 code also includes default-Off linked resizing under Keybinds > Tiling. It works without enabling multi-selection or Window Gestures and applies only within layouts tiled together. The Mac was locked during integration: script help worked, but window enumeration was empty, so native gestures, linked drags and multiple displays await manual verification.
 
 ### Release Assets and Validation
 
