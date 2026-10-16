@@ -16,11 +16,11 @@ Follow the [required documentation maintenance instructions](../AGENTS.md#fork-d
 
 ## Next Prerelease: 0.2.0
 
-Version 0.2.0 is selected for the next prerelease. Preparation is reviewed October 16 through `ddb9f8c`, including ordered selection, batch actions, group dragging, tiling, ordered AppleScript window lists, Select All, search clearing, adaptive preview controls and progressive traffic-light overflow, shared Space information in action menus, selection accessibility, and the recent Dock-click/startup/header-hover/tiling fixes. Read the [draft release notes and publication gate](docs/RELEASE_NOTES_0.2.0.md).
+Version 0.2.0 is selected for the next prerelease. Preparation is reviewed October 16 through `18dbc35`, including ordered selection, batch actions, group dragging, tiling, ordered AppleScript window lists, Select All, search clearing, adaptive preview controls and progressive traffic-light overflow, shared Space information in action menus, selection accessibility, the recent Dock-click/startup/header-hover/tiling fixes, and shortened settings explainers. Read the [draft release notes and publication gate](docs/RELEASE_NOTES_0.2.0.md).
 
-The published [0.1.0 prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) remains unchanged. No 0.2.0 Release package, tag or upload is recorded. Existing local Release ZIPs are 0.1.0 candidates, not builds of the latest features. Wait for the updated showcase export and build authorization. Sanitize and review the replacement, commit it with the approved preparation records, then build the candidate. Screenshots and recordings are deferred, not a release gate. Do not distribute the certificate-signed development app.
+The published [0.1.0 prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) remains unchanged. No 0.2.0 Release package, tag or upload is recorded. Existing local Release ZIPs are 0.1.0 candidates, not builds of the latest features. The updated showcase export has been sanitized and reviewed. Commit the approved preparation records and preset, obtain build authorization, then build the candidate. Screenshots and recordings are deferred, not a release gate. Do not distribute the certificate-signed development app.
 
-The optional preset remains the reviewed 237-preference October 11 export. It is not automatically imported, and it does not enable the new default-Off selection and drag-to-tile settings. Review it separately before replacing it. A fresh privacy audit and actual Release-candidate testing are required before publication; past Debug or 0.1.0 results are not substitutes.
+The optional preset is the reviewed 245-preference October 16 export. Explicitly importing it enables selection, drag-to-tile, linked resizing and Window Gestures; these remain Off in fresh application defaults. The preset is never automatically imported. A privacy audit of the actual Release assets and Release-candidate testing are still required before publication; preset, Debug and 0.1.0 checks are not substitutes.
 
 New 0.2.0 defaults: Show selection summary is On, gated by enabled selection and checked windows; maximum tiling rows is 2 and columns is 3. Window Selection and Tiling have separate sections under Keybinds. Tile only what fits and group Fill-to-Auto-Tile default Off; overflow stacks in existing cells, and ordinary Fill does not switch Spaces. See the [settings reference](docs/CHANGES_AND_SHOWCASE.md#selection-and-tiling-settings) for locations, defaults and verification commands. Existing saved choices are preserved.
 
@@ -88,7 +88,7 @@ Development mode creates no release ZIP and must not be distributed; its signatu
 
 The certificate-signed Debug workflow, nested signature checks, fixed-path replacement and exact-path launch have passed, including the October 15 tiling/activation fixes. Its designated requirement is certificate-based, not tied to a binary hash. Permission retention across subsequent builds still needs verification after granting access to this signed build.
 
-The October 15 integration includes DockDoor 1.41.0 and later upstream metadata through `3e08721`. Settings now separate Gestures from Keybinds. The signed Debug build/relaunch, source-overlay/binary/signature correspondence, 84 isolated gesture/swipe/frame/reservation cases and 19 version cases passed after adapting gesture minimization to the existing confirmed-state helper. New manual gesture/display testing remains pending. No new Release package has been built; the updated showcase export and build authorization are still awaited.
+The October 15 integration includes DockDoor 1.41.0 and later upstream metadata through `3e08721`. Settings now separate Gestures from Keybinds. The signed Debug build/relaunch, source-overlay/binary/signature correspondence, 84 isolated gesture/swipe/frame/reservation cases and 19 version cases passed after adapting gesture minimization to the existing confirmed-state helper. New manual gesture/display testing remains pending. No new Release package has been built; build authorization is still awaited.
 
 The pending 0.2.0 code also includes default-Off linked resizing under Keybinds > Tiling. It works without enabling multi-selection or Window Gestures and applies only within layouts tiled together. Initial integration tests ran while the Mac was locked. Later unlocked tests and user reports cover the tiling, drag-completion and independent Fill fixes; native linked-edge and exhaustive display coverage remain limited. See the dated evidence in the [resource audit](docs/RESOURCE_LIFECYCLE_AUDIT.md).
 
@@ -140,19 +140,19 @@ Published October 12, 2026: [DockFork 0.1.0 prerelease](https://github.com/hexcr
 
 ## Optional Showcase Preset
 
-[DockFork-Showcase.json](presets/DockFork-Showcase.json) provides a sanitized example configuration. It is not the application's default configuration and must not be imported automatically. This same JSON is attached as a separate optional asset to [the 0.1.0 prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0); it is never automatically imported.
+[DockFork-Showcase.json](presets/DockFork-Showcase.json) provides the sanitized example configuration for the planned 0.2.0 release. It is not the application's default configuration and must not be imported automatically. The [0.1.0 prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) retains its older, separately attached preset; updating this file does not replace that published asset.
 
 To try it, first export your existing settings, then use **General > Backup & Restore > Import Settings** in the fork build. Import replaces the current preference domain rather than merging only the included settings, and the app asks to restart. Omitted settings return to their defaults. Use a separately identified DockFork build; this preset alone does not isolate preferences from DockDoor.
 
 ### Privacy Review
 
-The current preset was refreshed and privacy-reviewed October 11, 2026. It retains 237 recognized preference keys from the latest 241-key export. Review included nested JSON stored inside shortcut strings, not just the outer JSON.
+The current preset was refreshed and privacy-reviewed October 16, 2026. It retains 245 recognized preference keys from the supplied 248-key export. Review included nested JSON stored inside shortcut strings, not just the outer JSON. Run `ruby fork/tests/showcase_preset.rb` for the repeatable format, key-inventory and privacy-marker checks. These checks do not certify the eventual packaged app or replace manual review of a new export.
 
-- Removed four private-state or system keys: the file-dialog directory bookmark, save-panel geometry, cached screen-recording permission, and the reopen-settings flag. This latest export contains no saved window order or window-title/focus history. No folder-specific sort dictionary or other opaque payload remains.
-- Removed the exact export timestamp. Retained the nonpersonal format identifier and application version used for compatibility information.
-- Verified all 15 shortcut-row UUIDs already use unique generic stable IDs; key combinations, actions, and scopes are unchanged.
-- Kept debug logging off.
-- Retained the generic `launched: true` flag to avoid replaying first-run onboarding after import. It contains no identifying information and does not grant macOS permissions; permission history remains excluded.
+- Removed three private-state or system keys: save-panel geometry, cached screen-recording permission, and the reopen-settings flag. This export contains no file-dialog bookmark, saved window order, window-title/focus history or folder-specific sort dictionary.
+- The export has no timestamp. Retained the required format identifier and application version 0.2.0 for compatibility information.
+- All 14 shortcut rows have unique generic IDs. Replaced the two newly generated UUIDs; key combinations, actions, scopes and row order are unchanged from the supplied export.
+- Turned debug logging Off in the shared preset.
+- Retained the nonidentifying `launched: true` and `hasSeenCmdTabFocusHint: true` onboarding flags. They grant no system permissions; cached permission state remains excluded.
 - No remaining file paths, bookmarks, binary payloads, account identifiers, email addresses, URLs, or window titles were found in the prepared preset.
 
 The envelope intentionally retains `"app": "DockDoor"` because the current importer requires that marker. It does not select the destination preference domain or change the installed application's identity.
@@ -163,7 +163,7 @@ This is an opinionated showcase configuration, not a recommended setup for every
 
 Privacy and import-format checks do not prove every interaction is appropriate on another person's Mac. Re-exported preferences must be reviewed again before publication: exports can include new private state and system metadata.
 
-The latest refresh (`9fcf28d`) changes only app-header style to Popover and Window Switcher app-icon size from 35 pt to Automatic compared with the previous preset (`3d1e761`). All other sanitized preferences are semantically identical. This refresh preserves the supplied appearance/interaction choices, including same-Space Dock cycling preview retention, dimmed hover-only traffic lights, embedded Dock/Cmd+Tab controls, compact-style windowless Dock/Cmd+Tab rows, and compact thresholds of five. Updated shortcut/search keys are retained. It does not change application defaults or import settings. No import test of this latest preset is recorded; packaging checks are documented under [release validation](#release-assets-and-validation).
+The October 16 refresh enables multi-selection, drag-to-tile, linked resizing and Window Gestures; uses title-hover checkboxes, Shadowed Dock/Cmd+Tab headers, a 500-point Compact Mode width and embedded switcher controls. It preserves the supplied shortcut changes, including selection and Auto Tile actions, and removes the earlier persistent shortcut absent from this export. Group Fill-to-Auto-Tile and Tile only what fits are Off. Unspecified settings use application defaults after import, including the 2-row/3-column Auto Tile limits. Some older scroll gestures are unavailable while Window Gestures is enabled. Existing full-size-preview and trackpad settings are retained. This is a deliberate showcase setup, not a change to application defaults. The new preset has not been imported or packaged for testing; those checks remain pending.
 
 ## Public Testing Repository
 

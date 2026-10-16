@@ -1,8 +1,8 @@
 # DockFork 0.2.0 Prerelease Draft
 
-Status: preparation only, October 16, 2026, reviewed through `ddb9f8c`. Includes upstream 1.41.0 integration `229d38a`, with a follow-up adapting gesture minimization to the existing confirmed-state pipeline. No 0.2.0 Release candidate, tag, upload or publication is recorded.
+Status: preparation only, October 16, 2026, app sources reviewed through `18dbc35`. Includes upstream 1.41.0 integration `229d38a`, with a follow-up adapting gesture minimization to the existing confirmed-state pipeline. The replacement showcase preset is sanitized and reviewed. No 0.2.0 Release candidate, tag, upload or publication is recorded.
 
-**Release packaging is on hold until the updated showcase configuration is supplied and reviewed, and the user authorizes the build.** The existing preset is unchanged. Screenshots and recordings are deferred and are not a release gate.
+**The configuration review is complete; commit the approved preparation and obtain build authorization before packaging.** The updated optional preset is not imported automatically. Screenshots and recordings are deferred and are not a release gate.
 
 ## Release Notes
 
@@ -20,7 +20,7 @@ Released drag placement now survives preview teardown during movement or activat
 - Auto Tile Selected Windows arranges groups in selection order. Configure row/column limits under Tiling > Auto Tile, up to 6 with defaults of 2 rows and 3 columns. Overflow stacks in the original cells, or Tile only what fits leaves extra windows unprocessed. Half/Quarter actions apply individually unless the new default-Off Fill actions Auto Tile toggle is enabled. Explicit Auto Tile and drag-to-tile are unaffected by that toggle. A single-window Auto Tile fills the display; applications can enforce minimum sizes.
 - Existing AppleScript window actions accept an ordered list of window IDs where applicable. Batch scripts do not require UI selection; existing single-window syntax remains supported. Tile Windows exposes ordered tiling directly.
 
-Multi-window selection, selection-driven keep-open behavior and drop-to-tile default Off. Show selection summary defaults On, but appears only with selection enabled and at least one checked window. Enable selection under **Keybinds > Window Selection**. Configure drag-to-tile under **Mouse Actions**. Existing saved settings and the optional showcase preset are not changed automatically.
+Multi-window selection, selection-driven keep-open behavior and drop-to-tile default Off. Show selection summary defaults On, but appears only with selection enabled and at least one checked window. Enable selection under **Keybinds > Window Selection**. Configure drag-to-tile under **Mouse Actions**. The updated optional showcase preset enables selection, drag-to-tile, linked resizing and Window Gestures on explicit import only. Existing saved settings are not changed automatically.
 
 ### Included From Upstream 1.41.0
 
@@ -72,15 +72,15 @@ Report problems through this fork's Issues page. Review diagnostic logs for priv
 
 The user-edited fork settings explainers have been shortened and grammar-reviewed in both the settings UI and search catalog. The [editing record](SETTINGS_EXPLAINERS_REVIEW_0.2.0.md) retains the unchanged upstream appendix. No defaults or application behavior changed.
 
-October 16 preparation is reviewed through `ddb9f8c`. It includes upstream integration `229d38a`, the gesture-minimization adapter, linked-resize timing and drag-lifetime corrections, configurable overflow and opt-in grouped Fill. Evidence below is scoped to the actual tests; it does not certify every display/app combination or a Release package.
+October 16 preparation is reviewed through `18dbc35`, plus the replacement preset and preflight documentation. It includes upstream integration `229d38a`, the gesture-minimization adapter, linked-resize timing and drag-lifetime corrections, configurable overflow, opt-in grouped Fill and revised helper text. Evidence below is scoped to the actual tests; it does not certify every display/app combination or a Release package.
 
 | Area | Current evidence and remaining work |
 |---|---|
-| Source and documentation | Exact-once ledger coverage includes 307 commits through c27ac27, with changed-file counts checked against Git. Current settings paths, defaults, labels, search targets and action routing are covered by the fork-only static wiring audit. The subsequent settings-copy update is outside that explicit coverage boundary until committed and recorded. |
-| Version metadata | All 19 validator cases pass. Fetched upstream main is 3e08721, and included published stable release 1.41.0 resolves to 3d6a3cba. The record keeps DockFork 0.2.0 separate and validates committed ancestry. |
-| Debug validation | The tested signed Debug app matches all eight committed runtime source/resource changes from 3b4d311. Fixed-path launch, nested signature and binary correspondence pass. The 97 isolated unit tests, 11,664 layout cases, linked-registry/placement/drop-flow regressions and frame-writer checks pass. No full Xcode suite, whole-app performance/leak certification or Release ZIP is claimed. |
+| Source and documentation | Exact-once ledger coverage includes 308 commits through 18dbc35, with changed-file counts checked against Git. Settings paths, defaults, labels, search targets and action routing pass the source-only audit. This uncommitted preparation is outside that explicit coverage boundary. |
+| Version metadata | All 19 validator cases pass again. The recorded merged upstream base is 3e08721, and its included stable release 1.41.0 resolves to 3d6a3cba. The record keeps DockFork 0.2.0 separate and validates committed ancestry. This preflight does not fetch or merge newer upstream history. |
+| Debug validation | Feature validation through 3b4d311 included source-overlay/binary correspondence and 97 isolated unit tests. The later helper-copy update passed its own signed Debug build, signature check and fixed-path relaunch. This preflight re-ran 11,664 layouts, 2,660 linked-edge resizes, registry/placement/drop regressions and frame-writer checks with simulated native APIs. No full Xcode suite, new native sweep, whole-app performance/leak certification or Release ZIP is claimed. |
 | Latest tiling/focus sweep | 27 scripted tiling calls with three expected minimum-size refusals, four rapid-focus pairs and four cross-Space focus checks passed without unexpected failures. Frames, Spaces, accessibility flags and original focus were restored. The later partial-write refresh correction has focused regression and signed Debug validation, not another full live sweep. |
-| Showcase configuration | Await the updated export. Keep the current reviewed 237-preference preset unchanged until the replacement is sanitized and reviewed. Do not import it into live preferences automatically. |
+| Showcase configuration | The supplied 248-setting export is reduced to 245 recognized preferences. Three system/private-state keys are removed, logging is Off, and two UUIDs are replaced with generic IDs. All 14 nested shortcut records and format/privacy checks pass. The replacement is not imported; actual Release import testing remains pending. |
 | Release candidate and privacy | Not built. Audit the actual app, source archive and sidecars after the final preset and preparation commits. Existing 0.1.0 audits do not certify 0.2.0 assets. |
 | Installation and media | Release upgrade/import and browser-quarantine/Gatekeeper testing remain pending. Screenshots and recordings are deliberately deferred. |
 
@@ -88,7 +88,7 @@ The ledger coverage boundary is explicit in [COMMIT_LEDGER.md](COMMIT_LEDGER.md)
 
 ## Publication Gate
 
-- Receive the updated configuration, remove private/system state, review nested shortcut records and retain only intended showcase preferences. Review the sanitized difference and keep a backup before any later import test.
+- Configuration supplied, sanitized and reviewed. Keep a backup before any later import test; the 245-preference preset is optional and replaces settings on import.
 - Review and commit the approved preset and preparation changes. Keep `fork/version.json` at the agreed 0.2.0 prerelease version unless a new decision is made.
 - Obtain authorization to build, then use `./fork/package.sh` from the exact committed candidate. Do not package the working tree or distribute the development app.
 - Record the exact source commit and final package directory. Verify version/base metadata, app identity, ZIP integrity, source/patch correspondence, nested signatures and every allowlisted asset checksum.
