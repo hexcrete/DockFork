@@ -404,6 +404,7 @@ enum DockDoorCommands {
         lines.append("  auto tile window \"active\"")
         lines.append("  tile windows {\"12345\", \"67890\"} to \"right\" with bringing to front")
         lines.append("  Position lists follow the Fill actions Auto Tile setting; explicit tile windows always uses Auto Tile. Overflow follows Tile only what fits.")
+        lines.append("  Single IDs and lists share action failure reporting and the move/resize foreground preference. Fullscreen toggles a text ID; lists only exit fullscreen.")
         lines.append("  toggle window selection \"active\" -- requires an open preview and multi-window selection enabled")
         lines.append("  list spaces")
         lines.append("  switch to space 3")
@@ -449,22 +450,9 @@ enum DockDoorCommands {
         }
     }
 
-    static func performWindowAction(_ action: WindowAction, windowIdString: String) throws {
-        let windowInfo = try resolveWindowId(windowIdString).get().0
-        _ = action.perform(on: windowInfo)
-    }
-
     static func focusWindow(_ windowIdString: String) throws {
         let windowInfo = try resolveWindowId(windowIdString).get().0
         windowInfo.bringToFront()
-    }
-
-    static func positionWindow(_ windowIdString: String, positionString: String) throws {
-        guard let action = parsePositionAction(positionString) else {
-            throw CommandError.invalidPosition(positionString)
-        }
-        let windowInfo = try resolveWindowId(windowIdString).get().0
-        _ = action.perform(on: windowInfo)
     }
 }
 
@@ -882,30 +870,21 @@ class GetActiveWindowCommand: NSScriptCommand {
 @objc(WindowActionCommand)
 class WindowActionCommand: AsyncWindowCommand {
     override func performDefaultImplementation() -> Any? {
-        if !(directParameter is String), commandDescription.commandName != "focus window" {
-            let identifiers: [String]
-            do { identifiers = try DockDoorCommands.windowIdentifiers(from: directParameter) }
-            catch { return "error: \(error.localizedDescription)" }
-            guard let action = DockDoorCommands.actionFromCommandName(commandDescription.commandName) else { return "error: Unknown action" }
-            return execute {
-                let windows = try DockDoorCommands.resolveWindows(identifiers)
-                return await DockDoorCommands.batchResult(WindowUtil.performPreviewBatchAction(action, on: windows))
-            }
-        }
-        guard let windowId = directParameter as? String else { return "error: Window ID required" }
-
-        do {
-            // Focus is handled separately since it's not in WindowAction
-            if commandDescription.commandName == "focus window" {
+        if commandDescription.commandName == "focus window" {
+            guard let windowId = directParameter as? String else { return "error: Window ID required" }
+            do {
                 try DockDoorCommands.focusWindow(windowId)
-            } else if let action = DockDoorCommands.actionFromCommandName(commandDescription.commandName) {
-                try DockDoorCommands.performWindowAction(action, windowIdString: windowId)
-            } else {
-                return "error: Unknown action: \(String(describing: commandDescription.commandName))"
-            }
-            return "ok"
-        } catch {
-            return "error: \(error.localizedDescription)"
+                return "ok"
+            } catch { return "error: \(error.localizedDescription)" }
+        }
+        let identifiers: [String]
+        do { identifiers = try DockDoorCommands.windowIdentifiers(from: directParameter) }
+        catch { return "error: \(error.localizedDescription)" }
+        guard let action = DockDoorCommands.actionFromCommandName(commandDescription.commandName) else { return "error: Unknown action" }
+        let allowFullscreenEntry = directParameter is String
+        return execute {
+            let windows = try DockDoorCommands.resolveWindows(identifiers)
+            return await DockDoorCommands.batchResult(WindowUtil.performPreviewBatchAction(action, on: windows, allowFullscreenEntry: allowFullscreenEntry))
         }
     }
 }
@@ -922,19 +901,9 @@ class PositionWindowCommand: AsyncWindowCommand {
         guard let action = DockDoorCommands.parsePositionAction(positionString) else {
             return "error: \(DockDoorCommands.CommandError.invalidPosition(positionString).localizedDescription)"
         }
-        if !(directParameter is String) {
-            return execute {
-                let windows = try DockDoorCommands.resolveWindows(identifiers)
-                return await DockDoorCommands.batchResult(WindowUtil.performPreviewBatchAction(action, on: windows))
-            }
-        }
-        let windowId = identifiers[0]
-
-        do {
-            try DockDoorCommands.positionWindow(windowId, positionString: positionString)
-            return "ok"
-        } catch {
-            return "error: \(error.localizedDescription)"
+        return execute {
+            let windows = try DockDoorCommands.resolveWindows(identifiers)
+            return await DockDoorCommands.batchResult(WindowUtil.performPreviewBatchAction(action, on: windows))
         }
     }
 }

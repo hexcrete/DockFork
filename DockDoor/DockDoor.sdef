@@ -122,7 +122,7 @@
             <result type="text" description="Success or error message."/>
         </command>
 
-        <command name="maximize window" code="DKDRmxwn" description="Maximize a window to fill the screen.">
+        <command name="maximize window" code="DKDRmxwn" description="Maximize windows to fill their screens. Respects the move/resize foreground preference and reports action failures.">
             <cocoa class="WindowActionCommand"/>
             <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
                 <type type="text"/>
@@ -152,7 +152,7 @@
             <result type="text" description="Success or error message."/>
         </command>
 
-        <command name="center window" code="DKDRctwn" description="Center a window on its screen.">
+        <command name="center window" code="DKDRctwn" description="Center windows on their screens. Respects the move/resize foreground preference and reports action failures.">
             <cocoa class="WindowActionCommand"/>
             <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
                 <type type="text"/>
@@ -164,7 +164,7 @@
 
         <!-- Window Positioning Commands -->
 
-        <command name="position window" code="DKDRpswn" description="Position windows independently on their displays. Ordered lists use direction-aware Auto Tile on the current Desktop only when the Fill actions Auto Tile setting is enabled.">
+        <command name="position window" code="DKDRpswn" description="Position windows independently on their displays, respecting the move/resize foreground preference. Ordered lists use direction-aware Auto Tile on the current Desktop only when the Fill actions Auto Tile setting is enabled. Reports action failures.">
             <cocoa class="PositionWindowCommand"/>
             <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
                 <type type="text"/>

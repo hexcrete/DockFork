@@ -1850,9 +1850,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
             let samePresentation = contentView === originalContent && isVisible
             guard samePresentation || (needsTransition && !isVisible) else { return }
-            let shouldFocus = revealsWindows || (category == .movingAndResizing && action != .toggleFullScreen && action.tilingDirection == nil && Defaults[.moveResizeBringToForeground])
             let succeededIdentities = Set(result.succeeded.map(PreviewWindowIdentity.init))
-            if shouldFocus,
+            if revealsWindows,
                let first = targets.first(where: { succeededIdentities.contains(PreviewWindowIdentity($0)) }) ?? result.succeeded.first
             {
                 let refreshed = WindowUtil.readCachedWindows(for: first.app.processIdentifier).first { $0.id == first.id } ?? first

@@ -164,7 +164,7 @@ source += "\n@MainActor final class DragPreviewCoordinator {\nprivate var dropTo
 %w[isCompletingDrop completeDrop].each { |name| source += block(drag, "    func #{name}(") + "\n" }
 source += block(drag, '    private func cancelPendingDrop(') + "\n}\n"
 catalog = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
-source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize, quit, openNewWindow, hide, close, closeAllWindows, minimizeAllWindows, toggleFullScreen, toggleWindowSelection, selectAllWindows, none\n"
+source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize, quit, openNewWindow, hide, close, closeAllWindows, minimizeAllWindows, toggleFullScreen, toggleWindowSelection, selectAllWindows, maximize, center, bringToCurrentSpace, none\n"
 %w[tilingDirection isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }
 %w[autoTilingDirection appliesToSelectedWindow batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
 source += "}\n"
@@ -192,7 +192,7 @@ end
 source += "}\n"
 source += "\nextension WindowUtil {\n" + block(util, '    static func canBringWindowToFrontWithoutSpaceSwitch(')
 source += "\n@MainActor static func finishIndependentFill(_ action: WindowAction, windows: [WindowInfo]) async -> PreviewBatchResult {\nvar result = PreviewBatchResult(succeeded: windows)\n"
-source += block(util, '        if action.tilingDirection != nil, Defaults[.moveResizeBringToForeground]') + "\nreturn result\n}\n}\n"
+source += block(util, '        if (action.tilingDirection != nil || action == .maximize') + "\nreturn result\n}\n}\n"
 
 checks = <<~'SWIFT'
 @main struct Checks {
@@ -341,6 +341,15 @@ checks = <<~'SWIFT'
    let eligible = mixedSpaces.reversed().filter { !Set($0.axElement.spaces.map(Int.init)).isDisjoint(with: active) }
    precondition(result.succeeded.count == 3 && result.failed.isEmpty && Model.focus == eligible.map(\.id) && Model.moves == 0)
    precondition(mixedSpaces[1].axElement.spaces == [2])
+  }
+  for action in [WindowAction.maximize, .center, .bringToCurrentSpace] {
+   WindowUtil.activeSpaces = [1]; Model.reset()
+   _ = await WindowUtil.finishIndependentFill(action, windows: mixedSpaces)
+   precondition(Model.focus == [mixedSpaces[2].id, mixedSpaces[0].id])
+   Defaults.foreground = false; Model.reset()
+   _ = await WindowUtil.finishIndependentFill(action, windows: mixedSpaces)
+   precondition(Model.focus.isEmpty)
+   Defaults.foreground = true
   }
   WindowUtil.activeSpaces = [1]; Defaults.foreground = false; Model.reset()
   _ = await WindowUtil.finishIndependentFill(.fillLeftHalf, windows: mixedSpaces)

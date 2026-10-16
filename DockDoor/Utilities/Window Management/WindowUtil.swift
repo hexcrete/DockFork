@@ -761,7 +761,8 @@ extension WindowUtil {
     }
 
     @MainActor
-    static func performPreviewBatchAction(_ action: WindowAction, on windows: [WindowInfo]) async -> PreviewBatchResult {
+    static func performPreviewBatchAction(_ action: WindowAction, on windows: [WindowInfo],
+                                          allowFullscreenEntry: Bool = false) async -> PreviewBatchResult {
         guard !Task.isCancelled else { return PreviewBatchResult() }
         let windows = windows.filter { action.appliesToSelectedWindow($0) }
         guard !windows.isEmpty else { return PreviewBatchResult() }
@@ -769,7 +770,8 @@ extension WindowUtil {
             return await tilePreviewWindows(windows, direction: direction)
         }
         var result = PreviewBatchResult()
-        let targets = action.batchTargets(from: windows)
+        let togglesFullscreen = action == .toggleFullScreen && allowFullscreenEntry && windows.count == 1
+        let targets = togglesFullscreen ? windows : action.batchTargets(from: windows)
         guard !targets.isEmpty else { result.failed = windows.map(PreviewWindowIdentity.init); return result }
         let hiddenTarget = action.batchTargetState(for: windows) ?? false
         let forceQuit = NSEvent.modifierFlags.contains(.option)
@@ -811,7 +813,7 @@ extension WindowUtil {
                         succeeded = await setHiddenStateConfirmed(for: window.app, isHidden: hiddenTarget)
                     }
                 case .toggleFullScreen:
-                    succeeded = await exitFullscreenConfirmed(window)
+                    succeeded = await changeFullscreenConfirmed(window, toggle: togglesFullscreen)
                 case .quit:
                     succeeded = forceQuit ? window.app.forceTerminate() : window.app.terminate()
                 case .close where shouldQuitAppOnWindowClose(processIdentifier: pid):
@@ -835,7 +837,8 @@ extension WindowUtil {
             else { result.failed.append(PreviewWindowIdentity(window)) }
             await Task.yield()
         }
-        if action.tilingDirection != nil, Defaults[.moveResizeBringToForeground] {
+        if (action.tilingDirection != nil || action == .maximize || action == .center || action == .bringToCurrentSpace),
+           Defaults[.moveResizeBringToForeground] {
             for window in result.succeeded.reversed() where canBringWindowToFrontWithoutSpaceSwitch(window) {
                 guard !Task.isCancelled else { return result }
                 if await !window.bringToFrontConfirmed() { result.failed.append(PreviewWindowIdentity(window)) }
@@ -844,17 +847,18 @@ extension WindowUtil {
         return result
     }
 
-    private static func exitFullscreenConfirmed(_ window: WindowInfo) async -> Bool {
+    private static func changeFullscreenConfirmed(_ window: WindowInfo, toggle: Bool = false) async -> Bool {
         let worker = Task.detached(priority: .userInitiated) {
             do {
                 guard let current = try? window.axElement.isFullscreen() else { return false }
-                if current { try window.axElement.setAttribute(kAXFullscreenAttribute, false) }
+                let target = toggle ? !current : false
+                if current != target { try window.axElement.setAttribute(kAXFullscreenAttribute, target) }
                 for delay in [UInt64(0), 100_000_000, 300_000_000, 700_000_000] {
                     if delay > 0 { try await Task.sleep(nanoseconds: delay) }
                     guard !Task.isCancelled else { return false }
-                    if (try? window.axElement.isFullscreen()) == false {
+                    if (try? window.axElement.isFullscreen()) == target {
                         guard !Task.isCancelled else { return false }
-                        updateCachedWindowState(window, isFullscreen: false)
+                        updateCachedWindowState(window, isFullscreen: target)
                         return true
                     }
                 }
@@ -4220,7 +4224,7 @@ extension WindowUtil {
 
     static func minimizeWindowExitingFullscreen(_ window: WindowInfo) async -> Bool {
         guard !window.isWindowlessApp, !window.app.isTerminated, !Task.isCancelled else { return false }
-        if (try? window.axElement.isFullscreen()) == true, await !exitFullscreenConfirmed(window) { return false }
+        if (try? window.axElement.isFullscreen()) == true, await !changeFullscreenConfirmed(window) { return false }
         guard !Task.isCancelled else { return false }
         return await setMinimizedStateConfirmed([window], isMinimized: true) == 1
     }
