@@ -4,6 +4,10 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 **Publication:** [DockFork 0.1.0](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) is published as a prerelease from `36e635e`. The user reported successful testing on additional Macs running macOS 27 after local transfer. Downloaded/quarantined installation validation remains pending. Local development uses certificate-signed DockFork at the fixed, gitignored `fork/dist/dev/DockFork.app` path. Historical candidate checks below do not describe later development builds.
 
+## Linked Tiling Integration: Step 2
+
+Restrict linked resizing to live same-Desktop neighbors. Use PID/window identities, generation checks, real perpendicular edge overlap, live membership/state validation, nonactivating confirmed neighbor writes and explicit detachment before programmatic placement or Space movement. Retain coalesced background processing without main-thread AX waits. Focused geometry/registry checks cover unrelated Spaces, stale targets, refused writes and identity reuse; The final signed Debug build/relaunch and source-overlay checks passed after correcting a closure-capture compile error. All 88 isolated gesture/swipe/geometry tests passed. AppleScript help responds, but the locked session reports zero windows, so live resize tests remain pending.
+
 ## Linked Tiling Integration: Step 1
 
 Confirm gesture restoration and serialize asynchronous actions. Reuse confirmed unhide/unminimize and fullscreen-exit workers; foreground only successful restores and retain partial success. No fixed fullscreen delay or optimistic restore-cache writes. Production-source adapter tests and signed Debug build/relaunch passed. AppleScript availability and locked-session live testing are tracked separately; no manual gesture verification or Release build is claimed.

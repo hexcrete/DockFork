@@ -36,6 +36,10 @@ Checked October 8, 2026, against upstream `0bd2e46`; commit references below fol
 
 October 15 upstream integration review: Window Gestures constructs its controller, executor, HUD and dedicated event-tap thread only when enabled, default Off. Snap-registry frame callbacks are setting-gated. ScreenReservations starts one independent distributed-notification observer for custom docks/scripts; it is not covered by the disabled-gesture zero-resource claim. Existing per-window placement confirmation and cancellation remain intact. Gesture-driven display minimization reuses the existing confirmed-state worker rather than restoring the removed optimistic helper; fullscreen windows are excluded and cache state is published after confirmation. The final signed Debug build and 84 isolated gesture/swipe/session/frame/reservation checks passed. This integration review does not rerun the older whole-app audit or establish latency measurements.
 
+## Linked Tiling Integration: Step 2
+
+Restrict linked resizing to live same-Desktop neighbors. Use PID/window identities, generation checks, real perpendicular edge overlap, live membership/state validation, nonactivating confirmed neighbor writes and explicit detachment before programmatic placement or Space movement. Retain coalesced background processing without main-thread AX waits. Focused geometry/registry checks cover unrelated Spaces, stale targets, refused writes and identity reuse; full-app and locked-session results are recorded separately.
+
 ## Linked Tiling Integration: Step 1
 
 Confirm gesture restoration and serialize asynchronous actions. Reuse confirmed unhide/unminimize and fullscreen-exit workers; foreground only successful restores and retain partial success. No fixed fullscreen delay or optimistic restore-cache writes. Production-source adapter tests and signed Debug build/relaunch passed. AppleScript availability and locked-session live testing are tracked separately; no manual gesture verification or Release build is claimed.

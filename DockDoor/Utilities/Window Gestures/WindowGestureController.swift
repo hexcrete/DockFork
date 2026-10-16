@@ -602,7 +602,7 @@ final class WindowGestureController {
         guard case let .window(action) = command, let rect = action.positionRect,
               let current = session, let windowFrame = current.windowFrame
         else { return nil }
-        let restoreSize = action == .center ? WindowSnapRegistry.shared.record(for: current.zone.window?.id)?.restoreFrame.size : nil
+        let restoreSize = action == .center ? WindowSnapRegistry.shared.record(for: current.zone.window)?.restoreFrame.size : nil
         return WindowInfo.positionedFrame(rect, for: windowFrame, size: restoreSize)
     }
 

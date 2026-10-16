@@ -38,3 +38,30 @@ struct WindowPositionRectTests {
         #expect(oversized == CGRect(x: 0, y: 250, width: 1200, height: 300))
     }
 }
+
+struct LinkedWindowGeometryTests {
+    private let left = CGRect(x: 0, y: 0, width: 600, height: 800)
+
+    @Test func sharedEdgeResizesTheOpposingNeighbor() {
+        let right = CGRect(x: 600, y: 0, width: 600, height: 800)
+        let resized = CGRect(x: 0, y: 0, width: 700, height: 800)
+        #expect(WindowSnapRegistry.neighborFrame(right, following: left, to: resized) == CGRect(x: 700, y: 0, width: 500, height: 800))
+    }
+
+    @Test func alignedButNonAdjacentWindowsStayUnchanged() {
+        let moved = CGRect(x: 0, y: 0, width: 700, height: 800)
+        #expect(WindowSnapRegistry.neighborFrame(CGRect(x: 600, y: 800, width: 600, height: 400), following: left, to: moved) == nil)
+        #expect(WindowSnapRegistry.neighborFrame(left, following: left, to: moved) == nil)
+    }
+
+    @Test func sharedHorizontalEdgesResizeWithoutAffectingCorners() {
+        let lower = CGRect(x: 0, y: 0, width: 600, height: 400)
+        let upper = CGRect(x: 0, y: 400, width: 600, height: 400)
+        #expect(WindowSnapRegistry.neighborFrame(upper, following: lower, to: CGRect(x: 0, y: 0, width: 600, height: 500)) == CGRect(x: 0, y: 500, width: 600, height: 300))
+        #expect(WindowSnapRegistry.neighborFrame(CGRect(x: 600, y: 400, width: 600, height: 400), following: lower, to: CGRect(x: 0, y: 0, width: 600, height: 500)) == nil)
+    }
+
+    @Test func tooSmallNeighborsAreNotClampedAcrossTheSharedEdge() {
+        #expect(WindowSnapRegistry.neighborFrame(CGRect(x: 600, y: 0, width: 600, height: 800), following: left, to: CGRect(x: 0, y: 0, width: 1150, height: 800)) == nil)
+    }
+}

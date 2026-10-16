@@ -55,7 +55,9 @@ final class WindowGestureExecutor {
 
     private func perform(_ action: WindowAction, on window: WindowInfo) {
         if action == .center {
-            if window.positionWindow(.center, size: registry.remove(window.id)?.restoreFrame.size) {
+            let restoreSize = registry.liveRecord(for: window)?.restoreFrame.size
+            registry.remove(PreviewWindowIdentity(window))
+            if window.positionWindow(.center, size: restoreSize) {
                 window.bringToFront()
             }
             return
@@ -65,7 +67,7 @@ final class WindowGestureExecutor {
             return
         }
         let restoreFrame = registry.liveRecord(for: window)?.restoreFrame ?? current
-        registry.remove(window.id)
+        registry.remove(PreviewWindowIdentity(window))
         if case .dismissed = action.perform(on: window) {
             window.bringToFront()
             registry.snapped(window, restoreFrame: restoreFrame)

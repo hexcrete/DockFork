@@ -1504,6 +1504,7 @@ extension WindowUtil {
         pendingManagedSpaceMoves.removeValue(forKey: key)
         managedSpaceMoveLock.unlock()
 
+        WindowSnapRegistry.existing?.remove(PreviewWindowIdentity(windowInfo))
         guard WindowSpaces.move(windowID: windowInfo.id, toManagedSpace: targetSpaceID) else {
             Task { @MainActor in completion(false) }
             return nil

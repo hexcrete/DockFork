@@ -499,7 +499,7 @@ extension WindowInfo {
     }
 
     @discardableResult
-    private func applyWindowFrame(_ targetFrame: CGRect, on screen: NSScreen, refreshPreview: Bool = true) -> Bool {
+    private func applyWindowFrame(_ targetFrame: CGRect, on screen: NSScreen, refreshPreview: Bool = true, preservesSnapRecord: Bool = false) -> Bool {
         let primaryScreenMaxY = NSScreen.screens.first?.frame.maxY ?? screen.frame.maxY
         let axY = primaryScreenMaxY - targetFrame.maxY
         let newPosition = CGPoint(x: targetFrame.origin.x, y: axY)
@@ -511,6 +511,7 @@ extension WindowInfo {
             return false
         }
 
+        if !preservesSnapRecord { WindowSnapRegistry.existing?.remove(PreviewWindowIdentity(self)) }
         let enhancedUIAttribute = "AXEnhancedUserInterface"
         let restoreEnhancedUI = (try? appAxElement.attribute(enhancedUIAttribute, Bool.self)) == true
         // Some apps apply this write despite reporting an error; always restore the prior state.
@@ -548,7 +549,8 @@ extension WindowInfo {
 
     @discardableResult
     func applyFrame(_ targetFrame: CGRect) -> Bool {
-        setWindowFrame(targetFrame)
+        guard let screen = NSScreen.screen(containing: targetFrame) else { return false }
+        return applyWindowFrame(targetFrame, on: screen, preservesSnapRecord: true)
     }
 
     @MainActor
