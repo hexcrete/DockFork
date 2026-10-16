@@ -241,7 +241,12 @@ struct PreviewPostActionBehaviorSection: View {
                         )
                         .settingsSearchTarget("gestures.postActionMovingResizing")
 
-                        Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
+                            Text("Focus windows after moving, resizing, or tiling them. Dragging always focuses windows.")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
                             .settingsSearchTarget("gestures.moveResizeForeground")
                             .padding(.leading, 32)
                     }

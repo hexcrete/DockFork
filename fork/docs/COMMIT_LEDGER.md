@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **118 later commits through `e735dc38fea897154b6fa55930b08258cfa9cd65`: 310 total, 305 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **119 later commits through `a8f1a1d6637ca48416a458134114c3750aa5ecfe`: 311 total, 306 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
 
 The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The latest upstream integration and its ten incoming commits are included. The notification-timing, constrained-foregrounding and released-drag fixes are included through `86c3306`, with their exact hashes and changed-file counts. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The overflow-policy and Fill-action settings changes are included through `3b4d311`. The discarded header selection-scoping experiment was never committed.
 
@@ -341,7 +341,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..e735dc3`, extended and verified against Git October 16, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..a8f1a1d`, extended and verified against Git October 16, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -529,6 +529,8 @@ Coverage: `9efa1cc..e735dc3`, extended and verified against Git October 16, 2026
 | [`f83613b`](https://github.com/hexcrete/DockFork/commit/f83613bc6c2249c89df41ea7624c52c5c4775f18) | docs: prepare 0.2.0 release records and sanitized showcase preset. Review 245 preferences and 14 shortcut rows, add repeatable privacy checks and update source/test/publication boundaries. | Documentation / Preset | 11 |
 
 | [`e735dc3`](https://github.com/hexcrete/DockFork/commit/e735dc38fea897154b6fa55930b08258cfa9cd65) | feat: support selection of windowless switcher apps. Default-On suboption, Quit/New-only batch eligibility, real-only operation counts, one-shot placeholder checks and confirmed-termination cleanup; source regressions and eleven-setting audit. | Feature / Selection | 15 |
+
+| [`a8f1a1d`](https://github.com/hexcrete/DockFork/commit/a8f1a1d6637ca48416a458134114c3750aa5ecfe) | Record windowless selection behavior, validation and release boundaries. | Documentation | 7 |
 
 ## Upstream Attribution and Contribution Boundaries
 

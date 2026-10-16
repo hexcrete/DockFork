@@ -605,3 +605,9 @@ Before narrowing, a fresh System Settings launch registered a real window and fr
 ## Shadowed header keep-open bounds
 
 October 14 development: Dock/Cmd+Tab dismissal tracking now includes the Shadowed app header and optional Shadowed selection summary. One shared outer-overflow constant controls both visual placement and transparent keep-open bounds. The native tracker sits on the outer container with adjusted insets; its existing inactivity check uses that same native view rectangle in screen coordinates instead of a separately inset window rectangle. No visual sizing, controls, click interception or timer is added. Hidden headers/summaries do not reserve extra hover space; Default/Popover retain the existing window insets. Mocks and active preview drags keep their existing tracking exclusions. All 16 style/visibility combinations passed in the 65-test isolated suite. The signed Debug build, strict signature/binary checks and exact-path relaunch passed. An additional unshown SwiftUI/AppKit geometry test verified the native tracking rectangle for all 16 combinations. The user reports the fix looking good; final source review found no blocking issues and the combined isolated/native suite passed 66 tests. Exhaustive pointer/fade coverage of every style and full Xcode tests remain unverified. This is not included in the published prerelease.
+
+## Development: Move/Resize Foreground Helper
+
+The foreground option now explains: "Focus windows after moving, resizing, or tiling them. Dragging always focuses windows." The settings-search description uses the same text. This copy-only change does not alter the preference, its default or action behavior.
+
+Validation: the signed Debug build, signature verification, exact-path relaunch and whitespace check passed October 16. No action behavior or defaults changed; visual settings verification is not inferred from the build.
