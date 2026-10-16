@@ -223,6 +223,7 @@ fi
 # Sign nested code inside-out, including Sparkle's bundled helpers.
 while IFS= read -r -d '' file; do
     if /usr/bin/file -b "$file" | grep -q 'Mach-O'; then
+        if ! $development; then /usr/bin/strip -S "$file"; fi
         codesign --force --sign "$signing_identity" --timestamp=none --options 0 "$file"
     fi
 done < <(find "$app/Contents" -type f -print0)

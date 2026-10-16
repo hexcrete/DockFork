@@ -102,7 +102,7 @@ Publish these together after testing the package:
 - `BUILD-METADATA.json`: effective version and exact upstream/source ancestry for this package.
 - `DockFork-Showcase.json`: optional preferences, never automatically imported.
 
-Release packaging explicitly disables code-coverage instrumentation so dependency profiling symbols do not retain local temporary build paths. This does not change the source project or the development build mode. Verify the resulting binaries rather than inferring privacy from build flags.
+Release packaging explicitly disables code-coverage instrumentation so dependency profiling symbols do not retain local temporary build paths. It also strips debug-symbol maps from Release Mach-O files before signing, preserving executable instructions and exported symbols. This does not change the source project or the development build mode. Verify the resulting binaries rather than inferring privacy from build flags.
 
 Keep `build.log` local: it can contain developer paths and is not a release asset. Do not publish the entire output directory indiscriminately. A successful signature verification establishes package integrity, not Developer ID trust or notarization.
 
