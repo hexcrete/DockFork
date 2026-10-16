@@ -88,7 +88,7 @@ Development mode creates no release ZIP and must not be distributed; its signatu
 
 The certificate-signed Debug workflow, nested signature checks, fixed-path replacement and exact-path launch have passed, including the October 15 tiling/activation fixes. Its designated requirement is certificate-based, not tied to a binary hash. Permission retention across subsequent builds still needs verification after granting access to this signed build.
 
-The October 15 integration includes DockDoor 1.41.0 and later upstream metadata through `3e08721`. Settings now separate Gestures from Keybinds. The signed Debug build/relaunch, source-overlay/binary/signature correspondence, 84 isolated gesture/swipe/frame/reservation cases and 19 version cases passed after adapting gesture minimization to the existing confirmed-state helper. New manual gesture/display testing remains pending. No new Release package has been built; build authorization is still awaited.
+The October 15 integration includes DockDoor 1.41.0 and later upstream metadata through `3e08721`. Settings now separate Gestures from Keybinds. The signed Debug build/relaunch, source-overlay/binary/signature correspondence, 84 isolated gesture/swipe/frame/reservation cases and 19 version cases passed after adapting gesture minimization to the existing confirmed-state helper. New manual gesture/display testing remains pending. This integration predates the authorized October 16 Release-candidate build; current validation is recorded under Release Assets and Validation.
 
 The pending 0.2.0 code also includes default-Off linked resizing under Keybinds > Tiling. It works without enabling multi-selection or Window Gestures and applies only within layouts tiled together. Initial integration tests ran while the Mac was locked. Later unlocked tests and user reports cover the tiling, drag-completion and independent Fill fixes; native linked-edge and exhaustive display coverage remain limited. See the dated evidence in the [resource audit](docs/RESOURCE_LIFECYCLE_AUDIT.md).
 
@@ -146,11 +146,11 @@ To try it, first export your existing settings, then use **General > Backup & Re
 
 ### Privacy Review
 
-The current preset was refreshed and privacy-reviewed October 16, 2026. It retains 245 recognized preference keys from the supplied 248-key export. Review included nested JSON stored inside shortcut strings, not just the outer JSON. Run `ruby fork/tests/showcase_preset.rb` for the repeatable format, key-inventory and privacy-marker checks. These checks do not certify the eventual packaged app or replace manual review of a new export.
+The current preset was refreshed and privacy-reviewed October 16, 2026. It retains 246 recognized preference keys from the supplied 249-key export. Review included nested JSON stored inside shortcut strings, not just the outer JSON. Run `ruby fork/tests/showcase_preset.rb` for the repeatable format, key-inventory and privacy-marker checks. These checks do not certify the eventual packaged app or replace manual review of a new export.
 
 - Removed three private-state or system keys: save-panel geometry, cached screen-recording permission, and the reopen-settings flag. This export contains no file-dialog bookmark, saved window order, window-title/focus history or folder-specific sort dictionary.
 - The export has no timestamp. Retained the required format identifier and application version 0.2.0 for compatibility information.
-- All 14 shortcut rows have unique generic IDs. Replaced the two newly generated UUIDs; key combinations, actions, scopes and row order are unchanged from the supplied export.
+- All 15 shortcut rows have unique generic IDs. Replaced the two newly generated UUIDs; key combinations, actions, scopes and row order are unchanged from the supplied export.
 - Turned debug logging Off in the shared preset.
 - Retained the nonidentifying `launched: true` and `hasSeenCmdTabFocusHint: true` onboarding flags. They grant no system permissions; cached permission state remains excluded.
 - No remaining file paths, bookmarks, binary payloads, account identifiers, email addresses, URLs, or window titles were found in the prepared preset.
@@ -163,7 +163,7 @@ This is an opinionated showcase configuration, not a recommended setup for every
 
 Privacy and import-format checks do not prove every interaction is appropriate on another person's Mac. Re-exported preferences must be reviewed again before publication: exports can include new private state and system metadata.
 
-The October 16 refresh enables multi-selection, drag-to-tile, linked resizing and Window Gestures; uses title-hover checkboxes, Shadowed Dock/Cmd+Tab headers, a 500-point Compact Mode width and embedded switcher controls. It preserves the supplied shortcut changes, including selection and Auto Tile actions, and removes the earlier persistent shortcut absent from this export. Group Fill-to-Auto-Tile and Tile only what fits are Off. Unspecified settings use application defaults after import, including the 2-row/3-column Auto Tile limits. Some older scroll gestures are unavailable while Window Gestures is enabled. Existing full-size-preview and trackpad settings are retained. This is a deliberate showcase setup, not a change to application defaults. The new preset has not been imported or packaged for testing; those checks remain pending.
+The October 16 refresh enables multi-selection, drag-to-tile, linked resizing and Window Gestures; uses title-hover checkboxes, Shadowed Dock/Cmd+Tab headers, a 500-point Compact Mode width and embedded switcher controls. It preserves the supplied shortcut changes, including selection and Auto Tile actions, Minimize on M and Open New Window on N, and restores the Right Command double-tap persistent shortcut. Group Fill-to-Auto-Tile and Tile only what fits are Off. Unspecified settings use application defaults after import, including the 2-row/3-column Auto Tile limits. Some older scroll gestures are unavailable while Window Gestures is enabled. Existing full-size-preview and trackpad settings are retained. This is a deliberate showcase setup, not a change to application defaults. The refreshed preset has not been imported into live settings. Release packaging is authorized; candidate validation and manual testing are recorded under Release Assets and Validation.
 
 ## Public Testing Repository
 

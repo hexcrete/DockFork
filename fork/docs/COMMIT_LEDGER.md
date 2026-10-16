@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **120 later commits through `1e55224e56e1d6690f34b802db72a14eb5de3582`: 312 total, 307 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **121 later commits through `d17f1b55354dafc3b3d96c66c43f2cf4daf27792`: 313 total, 308 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
 
 The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The latest upstream integration and its ten incoming commits are included. The notification-timing, constrained-foregrounding and released-drag fixes are included through `86c3306`, with their exact hashes and changed-file counts. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The overflow-policy and Fill-action settings changes are included through `3b4d311`. The discarded header selection-scoping experiment was never committed.
 
@@ -341,7 +341,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..1e55224`, extended and verified against Git October 16, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..d17f1b5`, extended and verified against Git October 16, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -533,6 +533,8 @@ Coverage: `9efa1cc..1e55224`, extended and verified against Git October 16, 2026
 | [`a8f1a1d`](https://github.com/hexcrete/DockFork/commit/a8f1a1d6637ca48416a458134114c3750aa5ecfe) | Record windowless selection behavior, validation and release boundaries. | Documentation | 7 |
 
 | [`1e55224`](https://github.com/hexcrete/DockFork/commit/1e55224e56e1d6690f34b802db72a14eb5de3582) | Explain move/resize/tiling foregrounding and the unconditional drag exception in settings and search; retain behavior/defaults. Signed Debug build and relaunch passed. | UI / Copy | 4 |
+
+| [`d17f1b5`](https://github.com/hexcrete/DockFork/commit/d17f1b55354dafc3b3d96c66c43f2cf4daf27792) | Route scalar script actions through the shared asynchronous executor, preserve scalar fullscreen toggling and exit-only lists, centralize batch foregrounding and remove legacy helpers. Native Notes/Brave tests and focused regressions passed. | Fix / Scripting | 11 |
 
 ## Upstream Attribution and Contribution Boundaries
 
