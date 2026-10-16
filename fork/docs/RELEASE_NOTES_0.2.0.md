@@ -70,11 +70,13 @@ Report problems through this fork's Issues page. Review diagnostic logs for priv
 
 ## Preparation Checks
 
+The user-edited fork settings explainers have been shortened and grammar-reviewed in both the settings UI and search catalog. The [editing record](SETTINGS_EXPLAINERS_REVIEW_0.2.0.md) retains the unchanged upstream appendix. No defaults or application behavior changed.
+
 October 16 preparation is reviewed through `ddb9f8c`. It includes upstream integration `229d38a`, the gesture-minimization adapter, linked-resize timing and drag-lifetime corrections, configurable overflow and opt-in grouped Fill. Evidence below is scoped to the actual tests; it does not certify every display/app combination or a Release package.
 
 | Area | Current evidence and remaining work |
 |---|---|
-| Source and documentation | Exact-once ledger coverage includes 306 commits through ddb9f8c, with changed-file counts checked against Git. Current settings paths, defaults, labels, search targets and action routing are covered by the fork-only static wiring audit. This preparation update is outside that explicit coverage boundary until committed and recorded. |
+| Source and documentation | Exact-once ledger coverage includes 307 commits through c27ac27, with changed-file counts checked against Git. Current settings paths, defaults, labels, search targets and action routing are covered by the fork-only static wiring audit. The subsequent settings-copy update is outside that explicit coverage boundary until committed and recorded. |
 | Version metadata | All 19 validator cases pass. Fetched upstream main is 3e08721, and included published stable release 1.41.0 resolves to 3d6a3cba. The record keeps DockFork 0.2.0 separate and validates committed ancestry. |
 | Debug validation | The tested signed Debug app matches all eight committed runtime source/resource changes from 3b4d311. Fixed-path launch, nested signature and binary correspondence pass. The 97 isolated unit tests, 11,664 layout cases, linked-registry/placement/drop-flow regressions and frame-writer checks pass. No full Xcode suite, whole-app performance/leak certification or Release ZIP is claimed. |
 | Latest tiling/focus sweep | 27 scripted tiling calls with three expected minimum-size refusals, four rapid-focus pairs and four cross-Space focus checks passed without unexpected failures. Frames, Spaces, accessibility flags and original focus were restored. The later partial-write refresh correction has focused regression and signed Debug validation, not another full live sweep. |

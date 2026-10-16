@@ -38,7 +38,7 @@ struct MouseActionsSection: View {
 
                 Toggle("Enable dragging windows together to tile them", isOn: $enableWindowDragTiling)
                     .settingsSearchTarget("gestures.enableWindowDragTiling")
-                Text("Drag a window preview onto another preview to tile them on the target window's Desktop. Checked windows are included in selection order. Dragged windows are always brought to the front.")
+                Text("Drag a window preview onto another preview to tile them on the target window's Desktop. Checked windows are included in selection order.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

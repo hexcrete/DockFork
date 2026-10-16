@@ -6,6 +6,10 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 ## Selection and Tiling Settings
 
+The [0.2.0 settings explainer review](SETTINGS_EXPLAINERS_REVIEW_0.2.0.md) records the user-edited fork helper text applied before release, with minor grammar corrections. Settings and their search descriptions use the same shortened wording. Merged upstream text, behavior, defaults and saved preferences are unchanged.
+
+Copy validation: all 35 review blocks match their source text, the settings-wiring audit passes, and the app diff contains only string-literal changes. The signed Debug build and fixed-path relaunch pass. Manual inspection of the revised copy and the 0.2.0 Release package remain pending.
+
 Current 0.2.0 development settings are under Keybinds. Tiling settings are available even when UI selection is disabled, because scripts can provide window lists directly. Existing saved choices remain in effect; these are fresh defaults, not an automatic preset import.
 
 | Location | Setting | Default |

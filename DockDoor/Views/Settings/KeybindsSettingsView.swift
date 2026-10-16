@@ -29,7 +29,7 @@ private struct WindowSelectionSettingsSection: View {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Enable multi-window selection", isOn: $enabled)
                     .settingsSearchTarget("gestures.enableMultiWindowSelection")
-                Text("Check windows using selection controls or the Toggle Window Selection action. Selecting windows follows the session's normal dismissal behavior unless Keep Window Switcher open when windows are selected is enabled. Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection. Mixed selections minimize or hide when any applicable target is unminimized or visible; otherwise they restore or unhide. Fullscreen exits all selected fullscreen windows. If none are fullscreen, only the clicked or highlighted window enters fullscreen.")
+                Text("Select windows using checkboxes or the Toggle Window Selection action.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 20)
@@ -42,7 +42,7 @@ private struct WindowSelectionSettingsSection: View {
                         .padding(.leading, 20)
                     Toggle("Show selection summary", isOn: $showSummary)
                         .settingsSearchTarget("gestures.showWindowSelectionSummary")
-                    Text("Show the selection count with Select All, Clear Selection and Tile Windows buttons. Tile Windows automatically arranges selected windows. Window Switcher also shows selected-app icons. Select All adds currently displayed, filtered windows to the selection.")
+                    Text("Show the selection count with Select All, Clear Selection, and Tile Windows buttons.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)
@@ -57,7 +57,7 @@ private struct WindowSelectionSettingsSection: View {
                         .pickerStyle(.menu)
                         .settingsSearchTarget("gestures.selectionCheckboxVisibility")
                     }
-                    Text("Checked controls stay visible. Preview hover includes keyboard highlighting. In Compact Mode, On title hover uses icon hover; other options use preview hover. Hidden titles outside Compact Mode fall back to preview hover.")
+                    Text("Checkboxes remain visible while checked.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)
@@ -84,13 +84,13 @@ private struct TilingSettingsSection: View {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle(String(localized: "\"Fill\" actions on multiple selected windows trigger \"Auto Tile\""), isOn: $fillActionsAutoTileSelection)
                     .settingsSearchTarget("gestures.fillActionsAutoTileSelection")
-                Text(String(localized: "Use actions such as Fill Left Half to arrange selected windows together, starting from that direction. When disabled, each window fills the requested area independently on its own Desktop and display. Auto Tile and drag-to-tile are unaffected."))
+                Text(String(localized: "Use actions such as \"Fill Left Half\" to arrange selected windows together, starting from that direction. When disabled, each window fills the requested area on its own Space."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 20)
                 Toggle(String(localized: "Link tiled windows when resizing"), isOn: $linkTiledWindowsWhenResizing)
                     .settingsSearchTarget("gestures.linkTiledWindowsWhenResizing")
-                Text(String(localized: "Resize shared edges to resize neighboring windows tiled together. Drag a tiled window's title bar to restore its earlier size. Moving it to another Desktop or display detaches it. This works without Window Gestures or multi-window selection."))
+                Text(String(localized: "Resize shared edges to resize neighboring windows tiled together. Drag a tiled window's title bar to restore its earlier size. Moving it to another Desktop or display detaches it."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 20)
@@ -106,7 +106,7 @@ private struct TilingSettingsSection: View {
                         ForEach(1 ... 6, id: \.self) { Text("\($0)").tag($0) }
                     }
                     .settingsSearchTarget("gestures.maximumTilingColumns")
-                    Text(String(localized: "The first selected window leads. Limits apply to Auto Tile and drag-to-tile. Set both limits to 1 to move windows without resizing."))
+                    Text(String(localized: "Limits apply to Auto Tile. Set both limits to 1 to move windows without resizing."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)

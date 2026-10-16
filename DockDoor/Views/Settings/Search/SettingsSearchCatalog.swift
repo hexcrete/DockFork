@@ -2031,7 +2031,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.enableWindowDragTiling",
             title: String(localized: "Enable dragging windows together to tile them"),
-            description: String(localized: "Drag a window preview onto another preview to tile them on the target window's Desktop. Checked windows are included in selection order. Dragged windows are always brought to the front."),
+            description: String(localized: "Drag a window preview onto another preview to tile them on the target window's Desktop. Checked windows are included in selection order."),
             keywords: ["drag", "drop", "tile", "selection", "mouse", "windows"],
             tab: "Keybinds",
             section: String(localized: "Mouse Actions"),
@@ -2162,7 +2162,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.enableMultiWindowSelection",
             title: String(localized: "Enable multi-window selection"),
-            description: String(localized: "Check windows using selection controls or the Toggle Window Selection action. Selecting windows follows the session's normal dismissal behavior unless Keep Window Switcher open when windows are selected is enabled. Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection. Mixed selections minimize or hide when any applicable target is unminimized or visible; otherwise they restore or unhide. Fullscreen exits all selected fullscreen windows. If none are fullscreen, only the clicked or highlighted window enters fullscreen."),
+            description: String(localized: "Select windows using checkboxes or the Toggle Window Selection action."),
             keywords: ["selection", "multiple", "check", "batch", "escape"],
             tab: "Keybinds",
             section: String(localized: "Window Selection"),
@@ -2180,7 +2180,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.showWindowSelectionSummary",
             title: String(localized: "Show selection summary"),
-            description: String(localized: "Show the selection count with Select All, Clear Selection and Tile Windows buttons. Tile Windows automatically arranges selected windows. Window Switcher also shows selected-app icons. Select All adds currently displayed, filtered windows to the selection."),
+            description: String(localized: "Show the selection count with Select All, Clear Selection, and Tile Windows buttons."),
             keywords: ["selection", "count", "clear", "header", "all", "filtered"],
             tab: "Keybinds",
             section: String(localized: "Window Selection"),
@@ -2189,7 +2189,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.showUncheckedSelectionCheckboxes",
             title: String(localized: "Show unchecked selection checkboxes"),
-            description: String(localized: "Checked controls stay visible. Preview hover includes keyboard highlighting. In Compact Mode, On title hover uses icon hover; other options use preview hover. Hidden titles outside Compact Mode fall back to preview hover."),
+            description: String(localized: "Checkboxes remain visible while checked."),
             keywords: ["selection", "checkbox", "title", "icon"],
             tab: "Keybinds",
             section: String(localized: "Window Selection"),
@@ -2198,7 +2198,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.selectionCheckboxVisibility",
             title: String(localized: "Checkbox visibility:"),
-            description: String(localized: "Checked controls stay visible. Preview hover includes keyboard highlighting. In Compact Mode, On title hover uses icon hover; other options use preview hover. Hidden titles outside Compact Mode fall back to preview hover."),
+            description: String(localized: "Checkboxes remain visible while checked."),
             keywords: ["selection", "checkbox", "hover", "title", "visibility"],
             tab: "Keybinds",
             section: String(localized: "Window Selection"),
@@ -2207,7 +2207,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.linkTiledWindowsWhenResizing",
             title: String(localized: "Link tiled windows when resizing"),
-            description: String(localized: "Resize shared edges to resize neighboring windows tiled together. Drag a tiled window's title bar to restore its earlier size. Moving it to another Desktop or display detaches it. This works without Window Gestures or multi-window selection."),
+            description: String(localized: "Resize shared edges to resize neighboring windows tiled together. Drag a tiled window's title bar to restore its earlier size. Moving it to another Desktop or display detaches it."),
             keywords: ["linked", "resize", "tile", "snap", "restore", "neighbors", "shared", "edge"],
             tab: "Keybinds",
             section: String(localized: "Tiling"),
@@ -2216,7 +2216,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.maximumTilingRows",
             title: String(localized: "Maximum tiling rows:"),
-            description: String(localized: "The first selected window leads. Limits apply to Auto Tile and drag-to-tile. Set both limits to 1 to move windows without resizing."),
+            description: String(localized: "Limits apply to Auto Tile. Set both limits to 1 to move windows without resizing."),
             keywords: ["selection", "tile", "grid", "rows", "capacity"],
             tab: "Keybinds",
             section: String(localized: "Tiling"),
@@ -2225,7 +2225,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.maximumTilingColumns",
             title: String(localized: "Maximum tiling columns:"),
-            description: String(localized: "The first selected window leads. Limits apply to Auto Tile and drag-to-tile. Set both limits to 1 to move windows without resizing."),
+            description: String(localized: "Limits apply to Auto Tile. Set both limits to 1 to move windows without resizing."),
             keywords: ["selection", "tile", "grid", "columns", "capacity"],
             tab: "Keybinds",
             section: String(localized: "Tiling"),
@@ -2243,7 +2243,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.fillActionsAutoTileSelection",
             title: String(localized: "\"Fill\" actions on multiple selected windows trigger \"Auto Tile\""),
-            description: String(localized: "Use actions such as Fill Left Half to arrange selected windows together, starting from that direction. When disabled, each window fills the requested area independently on its own Desktop and display. Auto Tile and drag-to-tile are unaffected."),
+            description: String(localized: "Use actions such as \"Fill Left Half\" to arrange selected windows together, starting from that direction. When disabled, each window fills the requested area on its own Space."),
             keywords: ["fill", "half", "quarter", "tile", "multiple", "selection", "direction"],
             tab: "Keybinds",
             section: String(localized: "Tiling"),
