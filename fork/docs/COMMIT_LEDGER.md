@@ -2,9 +2,9 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **107 later commits through `dc077d15294ef2f6a852f853dbfca38836959c64`: 299 total, 294 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **111 later commits through `86c33061b7267fcb41d05117d8afa93c7aa4e7b3`: 303 total, 298 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
 
-The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The latest upstream integration and its ten incoming commits are included. The follow-up bookkeeping change after this explicit boundary must be added in the next update. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The discarded header selection-scoping experiment was never committed.
+The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The latest upstream integration and its ten incoming commits are included. The notification-timing, constrained-foregrounding and released-drag fixes are included through `86c3306`, with their exact hashes and changed-file counts. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The discarded header selection-scoping experiment was never committed.
 
 The inventory uses each commit's patch, changed-file list, added declarations/settings, and the current implementation for user-facing claims. It is a historical/documentation audit, not a fresh safety or performance certification of every intermediate revision. A Git patch-equivalence check found no exact equivalent among the 189 non-merge commits against the chosen upstream snapshot; that does not mean every broad feature concept is unique to this fork.
 
@@ -341,7 +341,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..dc077d1`, extended and verified against Git October 15, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..86c3306`, extended and verified against Git October 16, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -509,6 +509,12 @@ Coverage: `9efa1cc..dc077d1`, extended and verified against Git October 15, 2026
 | [`ce9b672`](https://github.com/hexcrete/DockFork/commit/ce9b6725185bd365eff7846cb90a6b6439606017) | docs: record linked tiling implementation and validation. Validation and scope are recorded in the related guide entry. | Documentation | 3 |
 
 | [`dc077d1`](https://github.com/hexcrete/DockFork/commit/dc077d15294ef2f6a852f853dbfca38836959c64) | fix: preserve snap notifications across record replacement. Validation and scope are recorded in the related guide entry. | Fix / Integration | 6 |
+
+| [`c73e11b`](https://github.com/hexcrete/DockFork/commit/c73e11b862710784170efc1f42b82a393775457f) | perf: skip unused tiling restore-frame bookkeeping. Validation and scope are recorded in the related guide entry. | Support / Performance | 6 |
+
+| [`8dac615`](https://github.com/hexcrete/DockFork/commit/8dac615f9c6178d171f5d993aa927ed38b930614) | fix: preserve native resize intent across queued notifications. Capture native pointer state before asynchronous processing and preserve coalesced resize intent. | Fix / Gestures | 3 |
+| [`a23c0d6`](https://github.com/hexcrete/DockFork/commit/a23c0d65dba367670fbedd3531e86ba2bfef6c6d) | fix: foreground size-constrained tiled windows. Distinguish accepted constrained geometry from failed writes; foreground accepted windows without false confirmation or linked enrollment. | Fix / Tiling | 4 |
+| [`86c3306`](https://github.com/hexcrete/DockFork/commit/86c33061b7267fcb41d05117d8afa93c7aa4e7b3) | fix: let released preview drops finish after dismissal. Coordinator-owned latest-wins drops survive preview teardown; remove duplicate single-window placement and verify cancellation/cleanup. | Fix / Dragging | 4 |
 
 ## Upstream Attribution and Contribution Boundaries
 

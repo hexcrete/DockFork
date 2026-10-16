@@ -1,12 +1,14 @@
 # DockFork 0.2.0 Prerelease Draft
 
-Status: preparation only, October 15, 2026. Includes upstream 1.41.0 integration `229d38a`, with a follow-up adapting gesture minimization to the existing confirmed-state pipeline. No 0.2.0 Release candidate, tag, upload or publication is recorded.
+Status: preparation only, October 16, 2026, reviewed through `86c3306`. Includes upstream 1.41.0 integration `229d38a`, with a follow-up adapting gesture minimization to the existing confirmed-state pipeline. No 0.2.0 Release candidate, tag, upload or publication is recorded.
 
 **Release packaging is on hold until the updated showcase configuration is supplied and reviewed, and the user authorizes the build.** The existing preset is unchanged. Screenshots and recordings are deferred and are not a release gate.
 
 ## Release Notes
 
 DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). This second testing release adds ordered multi-window selection, group actions and tiling to the existing preview, shortcut and Space-management features.
+
+Released drag placement now survives preview teardown during movement or activation. A newer drag cancels stale work; single- and multi-window free drops share confirmed placement. A reproduced four-window cancellation is covered by regression tests; user-reported Dock verification and two complete four-window foreground passes are recorded.
 
 ### New Since 0.1.0
 
@@ -31,6 +33,10 @@ Integration follow-up 2: Restrict linked resizing to live same-Desktop neighbors
 Integration follow-up 3: Bound snap-record lifetime and avoid retaining preview images. Records now keep identity, owner PID, AX handle, frames and membership without screenshot-bearing WindowInfo values. A bounded window-ID index routes physical-owner notifications correctly. Existing cache-removal/metadata/termination paths prune records without holding cache locks during registry operations; all Space moves detach through the shared low-level operation. Production-registry weak-image, metadata invalidation and cleanup checks passed, as did the signed Debug build/relaunch. The locked session exposes no live windows; native interaction tests remain pending.
 
 Integration follow-up 4: Optional linked resizing for confirmed DockFork tiling batches. Link tiled windows when resizing defaults Off under Keybinds > Window Selection & Tiling and is independent of multi-selection and Window Gestures. Confirmed Auto Tile, selected Half/Quarter, drag-to-tile and scripting placements register separate overflow batches; preserve valid original restore sizes, detach moves/invalid members and keep native neighbor resizing nonactivating. A connected-edge solver handles three-window T junctions without joining disconnected collinear windows. Registration and extra frame reads are gated by the option; existing AX notifications are reused with no new event tap or polling. Mixed-origin groups remain separate, and disabling one option removes only its own records. Source-adapter and automated geometry checks pass; locked-session native testing remains pending.
+
+Tiling foreground follow-up: honor foregrounding for AX-accepted but size-constrained placements, while preserving unconfirmed-layout errors and excluding those windows from linked resizing. App minimum sizes are still respected.
+
+Linked-resize timing follow-up: preserve pointer intent from AX notification receipt so releasing the mouse while work is queued does not discard the update. Automated regression passes; native manual validation remains pending.
 
 Linked-resize follow-up: skip restore-frame bookkeeping for 1×1 no-resize tiling and already-superseded requests; preserve the first resize notification when a snap record is replaced while earlier work is queued. Production-source adapter coverage now includes full tiling/registration, geometry stress, cancellation and lifecycle cleanup. Native locked-session validation remains pending.
 
