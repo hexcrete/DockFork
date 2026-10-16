@@ -625,3 +625,5 @@ Validation, October 16: signed Debug build, signature verification and exact-pat
 ## Release Packaging: Exclude Coverage Instrumentation
 
 The first October 16 Release build from `383d117` passed build, signatures and source/asset correspondence, but failed the stricter binary privacy scan: Xcode had enabled code-coverage instrumentation in package dependencies, embedding local temporary build-directory paths in profiling symbols. That candidate is rejected for distribution. Release packaging now explicitly disables code coverage for the build and dependencies, leaving Debug mode, application behavior and the source project unchanged. A new committed-source candidate must pass the binary scan before handoff.
+
+Xcode accepts the coverage override as `CLANG_ENABLE_CODE_COVERAGE=NO` for ordinary builds. Its separate `-enableCodeCoverage` flag is test-only and was rejected before compilation in `56192c3`; packaging therefore uses the build-setting override alone. No candidate was produced from that rejected invocation.
