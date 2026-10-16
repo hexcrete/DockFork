@@ -47,7 +47,12 @@ final class WindowSnapRegistry: @unchecked Sendable {
     private let lock = NSLock()
     private var records: [PreviewWindowIdentity: Record] = [:]
     private var identitiesByWindowID: [CGWindowID: PreviewWindowIdentity] = [:]
-    private var pendingChanges: [PreviewWindowIdentity: UUID] = [:]
+    private struct PendingChange {
+        let token: UUID
+        var mouseIsDown: Bool
+    }
+
+    private var pendingChanges: [PreviewWindowIdentity: PendingChange] = [:]
 
     var hasRecords: Bool { lock.withLock { !records.isEmpty } }
 
@@ -94,24 +99,30 @@ final class WindowSnapRegistry: @unchecked Sendable {
         return record
     }
 
-    func windowFrameChanged(_ element: AXUIElement) {
+    func windowFrameChanged(_ element: AXUIElement, mouseIsDown: Bool) {
         guard hasRecords else { return }
         var pid: pid_t = 0
         guard AXUIElementGetPid(element, &pid) == .success, let windowID = try? element.cgWindowId() else { return }
         guard let identity = lock.withLock({ identitiesByWindowID[windowID] }) else { return }
         let token: UUID? = lock.withLock {
-            guard let record = records[identity], record.ownerPID == pid, pendingChanges[identity] != record.token else { return nil }
-            pendingChanges[identity] = record.token
+            guard let record = records[identity], record.ownerPID == pid else { return nil }
+            if var pending = pendingChanges[identity], pending.token == record.token {
+                pending.mouseIsDown = pending.mouseIsDown || mouseIsDown
+                pendingChanges[identity] = pending
+                return nil
+            }
+            pendingChanges[identity] = PendingChange(token: record.token, mouseIsDown: mouseIsDown)
             return record.token
         }
         guard let token else { return }
         queue.async { [weak self] in
             guard let self else { return }
-            lock.withLock {
-                if self.pendingChanges[identity] == token { self.pendingChanges.removeValue(forKey: identity) }
+            let change = lock.withLock {
+                self.pendingChanges[identity]?.token == token ? self.pendingChanges.removeValue(forKey: identity) : nil
             }
+            guard let change else { return }
             guard let record = lock.withLock({ self.records[identity] }), record.token == token else { return }
-            handleFrameChange(record)
+            handleFrameChange(record, mouseIsDown: change.mouseIsDown)
         }
     }
 
@@ -185,13 +196,13 @@ final class WindowSnapRegistry: @unchecked Sendable {
         lock.withLock { records[record.identity]?.token == record.token && records[record.identity]?.snappedFrame == record.snappedFrame }
     }
 
-    private func handleFrameChange(_ record: Record) {
+    private func handleFrameChange(_ record: Record, mouseIsDown: Bool) {
         guard let window = resolve(record), let frame = window.currentWindowFrame(), isLive(record, window: window, frame: frame) else {
             replace(record, with: nil)
             return
         }
         guard !Self.matches(frame, record.snappedFrame) else { return }
-        guard CGEventSource.buttonState(.combinedSessionState, button: .left), isCurrent(record) else {
+        guard mouseIsDown, isCurrent(record) else {
             replace(record, with: nil)
             return
         }

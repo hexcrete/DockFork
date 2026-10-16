@@ -628,6 +628,12 @@ func axObserverCallback(observer: AXObserver, element: AXUIElement, notification
         key += "-\(windowID)"
     }
 
+    let tracksFrameChange = (notification == kAXWindowMovedNotification || notification == kAXWindowResizedNotification) &&
+        (Defaults[.enableWindowGestures] || Defaults[.linkTiledWindowsWhenResizing]) &&
+        WindowSnapRegistry.existing?.hasRecords == true
+    // Capture before either worker queue can outlive the native mouse gesture.
+    let mouseIsDown = tracksFrameChange && CGEventSource.buttonState(.combinedSessionState, button: .left)
+
     axObserverWorkQueue.async {
         if notification == kAXWindowCreatedNotification,
            let app = LauncherShortcutResolver.application(forProcessIdentifier: pid),
@@ -637,8 +643,8 @@ func axObserverCallback(observer: AXObserver, element: AXUIElement, notification
             return
         }
 
-        if notification == kAXWindowMovedNotification || notification == kAXWindowResizedNotification, Defaults[.enableWindowGestures] || Defaults[.linkTiledWindowsWhenResizing] {
-            WindowSnapRegistry.existing?.windowFrameChanged(element)
+        if tracksFrameChange {
+            WindowSnapRegistry.existing?.windowFrameChanged(element, mouseIsDown: mouseIsDown)
         }
 
         pendingNotifications[key]?.cancel()

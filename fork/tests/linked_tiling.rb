@@ -284,14 +284,14 @@ checks = <<~'SWIFT'
   _ = await WindowUtil.tilePreviewWindows(race, direction: .neutral)
   let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
   busy[0].axElement.frameReadHook = { entered.signal(); release.wait() }
-  registry.windowFrameChanged(busy[0].axElement)
+  registry.windowFrameChanged(busy[0].axElement, mouseIsDown: CGEventSource.pressed)
   precondition(entered.wait(timeout: .now() + 2) == .success)
   // Queue an old generation behind the blocked worker, then replace it before it runs.
-  registry.windowFrameChanged(race[0].axElement)
+  registry.windowFrameChanged(race[0].axElement, mouseIsDown: CGEventSource.pressed)
   let origin = registry.record(for: race[1])!.origin
   registry.snapped(race[0], restoreFrame: race[0].axElement.frame, origin: origin)
   race[0].axElement.frame.size.width += 100
-  registry.windowFrameChanged(race[0].axElement)
+  registry.windowFrameChanged(race[0].axElement, mouseIsDown: CGEventSource.pressed)
   release.signal()
   for _ in 0..<200 {
    if registry.record(for: race[1])?.snappedFrame.minX == 1000 { break }
@@ -301,6 +301,37 @@ checks = <<~'SWIFT'
   precondition(race[1].axElement.frame.minX == 1000, "An old notification must not suppress a replacement record's resize")
   clear(busy + race)
   print("PASS lifecycle: replacement record notifications survive queued stale generations")
+  Model.reset(); let delayed = windows(2), blocker = windows(1)
+  _ = await WindowUtil.tilePreviewWindows(delayed, direction: .neutral)
+  _ = await WindowUtil.tilePreviewWindows(blocker, direction: .neutral)
+  let blocked = DispatchSemaphore(value: 0), resume = DispatchSemaphore(value: 0)
+  blocker[0].axElement.frameReadHook = { blocked.signal(); resume.wait() }
+  registry.windowFrameChanged(blocker[0].axElement, mouseIsDown: CGEventSource.pressed)
+  precondition(blocked.wait(timeout: .now() + 2) == .success)
+  registry.windowFrameChanged(delayed[0].axElement, mouseIsDown: false)
+  delayed[0].axElement.frame.size.width += 100
+  registry.windowFrameChanged(delayed[0].axElement, mouseIsDown: CGEventSource.pressed)
+  CGEventSource.pressed = false
+  registry.windowFrameChanged(delayed[0].axElement, mouseIsDown: false)
+  resume.signal()
+  for _ in 0..<200 {
+   if registry.record(for: delayed[1])?.snappedFrame.minX == 1000 { break }
+   try? await Task.sleep(nanoseconds: 5_000_000)
+  }
+  blocker[0].axElement.frameReadHook = nil
+  precondition(delayed[1].axElement.frame.minX == 1000, "Releasing the mouse after notification must not discard the final linked resize")
+  clear(delayed + blocker); CGEventSource.pressed = true
+  Model.reset(); let unrelated = windows(2)
+  _ = await WindowUtil.tilePreviewWindows(unrelated, direction: .neutral)
+  unrelated[0].axElement.frame.size.width += 100
+  registry.windowFrameChanged(unrelated[0].axElement, mouseIsDown: false)
+  for _ in 0..<200 {
+   if registry.record(for: unrelated[0]) == nil { break }
+   try? await Task.sleep(nanoseconds: 5_000_000)
+  }
+  precondition(registry.record(for: unrelated[0]) == nil && unrelated[1].axElement.frame.minX == 900)
+  clear(unrelated)
+  print("PASS quick resize: coalesced pointer changes survive release; unrelated non-pointer changes detach")
   let lifecycle = windows(3)
   _ = await WindowUtil.tilePreviewWindows(lifecycle, direction: .neutral)
   lifecycle[0].app.isHidden = true; lifecycle[1].axElement.minimized = true; lifecycle[2].axElement.full = true
