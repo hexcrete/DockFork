@@ -164,7 +164,7 @@
 
         <!-- Window Positioning Commands -->
 
-        <command name="position window" code="DKDRpswn" description="Position one window on its display, or tile an ordered window list on the current Desktop using the leading direction.">
+        <command name="position window" code="DKDRpswn" description="Position windows independently on their displays. Ordered lists use direction-aware Auto Tile on the current Desktop only when the Fill actions Auto Tile setting is enabled.">
             <cocoa class="PositionWindowCommand"/>
             <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
                 <type type="text"/>
@@ -186,7 +186,7 @@
             </parameter>
             <result type="text" description="'ok' after completion, or an error. Successful partial changes are not rolled back."/>
         </command>
-        <command name="tile windows" code="DKDRtlws" description="Tile an ordered group on the current Desktop. Overflow groups repeat the layout. A 1x1 limit moves without resizing.">
+        <command name="tile windows" code="DKDRtlws" description="Tile an ordered group on the current Desktop. Extra windows stack in the same cells, or remain untouched when Tile only what fits is enabled. A 1x1 limit moves without resizing.">
             <cocoa class="TileWindowsCommand"/>
             <direct-parameter optional="yes" description="List of window IDs in leading order. If omitted, use checked windows, or the active window when none are checked.">
                 <type type="text" list="yes"/>

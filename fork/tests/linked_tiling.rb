@@ -23,14 +23,15 @@ import ApplicationServices
 typealias CGSSpaceID = UInt64
 struct Key<T> { let value: T }
 enum Defaults {
- static var links = true, gestures = true, rows = 2, columns = 3
+ static var links = true, gestures = true, rows = 2, columns = 3, onlyFits = false, foreground = true
  static subscript<T>(_ key: Key<T>) -> T { key.value }
 }
 extension Key where T == Bool {
  static var debugMode: Self { Self(value: false) }
+ static var tileOnlyWhatFits: Self { Self(value: Defaults.onlyFits) }
  static var enableWindowGestures: Self { Self(value: Defaults.gestures) }
  static var linkTiledWindowsWhenResizing: Self { Self(value: Defaults.links) }
- static var moveResizeBringToForeground: Self { Self(value: true) }
+ static var moveResizeBringToForeground: Self { Self(value: Defaults.foreground) }
 }
 extension Key where T == Int {
  static var maximumTilingRows: Self { Self(value: Defaults.rows) }
@@ -129,6 +130,11 @@ enum DebugLogger { static func log(_ label: String, details: String) {} }
  static func reset() { placements = 0; moves = 0; focus = []; afterPlacement = nil; active = true }
 }
 enum WindowUtil {
+ static var activeSpaces: Set<Int> = [1]
+ static func currentActiveSpaceIDs() -> Set<Int> { activeSpaces }
+ static func windowBelongsToActiveSpace(_ window: WindowInfo, activeSpaceIDs: Set<Int>) -> Bool {
+  !Set(window.axElement.spaces.map(Int.init)).isDisjoint(with: activeSpaceIDs)
+ }
  static func windowInfo(for element: FakeAX, app: App, windowID: CGWindowID) -> WindowInfo? { WindowInfo(id: windowID, app: app, axElement: element) }
  @MainActor static func performConfirmedSpaceMove(_ window: WindowInfo, to destination: ManagedSpaceDestination,
     dismissPreviews: (() -> Void)?, switchToDestination: Bool,
@@ -152,6 +158,12 @@ abort 'Ghost cleanup must not cancel a released drop' if block(drag, '    func e
 source += "\n@MainActor final class DragPreviewCoordinator {\nprivate var dropToken: UUID?\nprivate var dropTask: Task<Void, Never>?\n"
 %w[isCompletingDrop completeDrop].each { |name| source += block(drag, "    func #{name}(") + "\n" }
 source += block(drag, '    private func cancelPendingDrop(') + "\n}\n"
+catalog = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
+source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize\n"
+source += block(catalog, '    var tilingDirection:') + "\n" + block(catalog, '    func autoTilingDirection(') + "\n}\n"
+source += "\nextension WindowUtil {\n" + block(util, '    static func canBringWindowToFrontWithoutSpaceSwitch(')
+source += "\n@MainActor static func finishIndependentFill(_ action: WindowAction, windows: [WindowInfo]) async -> PreviewBatchResult {\nvar result = PreviewBatchResult(succeeded: windows)\n"
+source += block(util, '        if action.tilingDirection != nil, Defaults[.moveResizeBringToForeground]') + "\nreturn result\n}\n}\n"
 
 checks = <<~'SWIFT'
 @main struct Checks {
@@ -185,6 +197,8 @@ checks = <<~'SWIFT'
    }
    let capacity = rows * columns
    if capacity > 1 {
+    let cells = Array(frames.prefix(min(count, capacity)))
+    for index in frames.indices { precondition(frames[index] == cells[index % cells.count]) }
     for offset in stride(from: 0, to: count, by: capacity) {
      let group = Array(frames[offset..<min(count, offset + capacity)].compactMap { $0 })
      for i in group.indices { for j in group.indices where i < j {
@@ -195,6 +209,29 @@ checks = <<~'SWIFT'
    cases += 1
   } } } }
   print("PASS geometry: \(cases) layouts, 1...36 windows, all limits/directions in \(Date().timeIntervalSince(start))s")
+  for action in WindowAction.allCases {
+   precondition(action.autoTilingDirection(windowCount: 1, fillActionsAutoTile: false) == (action == .autoTileSelectedWindows ? .neutral : nil))
+   precondition(action.autoTilingDirection(windowCount: 1, fillActionsAutoTile: true) == (action == .autoTileSelectedWindows ? .neutral : nil))
+   precondition(action.autoTilingDirection(windowCount: 4, fillActionsAutoTile: true) == action.tilingDirection)
+   precondition(action.autoTilingDirection(windowCount: 4, fillActionsAutoTile: false) == (action == .autoTileSelectedWindows ? .neutral : nil))
+  }
+  print("PASS action routing: each Fill direction opts into group Auto Tile; explicit Auto Tile and single-window actions remain independent")
+  let mixedSpaces = windows(3)
+  mixedSpaces[1].axElement.spaces = [2]
+  for active: Set<Int> in [[1], [1, 2], []] {
+   Model.reset(); WindowUtil.activeSpaces = active
+   let result = await WindowUtil.finishIndependentFill(.fillLeftHalf, windows: mixedSpaces)
+   let eligible = mixedSpaces.reversed().filter { !Set($0.axElement.spaces.map(Int.init)).isDisjoint(with: active) }
+   precondition(result.succeeded.count == 3 && result.failed.isEmpty && Model.focus == eligible.map(\.id) && Model.moves == 0)
+   precondition(mixedSpaces[1].axElement.spaces == [2])
+  }
+  WindowUtil.activeSpaces = [1]; Defaults.foreground = false; Model.reset()
+  _ = await WindowUtil.finishIndependentFill(.fillLeftHalf, windows: mixedSpaces)
+  precondition(Model.focus.isEmpty)
+  Defaults.foreground = true
+  _ = await WindowUtil.finishIndependentFill(.minimize, windows: mixedSpaces)
+  precondition(Model.focus.isEmpty)
+  print("PASS independent Fill foregrounding: off-Space windows are not activated; all displays' active Spaces, unknown topology and foreground Off are respected")
   var boundaryCases = 0
   for count in 2...36 {
    let frames = PreviewTilingLayout.frames(count: count, in: bounds, maximumRows: 6, maximumColumns: 6).map { $0! }
@@ -242,6 +279,23 @@ checks = <<~'SWIFT'
    clear(group)
   }
   print("PASS integration: 36 complete tiling/retiling requests, original restore sizes, overflow isolation and foreground preference")
+  for limit in [(2, 2), (1, 1)] {
+   Model.reset(); Defaults.rows = limit.0; Defaults.columns = limit.1; Defaults.onlyFits = true
+   let limited = windows(7), capacity = limit.0 * limit.1
+   let omitted = Array(limited.dropFirst(capacity))
+   let originals = omitted.map { $0.axElement.frame }
+   for window in omitted { window.axElement.spaces = [2]; window.axElement.minimized = true; window.app.isHidden = true }
+   let result = await WindowUtil.tilePreviewWindows(limited, direction: .neutral)
+   precondition(result.succeeded.count == capacity && result.failed.isEmpty && Model.moves == 0)
+   precondition(Model.focus == limited.prefix(capacity).reversed().map(\.id))
+   for (index, window) in omitted.enumerated() {
+    precondition(window.axElement.writes == 0 && window.axElement.reads == 0 && window.axElement.frame == originals[index])
+    precondition(window.axElement.spaces == [2] && window.axElement.minimized && window.app.isHidden && registry.record(for: window) == nil)
+   }
+   clear(limited)
+  }
+  Defaults.rows = 2; Defaults.columns = 3; Defaults.onlyFits = false
+  print("PASS capacity limits: overflow receives no frame reads/writes, Space moves, reveals, focus or linked records, including 1x1 move-only")
   Model.reset(); let constrained = windows(2); constrained[0].axElement.minimumWidth = 1000
   let constrainedResult = await WindowUtil.tilePreviewWindows(constrained, direction: .neutral)
   precondition(constrainedResult.failed == [PreviewWindowIdentity(constrained[0])])

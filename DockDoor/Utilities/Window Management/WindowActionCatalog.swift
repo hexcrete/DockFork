@@ -13,6 +13,11 @@ struct WindowActionGroup: Identifiable {
 }
 
 extension WindowAction {
+    func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> PreviewTilingLayout.Direction? {
+        guard self == .autoTileSelectedWindows || (windowCount > 1 && fillActionsAutoTile) else { return nil }
+        return tilingDirection
+    }
+
     var tilingDirection: PreviewTilingLayout.Direction? {
         switch self {
         case .autoTileSelectedWindows: .neutral

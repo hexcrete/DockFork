@@ -403,6 +403,7 @@ enum DockDoorCommands {
         lines.append("  position window \"12345\" to \"top-right\"")
         lines.append("  auto tile window \"active\"")
         lines.append("  tile windows {\"12345\", \"67890\"} to \"right\" with bringing to front")
+        lines.append("  Position lists follow the Fill actions Auto Tile setting; explicit tile windows always uses Auto Tile. Overflow follows Tile only what fits.")
         lines.append("  toggle window selection \"active\" -- requires an open preview and multi-window selection enabled")
         lines.append("  list spaces")
         lines.append("  switch to space 3")

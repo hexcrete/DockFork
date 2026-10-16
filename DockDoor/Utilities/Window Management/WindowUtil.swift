@@ -763,7 +763,9 @@ extension WindowUtil {
     @MainActor
     static func performPreviewBatchAction(_ action: WindowAction, on windows: [WindowInfo]) async -> PreviewBatchResult {
         guard !Task.isCancelled else { return PreviewBatchResult() }
-        if let direction = action.tilingDirection { return await tilePreviewWindows(windows, direction: direction) }
+        if let direction = action.autoTilingDirection(windowCount: windows.count, fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection]) {
+            return await tilePreviewWindows(windows, direction: direction)
+        }
         var result = PreviewBatchResult()
         let targets = action.batchTargets(from: windows)
         guard !targets.isEmpty else { result.failed = windows.map(PreviewWindowIdentity.init); return result }
@@ -830,6 +832,12 @@ extension WindowUtil {
             if succeeded { result.succeeded.append(window) }
             else { result.failed.append(PreviewWindowIdentity(window)) }
             await Task.yield()
+        }
+        if action.tilingDirection != nil, Defaults[.moveResizeBringToForeground] {
+            for window in result.succeeded.reversed() where canBringWindowToFrontWithoutSpaceSwitch(window) {
+                guard !Task.isCancelled else { return result }
+                if await !window.bringToFrontConfirmed() { result.failed.append(PreviewWindowIdentity(window)) }
+            }
         }
         return result
     }
@@ -1065,17 +1073,18 @@ extension WindowUtil {
         let maximumRows = Defaults[.maximumTilingRows]
         let maximumColumns = Defaults[.maximumTilingColumns]
         let capacity = min(6, max(1, maximumRows)) * min(6, max(1, maximumColumns))
+        let targets = Defaults[.tileOnlyWhatFits] ? Array(windows.prefix(capacity)) : windows
         let linksEnabled = Defaults[.linkTiledWindowsWhenResizing] && capacity > 1
         var restoreFrames: [PreviewWindowIdentity: CGRect] = [:]
         if linksEnabled {
-            for window in windows where !window.isWindowlessApp && !window.app.isTerminated {
+            for window in targets where !window.isWindowlessApp && !window.app.isTerminated {
                 restoreFrames[PreviewWindowIdentity(window)] = WindowSnapRegistry.existing?.liveRecord(for: window)?.restoreFrame ?? window.currentWindowFrame()
             }
         }
         var batches: [Int: UUID] = [:]
         var registrations: [(WindowInfo, CGRect, UUID)] = []
         var frames: [CGRect?]?
-        let result = await performWindowGroupPlacement(windows, destination: destination,
+        let result = await performWindowGroupPlacement(targets, destination: destination,
                                                        raiseWindows: bringToFront ?? Defaults[.moveResizeBringToForeground],
                                                        isRequestActive: isRequestActive)
         { window, index, count in

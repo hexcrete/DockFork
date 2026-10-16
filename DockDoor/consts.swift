@@ -1063,6 +1063,8 @@ extension Defaults.Keys {
     static let linkTiledWindowsWhenResizing = Key<Bool>("linkTiledWindowsWhenResizing", default: false)
     static let maximumTilingRows = Key<Int>("maximumTilingRows", default: 2)
     static let maximumTilingColumns = Key<Int>("maximumTilingColumns", default: 3)
+    static let tileOnlyWhatFits = Key<Bool>("tileOnlyWhatFits", default: false)
+    static let fillActionsAutoTileSelection = Key<Bool>("fillActionsAutoTileSelection", default: false)
 
     // MARK: - Window Preview Keyboard Shortcuts
 

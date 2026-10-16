@@ -827,13 +827,15 @@ struct PreviewTilingLayoutTests {
         #expect(frames[2] == CGRect(x: -500, y: 600, width: 500, height: 400))
     }
 
-    @Test func limitsDisableResizingAndOverflowRepeatsTheLayout() {
+    @Test func limitsDisableResizingAndOverflowReusesCells() {
         #expect(PreviewTilingLayout.frames(count: 3, in: screen, maximumRows: 1, maximumColumns: 1) == [nil, nil, nil])
         let frames = PreviewTilingLayout.frames(count: 7, in: screen, maximumRows: 2, maximumColumns: 2)
         #expect(frames.count == 7)
         #expect(frames.prefix(4).allSatisfy { $0 != nil })
         #expect(frames.suffix(3).allSatisfy { $0 != nil })
-        #expect(frames[4] == CGRect(x: -1000, y: 200, width: 500, height: 800))
+        #expect(frames[4] == frames[0])
+        #expect(frames[5] == frames[1])
+        #expect(frames[6] == frames[2])
         #expect(PreviewTilingLayout.frames(count: 2, in: screen, maximumRows: Int.min, maximumColumns: Int.max).count == 2)
     }
 
@@ -875,15 +877,28 @@ struct PreviewTilingLayoutTests {
         }
     }
 
-    @Test func overflowUsesItsOwnCountAndRequestedDirection() {
+    @Test func overflowKeepsTheOriginalCellsAndRequestedDirection() {
         let auto = PreviewTilingLayout.frames(count: 5, in: screen, maximumRows: 2, maximumColumns: 2)
-        #expect(auto[4] == screen)
+        #expect(auto[4] == auto[0])
         let right = PreviewTilingLayout.frames(count: 5, in: screen, direction: .right, maximumRows: 2, maximumColumns: 2)
-        #expect(right[4] == CGRect(x: -500, y: 200, width: 500, height: 800))
+        #expect(right[4] == right[0])
         let topLeft = PreviewTilingLayout.frames(count: 6, in: screen, direction: .topLeft, maximumRows: 2, maximumColumns: 2)
         #expect(topLeft[4] == CGRect(x: -1000, y: 600, width: 500, height: 400))
         #expect(topLeft[5] == CGRect(x: -500, y: 600, width: 500, height: 400))
         #expect(PreviewTilingLayout.frames(count: 36, in: screen, maximumRows: 6, maximumColumns: 6).compactMap { $0 }.count == 36)
+    }
+
+    @Test func fillActionsOnlyAutoTileGroupsWhenEnabled() {
+        let actions: [WindowAction] = [.fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+                                       .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter]
+        for action in actions {
+            #expect(action.autoTilingDirection(windowCount: 3, fillActionsAutoTile: false) == nil)
+            #expect(action.autoTilingDirection(windowCount: 3, fillActionsAutoTile: true) == action.tilingDirection)
+            #expect(action.autoTilingDirection(windowCount: 1, fillActionsAutoTile: false) == nil)
+            #expect(action.autoTilingDirection(windowCount: 1, fillActionsAutoTile: true) == nil)
+        }
+        #expect(WindowAction.autoTileSelectedWindows.autoTilingDirection(windowCount: 3, fillActionsAutoTile: false) == .neutral)
+        #expect(WindowAction.minimize.autoTilingDirection(windowCount: 3, fillActionsAutoTile: true) == nil)
     }
 }
 

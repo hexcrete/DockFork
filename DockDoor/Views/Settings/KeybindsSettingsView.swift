@@ -10,6 +10,7 @@ struct KeybindsSettingsView: View {
                 PreviewPostActionBehaviorSection()
                 SpacesSettingsSection()
                 WindowSelectionSettingsSection()
+                TilingSettingsSection()
                 WindowSwitcherKeybindSection()
             }
         }
@@ -22,22 +23,13 @@ private struct WindowSelectionSettingsSection: View {
     @Default(.selectionCheckboxVisibility) private var visibility
     @Default(.showWindowSelectionSummary) private var showSummary
     @Default(.keepWindowSwitcherOpenWhenSelected) private var keepOpenWhenSelected
-    @Default(.linkTiledWindowsWhenResizing) private var linkTiledWindowsWhenResizing
-    @Default(.maximumTilingRows) private var maximumTilingRows
-    @Default(.maximumTilingColumns) private var maximumTilingColumns
 
     var body: some View {
-        SettingsGroup(header: "Window Selection & Tiling") {
+        SettingsGroup(header: "Window Selection") {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Enable multi-window selection", isOn: $enabled)
                     .settingsSearchTarget("gestures.enableMultiWindowSelection")
                 Text("Check windows using selection controls or the Toggle Window Selection action. Selecting windows follows the session's normal dismissal behavior unless Keep Window Switcher open when windows are selected is enabled. Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection. Mixed selections minimize or hide when any applicable target is unminimized or visible; otherwise they restore or unhide. Fullscreen exits all selected fullscreen windows. If none are fullscreen, only the clicked or highlighted window enters fullscreen.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 20)
-                Toggle(String(localized: "Link tiled windows when resizing"), isOn: $linkTiledWindowsWhenResizing)
-                    .settingsSearchTarget("gestures.linkTiledWindowsWhenResizing")
-                Text(String(localized: "Resize shared edges to resize neighboring windows tiled together. Drag a tiled window's title bar to restore its earlier size. Moving it to another Desktop or display detaches it. This works without Window Gestures or multi-window selection."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 20)
@@ -69,6 +61,43 @@ private struct WindowSelectionSettingsSection: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)
+                }
+            }
+        }
+        .onChange(of: enabled) { newValue in
+            if !newValue {
+                SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)
+            }
+        }
+    }
+}
+
+private struct TilingSettingsSection: View {
+    @Default(.fillActionsAutoTileSelection) private var fillActionsAutoTileSelection
+    @Default(.linkTiledWindowsWhenResizing) private var linkTiledWindowsWhenResizing
+    @Default(.maximumTilingRows) private var maximumTilingRows
+    @Default(.maximumTilingColumns) private var maximumTilingColumns
+    @Default(.tileOnlyWhatFits) private var tileOnlyWhatFits
+
+    var body: some View {
+        SettingsGroup(header: "Tiling") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle(String(localized: "\"Fill\" actions on multiple selected windows trigger \"Auto Tile\""), isOn: $fillActionsAutoTileSelection)
+                    .settingsSearchTarget("gestures.fillActionsAutoTileSelection")
+                Text(String(localized: "Use actions such as Fill Left Half to arrange selected windows together, starting from that direction. When disabled, each window fills the requested area independently on its own Desktop and display. Auto Tile and drag-to-tile are unaffected."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 20)
+                Toggle(String(localized: "Link tiled windows when resizing"), isOn: $linkTiledWindowsWhenResizing)
+                    .settingsSearchTarget("gestures.linkTiledWindowsWhenResizing")
+                Text(String(localized: "Resize shared edges to resize neighboring windows tiled together. Drag a tiled window's title bar to restore its earlier size. Moving it to another Desktop or display detaches it. This works without Window Gestures or multi-window selection."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 20)
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Auto Tile")
+                        .font(.headline)
                     Picker("Maximum tiling rows:", selection: $maximumTilingRows) {
                         ForEach(1 ... 6, id: \.self) { Text("\($0)").tag($0) }
                     }
@@ -77,7 +106,13 @@ private struct WindowSelectionSettingsSection: View {
                         ForEach(1 ... 6, id: \.self) { Text("\($0)").tag($0) }
                     }
                     .settingsSearchTarget("gestures.maximumTilingColumns")
-                    Text("The first checked window leads. Auto Tile Selected Windows and Half/Quarter actions arrange checked groups on the current Desktop. Set both limits to 1 to move windows without resizing. Overflowing groups repeat the same layout.")
+                    Text(String(localized: "The first selected window leads. Limits apply to Auto Tile and drag-to-tile. Set both limits to 1 to move windows without resizing."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 20)
+                    Toggle(String(localized: "Tile only what fits"), isOn: $tileOnlyWhatFits)
+                        .settingsSearchTarget("gestures.tileOnlyWhatFits")
+                    Text(String(localized: "Arrange only the first windows that fit within the row and column limits, leaving extra windows unchanged. When disabled, extra windows stack behind earlier windows in the same cells."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)
@@ -89,11 +124,6 @@ private struct WindowSelectionSettingsSection: View {
         }
         .onChange(of: linkTiledWindowsWhenResizing) { _ in
             WindowSnapRegistry.existing?.removeDisabledRecords()
-        }
-        .onChange(of: enabled) { newValue in
-            if !newValue {
-                SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)
-            }
         }
     }
 }

@@ -24,10 +24,9 @@ enum PreviewTilingLayout {
         guard rows != 1 || columns != 1 else { return Array(repeating: nil, count: count) }
         let capacity = rows * columns
         if count > capacity {
-            return stride(from: 0, to: count, by: capacity).flatMap { start in
-                frames(count: min(capacity, count - start), in: bounds, direction: direction,
-                       maximumRows: rows, maximumColumns: columns)
-            }
+            let cells = frames(count: capacity, in: bounds, direction: direction,
+                               maximumRows: rows, maximumColumns: columns)
+            return (0 ..< count).map { cells[$0 % capacity] }
         }
         let tiledCount = min(count, rows * columns)
         var normalized: [CGRect] = []
