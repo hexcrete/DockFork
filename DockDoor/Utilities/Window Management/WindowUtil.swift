@@ -1063,18 +1063,42 @@ extension WindowUtil {
         else { return PreviewBatchResult(failed: windows.map(PreviewWindowIdentity.init)) }
         let maximumRows = Defaults[.maximumTilingRows]
         let maximumColumns = Defaults[.maximumTilingColumns]
+        let linksEnabled = Defaults[.linkTiledWindowsWhenResizing]
+        var restoreFrames: [PreviewWindowIdentity: CGRect] = [:]
+        if linksEnabled {
+            for window in windows where !window.isWindowlessApp && !window.app.isTerminated {
+                restoreFrames[PreviewWindowIdentity(window)] = WindowSnapRegistry.existing?.liveRecord(for: window)?.restoreFrame ?? window.currentWindowFrame()
+            }
+        }
+        let capacity = min(6, max(1, maximumRows)) * min(6, max(1, maximumColumns))
+        var batches: [Int: UUID] = [:]
+        var registrations: [(WindowInfo, CGRect, UUID)] = []
         var frames: [CGRect?]?
-        return await performWindowGroupPlacement(windows, destination: destination,
-                                                 raiseWindows: bringToFront ?? Defaults[.moveResizeBringToForeground],
-                                                 isRequestActive: isRequestActive)
+        let result = await performWindowGroupPlacement(windows, destination: destination,
+                                                       raiseWindows: bringToFront ?? Defaults[.moveResizeBringToForeground],
+                                                       isRequestActive: isRequestActive)
         { window, index, count in
             if frames == nil {
                 frames = PreviewTilingLayout.frames(count: count, in: screen.snappingFrame, direction: direction,
                                                     maximumRows: maximumRows, maximumColumns: maximumColumns)
             }
             guard let frame = frames?[index] else { return true }
-            return await window.setWindowFrameConfirmed(frame, on: screen, isRequestActive: isRequestActive)
+            let placed = await window.setWindowFrameConfirmed(frame, on: screen, isRequestActive: isRequestActive)
+            if placed, linksEnabled, let restoreFrame = restoreFrames[PreviewWindowIdentity(window)] {
+                let batch = index / capacity
+                let token = batches[batch] ?? UUID()
+                batches[batch] = token
+                registrations.append((window, restoreFrame, token))
+            }
+            return placed
         }
+        if !Task.isCancelled, isRequestActive(), Defaults[.linkTiledWindowsWhenResizing], !registrations.isEmpty {
+            let registry = WindowSnapRegistry.shared
+            for (window, restoreFrame, batch) in registrations {
+                registry.snapped(window, restoreFrame: restoreFrame, origin: .tiling(batch), confirmedDestination: destination)
+            }
+        }
+        return result
     }
 
     @MainActor

@@ -52,9 +52,12 @@ class SpaceWindowCacheManager {
 
     private func flushCoordinatorChanges() {
         let batch = takePendingCoordinatorChanges()
-        if let registry = WindowSnapRegistry.existing {
-            for window in batch.removed {
-                registry.remove(PreviewWindowIdentity(window))
+        if let registry = WindowSnapRegistry.existing, registry.hasRecords {
+            for (pid, removed) in Dictionary(grouping: batch.removed, by: { $0.app.processIdentifier }) {
+                let remaining = Set(readCache(pid: pid).map(\.id))
+                for window in removed where !remaining.contains(window.id) {
+                    registry.remove(PreviewWindowIdentity(window))
+                }
             }
             registry.reconcileCachedWindows(batch.updated)
         }

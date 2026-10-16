@@ -22,6 +22,7 @@ private struct WindowSelectionSettingsSection: View {
     @Default(.selectionCheckboxVisibility) private var visibility
     @Default(.showWindowSelectionSummary) private var showSummary
     @Default(.keepWindowSwitcherOpenWhenSelected) private var keepOpenWhenSelected
+    @Default(.linkTiledWindowsWhenResizing) private var linkTiledWindowsWhenResizing
     @Default(.maximumTilingRows) private var maximumTilingRows
     @Default(.maximumTilingColumns) private var maximumTilingColumns
 
@@ -31,6 +32,12 @@ private struct WindowSelectionSettingsSection: View {
                 Toggle("Enable multi-window selection", isOn: $enabled)
                     .settingsSearchTarget("gestures.enableMultiWindowSelection")
                 Text("Check windows using selection controls or the Toggle Window Selection action. Selecting windows follows the session's normal dismissal behavior unless Keep Window Switcher open when windows are selected is enabled. Dock previews retain normal hover dismissal. Escape or clicking outside closes previews and clears selection. Mixed selections minimize or hide when any applicable target is unminimized or visible; otherwise they restore or unhide. Fullscreen exits all selected fullscreen windows. If none are fullscreen, only the clicked or highlighted window enters fullscreen.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 20)
+                Toggle(String(localized: "Link tiled windows when resizing"), isOn: $linkTiledWindowsWhenResizing)
+                    .settingsSearchTarget("gestures.linkTiledWindowsWhenResizing")
+                Text(String(localized: "Resize shared edges to resize neighboring windows tiled together. Drag a tiled window's title bar to restore its earlier size. Moving it to another Desktop or display detaches it. This works without Window Gestures or multi-window selection."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, 20)
@@ -79,6 +86,9 @@ private struct WindowSelectionSettingsSection: View {
                     }
                 }
             }
+        }
+        .onChange(of: linkTiledWindowsWhenResizing) { _ in
+            WindowSnapRegistry.existing?.removeDisabledRecords()
         }
         .onChange(of: enabled) { newValue in
             if !newValue {

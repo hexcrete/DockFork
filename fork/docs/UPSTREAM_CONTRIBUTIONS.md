@@ -47,6 +47,8 @@ The October 15 merge includes upstream 1.41.0 through `3e08721`, including its n
 - No PR creation, edits, comments, or other posted PR text without human review and approval. Use a human-owned account, not an autonomous bot submission.
 - Keep contributions current and respond to review; the maintainer closes stale conflicted or unanswered PRs.
 
+The linked-tiling follow-up contains separable upstream gesture correctness work: confirmed restoration, genuine same-Desktop adjacency and snap-record lifetime cleanup. The optional batch-tiling enrollment depends on fork tiling and requires separate scope agreement. Extract these pieces independently and exclude fork publication records; isolated tests and signed Debug validation do not replace upstream human/Xcode gates.
+
 ## Submission Order
 
 Start with a small reproducible correctness fix the maintainer agrees is useful. Extract its minimal dependencies, adapt preferences and defaults, and validate that exact patch. Discuss larger feature families separately after this first contribution, rather than treating the showcase or exhaustive commit ledger as a proposed merge request.

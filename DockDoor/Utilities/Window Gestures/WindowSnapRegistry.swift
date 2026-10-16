@@ -1,8 +1,22 @@
 import AppKit
 import ApplicationServices
+import Defaults
 
 final class WindowSnapRegistry: @unchecked Sendable {
+    enum Origin: Equatable {
+        case gesture
+        case tiling(UUID)
+
+        var isEnabled: Bool {
+            switch self {
+            case .gesture: Defaults[.enableWindowGestures]
+            case .tiling: Defaults[.linkTiledWindowsWhenResizing]
+            }
+        }
+    }
+
     struct Record {
+        let origin: Origin
         let identity: PreviewWindowIdentity
         let token = UUID()
         let element: AXUIElement
@@ -35,19 +49,23 @@ final class WindowSnapRegistry: @unchecked Sendable {
     private var identitiesByWindowID: [CGWindowID: PreviewWindowIdentity] = [:]
     private var pendingChanges: Set<PreviewWindowIdentity> = []
 
+    var hasRecords: Bool { lock.withLock { !records.isEmpty } }
+
     func record(for window: WindowInfo?) -> Record? {
         guard let window else { return nil }
         return lock.withLock { records[PreviewWindowIdentity(window)] }
     }
 
-    func snapped(_ window: WindowInfo, restoreFrame: CGRect) {
+    func snapped(_ window: WindowInfo, restoreFrame: CGRect, origin: Origin = .gesture, confirmedDestination: ManagedSpaceDestination? = nil) {
+        guard origin.isEnabled else { return }
         let spaces = WindowSpaces.sourceSpaceIDs(for: window)
         guard spaces.count == 1, let spaceID = spaces.first,
-              WindowSpaces.destination(forSpaceID: spaceID)?.space.kind == .desktop,
+              (confirmedDestination ?? WindowSpaces.destination(forSpaceID: spaceID))?.space.kind == .desktop,
               let frame = window.currentWindowFrame(),
               let screen = NSScreen.screen(containing: frame)
         else { return }
-        let record = Record(identity: PreviewWindowIdentity(window), element: window.axElement, ownerPID: window.ownerApp.processIdentifier,
+        guard confirmedDestination == nil || confirmedDestination?.space.id == spaceID else { return }
+        let record = Record(origin: origin, identity: PreviewWindowIdentity(window), element: window.axElement, ownerPID: window.ownerApp.processIdentifier,
                             snappedFrame: frame, restoreFrame: restoreFrame,
                             screenIdentifier: screen.uniqueIdentifier(), spaceID: spaceID)
         guard isLive(record, window: window, frame: frame) else { return }
@@ -77,6 +95,7 @@ final class WindowSnapRegistry: @unchecked Sendable {
     }
 
     func windowFrameChanged(_ element: AXUIElement) {
+        guard hasRecords else { return }
         var pid: pid_t = 0
         guard AXUIElementGetPid(element, &pid) == .success, let windowID = try? element.cgWindowId() else { return }
         guard let identity = lock.withLock({ identitiesByWindowID[windowID] }) else { return }
@@ -108,6 +127,22 @@ final class WindowSnapRegistry: @unchecked Sendable {
             NSScreen.screen(containing: frame)?.uniqueIdentifier() == record.screenIdentifier
     }
 
+    func removeDisabledRecords() {
+        let gestures = Defaults[.enableWindowGestures]
+        let tiling = Defaults[.linkTiledWindowsWhenResizing]
+        let stale = lock.withLock {
+            records.values.filter { record in
+                switch record.origin {
+                case .gesture: !gestures
+                case .tiling: !tiling
+                }
+            }
+        }
+        for record in stale {
+            replace(record, with: nil)
+        }
+    }
+
     func removeAll(for pid: pid_t) {
         let identities = lock.withLock { records.keys.filter { $0.pid == pid } }
         for identity in identities {
@@ -120,8 +155,11 @@ final class WindowSnapRegistry: @unchecked Sendable {
     }
 
     func reconcileCachedWindows(_ windows: [WindowInfo]) {
+        guard hasRecords else { return }
+        let latest = Dictionary(windows.map { (PreviewWindowIdentity($0), $0) }, uniquingKeysWith: { _, newest in newest })
         let invalidated: [(PreviewWindowIdentity, UUID)] = lock.withLock {
-            windows.compactMap { window in
+            guard !records.isEmpty else { return [] }
+            return latest.values.compactMap { window in
                 let identity = PreviewWindowIdentity(window)
                 guard let record = records[identity] else { return nil }
                 let invalid = window.isMinimized || window.isHidden || window.isFullscreen == true ||
@@ -173,15 +211,21 @@ final class WindowSnapRegistry: @unchecked Sendable {
 
     private func resizeNeighbors(of record: Record, to frame: CGRect) {
         let neighbors = lock.withLock {
-            records.values.filter { $0.identity != record.identity && $0.screenIdentifier == record.screenIdentifier && $0.spaceID == record.spaceID }
+            records.values.filter { $0.identity != record.identity && $0.origin == record.origin && $0.screenIdentifier == record.screenIdentifier && $0.spaceID == record.spaceID }
         }
-        for neighbor in neighbors {
+        let possible = Self.linkedFrames([record.snappedFrame] + neighbors.map(\.snappedFrame), movingFirstTo: frame)
+        var eligible: [(Record, WindowInfo)] = []
+        for (index, neighbor) in neighbors.enumerated() where possible[index + 1] != nil {
+            guard let window = resolve(neighbor), let actual = window.currentWindowFrame(),
+                  Self.matches(actual, neighbor.snappedFrame), isLive(neighbor, window: window, frame: actual)
+            else { replace(neighbor, with: nil); continue }
+            eligible.append((neighbor, window))
+        }
+        let targets = Self.linkedFrames([record.snappedFrame] + eligible.map(\.0.snappedFrame), movingFirstTo: frame)
+        for (index, member) in eligible.enumerated() {
             guard isCurrent(record) else { return }
-            guard let window = resolve(neighbor), let actual = window.currentWindowFrame(), Self.matches(actual, neighbor.snappedFrame), isLive(neighbor, window: window, frame: actual) else {
-                replace(neighbor, with: nil)
-                continue
-            }
-            guard let target = Self.neighborFrame(neighbor.snappedFrame, following: record.snappedFrame, to: frame), isCurrent(neighbor) else { continue }
+            let (neighbor, window) = member
+            guard let target = targets[index + 1], isCurrent(neighbor) else { continue }
             let applied = window.applyFrame(target)
             if applied, let actual = window.currentWindowFrame(), Self.matches(actual, target, tolerance: 1) {
                 var updated = neighbor
@@ -199,7 +243,7 @@ final class WindowSnapRegistry: @unchecked Sendable {
 
     private func replace(_ record: Record, with updated: Record?) {
         lock.withLock {
-            guard records[record.identity]?.token == record.token, records[record.identity]?.snappedFrame == record.snappedFrame else { return }
+            guard records[record.identity]?.token == record.token, updated == nil || records[record.identity]?.snappedFrame == record.snappedFrame else { return }
             records[record.identity] = updated
             if updated == nil, identitiesByWindowID[record.identity.windowID] == record.identity {
                 identitiesByWindowID.removeValue(forKey: record.identity.windowID)
@@ -207,30 +251,70 @@ final class WindowSnapRegistry: @unchecked Sendable {
         }
     }
 
+    private enum Edge: CaseIterable {
+        case left, right, bottom, top
+        var opposite: Edge {
+            switch self {
+            case .left: .right
+            case .right: .left
+            case .bottom: .top
+            case .top: .bottom
+            }
+        }
+
+        var vertical: Bool { self == .left || self == .right }
+
+        func coordinate(_ frame: CGRect) -> CGFloat {
+            switch self {
+            case .left: frame.minX
+            case .right: frame.maxX
+            case .bottom: frame.minY
+            case .top: frame.maxY
+            }
+        }
+
+        func setting(_ frame: CGRect, to line: CGFloat) -> CGRect {
+            switch self {
+            case .left: CGRect(x: line, y: frame.minY, width: frame.maxX - line, height: frame.height)
+            case .right: CGRect(x: frame.minX, y: frame.minY, width: line - frame.minX, height: frame.height)
+            case .bottom: CGRect(x: frame.minX, y: line, width: frame.width, height: frame.maxY - line)
+            case .top: CGRect(x: frame.minX, y: frame.minY, width: frame.width, height: line - frame.minY)
+            }
+        }
+    }
+
+    static func linkedFrames(_ frames: [CGRect], movingFirstTo newFrame: CGRect) -> [Int: CGRect] {
+        guard let original = frames.first else { return [:] }
+        var result = [0: newFrame]
+        for edge in Edge.allCases {
+            let oldLine = edge.coordinate(original), newLine = edge.coordinate(newFrame)
+            guard abs(newLine - oldLine) > 0.5 else { continue }
+            var pending = [(0, edge)]
+            var visited: Set<Int> = [0]
+            var cursor = 0
+            while cursor < pending.count {
+                let (index, boundary) = pending[cursor]
+                cursor += 1
+                let opposite = boundary.opposite
+                for candidate in frames.indices where !visited.contains(candidate) {
+                    let a = frames[index], b = frames[candidate]
+                    let overlaps = boundary.vertical
+                        ? min(a.maxY, b.maxY) > max(a.minY, b.minY)
+                        : min(a.maxX, b.maxX) > max(a.minX, b.minX)
+                    guard overlaps, abs(opposite.coordinate(b) - oldLine) <= adjacencyTolerance else { continue }
+                    let target = opposite.setting(result[candidate] ?? b, to: newLine)
+                    guard target.width >= minimumSize, target.height >= minimumSize else { continue }
+                    result[candidate] = target
+                    visited.insert(candidate)
+                    pending.append((candidate, opposite))
+                }
+            }
+        }
+        return result
+    }
+
     static func neighborFrame(_ neighbor: CGRect, following old: CGRect, to new: CGRect) -> CGRect? {
-        var result = neighbor
-        var moved = false
-        if min(neighbor.maxY, old.maxY) > max(neighbor.minY, old.minY) {
-            if abs(neighbor.maxX - old.minX) <= adjacencyTolerance, abs(new.minX - old.minX) > 0.5 {
-                result.size.width = new.minX - result.minX
-                moved = true
-            } else if abs(neighbor.minX - old.maxX) <= adjacencyTolerance, abs(new.maxX - old.maxX) > 0.5 {
-                result.origin.x = new.maxX
-                result.size.width = neighbor.maxX - new.maxX
-                moved = true
-            }
-        }
-        if min(neighbor.maxX, old.maxX) > max(neighbor.minX, old.minX) {
-            if abs(neighbor.maxY - old.minY) <= adjacencyTolerance, abs(new.minY - old.minY) > 0.5 {
-                result.size.height = new.minY - result.minY
-                moved = true
-            } else if abs(neighbor.minY - old.maxY) <= adjacencyTolerance, abs(new.maxY - old.maxY) > 0.5 {
-                result.origin.y = new.maxY
-                result.size.height = neighbor.maxY - new.maxY
-                moved = true
-            }
-        }
-        return moved && result.width >= minimumSize && result.height >= minimumSize ? result : nil
+        linkedFrames([old, neighbor], movingFirstTo: new)[1]
     }
 
     private static func matches(_ lhs: CGRect, _ rhs: CGRect, tolerance: CGFloat = WindowSnapRegistry.tolerance) -> Bool {

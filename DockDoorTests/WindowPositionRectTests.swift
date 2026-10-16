@@ -65,3 +65,21 @@ struct LinkedWindowGeometryTests {
         #expect(WindowSnapRegistry.neighborFrame(CGRect(x: 600, y: 0, width: 600, height: 800), following: left, to: CGRect(x: 0, y: 0, width: 1150, height: 800)) == nil)
     }
 }
+
+struct LinkedTilingLayoutTests {
+    @Test func sharedBoundaryContinuesThroughAThreeWindowLayout() {
+        let upperRight = CGRect(x: 600, y: 400, width: 600, height: 400)
+        let left = CGRect(x: 0, y: 0, width: 600, height: 800)
+        let lowerRight = CGRect(x: 600, y: 0, width: 600, height: 400)
+        let frames = WindowSnapRegistry.linkedFrames([upperRight, left, lowerRight], movingFirstTo: CGRect(x: 700, y: 400, width: 500, height: 400))
+        #expect(frames[1] == CGRect(x: 0, y: 0, width: 700, height: 800))
+        #expect(frames[2] == CGRect(x: 700, y: 0, width: 500, height: 400))
+    }
+
+    @Test func disconnectedCollinearBoundariesDoNotJoin() {
+        let frames = [CGRect(x: 0, y: 500, width: 600, height: 300), CGRect(x: 600, y: 500, width: 600, height: 300), CGRect(x: 600, y: 0, width: 600, height: 300)]
+        let resized = WindowSnapRegistry.linkedFrames(frames, movingFirstTo: CGRect(x: 0, y: 500, width: 700, height: 300))
+        #expect(resized[1] != nil)
+        #expect(resized[2] == nil)
+    }
+}

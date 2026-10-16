@@ -1060,6 +1060,7 @@ extension Defaults.Keys {
     static let showWindowSelectionSummary = Key<Bool>("showWindowSelectionSummary", default: true)
     static let showUncheckedSelectionCheckboxes = Key<Bool>("showUncheckedSelectionCheckboxes", default: true)
     static let selectionCheckboxVisibility = Key<SelectionCheckboxVisibility>("selectionCheckboxVisibility", default: .previewHover)
+    static let linkTiledWindowsWhenResizing = Key<Bool>("linkTiledWindowsWhenResizing", default: false)
     static let maximumTilingRows = Key<Int>("maximumTilingRows", default: 2)
     static let maximumTilingColumns = Key<Int>("maximumTilingColumns", default: 3)
 

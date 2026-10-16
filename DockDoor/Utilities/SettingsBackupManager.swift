@@ -106,6 +106,7 @@ enum SettingsBackupManager {
         MessageUtil.showAlert(title: String(localized: "Import Settings"), message: message, actions: [.ok, .cancel]) { action in
             guard action == .ok else { return }
             apply(backup.settings)
+            WindowSnapRegistry.existing?.removeDisabledRecords()
             askUserToRestartApplication()
         }
     }

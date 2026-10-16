@@ -105,6 +105,7 @@ struct MainSettingsView: View {
         MessageUtil.showAlert(title: String(localized: "Reset to Defaults"), message: String(localized: "Are you sure you want to reset all settings to their default values?"), actions: [.ok, .cancel]) { action in
             if action == .ok {
                 Defaults.removeAll()
+                WindowSnapRegistry.existing?.removeDisabledRecords()
                 Defaults[.launched] = true
 
                 Defaults[.hoverWindowOpenDelay] = Defaults.Keys.hoverWindowOpenDelay.defaultValue

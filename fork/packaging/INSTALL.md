@@ -29,3 +29,5 @@ A free Apple account is not needed for the ad-hoc build. It does not provide the
 Ad-hoc signing ties the app's designated requirement to that particular build. Updating to a rebuilt release can therefore require granting permissions again even when its name and bundle ID are unchanged. Installing at a fixed path alone does not solve this. The certificate-signed `--dev` workflow is for local testing only, not distribution.
 
 DockFork is GPL-3.0 software based on [DockDoor](https://github.com/ejbills/DockDoor). Release assets include the license, committed source archive, source commit, and packaging patch. Apply `DockFork.patch` to the unpacked source to reproduce the application overlay; the packaging script in the published repository also applies the identity and signing configuration. Publish the corresponding source and packaging files with the release; an app ZIP alone is not the source distribution.
+
+The pending 0.2.0 linked-tiling option, Link tiled windows when resizing, defaults Off and does not require multi-selection or Window Gestures. Review the actual release notes before assuming a distributed package contains it.

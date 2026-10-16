@@ -2205,6 +2205,15 @@ enum SettingsSearchCatalog {
             icon: "checkmark.circle"
         ),
         SettingsSearchItem(
+            id: "gestures.linkTiledWindowsWhenResizing",
+            title: String(localized: "Link tiled windows when resizing"),
+            description: String(localized: "Resize shared edges to resize neighboring windows tiled together. Drag a tiled window's title bar to restore its earlier size. Moving it to another Desktop or display detaches it. This works without Window Gestures or multi-window selection."),
+            keywords: ["linked", "resize", "tile", "snap", "restore", "neighbors", "shared", "edge"],
+            tab: "Keybinds",
+            section: String(localized: "Window Selection & Tiling"),
+            icon: "rectangle.split.2x1"
+        ),
+        SettingsSearchItem(
             id: "gestures.maximumTilingRows",
             title: String(localized: "Maximum tiling rows:"),
             description: String(localized: "The first checked window leads. Auto Tile Selected Windows and Half/Quarter actions arrange checked groups on the current Desktop. Set both limits to 1 to move windows without resizing. Overflowing groups repeat the same layout."),

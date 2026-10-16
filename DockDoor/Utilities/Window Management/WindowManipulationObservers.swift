@@ -637,8 +637,8 @@ func axObserverCallback(observer: AXObserver, element: AXUIElement, notification
             return
         }
 
-        if notification == kAXWindowMovedNotification || notification == kAXWindowResizedNotification, Defaults[.enableWindowGestures] {
-            WindowSnapRegistry.shared.windowFrameChanged(element)
+        if notification == kAXWindowMovedNotification || notification == kAXWindowResizedNotification, Defaults[.enableWindowGestures] || Defaults[.linkTiledWindowsWhenResizing] {
+            WindowSnapRegistry.existing?.windowFrameChanged(element)
         }
 
         pendingNotifications[key]?.cancel()

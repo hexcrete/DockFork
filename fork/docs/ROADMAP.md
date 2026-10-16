@@ -17,6 +17,8 @@ The public source fork is established at [hexcrete/DockFork](https://github.com/
 
 Upstream is incorporated through `3e08721`, including stable 1.41.0. Its window gestures and screen reservations are inherited capabilities, not additions to the fork roadmap. The next Release candidate must include this integration and separate Debug/manual validation.
 
+Linked-tiling integration is implemented behind a default-Off option: confirmed tiling batches share native-edge resizing and restore-size behavior through the hardened existing snap registry. Locked-session live validation is pending; do not treat this as a completed manual acceptance test.
+
 ## Spaces Bar in Window Switcher
 
 Deferred to a later release. Current work prioritizes polishing and fixing the completed selection, tiling and dragging features.
