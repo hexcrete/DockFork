@@ -19,6 +19,7 @@ struct KeybindsSettingsView: View {
 
 private struct WindowSelectionSettingsSection: View {
     @Default(.enableMultiWindowSelection) private var enabled
+    @Default(.enableWindowlessAppSelection) private var enableWindowlessAppSelection
     @Default(.showUncheckedSelectionCheckboxes) private var showUnchecked
     @Default(.selectionCheckboxVisibility) private var visibility
     @Default(.showWindowSelectionSummary) private var showSummary
@@ -34,6 +35,12 @@ private struct WindowSelectionSettingsSection: View {
                     .foregroundStyle(.secondary)
                     .padding(.leading, 20)
                 if enabled {
+                    Toggle("Enable selection of windowless apps in Window Switcher", isOn: $enableWindowlessAppSelection)
+                        .settingsSearchTarget("gestures.enableWindowlessAppSelection")
+                    Text("Only actions applicable to windowless apps are \"Quit\" and \"Open New Window\".")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 20)
                     Toggle("Keep Window Switcher open when windows are selected", isOn: $keepOpenWhenSelected)
                         .settingsSearchTarget("gestures.keepWindowSwitcherOpenWhenSelected")
                     Text("Keep selected windows available after releasing the initializer modifier or finishing a swipe. When disabled, selecting windows does not change the session's normal dismissal behavior. Dock and Cmd+Tab previews keep their normal dismissal behavior.")
@@ -68,6 +75,9 @@ private struct WindowSelectionSettingsSection: View {
             if !newValue {
                 SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)
             }
+        }
+        .onChange(of: enableWindowlessAppSelection) { _ in
+            SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.reconcileCheckedWindows()
         }
     }
 }

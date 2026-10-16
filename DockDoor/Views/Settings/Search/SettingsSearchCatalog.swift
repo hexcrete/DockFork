@@ -2169,6 +2169,15 @@ enum SettingsSearchCatalog {
             icon: "checkmark.circle"
         ),
         SettingsSearchItem(
+            id: "gestures.enableWindowlessAppSelection",
+            title: String(localized: "Enable selection of windowless apps in Window Switcher"),
+            description: String(localized: "Only actions applicable to windowless apps are \"Quit\" and \"Open New Window\"."),
+            keywords: ["selection", "windowless", "apps", "quit", "new window"],
+            tab: "Keybinds",
+            section: String(localized: "Window Selection"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
             id: "gestures.keepWindowSwitcherOpenWhenSelected",
             title: String(localized: "Keep Window Switcher open when windows are selected"),
             description: String(localized: "Keep selected windows available after releasing the initializer modifier or finishing a swipe. When disabled, selecting windows does not change the session's normal dismissal behavior. Dock and Cmd+Tab previews keep their normal dismissal behavior."),

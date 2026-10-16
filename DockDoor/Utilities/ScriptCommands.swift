@@ -839,9 +839,10 @@ class TileWindowsCommand: AsyncWindowCommand {
         return execute {
             let windows: [WindowInfo] = if let identifiers {
                 try DockDoorCommands.resolveWindows(identifiers)
-            } else if let checked = SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(), !checked.isEmpty {
+            } else if let checked = SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets() {
                 checked
             } else { try DockDoorCommands.resolveWindows(["active"]) }
+            guard !windows.isEmpty else { return "error: No eligible windows to tile" }
             return await DockDoorCommands.batchResult(WindowUtil.tilePreviewWindows(windows, direction: direction, bringToFront: foreground))
         }
     }

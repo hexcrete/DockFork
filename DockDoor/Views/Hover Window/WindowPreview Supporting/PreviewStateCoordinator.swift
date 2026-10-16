@@ -91,8 +91,14 @@ class PreviewStateCoordinator: ObservableObject {
     private var selectionLayoutGeneration: UInt = 0
 
     @MainActor
+    func canSelectWindow(_ window: WindowInfo) -> Bool {
+        Defaults[.enableMultiWindowSelection] && !window.app.isTerminated &&
+            (!window.isWindowlessApp || (windowSwitcherActive && Defaults[.enableWindowlessAppSelection]))
+    }
+
+    @MainActor
     func toggleCheckedWindow(_ window: WindowInfo) {
-        guard Defaults[.enableMultiWindowSelection], !window.isWindowlessApp, !window.app.isTerminated else { return }
+        guard canSelectWindow(window) else { return }
         let identity = PreviewWindowIdentity(window)
         guard windows.contains(where: { PreviewWindowIdentity($0) == identity }) else { return }
         selection.checkedWindows.toggle(identity)
@@ -104,7 +110,7 @@ class PreviewStateCoordinator: ObservableObject {
         guard Defaults[.enableMultiWindowSelection] else { return }
         let identities = filteredWindowIndices().compactMap { index -> PreviewWindowIdentity? in
             let window = windows[index]
-            return window.isWindowlessApp || window.app.isTerminated ? nil : PreviewWindowIdentity(window)
+            return canSelectWindow(window) ? PreviewWindowIdentity(window) : nil
         }
         var updated = selection.checkedWindows
         updated.select(identities)
@@ -147,12 +153,32 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    private func reconcileCheckedWindows() {
+    func consumeWindowlessSelection(in targets: [WindowInfo]) {
+        guard checkedWindowCount > 0 else { return }
+        let removed = Set(targets.filter(\.isWindowlessApp).map(PreviewWindowIdentity.init))
+        guard !selection.checkedWindows.membership.isDisjoint(with: removed) else { return }
+        selection.checkedWindows.remove(removed)
+        publishCheckedSelection()
+    }
+
+    @MainActor
+    func removeCheckedWindows(forProcessIdentifier pid: pid_t) {
+        let removed = Set(selection.checkedWindows.identities.filter { $0.pid == pid })
+        guard !removed.isEmpty else { return }
+        selection.checkedWindows.remove(removed)
+        publishCheckedSelection()
+    }
+
+    @MainActor
+    func reconcileCheckedWindows() {
         guard checkedWindowCount > 0 else { return }
         let identities = selection.checkedWindows.identities
-        let live = Set(Set(identities.map(\.pid)).flatMap {
+        var live = Set(Set(identities.map(\.pid)).flatMap {
             WindowUtil.readCachedWindows(for: $0).map(PreviewWindowIdentity.init)
         })
+        if identities.contains(where: { $0.windowID == 0 }) {
+            live.formUnion(windows.filter { $0.isWindowlessApp && canSelectWindow($0) }.map(PreviewWindowIdentity.init))
+        }
         let removed = selection.checkedWindows.membership.subtracting(live)
         guard !removed.isEmpty else { return }
         selection.checkedWindows.remove(removed)
@@ -160,7 +186,7 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    func checkedActionTargets(for initiator: WindowInfo? = nil) -> [WindowInfo]? {
+    func checkedActionTargets(for initiator: WindowInfo? = nil, includingWindowlessApps: Bool = false) -> [WindowInfo]? {
         guard Defaults[.enableMultiWindowSelection] else { return nil }
         let identities: [PreviewWindowIdentity]
         if let initiator {
@@ -168,9 +194,11 @@ class PreviewStateCoordinator: ObservableObject {
             identities = checked
         } else { identities = selection.checkedWindows.identities }
         guard !identities.isEmpty else { return nil }
-        let cached = Set(identities.map(\.pid)).flatMap { WindowUtil.readCachedWindows(for: $0) }
+        let windowless = includingWindowlessApps && identities.contains(where: { $0.windowID == 0 })
+            ? windows.filter { $0.isWindowlessApp && canSelectWindow($0) } : []
+        let cached = Set(identities.map(\.pid)).flatMap { WindowUtil.readCachedWindows(for: $0) } + windowless
         let byIdentity = Dictionary(cached.map { (PreviewWindowIdentity($0), $0) }, uniquingKeysWith: { first, _ in first })
-        return identities.compactMap { byIdentity[$0] }.filter { !$0.isWindowlessApp && !$0.app.isTerminated }
+        return identities.compactMap { byIdentity[$0] }.filter { (includingWindowlessApps || !$0.isWindowlessApp) && !$0.app.isTerminated }
     }
 
     @MainActor
@@ -803,6 +831,7 @@ class PreviewStateCoordinator: ObservableObject {
             if let placeholderIndex = windows.firstIndex(where: {
                 $0.isWindowlessApp && $0.app.processIdentifier == newWin.app.processIdentifier
             }) {
+                consumeWindowlessSelection(in: [windows[placeholderIndex]])
                 windows[placeholderIndex] = newWin
                 windowsWereAdded = true
                 continue

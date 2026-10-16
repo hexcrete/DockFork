@@ -24,6 +24,7 @@ typealias CGSSpaceID = UInt64
 struct Key<T> { let value: T }
 enum Defaults {
  static var links = true, gestures = true, rows = 2, columns = 3, onlyFits = false, foreground = true
+ static var selection = true, windowlessSelection = true
  static subscript<T>(_ key: Key<T>) -> T { key.value }
 }
 extension Key where T == Bool {
@@ -32,6 +33,8 @@ extension Key where T == Bool {
  static var enableWindowGestures: Self { Self(value: Defaults.gestures) }
  static var linkTiledWindowsWhenResizing: Self { Self(value: Defaults.links) }
  static var moveResizeBringToForeground: Self { Self(value: Defaults.foreground) }
+ static var enableMultiWindowSelection: Self { Self(value: Defaults.selection) }
+ static var enableWindowlessAppSelection: Self { Self(value: Defaults.windowlessSelection) }
 }
 extension Key where T == Int {
  static var maximumTilingRows: Self { Self(value: Defaults.rows) }
@@ -130,6 +133,8 @@ enum DebugLogger { static func log(_ label: String, details: String) {} }
  static func reset() { placements = 0; moves = 0; focus = []; afterPlacement = nil; active = true }
 }
 enum WindowUtil {
+ static var cachedWindows: [WindowInfo] = []
+ static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { cachedWindows.filter { $0.app.processIdentifier == pid } }
  static var activeSpaces: Set<Int> = [1]
  static func currentActiveSpaceIDs() -> Set<Int> { activeSpaces }
  static func windowBelongsToActiveSpace(_ window: WindowInfo, activeSpaceIDs: Set<Int>) -> Bool {
@@ -159,8 +164,32 @@ source += "\n@MainActor final class DragPreviewCoordinator {\nprivate var dropTo
 %w[isCompletingDrop completeDrop].each { |name| source += block(drag, "    func #{name}(") + "\n" }
 source += block(drag, '    private func cancelPendingDrop(') + "\n}\n"
 catalog = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
-source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize\n"
-source += block(catalog, '    var tilingDirection:') + "\n" + block(catalog, '    func autoTilingDirection(') + "\n}\n"
+source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize, quit, openNewWindow, hide, close, closeAllWindows, minimizeAllWindows, toggleFullScreen, toggleWindowSelection, selectAllWindows, none\n"
+%w[tilingDirection isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }
+%w[autoTilingDirection appliesToSelectedWindow batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
+source += "}\n"
+coordinator = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
+dispatch = block(coordinator, '    private func performPreviewBatchAction(')
+consume = dispatch.index('windowSwitcherCoordinator.consumeWindowlessSelection(in: targets)')
+abort 'Consume windowless checks at dispatch, not in a late completion' unless consume && consume < dispatch.index('previewBatchTask = Task')
+action_guard = block(coordinator, '    func performCheckedWindowAction(').split('        if action == .bringToCurrentSpace').first
+space_guard = block(coordinator, '    func performCheckedSpaceMove(').split('        previewBatchTask?.cancel()').first
+source += "@MainActor final class ActionHarness { let windowSwitcherCoordinator: SelectionHarness; init(_ selection: SelectionHarness) { windowSwitcherCoordinator = selection }\n"
+source += action_guard + "return true\n}\n" + space_guard + "return true\n}\n}\n"
+selection = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift")
+replacement = block(selection, '    func addWindows(')
+consume_replacement = replacement.index('consumeWindowlessSelection(in: [windows[placeholderIndex]])')
+abort 'Replacing a placeholder must consume its old selection' unless consume_replacement && consume_replacement < replacement.index('windows[placeholderIndex] = newWin')
+termination = block(File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowManipulationObservers.swift"), '    private func handleAppTermination(pid:')
+cleanup = termination.index('coordinator.removeCheckedWindows(forProcessIdentifier: pid)')
+abort 'Termination must uncheck apps before mode-specific row dismissal' unless cleanup && cleanup < termination.index('if coordinator.isKeybindSessionActive')
+source += block(selection, 'struct OrderedPreviewSelection:') + "\n"
+source += "struct SelectionState { var checkedWindows = OrderedPreviewSelection() }\n"
+source += "@MainActor final class SelectionHarness { var selection = SelectionState(); var windows: [WindowInfo] = []; var windowSwitcherActive = true; var checkedWindowCount = 0; var visibleIndices: [Int]?\nfunc filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }\nfunc publishCheckedSelection() { checkedWindowCount = selection.checkedWindows.identities.count }\n"
+%w[canSelectWindow toggleCheckedWindow selectAllDisplayedWindows consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows checkedActionTargets].each do |name|
+  source += block(selection, "    func #{name}(") + "\n"
+end
+source += "}\n"
 source += "\nextension WindowUtil {\n" + block(util, '    static func canBringWindowToFrontWithoutSpaceSwitch(')
 source += "\n@MainActor static func finishIndependentFill(_ action: WindowAction, windows: [WindowInfo]) async -> PreviewBatchResult {\nvar result = PreviewBatchResult(succeeded: windows)\n"
 source += block(util, '        if action.tilingDirection != nil, Defaults[.moveResizeBringToForeground]') + "\nreturn result\n}\n}\n"
@@ -216,6 +245,94 @@ checks = <<~'SWIFT'
    precondition(action.autoTilingDirection(windowCount: 4, fillActionsAutoTile: false) == (action == .autoTileSelectedWindows ? .neutral : nil))
   }
   print("PASS action routing: each Fill direction opts into group Auto Tile; explicit Auto Tile and single-window actions remain independent")
+  let selectionModel = SelectionHarness()
+  let selectedReal = windows(1)[0]
+  let emptyApp = App(50000)
+  let empty = WindowInfo(id: 0, app: emptyApp, axElement: FakeAX(50000, 0, .zero), isWindowlessApp: true)
+  selectionModel.windows = [selectedReal, empty]
+  WindowUtil.cachedWindows = [selectedReal]
+  Defaults.selection = false
+  selectionModel.selectAllDisplayedWindows()
+  precondition(selectionModel.checkedWindowCount == 0)
+  Defaults.selection = true; Defaults.windowlessSelection = false
+  selectionModel.selectAllDisplayedWindows()
+  precondition(selectionModel.checkedWindowCount == 1 && !selectionModel.canSelectWindow(empty))
+  Defaults.windowlessSelection = true
+  selectionModel.selectAllDisplayedWindows()
+  precondition(selectionModel.checkedWindowCount == 2)
+  precondition(selectionModel.checkedActionTargets()?.map(\.id) == [selectedReal.id])
+  precondition(selectionModel.checkedActionTargets(includingWindowlessApps: true)?.map(\.id) == [selectedReal.id, 0])
+  selectionModel.visibleIndices = [0]
+  selectionModel.reconcileCheckedWindows()
+  precondition(selectionModel.checkedWindowCount == 2)
+  let mixedSelection = selectionModel.checkedActionTargets(includingWindowlessApps: true)!
+  for action in WindowAction.allCases {
+   let eligible = action.batchTargets(from: mixedSelection)
+   precondition(eligible.contains { $0.isWindowlessApp } == (action == .quit || action == .openNewWindow))
+   let realOnly = mixedSelection.filter { action.appliesToSelectedWindow($0) }
+   if action == .fillLeftHalf { precondition(action.autoTilingDirection(windowCount: realOnly.count, fillActionsAutoTile: true) == nil) }
+  }
+  let actionModel = ActionHarness(selectionModel)
+  precondition(actionModel.performCheckedWindowAction(.fillLeftHalf, on: empty) == true)
+  precondition(actionModel.performCheckedSpaceMove(selectedReal, to: WindowSpaces.destination(forSpaceID: 1)!, dismissPreviews: nil))
+  precondition(actionModel.performCheckedSpaceMove(empty, to: WindowSpaces.destination(forSpaceID: 1)!, dismissPreviews: nil))
+  Defaults.windowlessSelection = false; selectionModel.reconcileCheckedWindows()
+  precondition(selectionModel.checkedWindowCount == 1)
+  precondition(!actionModel.performCheckedSpaceMove(selectedReal, to: WindowSpaces.destination(forSpaceID: 1)!, dismissPreviews: nil))
+  Defaults.windowlessSelection = true; selectionModel.windowSwitcherActive = false
+  precondition(!selectionModel.canSelectWindow(empty))
+  selectionModel.windowSwitcherActive = true; selectionModel.toggleCheckedWindow(empty)
+  selectionModel.windows = [empty]; WindowUtil.cachedWindows = []
+  selectionModel.reconcileCheckedWindows()
+  precondition(selectionModel.checkedActionTargets()?.isEmpty == true && selectionModel.checkedWindowCount == 1)
+  for action in WindowAction.allCases where action != .quit && action != .openNewWindow && action != .toggleWindowSelection && action != .selectAllWindows && action != .none {
+   precondition(actionModel.performCheckedWindowAction(action, on: empty) == false)
+  }
+  precondition(actionModel.performCheckedWindowAction(.quit, on: empty) == true)
+  precondition(actionModel.performCheckedWindowAction(.openNewWindow, on: empty) == true)
+  precondition(actionModel.performCheckedSpaceMove(empty, to: WindowSpaces.destination(forSpaceID: 1)!, dismissPreviews: nil))
+  Model.reset()
+  _ = await WindowUtil.tilePreviewWindows([empty], direction: .neutral)
+  precondition(Model.moves == 0 && Model.placements == 0 && Model.focus.isEmpty)
+  emptyApp.isTerminated = true; selectionModel.reconcileCheckedWindows()
+  precondition(selectionModel.checkedWindowCount == 0)
+  print("PASS windowless selection: option/mode gates, filtered Select All, cache reconciliation, termination, Quit/New-only targets, real-only tiling/counts and empty no-op")
+  let terminationModel = SelectionHarness()
+  let quitApp = App(60000), survivor = App(60001)
+  let quitRows = [WindowInfo(id: 101, app: quitApp, axElement: FakeAX(60000, 101, .zero)), WindowInfo(id: 102, app: quitApp, axElement: FakeAX(60000, 102, .zero)), WindowInfo(id: 0, app: quitApp, axElement: FakeAX(60000, 0, .zero), isWindowlessApp: true)]
+  let survivingRow = WindowInfo(id: 103, app: survivor, axElement: FakeAX(60001, 103, .zero))
+  terminationModel.windows = quitRows + [survivingRow]
+  terminationModel.selectAllDisplayedWindows()
+  precondition(terminationModel.checkedWindowCount == 4)
+  terminationModel.removeCheckedWindows(forProcessIdentifier: 99999)
+  precondition(terminationModel.checkedWindowCount == 4)
+  // Termination notification can precede cache eviction or the final app-state readback.
+  WindowUtil.cachedWindows = quitRows + [survivingRow]
+  terminationModel.windows = [survivingRow]
+  terminationModel.removeCheckedWindows(forProcessIdentifier: quitApp.processIdentifier)
+  precondition(terminationModel.checkedWindowCount == 1 && terminationModel.selection.checkedWindows.identities == [PreviewWindowIdentity(survivingRow)])
+  terminationModel.removeCheckedWindows(forProcessIdentifier: quitApp.processIdentifier)
+  precondition(terminationModel.checkedWindowCount == 1)
+  terminationModel.removeCheckedWindows(forProcessIdentifier: survivor.processIdentifier)
+  precondition(terminationModel.checkedWindowCount == 0)
+  WindowUtil.cachedWindows = []
+  print("PASS termination selection cleanup: all real/placeholder identities, stale caches, off-list rows, unrelated apps and duplicate notifications")
+  let oneShot = SelectionHarness()
+  oneShot.windows = quitRows + [survivingRow]
+  oneShot.selectAllDisplayedWindows()
+  oneShot.consumeWindowlessSelection(in: [quitRows[0], survivingRow])
+  precondition(oneShot.checkedWindowCount == 4)
+  oneShot.consumeWindowlessSelection(in: quitRows)
+  precondition(oneShot.selection.checkedWindows.identities == [quitRows[0], quitRows[1], survivingRow].map(PreviewWindowIdentity.init))
+  oneShot.consumeWindowlessSelection(in: quitRows)
+  precondition(oneShot.checkedWindowCount == 3)
+  oneShot.toggleCheckedWindow(quitRows[2])
+  precondition(oneShot.checkedWindowCount == 4)
+  oneShot.consumeWindowlessSelection(in: WindowAction.hide.batchTargets(from: oneShot.windows))
+  precondition(oneShot.checkedWindowCount == 4)
+  oneShot.consumeWindowlessSelection(in: WindowAction.openNewWindow.batchTargets(from: [quitRows[2], survivingRow]))
+  precondition(oneShot.checkedWindowCount == 3)
+  print("PASS one-shot app selection: dispatch-time placeholder removal, same-app real windows retained, repeated calls safe, explicit reselection preserved and ignored actions do not consume checks")
   let mixedSpaces = windows(3)
   mixedSpaces[1].axElement.spaces = [2]
   for active: Set<Int> in [[1], [1, 2], []] {

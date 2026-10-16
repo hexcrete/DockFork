@@ -15,6 +15,7 @@ keys = read('DockDoor/consts.swift')
 bindings = controls.scan(/@Default\(\.(\w+)\) private var (\w+)/).to_h.invert
 expected = {
   'enableMultiWindowSelection' => 'false', 'keepWindowSwitcherOpenWhenSelected' => 'false',
+  'enableWindowlessAppSelection' => 'true',
   'showWindowSelectionSummary' => 'true', 'showUncheckedSelectionCheckboxes' => 'true',
   'selectionCheckboxVisibility' => '.previewHover', 'linkTiledWindowsWhenResizing' => 'false',
   'maximumTilingRows' => '2', 'maximumTilingColumns' => '3',

@@ -33,9 +33,14 @@ extension WindowAction {
         }
     }
 
+    func appliesToSelectedWindow(_ window: WindowInfo) -> Bool {
+        !window.isWindowlessApp || self == .quit || self == .openNewWindow
+    }
+
     func batchTargets(from windows: [WindowInfo]) -> [WindowInfo] {
         var seenApps = Set<pid_t>()
         return windows.filter { window in
+            guard appliesToSelectedWindow(window) else { return false }
             guard !isAppWidePreviewAction || seenApps.insert(window.app.processIdentifier).inserted else { return false }
             if self == .toggleFullScreen { return window.isFullscreen == true }
             if self == .hide, !window.app.isHidden {
@@ -113,6 +118,9 @@ extension WindowAction {
         if self == .none { return false }
 
         if window.isWindowlessApp {
+            if self == .toggleWindowSelection || self == .selectAllWindows {
+                return Defaults[.enableMultiWindowSelection] && Defaults[.enableWindowlessAppSelection]
+            }
             return self == .openAppWindow || self == .openNewWindow || self == .quit || self == .hide
         }
 

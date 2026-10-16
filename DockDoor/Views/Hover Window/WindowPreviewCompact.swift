@@ -291,7 +291,7 @@ struct WindowPreviewCompact: View, Equatable {
             .overlay {
                 if stage == .combined {
                     overflowButton(stage, circular: true)
-                } else if appearance.enableMultiWindowSelection, !mockPreviewActive, !windowInfo.isWindowlessApp,
+                } else if appearance.enableMultiWindowSelection, !mockPreviewActive, !windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection,
                           appearance.showUncheckedSelectionCheckboxes || isChecked
                 {
                     PreviewSelectionCheckbox(
@@ -313,7 +313,7 @@ struct WindowPreviewCompact: View, Equatable {
             }
 
             .if(!isMeasuring && appearance.enableMultiWindowSelection && appearance.showUncheckedSelectionCheckboxes &&
-                appearance.selectionCheckboxVisibility == .titleHover && !mockPreviewActive && !windowInfo.isWindowlessApp)
+                appearance.selectionCheckboxVisibility == .titleHover && !mockPreviewActive && (!windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection))
             { view in
                 view.onContinuousHover { phase in
                     let hovering: Bool = switch phase {

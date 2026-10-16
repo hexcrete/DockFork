@@ -288,7 +288,7 @@ struct WindowPreviewInteractionModifier: ViewModifier {
 
     private func handleWindowTap() {
         if Defaults[.enableMultiWindowSelection],
-           !windowInfo.isWindowlessApp,
+           (!windowInfo.isWindowlessApp || (windowSwitcherActive && Defaults[.enableWindowlessAppSelection])),
            NSEvent.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
            SharedPreviewWindowCoordinator.activeInstance?.permitsCommandClickSelection == true
         {
@@ -440,10 +440,12 @@ final class WindowActionMenuBuilder: NSObject {
         overflow: PreviewControlOverflow?
     ) -> NSMenu {
         let menu = NSMenu()
-        let batchTargets = showShortcutHints ? SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(for: window) : nil
+        let coordinator = SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator
+        let batchTargets = showShortcutHints ? coordinator?.checkedActionTargets(for: window, includingWindowlessApps: true) : nil
+        let includeSelectionActions = showShortcutHints && (!window.isWindowlessApp || coordinator?.canSelectWindow(window) == true)
 
         if let overflow {
-            if overflow.includesSelection, WindowAction.toggleWindowSelection.isAvailable(for: window) {
+            if overflow.includesSelection, includeSelectionActions, WindowAction.toggleWindowSelection.isAvailable(for: window) {
                 add([.toggleWindowSelection], for: window, batchTargets: batchTargets, to: menu,
                     shortcutKeybind: shortcutKeybind, shortcutByAction: shortcutByAction,
                     displayedShortcuts: &displayedShortcuts, handler: handleWindowAction)
@@ -467,7 +469,7 @@ final class WindowActionMenuBuilder: NSObject {
             return menu
         }
 
-        let groups = WindowAction.availableGroups(for: window, batchTargets: batchTargets, includeSelectionActions: showShortcutHints)
+        let groups = WindowAction.availableGroups(for: window, batchTargets: batchTargets, includeSelectionActions: includeSelectionActions)
 
         if let actions = groups.first(where: { $0.id == .window })?.actions {
             add(

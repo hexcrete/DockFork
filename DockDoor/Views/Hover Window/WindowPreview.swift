@@ -892,6 +892,7 @@ struct PreviewSelectionCheckbox: View {
 
 struct PreviewAppearanceSettings: Equatable {
     let enableMultiWindowSelection: Bool
+    let enableWindowlessAppSelection: Bool
     let enableWindowDragTiling: Bool
     let showWindowSelectionSummary: Bool
     let showUncheckedSelectionCheckboxes: Bool
@@ -1061,7 +1062,7 @@ struct PreviewAppearanceSettings: Equatable {
             .showWindowlessAppQuitButton, .titleOverflowStyle,
         ]
         return keys + (Defaults[.enableMultiWindowSelection]
-            ? [.showUncheckedSelectionCheckboxes, .selectionCheckboxVisibility, .showWindowSelectionSummary] : [])
+            ? [.enableWindowlessAppSelection, .showUncheckedSelectionCheckboxes, .selectionCheckboxVisibility, .showWindowSelectionSummary] : [])
     }
 
     static func resolve(windowSwitcherActive: Bool, dockPosition: DockPosition) -> PreviewAppearanceSettings {
@@ -1079,6 +1080,7 @@ struct PreviewAppearanceSettings: Equatable {
         let selectionEnabled = Defaults[.enableMultiWindowSelection]
         return PreviewAppearanceSettings(
             enableMultiWindowSelection: selectionEnabled,
+            enableWindowlessAppSelection: selectionEnabled && windowSwitcherActive && Defaults[.enableWindowlessAppSelection],
             enableWindowDragTiling: Defaults[.enableWindowDragTiling],
             showWindowSelectionSummary: selectionEnabled && Defaults[.showWindowSelectionSummary],
             showUncheckedSelectionCheckboxes: selectionEnabled ? Defaults[.showUncheckedSelectionCheckboxes] : Defaults.Keys.showUncheckedSelectionCheckboxes.defaultValue,
@@ -1290,7 +1292,7 @@ struct WindowPreview: View, Equatable {
     @State private var isHoveringTitle = false
 
     private var hasSelectionControl: Bool {
-        appearance.enableMultiWindowSelection && !mockPreviewActive && !windowInfo.isWindowlessApp &&
+        appearance.enableMultiWindowSelection && !mockPreviewActive && (!windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection) &&
             (appearance.showUncheckedSelectionCheckboxes || isChecked)
     }
 

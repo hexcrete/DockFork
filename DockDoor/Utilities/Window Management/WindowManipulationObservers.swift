@@ -204,6 +204,7 @@ class WindowManipulationObservers {
         removeObserver(for: pid)
 
         let coordinator = previewCoordinator.windowSwitcherCoordinator
+        coordinator.removeCheckedWindows(forProcessIdentifier: pid)
         if coordinator.isKeybindSessionActive {
             for i in stride(from: coordinator.windows.count - 1, through: 0, by: -1) {
                 if coordinator.windows[i].app.processIdentifier == pid {

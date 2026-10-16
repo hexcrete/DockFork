@@ -1553,7 +1553,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             return false
         }
         if action == .autoTileSelectedWindows {
-            guard let first = coordinator.checkedActionTargets()?.first ?? coordinator.getCurrentWindow() else { NSSound.beep(); return false }
+            guard let first = coordinator.checkedActionTargets(includingWindowlessApps: true)?.first ?? coordinator.getCurrentWindow() else { NSSound.beep(); return false }
             return performCheckedWindowAction(action, on: first, preservePreviews: preservePreviews) ?? false
         }
         guard coordinator.currIndex >= 0, coordinator.currIndex < coordinator.windows.count else {
@@ -1778,12 +1778,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     // nil delegates to single-window handling; the Bool reports immediate preview dismissal.
     func performCheckedWindowAction(_ action: WindowAction, on initiator: WindowInfo, preservePreviews: Bool = false) -> Bool? {
         guard action != .toggleWindowSelection, action != .selectAllWindows, action != .none,
-              let targets = action == .autoTileSelectedWindows
-              ? windowSwitcherCoordinator.checkedActionTargets() ?? [initiator]
-              : windowSwitcherCoordinator.checkedActionTargets(for: initiator),
-              targets.count > 1 || action == .autoTileSelectedWindows
+              let selectedTargets = action == .autoTileSelectedWindows
+              ? windowSwitcherCoordinator.checkedActionTargets(includingWindowlessApps: true) ?? [initiator]
+              : windowSwitcherCoordinator.checkedActionTargets(for: initiator, includingWindowlessApps: true)
         else { return nil }
-        if action == .toggleFullScreen, !targets.contains(where: { $0.isFullscreen == true }) { return nil }
+        let hasWindowlessTargets = selectedTargets.contains(where: \.isWindowlessApp)
+        let targets = selectedTargets.filter { action.appliesToSelectedWindow($0) }
+        guard !targets.isEmpty else { return false }
+        guard targets.count > 1 || action == .autoTileSelectedWindows || hasWindowlessTargets else { return nil }
+        if action == .toggleFullScreen, !targets.contains(where: { $0.isFullscreen == true }) { return initiator.isWindowlessApp ? false : nil }
         if action == .bringToCurrentSpace {
             let displays = WindowSpaces.managedDisplays()
             guard let spaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: NSEvent.mouseLocation),
@@ -1809,9 +1812,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     func tileSelectionSummaryWindows() {
-        guard let targets = windowSwitcherCoordinator.checkedActionTargets(),
-              let initiator = targets.first
-        else { NSSound.beep(); return }
+        guard let targets = windowSwitcherCoordinator.checkedActionTargets() else { NSSound.beep(); return }
+        guard let initiator = targets.first else { return }
         _ = performPreviewBatchAction(.autoTileSelectedWindows, on: targets, initiator: initiator)
     }
 
@@ -1830,6 +1832,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let needsTransition = !preservePreviews && (action == .toggleFullScreen ||
             (revealsWindows && targets.contains { WindowUtil.activationMaySwitchSpaces(for: $0) }))
         if needsTransition { hideWindow() }
+        windowSwitcherCoordinator.consumeWindowlessSelection(in: targets)
         previewBatchTask = Task { @MainActor [weak self] in
             let result = await WindowUtil.performPreviewBatchAction(action, on: targets)
             guard !Task.isCancelled, let self, previewBatchToken == token else { return }
@@ -1872,7 +1875,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     func performCheckedSpaceMove(_ initiator: WindowInfo, to destination: ManagedSpaceDestination,
                                  dismissPreviews: (() -> Void)?) -> Bool
     {
-        guard let targets = windowSwitcherCoordinator.checkedActionTargets(for: initiator), targets.count > 1 else { return false }
+        guard let targets = windowSwitcherCoordinator.checkedActionTargets(for: initiator) else { return false }
+        guard !targets.isEmpty else { return true }
+        guard targets.count > 1 || initiator.isWindowlessApp || windowSwitcherCoordinator.checkedWindowCount > targets.count else { return false }
         previewBatchTask?.cancel()
         let token = UUID()
         previewBatchToken = token

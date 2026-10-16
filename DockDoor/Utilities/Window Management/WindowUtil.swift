@@ -763,6 +763,8 @@ extension WindowUtil {
     @MainActor
     static func performPreviewBatchAction(_ action: WindowAction, on windows: [WindowInfo]) async -> PreviewBatchResult {
         guard !Task.isCancelled else { return PreviewBatchResult() }
+        let windows = windows.filter { action.appliesToSelectedWindow($0) }
+        guard !windows.isEmpty else { return PreviewBatchResult() }
         if let direction = action.autoTilingDirection(windowCount: windows.count, fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection]) {
             return await tilePreviewWindows(windows, direction: direction)
         }
@@ -1063,6 +1065,8 @@ extension WindowUtil {
                                    isRequestActive: @escaping @MainActor () -> Bool = { true }) async -> PreviewBatchResult
     {
         guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult() }
+        let windows = windows.filter { !$0.isWindowlessApp }
+        guard !windows.isEmpty else { return PreviewBatchResult() }
         let pointer = NSEvent.mouseLocation
         let topology = WindowSpaces.managedDisplays()
         guard let spaceID = requestedDestination?.space.id ?? WindowSpaces.currentManagedSpaceID(mouseLocation: pointer),
