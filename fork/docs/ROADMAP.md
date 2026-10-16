@@ -4,7 +4,7 @@ This document separates completed development milestones, release preparation an
 
 ## Publication First
 
-The public source fork is established at [hexcrete/DockFork](https://github.com/hexcrete/DockFork). [The first prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) is published. Version 0.2.0 prerelease preparation is now the priority; its Release package is not yet built or published. The October 15 review covers `c15292f`. Wait for the updated showcase export and build authorization before packaging; screenshots and recordings are deferred and do not block the release. See the [draft notes and publication gate](RELEASE_NOTES_0.2.0.md). Downloaded/quarantined installation testing and broader user feedback remain pending; showcase media can follow during testing.
+The public source fork is established at [hexcrete/DockFork](https://github.com/hexcrete/DockFork). [The first prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) is published. Version 0.2.0 prerelease preparation is now the priority; its Release package is not yet built or published. The October 16 preparation review covers `ddb9f8c`, including overflow policy choices, independent Fill behavior and current settings paths. Wait for the updated showcase export and build authorization before packaging; screenshots and recordings are deferred and do not block the release. See the [draft notes and publication gate](RELEASE_NOTES_0.2.0.md). Downloaded/quarantined installation testing and broader user feedback remain pending; showcase media can follow during testing.
 
 - Publish as a clearly attributed DockDoor fork while retaining original history and GPL-3.0 licensing.
 - Validate the [isolated DockFork packaging script](../README.md#build-a-dockfork-package), including its distinct identity, signing, and installation; retain internal DockDoor naming.
@@ -17,7 +17,7 @@ The public source fork is established at [hexcrete/DockFork](https://github.com/
 
 Upstream is incorporated through `3e08721`, including stable 1.41.0. Its window gestures and screen reservations are inherited capabilities, not additions to the fork roadmap. The next Release candidate must include this integration and separate Debug/manual validation.
 
-Linked-tiling integration is implemented behind a default-Off option: confirmed tiling batches share native-edge resizing and restore-size behavior through the hardened existing snap registry. Locked-session live validation is pending; do not treat this as a completed manual acceptance test.
+Linked-tiling integration is implemented behind a default-Off option: confirmed tiling batches share native-edge resizing and restore-size behavior through the hardened existing snap registry. Initial integration testing was limited by a locked session; later unlocked tests and user reports are recorded in the resource audit. Exhaustive native shared-edge/display validation remains pending.
 
 ## Spaces Bar in Window Switcher
 

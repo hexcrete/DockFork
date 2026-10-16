@@ -16,13 +16,13 @@ Follow the [required documentation maintenance instructions](../AGENTS.md#fork-d
 
 ## Next Prerelease: 0.2.0
 
-Version 0.2.0 is selected for the next prerelease. Preparation is reviewed through `5819ee4`, including ordered selection, batch actions, group dragging, tiling, ordered AppleScript window lists, Select All, search clearing, adaptive preview controls and progressive traffic-light overflow, shared Space information in action menus, selection accessibility, and the recent Dock-click/startup/header-hover/tiling fixes. Read the [draft release notes and publication gate](docs/RELEASE_NOTES_0.2.0.md).
+Version 0.2.0 is selected for the next prerelease. Preparation is reviewed October 16 through `ddb9f8c`, including ordered selection, batch actions, group dragging, tiling, ordered AppleScript window lists, Select All, search clearing, adaptive preview controls and progressive traffic-light overflow, shared Space information in action menus, selection accessibility, and the recent Dock-click/startup/header-hover/tiling fixes. Read the [draft release notes and publication gate](docs/RELEASE_NOTES_0.2.0.md).
 
 The published [0.1.0 prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) remains unchanged. No 0.2.0 Release package, tag or upload is recorded. Existing local Release ZIPs are 0.1.0 candidates, not builds of the latest features. Wait for the updated showcase export and build authorization. Sanitize and review the replacement, commit it with the approved preparation records, then build the candidate. Screenshots and recordings are deferred, not a release gate. Do not distribute the certificate-signed development app.
 
 The optional preset remains the reviewed 237-preference October 11 export. It is not automatically imported, and it does not enable the new default-Off selection and drag-to-tile settings. Review it separately before replacing it. A fresh privacy audit and actual Release-candidate testing are required before publication; past Debug or 0.1.0 results are not substitutes.
 
-New 0.2.0 defaults: Show selection summary is On, gated by enabled selection and checked windows; maximum tiling rows is 2 and columns is 3. Existing saved choices are preserved.
+New 0.2.0 defaults: Show selection summary is On, gated by enabled selection and checked windows; maximum tiling rows is 2 and columns is 3. Window Selection and Tiling have separate sections under Keybinds. Tile only what fits and group Fill-to-Auto-Tile default Off; overflow stacks in existing cells, and ordinary Fill does not switch Spaces. See the [settings reference](docs/CHANGES_AND_SHOWCASE.md#selection-and-tiling-settings) for locations, defaults and verification commands. Existing saved choices are preserved.
 
 ## Build a DockFork Package
 
@@ -90,7 +90,7 @@ The certificate-signed Debug workflow, nested signature checks, fixed-path repla
 
 The October 15 integration includes DockDoor 1.41.0 and later upstream metadata through `3e08721`. Settings now separate Gestures from Keybinds. The signed Debug build/relaunch, source-overlay/binary/signature correspondence, 84 isolated gesture/swipe/frame/reservation cases and 19 version cases passed after adapting gesture minimization to the existing confirmed-state helper. New manual gesture/display testing remains pending. No new Release package has been built; the updated showcase export and build authorization are still awaited.
 
-The pending 0.2.0 code also includes default-Off linked resizing under Keybinds > Tiling. It works without enabling multi-selection or Window Gestures and applies only within layouts tiled together. The Mac was locked during integration: script help worked, but window enumeration was empty, so native gestures, linked drags and multiple displays await manual verification.
+The pending 0.2.0 code also includes default-Off linked resizing under Keybinds > Tiling. It works without enabling multi-selection or Window Gestures and applies only within layouts tiled together. Initial integration tests ran while the Mac was locked. Later unlocked tests and user reports cover the tiling, drag-completion and independent Fill fixes; native linked-edge and exhaustive display coverage remain limited. See the dated evidence in the [resource audit](docs/RESOURCE_LIFECYCLE_AUDIT.md).
 
 ### Release Assets and Validation
 

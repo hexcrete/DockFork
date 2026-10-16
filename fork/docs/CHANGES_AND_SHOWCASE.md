@@ -4,6 +4,30 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 **Publication:** [DockFork 0.1.0](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) is published as a prerelease from `36e635e`. The user reported successful testing on additional Macs running macOS 27 after local transfer. Downloaded/quarantined installation validation remains pending. Local development uses certificate-signed DockFork at the fixed, gitignored `fork/dist/dev/DockFork.app` path. Historical candidate checks below do not describe later development builds.
 
+## Selection and Tiling Settings
+
+Current 0.2.0 development settings are under Keybinds. Tiling settings are available even when UI selection is disabled, because scripts can provide window lists directly. Existing saved choices remain in effect; these are fresh defaults, not an automatic preset import.
+
+| Location | Setting | Default |
+|---|---|---|
+| Window Selection | Enable multi-window selection | Off |
+| Window Selection | Keep Window Switcher open when windows are selected | Off |
+| Window Selection | Show selection summary | On, visible with a selection |
+| Window Selection | Show unchecked selection checkboxes | On |
+| Window Selection | Checkbox visibility | On preview hover |
+| Tiling | "Fill" actions on multiple selected windows trigger "Auto Tile" | Off |
+| Tiling | Link tiled windows when resizing | Off |
+| Tiling > Auto Tile | Maximum tiling rows | 2 |
+| Tiling > Auto Tile | Maximum tiling columns | 3 |
+| Tiling > Auto Tile | Tile only what fits | Off |
+| Mouse Actions | Enable dragging windows together to tile them | Off |
+
+With group Fill Off, Half/Quarter actions resize each applicable window on its own display and Desktop, foregrounding only windows on active Spaces. With it On, a multi-window Fill uses direction-aware Auto Tile on the current Desktop. One selected window stays an ordinary Fill. The Auto Tile shortcut/menu action, Tile Windows summary button, explicit `tile windows` script command and drag-to-tile always use Auto Tile, independently of the Fill switch.
+
+Auto Tile stacks overflow in the first layer's cells by default. Tile only what fits instead processes the first grid-capacity targets. Omitted targets receive no explicit move, resize, reveal or focus operation, though unhiding an app remains app-wide. The 1×1 move-only exception and independent linked-resize layers remain in effect.
+
+Run `ruby fork/tests/tiling_settings.rb` from the repository root for the static settings-wiring audit. It checks bindings, Defaults, exact search labels/helpers, section/tab routing, reset/backup hooks and shared action entry points. Run `ruby fork/tests/linked_tiling.rb` and `ruby fork/tests/frame_placement.rb` for production-source behavior checks with simulated native APIs. These do not replace native UI or Release-candidate testing. The October 16 user reports cover the new options and mixed-Space Fill correction; screenshots, exhaustive display/app combinations and a 0.2.0 Release candidate remain pending.
+
 ## Auto Tile Overflow and Independent Fill Actions, October 16
 
 Keybinds now has separate Window Selection and Tiling sections. Tiling settings remain available without enabling UI selection, including scripted tiling. Maximum rows and columns live under Auto Tile with the new Tile only what fits toggle, default Off. With it Off, overflow windows reuse the original grid cells rather than forming a different layout for the remainder. When foregrounding is enabled, earlier-selected windows finish above later windows in each cell. With it On, only the first row-count × column-count windows are processed; extra windows receive no explicit placement, Space move, reveal or activation. A hidden app still has app-wide unhide behavior. The existing 1×1 move-without-resizing mode is preserved; the capacity option then processes only the first window. Linked resize records remain separate for each overflow layer.

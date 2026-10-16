@@ -1,6 +1,6 @@
 # DockFork 0.2.0 Prerelease Draft
 
-Status: preparation only, October 16, 2026, reviewed through `3b4d311`. Includes upstream 1.41.0 integration `229d38a`, with a follow-up adapting gesture minimization to the existing confirmed-state pipeline. No 0.2.0 Release candidate, tag, upload or publication is recorded.
+Status: preparation only, October 16, 2026, reviewed through `ddb9f8c`. Includes upstream 1.41.0 integration `229d38a`, with a follow-up adapting gesture minimization to the existing confirmed-state pipeline. No 0.2.0 Release candidate, tag, upload or publication is recorded.
 
 **Release packaging is on hold until the updated showcase configuration is supplied and reviewed, and the user authorizes the build.** The existing preset is unchanged. Screenshots and recordings are deferred and are not a release gate.
 
@@ -60,7 +60,7 @@ These are highlights, not the complete list. See the [changes guide](CHANGES_AND
 
 - Planned distribution: Apple Silicon, ad-hoc signed, not notarized, with manual updates. Follow the [installation guide](../packaging/INSTALL.md); do not disable Gatekeeper.
 - Quit other DockDoor/DockFork instances before launching. Export settings before upgrading or importing the optional preset. Import replaces settings. A rebuilt ad-hoc release can require permission approval again.
-- Partial batch failures are reported; successful members are not rolled back. Fullscreen and multi-Desktop sources have operation-specific restrictions. Overflow batches intentionally overlap earlier batches.
+- Partial batch failures are reported; successful members are not rolled back. Fullscreen and multi-Desktop sources have operation-specific restrictions. Overflow shares the original cells by default; Tile only what fits instead leaves excess targets unprocessed. App-level unhide remains app-wide.
 - Smaller displays or apps with large minimum sizes can prevent a requested grid from fitting. Row/column limits are upper bounds, not a guarantee that every app supports that layout.
 - Spaces Bar, pinned floating windows and the slide-out switcher are not included. Experimental full-size-preview container fading remains Off by default with known hover limitations.
 - Development testing covers signed Debug builds, focused native/model checks and user-reported verification. The 0.2.0 Release build, downloaded/quarantined installation and older-macOS compatibility are not yet verified. Earlier 0.1.0 testing does not certify this release.
@@ -70,13 +70,13 @@ Report problems through this fork's Issues page. Review diagnostic logs for priv
 
 ## Preparation Checks
 
-October 15 preparation now includes upstream integration `229d38a` and its gesture-minimization adapter. Earlier tiling/activation and formatting checks retain their stated scope; they do not establish manual verification of the new upstream gestures.
+October 16 preparation is reviewed through `ddb9f8c`. It includes upstream integration `229d38a`, the gesture-minimization adapter, linked-resize timing and drag-lifetime corrections, configurable overflow and opt-in grouped Fill. Evidence below is scoped to the actual tests; it does not certify every display/app combination or a Release package.
 
 | Area | Current evidence and remaining work |
 |---|---|
-| Source and documentation | Git confirms exact-once coverage of 292 commits through 229d38a and all recorded changed-file counts. Incoming changed-source formatting, unique search IDs, split-tab routing, AppleScript command codes, project registrations and packaging overlay checks pass. This follow-up commit remains outside the explicit ledger coverage boundary. |
+| Source and documentation | Exact-once ledger coverage includes 306 commits through ddb9f8c, with changed-file counts checked against Git. Current settings paths, defaults, labels, search targets and action routing are covered by the fork-only static wiring audit. This preparation update is outside that explicit coverage boundary until committed and recorded. |
 | Version metadata | All 19 validator cases pass. Fetched upstream main is 3e08721, and included published stable release 1.41.0 resolves to 3d6a3cba. The record keeps DockFork 0.2.0 separate and validates committed ancestry. |
-| Debug validation | The final signed Debug build/relaunch, exact running path, deep/strict signature, embedded upstream metadata, reviewed source overlay and installed/built binaries were verified. The first build caught an integration-only minimize-helper mismatch, corrected by reusing confirmed minimization. All 84 isolated gesture/swipe/session/frame/reservation tests, 19 version cases and retained placement/focus checks pass. No full Xcode suite, new manual gesture/display validation, performance run or Release ZIP is claimed. |
+| Debug validation | The tested signed Debug app matches all eight committed runtime source/resource changes from 3b4d311. Fixed-path launch, nested signature and binary correspondence pass. The 97 isolated unit tests, 11,664 layout cases, linked-registry/placement/drop-flow regressions and frame-writer checks pass. No full Xcode suite, whole-app performance/leak certification or Release ZIP is claimed. |
 | Latest tiling/focus sweep | 27 scripted tiling calls with three expected minimum-size refusals, four rapid-focus pairs and four cross-Space focus checks passed without unexpected failures. Frames, Spaces, accessibility flags and original focus were restored. The later partial-write refresh correction has focused regression and signed Debug validation, not another full live sweep. |
 | Showcase configuration | Await the updated export. Keep the current reviewed 237-preference preset unchanged until the replacement is sanitized and reviewed. Do not import it into live preferences automatically. |
 | Release candidate and privacy | Not built. Audit the actual app, source archive and sidecars after the final preset and preparation commits. Existing 0.1.0 audits do not certify 0.2.0 assets. |
