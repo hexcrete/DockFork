@@ -12,6 +12,16 @@ The optional showcase preset now retains 245 of the supplied 248 preferences. Re
 
 The preset has not been imported into live settings. Commit the reviewed preparation before building the exact Release candidate. The app ZIP, corresponding source and sidecar privacy audit, actual Release testing, and publication approval remain pending. Screenshots are deferred, not a release gate.
 
+## Windowless App Selection
+
+Implemented in `e735dc3`. The user reports the combined feature and cleanup behavior working; final code review and focused checks found no blocking issues.
+
+Keybinds > Window Selection now includes Enable selection of windowless apps in Window Switcher, default On under the default-Off multi-selection feature. It applies to regular and Compact Mode standalone switchers, not Dock or Cmd+Tab windowless cards. Checkboxes, Command-click in eligible sessions, the configured selection mouse/key action, context menus and filtered Select All share selection eligibility. Turning the option Off removes windowless checks without clearing checked real windows. Windowless checks survive search filtering and disappear when their row is replaced by real windows or their app terminates.
+
+Quit and Open New Window include checked windowless apps, with existing app-level deduplication. Other actions ignore them before counting or validating the real-window group. A selection with one real window therefore keeps single-window Fill behavior. Spaces moves, dragging and tiling keep real-window targets only. Windowless-only unsupported actions do nothing; scripted tiling does not fall back to an unrelated active window. Confirmed app termination clears every checked identity belonging to that app, including windowless placeholders, without depending on cache freshness or whether the row is still visible. Windowless checks are one-shot: invoking Quit or Open New Window clears only those placeholders immediately. Real-window checks remain on New Window and are cleared only after confirmed app termination on Quit. Replacing a placeholder with a real window also clears its old check, including external window creation. No screenshot, discovery scan, retained placeholder snapshot, event tap or timer is added. Settings previews remain noninteractive.
+
+Production-source regression checks cover mode/setting gates, selection/reconciliation, search filtering, termination, action filtering, real-only Fill counts and windowless-only tiling. The settings-wiring audit now covers eleven controls. The optional 245-preference preset is unchanged; its omitted new key uses the On default when selection is enabled. The final signed Debug build, strict signature check and exact-path relaunch pass. User-reported verification passed; exhaustive native mode/app/display coverage remains unverified. No Release build or publication is implied.
+
 ## Selection and Tiling Settings
 
 The [0.2.0 settings explainer review](SETTINGS_EXPLAINERS_REVIEW_0.2.0.md) records the user-edited fork helper text applied before release, with minor grammar corrections. Settings and their search descriptions use the same shortened wording. Merged upstream text, behavior, defaults and saved preferences are unchanged.
@@ -23,6 +33,7 @@ Current 0.2.0 development settings are under Keybinds. Tiling settings are avail
 | Location | Setting | Default |
 |---|---|---|
 | Window Selection | Enable multi-window selection | Off |
+| Window Selection | Enable selection of windowless apps in Window Switcher | On, gated by multi-selection |
 | Window Selection | Keep Window Switcher open when windows are selected | Off |
 | Window Selection | Show selection summary | On, visible with a selection |
 | Window Selection | Show unchecked selection checkboxes | On |

@@ -18,6 +18,8 @@ Linked-tiling follow-up (`5d74df1`, with `43ba166`/`58107a1` safety prerequisite
 
 Use the [selection and tiling settings reference](CHANGES_AND_SHOWCASE.md#selection-and-tiling-settings) when setting up M01/M02, MG02 and MT01/MT02. Fresh defaults still require enabling selection and drag-to-tile; the October 16 optional preset enables them on explicit import. Record both new switches: Fill-to-Auto-Tile On for directional group layouts, Off for independent mixed-Space Fill; Tile only what fits On for an untouched-overflow comparison. The preset is not silently updated to match these capture scenarios.
 
+For Selection M01/M02, include a standalone switcher containing one windowless app and real windows. Show the new On/Off option, filtered Select All, Quit/Open New Window eligibility, and real-window-only Fill/Spaces behavior. Verify both regular and Compact Mode. This extends the existing selection captures; no media is marked captured.
+
 ## Capture Conventions
 
 - Use harmless sample window titles, files, browser pages, events, and music. Hide notifications and redact usernames, license details, logs, and app-specific private data.
