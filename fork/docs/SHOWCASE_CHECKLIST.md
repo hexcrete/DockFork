@@ -14,7 +14,7 @@ October 14 default update: Show selection summary is On once selection is enable
 
 Upstream 1.41.0 integration: configure trackpad gestures and sensitivity under Gestures, not Keybinds. Existing fork capture IDs and approval state are unchanged. For MT01, optionally demonstrate that group tiling honors the same custom-dock reservation as individual snaps. Attribute the base window-gesture feature to upstream rather than presenting it as a fork addition.
 
-Linked-tiling follow-up: extend MT01 with Link tiled windows when resizing enabled while Window Gestures is Off. Show two-, three- and four-window shared edges, restoring earlier size by dragging a real title bar, repeated tiling, and independent overflow batches. Include toggle-Off, different-Space/display and closed-member checks. Do not mark these native interactions tested or captured from the isolated geometry/registry checks.
+Linked-tiling follow-up (`5d74df1`, with `43ba166`/`58107a1` safety prerequisites): extend MT01 with Link tiled windows when resizing enabled while Window Gestures is Off. Show two-, three- and four-window shared edges, restoring earlier size by dragging a real title bar, repeated tiling, and independent overflow batches. Include toggle-Off, different-Space/display and closed-member checks. Do not mark these native interactions tested or captured from the isolated geometry/registry checks.
 
 ## Capture Conventions
 
