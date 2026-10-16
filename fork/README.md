@@ -102,6 +102,8 @@ Publish these together after testing the package:
 - `BUILD-METADATA.json`: effective version and exact upstream/source ancestry for this package.
 - `DockFork-Showcase.json`: optional preferences, never automatically imported.
 
+Release packaging explicitly disables code-coverage instrumentation so dependency profiling symbols do not retain local temporary build paths. This does not change the source project or the development build mode. Verify the resulting binaries rather than inferring privacy from build flags.
+
 Keep `build.log` local: it can contain developer paths and is not a release asset. Do not publish the entire output directory indiscriminately. A successful signature verification establishes package integrity, not Developer ID trust or notarization.
 
 Before release, quit the development instance and test DockFork's fresh permissions, independent preferences, all three preview modes, shortcuts, widgets, diagnostics export, and `tell application "DockFork"` scripting. Verify the update button opens the fork releases rather than upstream. Test the downloaded/quarantined ZIP on another Mac as well. Building with a macOS 13 deployment target does not itself prove compatibility with macOS 13; supported versions require runtime testing.

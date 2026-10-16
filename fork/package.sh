@@ -192,6 +192,9 @@ build_args=(
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO DEVELOPMENT_TEAM=
     ENABLE_HARDENED_RUNTIME=NO
 )
+if ! $development; then
+    build_args+=(-enableCodeCoverage NO CLANG_ENABLE_CODE_COVERAGE=NO)
+fi
 printf 'Building DockFork %s (%s), upstream %s at %s; log: %s\n' "$version" "$configuration" "$upstream_release" "$upstream_commit" "$destination/build.log"
 if ! xcodebuild "${build_args[@]}" build > "$destination/build.log" 2>&1; then
     tail -n 50 "$destination/build.log" >&2
