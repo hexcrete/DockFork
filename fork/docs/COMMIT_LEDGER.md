@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **100 later commits through `229d38a2d4c4f6e96e3ed6c9581922277f599894`: 292 total, 287 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **101 later commits through `a004a6fe55cde8654426cc2b92fdef07152b86ad`: 293 total, 288 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
 
 The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The latest upstream integration and its ten incoming commits are included. The follow-up integration-fix/documentation commit recording validation is outside this explicit boundary and must be added in the next update. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The discarded header selection-scoping experiment was never committed.
 
@@ -341,7 +341,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..229d38a`, extended and verified against Git October 15, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..a004a6f`, extended and verified against Git October 15, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -495,6 +495,8 @@ Coverage: `9efa1cc..229d38a`, extended and verified against Git October 15, 2026
 | [`985d3f7`](https://github.com/ejbills/DockDoor/commit/985d3f70d909cad73708a69ad83fd28135eb25c4) | Update the upstream appcast for 1.41.0; DockFork continues using manual fork updates. | Upstream metadata | 1 |
 | [`3e08721`](https://github.com/ejbills/DockDoor/commit/3e08721ec56c6747dba04561ab57b03ec254d785) | Record the 1.41.0 upstream changelog. | Upstream documentation | 1 |
 | [`229d38a`](https://github.com/hexcrete/DockFork/commit/229d38a2d4c4f6e96e3ed6c9581922277f599894) | Integrate upstream 1.41.0 through 3e08721, retain confirmed placement/activation and selection/session ownership, adapt gesture snapping and settings search, and pin the upstream version record. Changed-file count is against the first parent. Validation details are in the integration record. | Merge | 52 |
+
+| [`a004a6f`](https://github.com/hexcrete/DockFork/commit/a004a6fe55cde8654426cc2b92fdef07152b86ad) | fix: reuse confirmed minimization for window gestures. Validation and scope are recorded in the related guide entry. | Fix / Integration | 7 |
 
 ## Upstream Attribution and Contribution Boundaries
 

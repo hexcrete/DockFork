@@ -4,6 +4,10 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 **Publication:** [DockFork 0.1.0](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) is published as a prerelease from `36e635e`. The user reported successful testing on additional Macs running macOS 27 after local transfer. Downloaded/quarantined installation validation remains pending. Local development uses certificate-signed DockFork at the fixed, gitignored `fork/dist/dev/DockFork.app` path. Historical candidate checks below do not describe later development builds.
 
+## Linked Tiling Integration: Step 1
+
+Confirm gesture restoration and serialize asynchronous actions. Reuse confirmed unhide/unminimize and fullscreen-exit workers; foreground only successful restores and retain partial success. No fixed fullscreen delay or optimistic restore-cache writes. Production-source adapter tests and signed Debug build/relaunch passed. AppleScript availability and locked-session live testing are tracked separately; no manual gesture verification or Release build is claimed.
+
 ## October 15 Upstream 1.41.0 Integration
 
 Incorporates upstream through `3e08721ec56c6747dba04561ab57b03ec254d785`, including published stable release 1.41.0 at `3d6a3cbaa9bbee17959122da7f0a349ca43056d0`. These are upstream capabilities, not fork additions: optional two-finger window gestures on title bars, Dock icons and the menu bar; window snap/restore support; custom-dock screen reservations and the `reserve screen edge` AppleScript command; swipe-switcher sensitivity; stricter final Dock-hover validation; and updated translations.

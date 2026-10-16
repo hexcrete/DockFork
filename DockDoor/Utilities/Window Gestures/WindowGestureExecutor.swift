@@ -5,37 +5,49 @@ import Carbon.HIToolbox.Events
 final class WindowGestureExecutor {
     private let queue = DispatchQueue(label: "com.ethanbills.DockDoor.windowGestures.actions", qos: .userInteractive)
     private let registry = WindowSnapRegistry.shared
-    private static let fullScreenTransitionDelay: TimeInterval = 0.8
+    private var pending: [(WindowGestureCommand, WindowGestureZone, CGPoint)] = []
 
     func perform(_ command: WindowGestureCommand, zone: WindowGestureZone, cursor: CGPoint) {
         queue.async { [self] in
-            run(command, zone: zone, cursor: cursor)
+            pending.append((command, zone, cursor))
+            if pending.count == 1 { runNext() }
         }
     }
 
-    private func run(_ command: WindowGestureCommand, zone: WindowGestureZone, cursor: CGPoint) {
+    private func runNext() {
+        guard let (command, zone, cursor) = pending.first else { return }
+        Task.detached(priority: .userInitiated) { [self] in
+            await run(command, zone: zone, cursor: cursor)
+            queue.async { [self] in
+                pending.removeFirst()
+                runNext()
+            }
+        }
+    }
+
+    private func run(_ command: WindowGestureCommand, zone: WindowGestureZone, cursor: CGPoint) async {
         switch command {
         case let .window(action):
             guard let window = zone.window else { return }
-            perform(action, on: window)
+            if action == .minimize { await minimize(window) } else { perform(action, on: window) }
         case .closeTab:
             closeTab(in: zone)
         case .minimizeFrontWindow:
             guard let app = zone.app, let window = frontWindow(of: app) else { return }
-            minimize(window)
+            await minimize(window)
         case .restoreLastMinimized:
             guard let app = zone.app else { return }
-            restoreLastMinimized(of: app)
+            await restoreLastMinimized(of: app)
         case .quitApp:
             zone.app?.terminate()
         case let .switchApp(forward):
-            switchApp(forward: forward)
+            await switchApp(forward: forward)
         case .openSwitcher:
             break
         case .minimizeAllOnDisplay:
-            minimizeAll(on: NSScreen.screenFromQuartzPoint(cursor))
+            await minimizeAll(on: NSScreen.screenFromQuartzPoint(cursor))
         case .restoreAllOnDisplay:
-            restoreAll(on: NSScreen.screenFromQuartzPoint(cursor))
+            await restoreAll(on: NSScreen.screenFromQuartzPoint(cursor))
         }
     }
 
@@ -60,16 +72,9 @@ final class WindowGestureExecutor {
         }
     }
 
-    private func minimize(_ window: WindowInfo) {
-        var target = window
-        guard (try? window.axElement.isFullscreen()) == true else {
-            target.toggleMinimize()
-            return
-        }
-        target.toggleFullScreen()
-        queue.asyncAfter(deadline: .now() + Self.fullScreenTransitionDelay) {
-            var target = window
-            target.toggleMinimize()
+    private func minimize(_ window: WindowInfo) async {
+        if await !WindowUtil.minimizeWindowExitingFullscreen(window) {
+            DebugLogger.log("WindowGestures", details: "Minimize failed for PID \(window.app.processIdentifier), window \(window.id)")
         }
     }
 
@@ -81,38 +86,42 @@ final class WindowGestureExecutor {
         return WindowUtil.windowInfo(for: element, app: app)
     }
 
-    private func restoreLastMinimized(of app: NSRunningApplication) {
+    private func restoreLastMinimized(of app: NSRunningApplication) async {
         let minimized = WindowUtil.readCachedWindows(for: app.processIdentifier)
             .filter { $0.isMinimized && !$0.isWindowlessApp }
             .max { $0.lastAccessedTime < $1.lastAccessedTime }
-        guard var window = minimized else {
-            bringForward(app)
+        guard let window = minimized else {
+            await bringForward(app)
             return
         }
-        window.toggleMinimize()
+        await restore([window])
     }
 
-    private func minimizeAll(on screen: NSScreen) {
+    private func minimizeAll(on screen: NSScreen) async {
         let screenIdentifier = screen.uniqueIdentifier()
         let windows = WindowUtil.filterWindowsByCurrentSpace(WindowUtil.getAllWindowsIgnoringSwitcherFilters())
             .filter { !$0.isHidden && !$0.isWindowlessApp && $0.screenIdentifier == screenIdentifier }
-        Task { @MainActor in
-            _ = await WindowUtil.setMinimizedStateConfirmed(windows, isMinimized: true)
+        let changed = await WindowUtil.setMinimizedStateConfirmed(windows, isMinimized: true)
+        if changed != windows.count {
+            DebugLogger.log("WindowGestures", details: "Display minimization confirmed \(changed)/\(windows.count) windows")
         }
     }
 
-    private func restoreAll(on screen: NSScreen) {
+    private func restoreAll(on screen: NSScreen) async {
         let screenIdentifier = screen.uniqueIdentifier()
         let windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters()
             .filter { $0.isMinimized && !$0.isWindowlessApp && $0.screenIdentifier == screenIdentifier }
-        for window in windows {
-            if window.app.isHidden {
-                window.app.unhide()
-            }
-            try? window.axElement.setAttribute(kAXMinimizedAttribute, false)
-            WindowUtil.updateCachedWindowState(window, isMinimized: false)
+        await restore(windows)
+    }
+
+    private func restore(_ windows: [WindowInfo]) async {
+        let restored = await WindowUtil.restoreWindowsConfirmed(windows)
+        if restored.count != windows.count {
+            DebugLogger.log("WindowGestures", details: "Restoration confirmed \(restored.count)/\(windows.count) windows")
         }
-        windows.max { $0.lastAccessedTime < $1.lastAccessedTime }?.bringToFront()
+        if let target = restored.max(by: { $0.lastAccessedTime < $1.lastAccessedTime }), await !target.bringToFrontConfirmed() {
+            DebugLogger.log("WindowGestures", details: "Restored window activation failed: \(target.id)")
+        }
     }
 
     // MARK: - Tabs
@@ -172,7 +181,7 @@ final class WindowGestureExecutor {
 
     // MARK: - Apps
 
-    private func switchApp(forward: Bool) {
+    private func switchApp(forward: Bool) async {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         let ordered = DockObserver.activeInstance?.runningApplicationsInDockOrder() ?? []
         let apps = (ordered.isEmpty ? NSWorkspace.shared.runningApplications : ordered)
@@ -185,13 +194,11 @@ final class WindowGestureExecutor {
         } else {
             forward ? apps[0] : apps[apps.count - 1]
         }
-        bringForward(next)
+        await bringForward(next)
     }
 
-    private func bringForward(_ app: NSRunningApplication) {
-        if app.isHidden {
-            app.unhide()
-        }
+    private func bringForward(_ app: NSRunningApplication) async {
+        if app.isHidden, await !WindowUtil.setHiddenStateConfirmed(for: app, isHidden: false) { return }
         let windows = WindowUtil.readCachedWindows(for: app.processIdentifier).filter { !$0.isMinimized && !$0.isWindowlessApp }
         if let window = windows.max(by: { $0.lastAccessedTime < $1.lastAccessedTime }) {
             window.bringToFront()

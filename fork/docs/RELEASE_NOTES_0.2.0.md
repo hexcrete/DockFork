@@ -24,6 +24,8 @@ Multi-window selection, selection-driven keep-open behavior and drop-to-tile def
 
 Optional two-finger window gestures, swipe-switcher sensitivity, custom-dock screen reservations with AppleScript access, stricter Dock-hover validation and updated translations. Gesture settings now have their own Gestures tab; shortcuts, Spaces and selection/tiling are under Keybinds. These capabilities come from DockDoor; fork selection, confirmed placement and session behavior are preserved.
 
+Integration follow-up 1: Confirm gesture restoration and serialize asynchronous actions. Reuse confirmed unhide/unminimize and fullscreen-exit workers; foreground only successful restores and retain partial success. No fixed fullscreen delay or optimistic restore-cache writes. Production-source adapter tests and signed Debug build/relaunch passed. AppleScript availability and locked-session live testing are tracked separately; no manual gesture verification or Release build is claimed.
+
 ### Fixes and UI Polish
 
 - Make tiling and foregrounding more reliable: confirm actual placement, finish resizes constrained by the old window position, and prevent rapid focus from unexpectedly expanding a tiled window. Applications' minimum-size restrictions are reported rather than treated as successful placement.

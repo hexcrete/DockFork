@@ -4168,6 +4168,27 @@ extension WindowUtil {
         }
     }
 
+    static func minimizeWindowExitingFullscreen(_ window: WindowInfo) async -> Bool {
+        guard !window.isWindowlessApp, !window.app.isTerminated, !Task.isCancelled else { return false }
+        if (try? window.axElement.isFullscreen()) == true, await !exitFullscreenConfirmed(window) { return false }
+        guard !Task.isCancelled else { return false }
+        return await setMinimizedStateConfirmed([window], isMinimized: true) == 1
+    }
+
+    static func restoreWindowsConfirmed(_ windows: [WindowInfo]) async -> [WindowInfo] {
+        let candidates = windows.filter { !$0.isWindowlessApp && !$0.app.isTerminated }
+        var failedApps = Set<pid_t>()
+        var checkedApps = Set<pid_t>()
+        for window in candidates where checkedApps.insert(window.app.processIdentifier).inserted {
+            guard !Task.isCancelled else { return [] }
+            if window.app.isHidden, await !setHiddenStateConfirmed(for: window.app, isHidden: false) {
+                failedApps.insert(window.app.processIdentifier)
+            }
+        }
+        guard !Task.isCancelled else { return [] }
+        return await setMinimizedWindowsConfirmed(candidates.filter { !failedApps.contains($0.app.processIdentifier) }, isMinimized: false)
+    }
+
     // Publish minimized state only after AX reports the requested value.
     static func setMinimizedStateConfirmed(_ windows: [WindowInfo], isMinimized: Bool) async -> Int {
         await setMinimizedWindowsConfirmed(windows, isMinimized: isMinimized).count
