@@ -32,6 +32,8 @@ Integration follow-up 3: Bound snap-record lifetime and avoid retaining preview 
 
 Integration follow-up 4: Optional linked resizing for confirmed DockFork tiling batches. Link tiled windows when resizing defaults Off under Keybinds > Window Selection & Tiling and is independent of multi-selection and Window Gestures. Confirmed Auto Tile, selected Half/Quarter, drag-to-tile and scripting placements register separate overflow batches; preserve valid original restore sizes, detach moves/invalid members and keep native neighbor resizing nonactivating. A connected-edge solver handles three-window T junctions without joining disconnected collinear windows. Registration and extra frame reads are gated by the option; existing AX notifications are reused with no new event tap or polling. Mixed-origin groups remain separate, and disabling one option removes only its own records. Source-adapter and automated geometry checks pass; locked-session native testing remains pending.
 
+Linked-resize follow-up: preserve the first resize notification when a snap record is replaced while earlier work is queued. Production-source adapter coverage now includes full tiling/registration, geometry stress, cancellation and lifecycle cleanup. Native locked-session validation remains pending.
+
 ### Fixes and UI Polish
 
 - Make tiling and foregrounding more reliable: confirm actual placement, finish resizes constrained by the old window position, and prevent rapid focus from unexpectedly expanding a tiled window. Applications' minimum-size restrictions are reported rather than treated as successful placement.

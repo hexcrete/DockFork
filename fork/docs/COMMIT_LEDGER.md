@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **105 later commits through `5d74df19d1bed46a52b19e113db753b612832ece`: 297 total, 292 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **106 later commits through `ce9b6725185bd365eff7846cb90a6b6439606017`: 298 total, 293 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
 
 The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The latest upstream integration and its ten incoming commits are included. The follow-up integration-fix/documentation commit recording validation is outside this explicit boundary and must be added in the next update. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The discarded header selection-scoping experiment was never committed.
 
@@ -341,7 +341,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..5d74df1`, extended and verified against Git October 15, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..ce9b672`, extended and verified against Git October 15, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -505,6 +505,8 @@ Coverage: `9efa1cc..5d74df1`, extended and verified against Git October 15, 2026
 | [`58107a1`](https://github.com/hexcrete/DockFork/commit/58107a148fd6c7c9892aaa70bf8158bccd9b2c77) | fix: bound snap registry lifetime and release stale records. Validation and scope are recorded in the related guide entry. | Fix / Integration | 8 |
 
 | [`5d74df1`](https://github.com/hexcrete/DockFork/commit/5d74df19d1bed46a52b19e113db753b612832ece) | feat: link windows arranged in confirmed tiling batches. Validation and scope are recorded in the related guide entry. | Feature / Tiling | 20 |
+
+| [`ce9b672`](https://github.com/hexcrete/DockFork/commit/ce9b6725185bd365eff7846cb90a6b6439606017) | docs: record linked tiling implementation and validation. Validation and scope are recorded in the related guide entry. | Documentation | 3 |
 
 ## Upstream Attribution and Contribution Boundaries
 

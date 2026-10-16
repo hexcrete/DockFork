@@ -47,7 +47,7 @@ final class WindowSnapRegistry: @unchecked Sendable {
     private let lock = NSLock()
     private var records: [PreviewWindowIdentity: Record] = [:]
     private var identitiesByWindowID: [CGWindowID: PreviewWindowIdentity] = [:]
-    private var pendingChanges: Set<PreviewWindowIdentity> = []
+    private var pendingChanges: [PreviewWindowIdentity: UUID] = [:]
 
     var hasRecords: Bool { lock.withLock { !records.isEmpty } }
 
@@ -100,13 +100,16 @@ final class WindowSnapRegistry: @unchecked Sendable {
         guard AXUIElementGetPid(element, &pid) == .success, let windowID = try? element.cgWindowId() else { return }
         guard let identity = lock.withLock({ identitiesByWindowID[windowID] }) else { return }
         let token: UUID? = lock.withLock {
-            guard let record = records[identity], record.ownerPID == pid, pendingChanges.insert(identity).inserted else { return nil }
+            guard let record = records[identity], record.ownerPID == pid, pendingChanges[identity] != record.token else { return nil }
+            pendingChanges[identity] = record.token
             return record.token
         }
         guard let token else { return }
         queue.async { [weak self] in
             guard let self else { return }
-            lock.withLock { _ = self.pendingChanges.remove(identity) }
+            lock.withLock {
+                if self.pendingChanges[identity] == token { self.pendingChanges.removeValue(forKey: identity) }
+            }
             guard let record = lock.withLock({ self.records[identity] }), record.token == token else { return }
             handleFrameChange(record)
         }
