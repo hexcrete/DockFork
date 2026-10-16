@@ -4,6 +4,10 @@ DockFork is a fork of [DockDoor by ejbills](https://github.com/ejbills/DockDoor)
 
 **Publication:** [DockFork 0.1.0](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) is published as a prerelease from `36e635e`. The user reported successful testing on additional Macs running macOS 27 after local transfer. Downloaded/quarantined installation validation remains pending. Local development uses certificate-signed DockFork at the fixed, gitignored `fork/dist/dev/DockFork.app` path. Historical candidate checks below do not describe later development builds.
 
+## Linked Tiling Integration: Step 3
+
+Bound snap-record lifetime and avoid retaining preview images. Records now keep identity, owner PID, AX handle, frames and membership without screenshot-bearing WindowInfo values. A bounded window-ID index routes physical-owner notifications correctly. Existing cache-removal/metadata/termination paths prune records without holding cache locks during registry operations; all Space moves detach through the shared low-level operation. Production-registry weak-image, metadata invalidation and cleanup checks passed, as did the signed Debug build/relaunch. The locked session exposes no live windows; native interaction tests remain pending.
+
 ## Linked Tiling Integration: Step 2
 
 Restrict linked resizing to live same-Desktop neighbors. Use PID/window identities, generation checks, real perpendicular edge overlap, live membership/state validation, nonactivating confirmed neighbor writes and explicit detachment before programmatic placement or Space movement. Retain coalesced background processing without main-thread AX waits. Focused geometry/registry checks cover unrelated Spaces, stale targets, refused writes and identity reuse; The final signed Debug build/relaunch and source-overlay checks passed after correcting a closure-capture compile error. All 88 isolated gesture/swipe/geometry tests passed. AppleScript help responds, but the locked session reports zero windows, so live resize tests remain pending.

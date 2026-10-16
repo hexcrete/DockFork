@@ -930,6 +930,7 @@ enum WindowSpaces {
             return true
         }
 
+        WindowSnapRegistry.existing?.remove(windowID: windowID)
         return SLSMoveWindowsToManagedSpace([windowID], targetSpaceID)
     }
 }

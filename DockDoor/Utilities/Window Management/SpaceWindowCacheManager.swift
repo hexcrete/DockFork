@@ -52,6 +52,12 @@ class SpaceWindowCacheManager {
 
     private func flushCoordinatorChanges() {
         let batch = takePendingCoordinatorChanges()
+        if let registry = WindowSnapRegistry.existing {
+            for window in batch.removed {
+                registry.remove(PreviewWindowIdentity(window))
+            }
+            registry.reconcileCachedWindows(batch.updated)
+        }
         guard let coordinator = SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator else { return }
         MainActor.assumeIsolated {
             coordinator.applyCacheChanges(removed: batch.removed, added: batch.added, updated: batch.updated)
@@ -208,7 +214,10 @@ class SpaceWindowCacheManager {
 
     func removeFromCache(pid: pid_t, windowId: CGWindowID) {
         cacheLock.lock()
-        defer { cacheLock.unlock() }
+        defer {
+            cacheLock.unlock()
+            WindowSnapRegistry.existing?.remove(PreviewWindowIdentity(pid: pid, windowID: windowId))
+        }
         if var windowSet = windowCache[pid],
            let windowToRemove = windowSet.first(where: { $0.id == windowId })
         {

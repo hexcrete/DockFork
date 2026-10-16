@@ -28,6 +28,8 @@ Integration follow-up 1: Confirm gesture restoration and serialize asynchronous 
 
 Integration follow-up 2: Restrict linked resizing to live same-Desktop neighbors. Use PID/window identities, generation checks, real perpendicular edge overlap, live membership/state validation, nonactivating confirmed neighbor writes and explicit detachment before programmatic placement or Space movement. Retain coalesced background processing without main-thread AX waits. Focused geometry/registry checks cover unrelated Spaces, stale targets, refused writes and identity reuse; full-app and locked-session results are recorded separately.
 
+Integration follow-up 3: Bound snap-record lifetime and avoid retaining preview images. Records now keep identity, owner PID, AX handle, frames and membership without screenshot-bearing WindowInfo values. A bounded window-ID index routes physical-owner notifications correctly. Existing cache-removal/metadata/termination paths prune records without holding cache locks during registry operations; all Space moves detach through the shared low-level operation. Production-registry weak-image, metadata invalidation and cleanup checks passed, as did the signed Debug build/relaunch. The locked session exposes no live windows; native interaction tests remain pending.
+
 ### Fixes and UI Polish
 
 - Make tiling and foregrounding more reliable: confirm actual placement, finish resizes constrained by the old window position, and prevent rapid focus from unexpectedly expanding a tiled window. Applications' minimum-size restrictions are reported rather than treated as successful placement.
