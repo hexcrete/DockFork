@@ -1,8 +1,8 @@
 # DockFork 0.2.0 Prerelease
 
-Status: publication authorized October 17, 2026 after confirming upstream main remains at `3e08721`. Publish the exact audited candidate from `c863e628d17d8c80985cd77533ff94db03d6444a`, with no rebuild. Draft/upload verification is the next step; publication is not yet complete.
+Status: [published as a prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.2.0) October 17, 2026, from exact tested source `c863e628d17d8c80985cd77533ff94db03d6444a`. No rebuild. Ten uploaded assets, remote tag, release state and public downloads verified; original 0.1.0 assets untouched.
 
-**The user authorized publication of the existing ad-hoc-signed candidate. Verify the draft assets before making the prerelease public.** The updated optional preset is not imported automatically. Screenshots and recordings are deferred and are not a release gate.
+**Published with the user's authorization. This is a public prerelease for continued testing.** The updated optional preset is not imported automatically. Screenshots and recordings are deferred and are not a release gate.
 
 ## Release Notes
 
@@ -101,7 +101,7 @@ The ledger coverage boundary is explicit in [COMMIT_LEDGER.md](COMMIT_LEDGER.md)
 - Complete: source, package directory, version/base metadata, identity, ZIP integrity, source/patch correspondence, nested signatures and allowlisted asset checksums are verified in the candidate record.
 - Complete: the actual app, source archive and sidecars pass the recorded privacy-marker audit. Keep development signing identities, build logs, local paths and private notes out of distributed assets.
 - Test the actual Release candidate, including preview modes, selection, batch actions, tiling, dragging, AppleScript, fresh-launch recency, search and header hover dismissal. Record test gaps rather than inferring them from Debug results.
-- Obtain explicit push/upload/publication authorization for hexcrete/DockFork. Tag the reviewed candidate commit, create a draft prerelease, verify uploaded assets, then publish. Do not push the complete fork upstream or retag/replace the tested 0.1.0 assets.
+- Complete: user authorization, fork push, exact candidate tag, draft asset verification and public prerelease publication are recorded below. No upstream push or 0.1.0 asset replacement occurred.
 - After publication, separately test a browser-downloaded, quarantined ZIP on another Mac, including Gatekeeper, first launch, permissions, upgrade and settings import.
 
 Do not block publication on showcase media alone. Do not replace missing Release tests with screenshots or earlier Debug results.
@@ -131,3 +131,7 @@ Tiling foreground follow-up: honor foregrounding for AX-accepted but size-constr
 Linked-resize timing follow-up: preserve pointer intent from AX notification receipt so releasing the mouse while work is queued does not discard the update. Automated regression passes; native manual validation remains pending.
 
 Linked-resize follow-up: skip restore-frame bookkeeping for 1×1 no-resize tiling and already-superseded requests; preserve the first resize notification when a snap record is replaced while earlier work is queued. Production-source adapter coverage now includes full tiling/registration, geometry stress, cancellation and lifecycle cleanup. Native locked-session validation remains pending.
+
+## Publication Record
+
+Published October 17, 2026: [DockFork 0.2.0 prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.2.0), tag `v0.2.0`, resolves to the exact audited candidate source `c863e628d17d8c80985cd77533ff94db03d6444a`. A fresh fetch confirmed upstream main remained `3e08721ec56c6747dba04561ab57b03ec254d785`; no new merge or rebuild was needed. Exactly ten allowlisted assets were uploaded to a draft, downloaded with authentication and verified byte-for-byte against the local package, then published after the user's authorization. The remote annotated tag target, public non-draft/prerelease state and unchanged public release notes were verified. All ten public asset links returned HTTP 200; an anonymous app-ZIP download matched SHA-256 `7c9456e9a7875f8fce593bf0877087cc0d83bd8b1460d2071a3d986d7ebe2263`. The 246-preference/15-shortcut optional preset, source archive, overlay, license, installation guide and metadata remain those of the audited candidate. No development app, build log, signing certificate, private note or unlisted asset was uploaded. The fork's Actions are disabled; no inherited changelog workflow was triggered or changed. The original 0.1.0 release and upstream repository remain untouched. No application rebuild, installation, launch, preference import or media capture accompanied publication. The user's upgrade-permission observation is documented, not treated as exhaustive 0.2.0 feature testing. A command-line download does not test browser quarantine or Gatekeeper approval; that installation check, older-OS compatibility and screenshots remain pending.
