@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **129 later commits through `ef373d43602c236b417546a0f757bc0f7758ba5b`: 321 total, 316 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **130 later commits through `29de103a7e2beeca09b508c99fc9a54a5cc22ed4`: 322 total, 317 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
 
 The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The latest upstream integration and its ten incoming commits are included. The notification-timing, constrained-foregrounding and released-drag fixes are included through `86c3306`, with their exact hashes and changed-file counts. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The overflow-policy and Fill-action settings changes are included through `3b4d311`. The discarded header selection-scoping experiment was never committed.
 
@@ -551,6 +551,7 @@ Coverage: `9efa1cc..e751f05`, extended and verified against Git October 16, 2026
 | [`e751f05`](https://github.com/hexcrete/DockFork/commit/e751f05eb720f353d20365d9e7c8b14338db8921) | Prepare user-authorized 0.2.0 publication, persist the public-facing notes and upgrade-permission warning, verify unchanged upstream/candidate, and record the prior audit-documentation commit. No application rebuild or source change. | Documentation / Publication | 4 |
 
 | [`ef373d4`](https://github.com/hexcrete/DockFork/commit/ef373d43602c236b417546a0f757bc0f7758ba5b) | Record verified 0.2.0 prerelease publication, exact candidate/tag correspondence, ten downloaded-back assets, public download checks and remaining installation/media gaps. | Documentation / Publication | 8 |
+| [`29de103a`](https://github.com/hexcrete/DockFork/commit/29de103a7e2beeca09b508c99fc9a54a5cc22ed4) | Close collapsed native tab groups through stable group ownership and refreshed controls; preserve the original tab until last, stop on read failures or refused background Close, and add regression/routing tests plus validation records. | Fix / Discovery / Native Tabs | 7 |
 
 ## Upstream Attribution and Contribution Boundaries
 

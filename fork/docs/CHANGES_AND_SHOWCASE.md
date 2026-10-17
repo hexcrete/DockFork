@@ -646,6 +646,8 @@ Published October 17, 2026: [DockFork 0.2.0 prerelease](https://github.com/hexcr
 
 ## Post-0.2.0 Development: Close Collapsed Native Tabs
 
+Implementation: [`29de103a`](https://github.com/hexcrete/DockFork/commit/29de103a7e2beeca09b508c99fc9a54a5cc22ed4).
+
 October 17, 2026: Close now follows the target's native accessibility tab group and closes its real windows, preserving the original tab until last. Finder can rebuild tab buttons after switching or closing differently named folder tabs; retaining those buttons caused the earlier attempts to stop after one tab. The new loop refreshes group membership and uses Finder's automatically selected successor where possible. Membership never comes from matching window names or geometry. Native tab-bar Close controls are not used because they reported success without closing in native tests.
 
 Tab collapsing disabled, unrecognized tab bars and ordinary single windows retain normal Close behavior. Group work is bounded by its initial tab count and stops on changed membership, an unavailable target or a refused background Close. Save prompts are not accepted automatically. Existing Quit-on-Close preferences and close reconciliation remain unchanged. All Close Window routes already share `WindowInfo.close()`: preview controls, context/overflow menus, keyboard actions, scripts, menu-bar actions, window gestures and app-header Close All. Native Close Tab remains intentionally separate.
