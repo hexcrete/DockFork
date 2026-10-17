@@ -328,6 +328,31 @@ extension AXUIElement {
         try attribute(kAXCloseButtonAttribute, AXUIElement.self)
     }
 
+    func nativeTabGroup() throws -> AXUIElement? {
+        try children()?.first {
+            try $0.role() == kAXTabGroupRole as String && $0.nativeBackgroundTabs() != nil
+        }
+    }
+
+    func nativeBackgroundTabs() throws -> [AXUIElement]? {
+        guard let children = try children() else { return nil }
+        let tabs = try children.filter {
+            try $0.role() == kAXRadioButtonRole as String && $0.subrole() == "AXTabButton"
+        }
+        guard !tabs.isEmpty else { return nil }
+
+        var backgroundTabs: [AXUIElement] = []
+        var selectedCount = 0
+        for tab in tabs {
+            switch try tab.attribute(kAXValueAttribute, NSNumber.self)?.intValue {
+            case 1: selectedCount += 1
+            case 0, nil: backgroundTabs.append(tab)
+            default: return nil
+            }
+        }
+        return selectedCount == 1 ? backgroundTabs : nil
+    }
+
     func resolvedCloseButton() -> AXUIElement? {
         closeButtonResolution().button
     }

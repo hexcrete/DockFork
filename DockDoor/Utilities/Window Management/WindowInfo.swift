@@ -819,15 +819,42 @@ extension WindowInfo {
     @discardableResult
     func close() -> Bool {
         guard !isWindowlessApp else { return false }
-        guard closeButton != nil else {
-            print("Error: closeButton is nil.")
-            return false
-        }
-
         do {
-            try closeButton?.performAction(kAXPressAction)
+            var finalCloseButton = closeButton
+            if Defaults[.collapseNativeTabsIntoSingleWindow],
+               let group = try axElement.nativeTabGroup(),
+               let initialTabs = try group.nativeBackgroundTabs(), !initialTabs.isEmpty
+            {
+                // Finder rebuilds tab buttons after Close. Keep the group, not its old buttons.
+                for remaining in stride(from: initialTabs.count, through: 1, by: -1) {
+                    guard let tabs = try group.nativeBackgroundTabs(), tabs.count == remaining,
+                          let tab = tabs.first,
+                          var window = try group.attribute(kAXWindowAttribute, AXUIElement.self)
+                    else { return false }
+                    if try (window.cgWindowId()) == id {
+                        try tab.performAction(kAXPressAction)
+                        guard let selectedWindow = try group.attribute(kAXWindowAttribute, AXUIElement.self) else { return false }
+                        window = selectedWindow
+                    }
+                    guard let selectedID = try window.cgWindowId(), selectedID != 0, selectedID != id,
+                          let button = try window.closeButton()
+                    else { return false }
+                    try button.performAction(kAXPressAction)
+                    // A save prompt or refused Close must not advance to another tab.
+                    guard try window.closeButton() == nil else { return false }
+                }
+                // Preserve the original tab until last, even if the tab bar disappears.
+                finalCloseButton = try axElement.closeButton()
+            }
+            guard let finalCloseButton else {
+                DebugLogger.log("WindowClose", details: "window: \(id), final Close button unavailable")
+                return false
+            }
+            try finalCloseButton.performAction(kAXPressAction)
+            DebugLogger.log("WindowClose", details: "window: \(id), final Close requested")
             return true
         } catch {
+            DebugLogger.log("WindowClose", details: "window: \(id), failed: \(error)")
             print("Error closing window")
             return false
         }
