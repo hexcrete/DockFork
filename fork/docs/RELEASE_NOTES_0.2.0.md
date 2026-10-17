@@ -1,73 +1,79 @@
-# DockFork 0.2.0 Prerelease Draft
+# DockFork 0.2.0 Prerelease
 
-Status: local Release candidate built and audited October 16, 2026, from `c863e628d17d8c80985cd77533ff94db03d6444a`. App behavior is reviewed through `d17f1b55`; later changes are the optional preset, documentation cleanup and Release-only privacy safeguards. Based on DockDoor 1.41.0 plus merged changes through `3e08721`. Manual candidate testing and publication approval remain pending. Nothing is tagged, uploaded or published for 0.2.0.
+Status: publication authorized October 17, 2026 after confirming upstream main remains at `3e08721`. Publish the exact audited candidate from `c863e628d17d8c80985cd77533ff94db03d6444a`, with no rebuild. Draft/upload verification is the next step; publication is not yet complete.
 
-**The audited Release candidate is ready for user testing. Tagging, upload and publication remain paused until explicit approval.** The updated optional preset is not imported automatically. Screenshots and recordings are deferred and are not a release gate.
+**The user authorized publication of the existing ad-hoc-signed candidate. Verify the draft assets before making the prerelease public.** The updated optional preset is not imported automatically. Screenshots and recordings are deferred and are not a release gate.
 
 ## Release Notes
 
-DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). This second testing release adds ordered multi-window selection, group actions and tiling to the existing preview, shortcut and Space-management features.
+DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). This second testing release adds multi-window selection, group actions and automatic tiling, alongside preview and interaction fixes.
 
-Released drag placement now survives preview teardown during movement or activation. A newer drag cancels stale work; single- and multi-window free drops share confirmed placement. A reproduced four-window cancellation is covered by regression tests; user-reported Dock verification and two complete four-window foreground passes are recorded.
+## Multi-window selection
 
-### New Since 0.1.0
+- Select windows in Dock, Window Switcher and Cmd+Tab previews using checkboxes, configured shortcuts or mouse actions.
+- Selection follows the order in which windows are checked and survives filtering.
+- Select All selects the currently displayed, filtered windows.
+- The selection summary provides Select All, Clear Selection and Tile Windows. In Window Switcher, it also shows an app icon for each selected window.
+- An optional setting keeps Window Switcher open while windows are selected.
+- Window Switcher can also select windowless apps. Only Quit and Open New Window act on those entries.
 
-- Select multiple real windows in Dock, Window Switcher and Cmd+Tab previews. Standalone Window Switcher can also select windowless apps through a default-On suboption; only Quit and Open New Window include those apps, while window operations ignore them. Checks follow selection order and survive filtering. Use circular title/icon controls, an assigned Toggle Window Selection shortcut or mouse action, or Command-click in eligible persistent switchers. Select All affects the currently displayed, filtered windows.
-- The selection summary is enabled by default and shows selected and outside-view counts, with Select All, Clear Selection and Tile Windows in all preview modes. Window Switcher also has one right-aligned app icon per checked window, including repeated apps; +N counts windows omitted from the icon strip. Narrow summaries hide icons, shorten the count, change Tile Windows and then the other buttons to glyphs, and finally scroll horizontally. The count and every action remain available. A separate option keeps Window Switcher open when windows are selected; normal held-modifier behavior remains the default.
-- Apply preview actions and confirmed Space moves to checked groups. Mixed groups minimize or hide when any applicable target is restored or visible, and restore only when all applicable targets are minimized or hidden. Group fullscreen actions exit existing fullscreen members; fullscreen entry remains single-window.
-- Dock/Cmd+Tab App Header Close All and Minimize All remain app-wide regardless of selection; their controls switch to glyphs and then horizontal scrolling when space is limited. Header names follow the configured overflow style and fall back to icon-only when too narrow for readable text. Use selection-aware traffic lights or Tile Windows to act on checked windows only.
-- Drag checked windows together across Desktops and displays, with an ordered app-icon ghost and confirmed placement. Optional drop-to-tile puts the target window/group first, followed by the dragged selection.
-- Auto Tile Selected Windows arranges groups in selection order. Configure row/column limits under Tiling > Auto Tile, up to 6 with defaults of 2 rows and 3 columns. Overflow stacks in the original cells, or Tile only what fits leaves extra windows unprocessed. Half/Quarter actions apply individually unless the new default-Off Fill actions Auto Tile toggle is enabled. Explicit Auto Tile and drag-to-tile are unaffected by that toggle. A single-window Auto Tile fills the display; applications can enforce minimum sizes.
-- Existing AppleScript window actions accept an ordered list of window IDs where applicable. Batch scripts do not require UI selection; existing single-window syntax remains supported. Scalar and list actions now share failure reporting and the move/resize foreground preference; scalar fullscreen toggles while lists remain exit-only. Tile Windows exposes ordered tiling directly.
+## Group actions and dragging
 
-Multi-window selection, selection-driven keep-open behavior and drop-to-tile default Off. Show selection summary defaults On, but appears only with selection enabled and at least one checked window. Enable selection under **Keybinds > Window Selection**. Configure drag-to-tile under **Mouse Actions**. The updated optional showcase preset enables selection, drag-to-tile, linked resizing and Window Gestures on explicit import only. Existing saved settings are not changed automatically.
+- Apply supported preview actions and confirmed Space moves to selected windows.
+- Mixed groups minimize or hide when any applicable window is restored or visible; they restore only when all applicable windows are minimized or hidden.
+- Group fullscreen actions exit fullscreen. Entering fullscreen remains a single-window action.
+- Drag selected windows together across Desktops and displays.
+- Optional drag-to-tile combines the target window or selection with the dragged windows, placing the target group first.
 
-### Included From Upstream 1.41.0
+## Automatic tiling
 
-Optional two-finger window gestures, swipe-switcher sensitivity, custom-dock screen reservations with AppleScript access, stricter Dock-hover validation and updated translations. Gesture settings now have their own Gestures tab; shortcuts, Spaces and selection/tiling are under Keybinds. These capabilities come from DockDoor; fork selection, confirmed placement and session behavior are preserved.
+- Auto Tile arranges windows in selection order, with configurable limits up to six rows and six columns. Defaults are two rows and three columns.
+- Overflow windows stack within the same cells. Enable Tile only what fits to leave excess windows untouched.
+- Half/Quarter Fill actions normally apply independently. An optional setting makes them use direction-aware Auto Tile for multiple selected windows.
+- Optional linked resizing adjusts neighboring windows within the same tiled layout.
+- Applications' minimum window sizes remain respected.
 
-Integration follow-up 1: Confirm gesture restoration and serialize asynchronous actions. Reuse confirmed unhide/unminimize and fullscreen-exit workers; foreground only successful restores and retain partial success. No fixed fullscreen delay or optimistic restore-cache writes. Production-source adapter tests and signed Debug build/relaunch passed. AppleScript availability and locked-session live testing are tracked separately; no manual gesture verification or Release build is claimed.
+## AppleScript
 
-Integration follow-up 2: Restrict linked resizing to live same-Desktop neighbors. Use PID/window identities, generation checks, real perpendicular edge overlap, live membership/state validation, nonactivating confirmed neighbor writes and explicit detachment before programmatic placement or Space movement. Retain coalesced background processing without main-thread AX waits. Focused geometry/registry checks cover unrelated Spaces, stale targets, refused writes and identity reuse; full-app and locked-session results are recorded separately.
+- Existing window-action commands accept ordered lists of window IDs without requiring UI selection.
+- Single-window and list commands share action failure reporting and the move/resize foreground preference.
+- Single-window fullscreen commands toggle fullscreen; lists only exit it.
+- Tile Windows exposes ordered automatic tiling directly.
 
-Integration follow-up 3: Bound snap-record lifetime and avoid retaining preview images. Records now keep identity, owner PID, AX handle, frames and membership without screenshot-bearing WindowInfo values. A bounded window-ID index routes physical-owner notifications correctly. Existing cache-removal/metadata/termination paths prune records without holding cache locks during registry operations; all Space moves detach through the shared low-level operation. Production-registry weak-image, metadata invalidation and cleanup checks passed, as did the signed Debug build/relaunch. The locked session exposes no live windows; native interaction tests remain pending.
+## Fixes and UI polish
 
-Integration follow-up 4: Optional linked resizing for confirmed DockFork tiling batches. Link tiled windows when resizing defaults Off under Keybinds > Tiling and is independent of multi-selection and Window Gestures. Confirmed Auto Tile, selected Half/Quarter, drag-to-tile and scripting placements register separate overflow batches; preserve valid original restore sizes, detach moves/invalid members and keep native neighbor resizing nonactivating. A connected-edge solver handles three-window T junctions without joining disconnected collinear windows. Registration and extra frame reads are gated by the option; existing AX notifications are reused with no new event tap or polling. Mixed-origin groups remain separate, and disabling one option removes only its own records. Source-adapter and automated geometry checks pass; locked-session native testing remains pending.
+- More reliable tiling, foregrounding and completion of released window drags.
+- Preview controls adapt to narrow widths, progressively moving actions into native More menus.
+- Improved App Header and selection-summary alignment, sizing, hover boundaries and click handling.
+- More reliable cleanup after closing large groups or quitting selected apps.
+- Corrected Compact Mode drag-target highlights.
+- Improved embedded-title contrast and a reusable native search-clear button.
+- Corrected Dock cycling behavior for inactive, single-window and windowless apps.
+- Improved activation-recency handling for newly launched applications.
+- Selection controls expose accessibility selected-state information.
 
-Tiling foreground follow-up: honor foregrounding for AX-accepted but size-constrained placements, while preserving unconfirmed-layout errors and excluding those windows from linked resizing. App minimum sizes are still respected.
+## Included from DockDoor 1.41.0
 
-Linked-resize timing follow-up: preserve pointer intent from AX notification receipt so releasing the mouse while work is queued does not discard the update. Automated regression passes; native manual validation remains pending.
+Two-finger window gestures, swipe-switcher sensitivity, custom-dock screen reservations, stricter Dock-hover validation and updated translations. These are upstream capabilities, adapted to work with DockFork's selection, tiling and session behavior.
 
-Linked-resize follow-up: skip restore-frame bookkeeping for 1×1 no-resize tiling and already-superseded requests; preserve the first resize notification when a snap record is replaced while earlier work is queued. Production-source adapter coverage now includes full tiling/registration, geometry stress, cancellation and lifecycle cleanup. Native locked-session validation remains pending.
+## Defaults and optional preset
 
-### Fixes and UI Polish
+Multi-window selection, selection-driven keep-open behavior, drag-to-tile and linked resizing default Off. Enable selection under **Keybinds > Window Selection** and configure layouts under **Keybinds > Tiling**.
 
-- Make tiling and foregrounding more reliable: confirm actual placement, finish resizes constrained by the old window position, and prevent rapid focus from unexpectedly expanding a tiled window. Applications' minimum-size restrictions are reported rather than treated as successful placement.
-- Adapt preview toolbars to narrow widths: shorten/omit title text, progressively overflow rightmost traffic-light actions and consolidate Space/state controls into native More menus, then reuse the selection-control location while preserving app icons and selected-state outlines. Preview and menu-bar action menus share Space/state information, with Move to Space before Arrange. Shared selection controls expose native selected-state accessibility metadata.
-- Keep Shadowed app headers and their mouse-safe zone below the menu bar when preview panels reach the top of the screen.
-- Keep pending cache validation separate for each app so large multi-app close groups do not cancel one another's stale-window cleanup.
-- Clear an app's selected real windows on confirmed termination, including rows already removed from view. Windowless checks are one-shot on Quit or Open New Window; New Window keeps real-window checks. Replacing a placeholder with a real window also clears its old check.
-- Correct Compact Mode drag-target shapes and highlight opacity.
-- Extend the configurable traffic-light transition duration to 0.5 seconds while preserving Reduce Motion behavior.
-- Acknowledge the one-time Cmd+Tab focus hint after actual preview focus. Hide app-header window actions when an app has no real windows.
-- Improve contrast for embedded switcher titles with shared appearance-aware shadows. Add a native search clear button that works after repeated panel reuse.
-- Limit Dock cycling to the active, visible app with multiple real windows. Inactive, single-window and windowless clicks retain native activation/reopening, while preview retention applies only to actual cycles.
-- Avoid false five-second AX backoff during app startup and preserve explicitly identified window focus timestamps through discovery.
-- Include Shadowed headers and selection summaries in hover and outside-click interaction bounds, without changing their appearance or adding timers. Header/summary button clicks no longer fall into the fixed transparent-margin exclusion; user verification of this latest correction passed, with final no-change publication guards checked in isolation and by a signed Debug build.
+The optional showcase preset enables these features and includes customized appearance and shortcuts. It is never imported automatically. **Export a backup first: importing replaces existing settings.**
 
-These are highlights, not the complete list. See the [changes guide](CHANGES_AND_SHOWCASE.md) and [commit ledger](COMMIT_LEDGER.md). Screenshots and recordings will follow during testing; none are marked captured or approved.
+## Installation and limitations
 
-### Installation and Limitations
-
-- Planned distribution: Apple Silicon, ad-hoc signed, not notarized, with manual updates. Follow the [installation guide](../packaging/INSTALL.md); do not disable Gatekeeper.
-- Quit other DockDoor/DockFork instances before launching. Export settings before upgrading or importing the optional preset. Import replaces settings. A rebuilt ad-hoc release can require permission approval again.
-- Partial batch failures are reported; successful members are not rolled back. Fullscreen and multi-Desktop sources have operation-specific restrictions. Overflow shares the original cells by default; Tile only what fits instead leaves excess targets unprocessed. App-level unhide remains app-wide.
-- Smaller displays or apps with large minimum sizes can prevent a requested grid from fitting. Row/column limits are upper bounds, not a guarantee that every app supports that layout.
+- Apple Silicon build, ad-hoc signed and not notarized. Updates are manual.
+- Quit other DockDoor/DockFork instances before launching. Rebuilt releases may require granting permissions again. When upgrading, an old permission entry can remain enabled but stop authorizing the replacement app; quit DockFork, remove the affected Accessibility or Screen Recording entry in System Settings, add the replacement app and enable access again, then relaunch.
+- Follow macOS Privacy & Security approval procedures; do not disable Gatekeeper.
+- Partial batch failures retain successful changes rather than rolling them back.
+- Release build, signatures, checksums, source correspondence and privacy-marker checks passed. Testing is ongoing; downloaded/quarantined installation and older-macOS compatibility remain unverified.
 - Spaces Bar, pinned floating windows and the slide-out switcher are not included. Experimental full-size-preview container fading remains Off by default with known hover limitations.
-- Development testing covers signed Debug builds, focused native/model checks and user-reported verification. The 0.2.0 Release build and package audit passed. Manual Release testing, downloaded/quarantined installation and older-macOS compatibility remain unverified. Earlier 0.1.0 testing does not certify this release.
-- The latest tiling/focus regression sweep used one display on macOS 27. Additional displays and exhaustive accessibility coverage remain unverified for that follow-up; Window Switcher VoiceOver navigation out of search was not completed.
 
-Report problems through this fork's Issues page. Review diagnostic logs for private information before attaching them.
+These are highlights, not the complete list. See the [changes guide](https://github.com/hexcrete/DockFork/blob/better_dd_merged/fork/docs/CHANGES_AND_SHOWCASE.md) for details. Screenshots and recordings will follow during testing.
+
+Report problems through [this fork's Issues page](https://github.com/hexcrete/DockFork/issues). Review diagnostic logs for private information before attaching them.
 
 ## Preparation Checks
 
@@ -107,3 +113,21 @@ The current upstream record is DockDoor 1.41.0 plus changes through `3e08721ec56
 October 16, 2026 candidate: `c863e628d17d8c80985cd77533ff94db03d6444a`. Built on macOS 27.0.1 with Xcode 27.0 as an arm64, ad-hoc-signed Release app. Existing Swift 6 compatibility warnings remain in the current Swift 5 language mode; this is not a warning-free build. All 19 package checks passed: nine asset checksums, ZIP integrity, 219 extracted bundle entries' contents/modes/links, deep/strict nested signatures and ad-hoc identity, exact committed source archive, clean packaging-overlay application, committed preset/license/install-guide correspondence, source/upstream version metadata and disabled upstream updater feed. The privacy-marker scan covered 462 app/source/sidecar files and found no configured private-home, development-identity, credential/private-key or temporary-build-path markers. Intentional public attribution remains. This is not a comprehensive secret-scanner certification. The application includes no development/debug/signing payloads; the temporary worksheet and local outputs are absent from its source archive. Release packaging disables coverage instrumentation and removes debug maps before signing. The preset has 246 reviewed preferences and 15 generic-ID shortcut rows, with debug logging Off.
 
 Local package: `fork/dist/DockFork-c863e62-uTuBcN/DockFork-0.2.0-c863e62-arm64.zip`. ZIP SHA-256: `7c9456e9a7875f8fce593bf0877087cc0d83bd8b1460d2071a3d986d7ebe2263`. Preset SHA-256: `96e30b9d8dca6beb4d2c3fd82370c650e5a7b4dcaf6ef5e9bc76a6fd3e7b1555`. Publish only the ten allowlisted assets, never the development app, build logs, audit notes or the whole output directory. Earlier rejected candidates are not eligible for distribution. The Release app was not installed or launched, the preset was not imported, and the signed development app and live settings were left unchanged. Manual Release verification, downloaded/quarantined installation, minimum-OS validation and publication approval remain pending. No tag, push, draft, upload or publication was performed.
+
+## Integration Validation History
+
+These are historical implementation-stage checks, not additional Release test claims.
+
+Integration follow-up 1: Confirm gesture restoration and serialize asynchronous actions. Reuse confirmed unhide/unminimize and fullscreen-exit workers; foreground only successful restores and retain partial success. No fixed fullscreen delay or optimistic restore-cache writes. Production-source adapter tests and signed Debug build/relaunch passed. AppleScript availability and locked-session live testing are tracked separately; no manual gesture verification or Release build is claimed.
+
+Integration follow-up 2: Restrict linked resizing to live same-Desktop neighbors. Use PID/window identities, generation checks, real perpendicular edge overlap, live membership/state validation, nonactivating confirmed neighbor writes and explicit detachment before programmatic placement or Space movement. Retain coalesced background processing without main-thread AX waits. Focused geometry/registry checks cover unrelated Spaces, stale targets, refused writes and identity reuse; full-app and locked-session results are recorded separately.
+
+Integration follow-up 3: Bound snap-record lifetime and avoid retaining preview images. Records now keep identity, owner PID, AX handle, frames and membership without screenshot-bearing WindowInfo values. A bounded window-ID index routes physical-owner notifications correctly. Existing cache-removal/metadata/termination paths prune records without holding cache locks during registry operations; all Space moves detach through the shared low-level operation. Production-registry weak-image, metadata invalidation and cleanup checks passed, as did the signed Debug build/relaunch. The locked session exposes no live windows; native interaction tests remain pending.
+
+Integration follow-up 4: Optional linked resizing for confirmed DockFork tiling batches. Link tiled windows when resizing defaults Off under Keybinds > Tiling and is independent of multi-selection and Window Gestures. Confirmed Auto Tile, selected Half/Quarter, drag-to-tile and scripting placements register separate overflow batches; preserve valid original restore sizes, detach moves/invalid members and keep native neighbor resizing nonactivating. A connected-edge solver handles three-window T junctions without joining disconnected collinear windows. Registration and extra frame reads are gated by the option; existing AX notifications are reused with no new event tap or polling. Mixed-origin groups remain separate, and disabling one option removes only its own records. Source-adapter and automated geometry checks pass; locked-session native testing remains pending.
+
+Tiling foreground follow-up: honor foregrounding for AX-accepted but size-constrained placements, while preserving unconfirmed-layout errors and excluding those windows from linked resizing. App minimum sizes are still respected.
+
+Linked-resize timing follow-up: preserve pointer intent from AX notification receipt so releasing the mouse while work is queued does not discard the update. Automated regression passes; native manual validation remains pending.
+
+Linked-resize follow-up: skip restore-frame bookkeeping for 1×1 no-resize tiling and already-superseded requests; preserve the first resize notification when a snap record is replaced while earlier work is queued. Production-source adapter coverage now includes full tiling/registration, geometry stress, cancellation and lifecycle cleanup. Native locked-session validation remains pending.
