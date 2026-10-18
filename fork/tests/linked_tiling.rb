@@ -132,6 +132,11 @@ enum DebugLogger { static func log(_ label: String, details: String) {} }
  static var active = true
  static func reset() { placements = 0; moves = 0; focus = []; afterPlacement = nil; active = true }
 }
+enum ActionFeedbackOutcome { case completed, requested, failed, cancelled }
+struct ActionFeedbackHandle {
+ func finish(_ identity: PreviewWindowIdentity, _ outcome: ActionFeedbackOutcome) {}
+ func finishRemaining(_ outcome: ActionFeedbackOutcome) {}
+}
 enum WindowUtil {
  static var cachedWindows: [WindowInfo] = []
  static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { cachedWindows.filter { $0.app.processIdentifier == pid } }
@@ -173,7 +178,7 @@ dispatch = block(coordinator, '    private func performPreviewBatchAction(')
 consume = dispatch.index('windowSwitcherCoordinator.consumeWindowlessSelection(in: targets)')
 abort 'Consume windowless checks at dispatch, not in a late completion' unless consume && consume < dispatch.index('previewBatchTask = Task')
 action_guard = block(coordinator, '    func performCheckedWindowAction(').split('        if action == .bringToCurrentSpace').first
-space_guard = block(coordinator, '    func performCheckedSpaceMove(').split('        previewBatchTask?.cancel()').first
+space_guard = block(coordinator, '    func performCheckedSpaceMove(').split('        let feedback =').first
 source += "@MainActor final class ActionHarness { let windowSwitcherCoordinator: SelectionHarness; init(_ selection: SelectionHarness) { windowSwitcherCoordinator = selection }\n"
 source += action_guard + "return true\n}\n" + space_guard + "return true\n}\n}\n"
 selection = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift")
@@ -192,7 +197,7 @@ end
 source += "}\n"
 source += "\nextension WindowUtil {\n" + block(util, '    static func canBringWindowToFrontWithoutSpaceSwitch(')
 source += "\n@MainActor static func finishIndependentFill(_ action: WindowAction, windows: [WindowInfo]) async -> PreviewBatchResult {\nvar result = PreviewBatchResult(succeeded: windows)\n"
-source += block(util, '        if (action.tilingDirection != nil || action == .maximize') + "\nreturn result\n}\n}\n"
+source += block(util, '        if action.tilingDirection != nil || action == .maximize') + "\nreturn result\n}\n}\n"
 
 checks = <<~'SWIFT'
 @main struct Checks {

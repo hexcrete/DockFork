@@ -8,6 +8,7 @@ struct KeybindsSettingsView: View {
                 MouseActionsSection()
                 CmdKeyShortcutsSection()
                 PreviewPostActionBehaviorSection()
+                ActionFeedbackSettingsSection()
                 SpacesSettingsSection()
                 WindowSelectionSettingsSection()
                 TilingSettingsSection()
@@ -218,6 +219,29 @@ private struct SpacesSettingsSection: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)
+                }
+            }
+        }
+    }
+}
+
+private struct ActionFeedbackSettingsSection: View {
+    @Default(.enableActionFeedback) private var enabled
+    @Default(.actionFeedbackPosition) private var position
+
+    var body: some View {
+        SettingsGroup(header: "Action Feedback") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Enable action feedback", isOn: $enabled)
+                    .settingsSearchTarget("gestures.enableActionFeedback")
+                Text("Show progress and results for window and Space actions. Selection changes, ordinary activation, and AppleScript actions remain silent.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if enabled {
+                    Picker("Position:", selection: $position) {
+                        ForEach(ActionFeedbackPosition.allCases, id: \.self) { item in Text(item.title).tag(item) }
+                    }
+                    .settingsSearchTarget("gestures.actionFeedbackPosition")
                 }
             }
         }

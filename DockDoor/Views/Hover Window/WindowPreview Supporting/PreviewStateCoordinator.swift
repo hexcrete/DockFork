@@ -2,7 +2,7 @@ import ApplicationServices
 import Defaults
 import SwiftUI
 
-struct PreviewWindowIdentity: Hashable {
+struct PreviewWindowIdentity: Hashable, Sendable {
     let pid: pid_t
     let windowID: CGWindowID
 
@@ -74,6 +74,7 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     var tapStateDidChange: (() -> Void)?
+    weak var actionFeedbackGrid: CardGridScrollView.Coordinator?
     weak var dragTargetGrid: CardGridScrollView.Coordinator?
 
     @MainActor

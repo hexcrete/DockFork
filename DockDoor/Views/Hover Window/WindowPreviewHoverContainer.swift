@@ -401,9 +401,9 @@ struct WindowPreviewHoverContainer: View {
                 cancelDockHighlightAction()
             case .tap:
                 if resolvedWindow.isMinimized {
-                    handleWindowAction(.minimize, at: resolvedIndex)
+                    ActionFeedbackController.withoutFeedback { handleWindowAction(.minimize, at: resolvedIndex) }
                 } else if resolvedWindow.isEffectivelyHiddenForUI {
-                    handleWindowAction(.hide, at: resolvedIndex)
+                    ActionFeedbackController.withoutFeedback { handleWindowAction(.hide, at: resolvedIndex) }
                 } else {
                     resolvedWindow.bringToFront()
                     onWindowTap?()
@@ -854,13 +854,14 @@ struct WindowPreviewHoverContainer: View {
 
         let byIdentity = Dictionary((targetGroup + dragged).map { (PreviewWindowIdentity($0), $0) }, uniquingKeysWith: { first, _ in first })
         let windows = order.compactMap { byIdentity[$0] }
+        let feedback = ActionFeedbackController.begin(.autoTileSelectedWindows, windows: windows)
         let coordinator = DragPreviewCoordinator.shared
         let pointerSessionID = previewStateCoordinator.pointerInteractionSessionID
         cancelPreviewDrag(token: session.token)
         coordinator.completeDrop(token: session.token, operation: {
             await WindowUtil.tilePreviewWindows(windows, direction: .neutral, bringToFront: true,
                                                 destination: destination, on: targetScreen,
-                                                isRequestActive: { coordinator.isCompletingDrop(token: session.token) })
+                                                isRequestActive: { coordinator.isCompletingDrop(token: session.token) }, feedback: feedback)
         }, completion: { result in
             if !result.failed.isEmpty {
                 DebugLogger.log("PreviewTileDrop", details: "Failed: " + result.failed.map { "\($0.pid):\($0.windowID)" }.joined(separator: ", "))
@@ -877,13 +878,14 @@ struct WindowPreviewHoverContainer: View {
               destination.space.kind == .desktop
         else { NSSound.beep(); cancelPreviewDrag(token: session.token); return }
 
+        let feedback = ActionFeedbackController.begin(.bringToCurrentSpace, windows: session.targets.map(\.window), title: String(localized: "Move windows"))
         let coordinator = DragPreviewCoordinator.shared
         let pointerSessionID = previewStateCoordinator.pointerInteractionSessionID
         cancelPreviewDrag(token: session.token)
         coordinator.completeDrop(token: session.token, operation: {
             await WindowUtil.placeDraggedWindows(session.targets, at: location, on: screen,
                                                  destination: destination,
-                                                 isRequestActive: { coordinator.isCompletingDrop(token: session.token) })
+                                                 isRequestActive: { coordinator.isCompletingDrop(token: session.token) }, feedback: feedback)
         }, completion: { result in
             if !result.failed.isEmpty {
                 DebugLogger.log("PreviewGroupDrop", details: "Failed: " + result.failed.map { "\($0.pid):\($0.windowID)" }.joined(separator: ", "))
@@ -1311,6 +1313,11 @@ struct WindowPreviewHoverContainer: View {
         wasAppActiveBeforeClick: Bool? = nil,
         preferSharedToggle: Bool = false
     ) {
+        let feedbackAction: WindowAction = wasAppActiveBeforeClick != nil && Defaults[.dockClickAction] == .hide ? .hide : .minimizeAllWindows
+        let feedback = wasAppActiveBeforeClick != nil || preferSharedToggle
+            ? ActionFeedbackController.begin(feedbackAction, windows: previewStateCoordinator.windows, usePreviews: false) : nil
+        var awaitingMinimizeConfirmation = false
+        defer { if !awaitingMinimizeConfirmation { feedback?.finishRemaining(.requested) } }
         onWindowTap?()
         let originalWindows = previewStateCoordinator.windows
 
@@ -1322,8 +1329,10 @@ struct WindowPreviewHoverContainer: View {
                 previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
                 return
             }
-            let changedCount = WindowUtil.minimizeAllWindows(for: app, preferredWindows: preferredWindows)
+            let changedCount = WindowUtil.minimizeAllWindows(for: app, preferredWindows: preferredWindows, feedback: feedback)
+            awaitingMinimizeConfirmation = changedCount > 0
             if changedCount == 0 {
+                feedback?.finishRemaining(.failed)
                 previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
             }
         }
@@ -1349,7 +1358,8 @@ struct WindowPreviewHoverContainer: View {
                         previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
                         return
                     }
-                    app.hide()
+                    let accepted = app.hide()
+                    if !accepted { feedback?.finishRemaining(.failed) }
                     previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
                 case .minimize:
                     let preferredToMinimize = originalWindows.filter {
@@ -1393,6 +1403,12 @@ struct WindowPreviewHoverContainer: View {
         }
         guard index < previewStateCoordinator.windows.count else { return }
         let window = previewStateCoordinator.windows[index]
+        if [.minimize, .close, .closeAllWindows].contains(action), !window.isWindowlessApp, !mockPreviewActive,
+           let coordinator = SharedPreviewWindowCoordinator.activeInstance
+        {
+            coordinator.performSingleWindowAction(action, on: window)
+            return
+        }
         if action == .toggleWindowSelection {
             if !mockPreviewActive { previewStateCoordinator.toggleCheckedWindow(window) }
             return
@@ -1476,11 +1492,13 @@ struct WindowPreviewHoverContainer: View {
             scheduleDockActionReconciliationIfNeeded(for: window.app)
         }
 
+        let feedback = mockPreviewActive ? nil : ActionFeedbackController.begin(action, windows: [window], keyboard: NSApp.currentEvent?.type == .keyDown)
         let result = action.perform(
             on: actionStateWindow,
             keepPreviewOnQuit: false,
             preferredWindows: previewStateCoordinator.windows,
-            hiddenStateBeforeAction: hiddenStateBeforeAction
+            hiddenStateBeforeAction: hiddenStateBeforeAction,
+            feedback: feedback
         )
         if case .noChange = result {
             SharedPreviewWindowCoordinator.activeInstance?.cancelActionDrivenActivationDismissalSuppression(

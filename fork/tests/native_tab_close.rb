@@ -21,14 +21,15 @@ coordinator = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/S
 menus = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewInteractionModifier.swift")
 routes = {
   'single action' => util.match?(/case \.close:.*?window\.close\(\)/m),
-  'batch action' => util.include?('succeeded = window.close()'),
-  'Close All' => block(util, '    static func closeAllWindows(').include?('window.close()'),
+  'batch action' => util.include?('succeeded = await !closeWindows([window], feedback: feedback).succeeded.isEmpty'),
+  'Close All' => block(util, '    static func closeAllWindows(').include?('requestWindowClosures(windowsToClose, feedback: feedback)'),
+  'background Close worker' => block(util, '    private actor CloseExecutor').include?('requestWindowClosures(windows, feedback: feedback)') && block(util, '    private static func requestWindowClosures(').include?('window.close(progress:'),
   'preview controls' => block(hover, '    private func handleWindowAction(').include?('action.perform('),
   'preview selection' => hover.include?('performCheckedWindowAction(action, on: windowInfo)'),
   'keyboard coordinator' => block(coordinator, '    func performActionOnCurrentWindow(').include?('action.perform('),
-  'selected-window batch' => coordinator.include?('WindowUtil.performPreviewBatchAction(action, on: targets)'),
+  'selected-window batch' => coordinator.include?('WindowUtil.performPreviewBatchAction(action, on: targets, feedback: feedback)'),
   'native menu clicks and shortcuts' => menus.scan('request.handler(request.action)').length == 2,
-  'menu-bar actions' => File.read("#{root}/DockDoor/Utilities/WindowActionsMenuController.swift").include?('action.perform(on: window)'),
+  'menu-bar actions' => File.read("#{root}/DockDoor/Utilities/WindowActionsMenuController.swift").include?('action.perform(on: window, feedback: feedback)'),
   'keyboard routing' => File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift").include?('performActionOnCurrentWindow(action: action)'),
   'script routing' => File.read("#{root}/DockDoor/Utilities/ScriptCommands.swift").include?('WindowUtil.performPreviewBatchAction(action, on: windows'),
   'native window gestures' => File.read("#{root}/DockDoor/Utilities/Window Gestures/WindowGestureExecutor.swift").include?('action.perform(on: window)')
@@ -48,6 +49,8 @@ final class AXUIElement {
  let id: Int, kind: String, sub: String?
  var nodes: [AXUIElement]?, value: NSNumber?, owner: AXUIElement?, control: AXUIElement?
  var failsRead = false, failsPress = false, reads = 0
+ var delay: TimeInterval = 0
+ static var closeWasOnMainThread = false
  var failsCloseRead = false, failsValueRead = false
  var onPress: (() -> Void)?
  init(_ id: Int, _ kind: String = "AXButton", _ nodes: [AXUIElement]? = [], sub: String? = nil, value: Int? = nil) {
@@ -64,6 +67,8 @@ final class AXUIElement {
  func cgWindowId() throws -> Int? { id }
  func performAction(_ action: String) throws {
   if failsPress { throw Failure.refused }
+  Self.closeWasOnMainThread = Self.closeWasOnMainThread || Thread.isMainThread
+  if delay > 0 { Thread.sleep(forTimeInterval: delay) }
   if kind != kAXRadioButtonRole { Self.closed.append(id) }
   onPress?()
  }
@@ -71,13 +76,38 @@ SWIFT
 source += block(ax, '    func nativeTabGroup()') + "\n"
 source += block(ax, '    func nativeBackgroundTabs()') + "\n}\n"
 source += "struct WindowInfo { let id = 900; let axElement: AXUIElement; let closeButton: AXUIElement?; var isWindowlessApp = false\n"
-source += block(window, '    func close() -> Bool') + "\n}\n"
+source += block(window, '    func close(progress:') + "\n}\n"
+source += <<~'SWIFT'
+struct PreviewWindowIdentity { init(_ window: WindowInfo) {} }
+enum ActionFeedbackOutcome { case requested, failed }
+final class CloseMetrics: @unchecked Sendable {
+ let lock = NSLock()
+ private var values: [(Int, Int)] = []
+ private var terminal = false
+ var progress: [(Int, Int)] { lock.lock(); defer { lock.unlock() }; return values }
+ var finished: Bool { lock.lock(); defer { lock.unlock() }; return terminal }
+ func append(_ completed: Int, _ total: Int) { lock.lock(); values.append((completed, total)); lock.unlock() }
+ func finish() { lock.lock(); terminal = true; lock.unlock() }
+}
+struct ActionFeedbackHandle: Sendable {
+ let metrics: CloseMetrics
+ func closeProgress(for identity: PreviewWindowIdentity) -> @Sendable (Int, Int) -> Void { { metrics.append($0, $1) } }
+ func finish(_ identity: PreviewWindowIdentity, _ outcome: ActionFeedbackOutcome) { metrics.finish() }
+}
+enum WindowUtil {
+ struct PreviewBatchResult { var succeeded: [WindowInfo] = []; var failed: [PreviewWindowIdentity] = [] }
+SWIFT
+source += block(util, '    private actor CloseExecutor') + "\n"
+source += util.lines.find { |line| line.include?('private static let closeExecutor =') }
+source += block(util, '    static func closeWindows(') + "\n"
+source += block(util, '    private static func requestWindowClosures(') + "\n}\n"
 source += <<~'SWIFT'
 final class Group {
  let root = AXUIElement(900, "AXWindow"), group = AXUIElement(901, kAXTabGroupRole)
  var members: [Int], selected = 900, rebuild: Bool, hideLast: Bool
  var selectionRefused = false, closeRefused = false, missingWindow = false, missingButton = false
  var pressFails = false, wrongWindow = false, changeCount = false
+ var pressDelay: TimeInterval = 0
  var autoSelectSuccessor = false, rebuildOnSelection = false
  var closeReadFails = false
  var groupReadFailsAfterClose = false
@@ -95,7 +125,7 @@ final class Group {
     guard !selectionRefused, let tab else {return}
     for item in group.nodes ?? [] {item.value = 0}; tab.value = 1; selected = member
     let window = AXUIElement(wrongWindow ? 900 : member, "AXWindow")
-    let button = AXUIElement(member); button.failsPress = pressFails
+    let button = AXUIElement(member); button.failsPress = pressFails; button.delay = pressDelay
     button.onPress = { [unowned self, weak tab] in
      window.failsCloseRead = closeReadFails
      guard !closeRefused else { return }
@@ -180,6 +210,34 @@ check(!failedTabRead.close()); check(AXUIElement.closed.isEmpty)
 let failedRefresh = Group(); failedRefresh.groupReadFailsAfterClose = true
 check(!failedRefresh.close()); check(AXUIElement.closed == [1])
 print("Passed \(checks) native-tab Close assertions, including rebuilt different-folder controls")
+let slow = Group(Array(1...8)); slow.pressDelay = 0.03
+let metrics = CloseMetrics()
+AXUIElement.closed = []; AXUIElement.closeWasOnMainThread = false
+let closing = Task { @MainActor in
+ await WindowUtil.closeWindows([WindowInfo(axElement: slow.root, closeButton: slow.root.control)], feedback: ActionFeedbackHandle(metrics: metrics))
+}
+let queuedGroup = Group([100, 101])
+let queuedClose = Task { @MainActor in
+ await WindowUtil.closeWindows([WindowInfo(axElement: queuedGroup.root, closeButton: queuedGroup.root.control)])
+}
+queuedClose.cancel()
+let closed = await closing.value
+let skipped = await queuedClose.value
+check(skipped.succeeded.isEmpty && skipped.failed.isEmpty && queuedGroup.root.reads == 0)
+check(closed.succeeded.count == 1 && closed.failed.isEmpty)
+check(!AXUIElement.closeWasOnMainThread)
+check(metrics.progress.map { $0.0 } == Array(0...9))
+check(metrics.progress.allSatisfy { $0.1 == 9 })
+let stopped = Group()
+AXUIElement.closed = []
+let stoppedWindow = WindowInfo(axElement: stopped.root, closeButton: stopped.root.control)
+let stoppedResult = await Task.detached { [stoppedWindow] in
+ stoppedWindow.close { completed, _ in
+  if completed == 1 { withUnsafeCurrentTask { $0?.cancel() } }
+ }
+}.value
+check(!stoppedResult && AXUIElement.closed == [1])
+print("Passed background native Close responsiveness, ordered tab progress and cooperative cancellation checks")
 SWIFT
 Dir.mktmpdir('dockfork-native-close-') do |dir|
   path = "#{dir}/Checks.swift"

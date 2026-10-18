@@ -1284,10 +1284,13 @@ final class DockObserver {
         let pid = app.processIdentifier
         cancelDockClickAction(for: pid)
         previewCoordinator.cancelPendingShow()
+        let feedbackTargets = Defaults[.enableActionFeedback] ? WindowUtil.readCachedWindows(for: pid) : []
+        let feedback = ActionFeedbackController.begin(action == .hide ? .hide : .minimizeAllWindows, windows: feedbackTargets, usePreviews: false)
         previewCoordinator.hideWindow()
         let token = UUID()
 
         let task = Task { @MainActor [weak self] in
+            defer { feedback?.finishRemaining(.cancelled) }
             guard let self else { return }
             defer {
                 if dockClickActionTasks[pid]?.token == token {
@@ -1298,7 +1301,9 @@ final class DockObserver {
             switch action {
             case .hide:
                 let targetHiddenState = !wasHiddenAtClickTime
-                if await WindowUtil.setHiddenStateConfirmed(for: app, isHidden: targetHiddenState) {
+                let confirmed = await WindowUtil.setHiddenStateConfirmed(for: app, isHidden: targetHiddenState)
+                feedback?.finishRemaining(confirmed ? .completed : .failed)
+                if confirmed {
                     DebugLogger.log("DockClick", details: "\(appName): hidden=\(targetHiddenState)")
                     if !targetHiddenState {
                         app.activate(options: [.activateIgnoringOtherApps])
@@ -1310,7 +1315,8 @@ final class DockObserver {
             case .minimize:
                 let result = await WindowUtil.toggleAllMinimizableWindows(
                     for: app,
-                    restoreHiddenAppIfNeeded: wasHiddenAtClickTime
+                    restoreHiddenAppIfNeeded: wasHiddenAtClickTime,
+                    feedback: feedback
                 )
                 guard !Task.isCancelled else { return }
                 DebugLogger.log(

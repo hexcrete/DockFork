@@ -527,6 +527,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     func hideWindow(cancelPendingShow shouldCancelPendingShow: Bool = true) {
+        ActionFeedbackController.existing?.previewWillDisappear(self)
         windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)
         stopPreviewFocusFade()
         AppIconBadgeStore.stopIfInitialized()
@@ -1554,14 +1555,17 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
         if action == .autoTileSelectedWindows {
             guard let first = coordinator.checkedActionTargets(includingWindowlessApps: true)?.first ?? coordinator.getCurrentWindow() else { NSSound.beep(); return false }
-            return performCheckedWindowAction(action, on: first, preservePreviews: preservePreviews) ?? false
+            return performCheckedWindowAction(action, on: first, preservePreviews: preservePreviews, keyboard: true) ?? false
         }
         guard coordinator.currIndex >= 0, coordinator.currIndex < coordinator.windows.count else {
             return false
         }
 
         let window = coordinator.windows[coordinator.currIndex]
-        if let dismissed = performCheckedWindowAction(action, on: window, preservePreviews: preservePreviews) { return dismissed }
+        if let dismissed = performCheckedWindowAction(action, on: window, preservePreviews: preservePreviews, keyboard: true) { return dismissed }
+        if action == .minimize || (action == .close && !window.isWindowlessApp) || action == .closeAllWindows {
+            return performSingleWindowAction(action, on: window, preservePreviews: preservePreviews, keyboard: true)
+        }
         if action == .toggleWindowSelection {
             coordinator.toggleCheckedWindow(window)
             return false
@@ -1643,11 +1647,13 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             nil
         }
 
+        let feedback = ActionFeedbackController.begin(action, windows: [window], keyboard: true)
         let result = action.perform(
             on: actionStateWindow,
             keepPreviewOnQuit: false,
             preferredWindows: coordinator.windows,
-            hiddenStateBeforeAction: hiddenStateBeforeAction
+            hiddenStateBeforeAction: hiddenStateBeforeAction,
+            feedback: feedback
         )
         if case .noChange = result {
             cancelActionDrivenActivationDismissalSuppression(token: activationDismissalSuppressionToken)
@@ -1776,7 +1782,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     // nil delegates to single-window handling; the Bool reports immediate preview dismissal.
-    func performCheckedWindowAction(_ action: WindowAction, on initiator: WindowInfo, preservePreviews: Bool = false) -> Bool? {
+    func performCheckedWindowAction(_ action: WindowAction, on initiator: WindowInfo, preservePreviews: Bool = false, keyboard: Bool = false) -> Bool? {
         guard action != .toggleWindowSelection, action != .selectAllWindows, action != .none,
               let selectedTargets = action == .autoTileSelectedWindows
               ? windowSwitcherCoordinator.checkedActionTargets(includingWindowlessApps: true) ?? [initiator]
@@ -1796,7 +1802,16 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             return false
         }
 
-        return performPreviewBatchAction(action, on: targets, initiator: initiator, preservePreviews: preservePreviews)
+        return performPreviewBatchAction(action, on: targets, initiator: initiator, preservePreviews: preservePreviews, keyboard: keyboard)
+    }
+
+    @MainActor
+    @discardableResult
+    func performSingleWindowAction(_ action: WindowAction, on window: WindowInfo, preservePreviews: Bool = false, keyboard: Bool = false) -> Bool {
+        let targets = action == .closeAllWindows
+            ? WindowUtil.readCachedWindows(for: window.app.processIdentifier).filter { !$0.isWindowlessApp }
+            : [window]
+        return performPreviewBatchAction(action, on: targets, initiator: window, preservePreviews: preservePreviews, keyboard: keyboard)
     }
 
     @MainActor
@@ -1807,7 +1822,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let targets = WindowUtil.readCachedWindows(for: app.processIdentifier)
             .filter { !$0.isWindowlessApp && !$0.app.isTerminated }
         guard let initiator = targets.first else { NSSound.beep(); return }
-        _ = performPreviewBatchAction(action, on: targets, initiator: initiator)
+        _ = performPreviewBatchAction(action, on: targets, initiator: initiator, usePreviews: false)
     }
 
     @MainActor
@@ -1819,7 +1834,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     private func performPreviewBatchAction(_ action: WindowAction, on targets: [WindowInfo], initiator: WindowInfo,
-                                           preservePreviews: Bool = false) -> Bool
+                                           preservePreviews: Bool = false, keyboard: Bool = false, usePreviews: Bool = true) -> Bool
     {
         previewBatchTask?.cancel()
         let token = UUID()
@@ -1831,10 +1846,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let revealsWindows = action == .openAppWindow || category == .unhiding
         let needsTransition = !preservePreviews && (action == .toggleFullScreen ||
             (revealsWindows && targets.contains { WindowUtil.activationMaySwitchSpaces(for: $0) }))
+        let feedback = ActionFeedbackController.begin(action, windows: targets, keyboard: keyboard || NSApp.currentEvent?.type == .keyDown, usePreviews: usePreviews)
         if needsTransition { hideWindow() }
         windowSwitcherCoordinator.consumeWindowlessSelection(in: targets)
         previewBatchTask = Task { @MainActor [weak self] in
-            let result = await WindowUtil.performPreviewBatchAction(action, on: targets)
+            let result = await WindowUtil.performPreviewBatchAction(action, on: targets, feedback: feedback)
             guard !Task.isCancelled, let self, previewBatchToken == token else { return }
             defer {
                 if previewBatchToken == token { previewBatchTask = nil; previewBatchToken = nil }
@@ -1872,17 +1888,19 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     @MainActor
     @discardableResult
     func performCheckedSpaceMove(_ initiator: WindowInfo, to destination: ManagedSpaceDestination,
-                                 dismissPreviews: (() -> Void)?) -> Bool
+                                 dismissPreviews: (() -> Void)?, keyboard: Bool = false) -> Bool
     {
         guard let targets = windowSwitcherCoordinator.checkedActionTargets(for: initiator) else { return false }
         guard !targets.isEmpty else { return true }
         guard targets.count > 1 || initiator.isWindowlessApp || windowSwitcherCoordinator.checkedWindowCount > targets.count else { return false }
+        let feedback = ActionFeedbackController.begin(.bringToCurrentSpace, windows: targets, keyboard: keyboard || NSApp.currentEvent?.type == .keyDown, title: String(localized: "Move to Space \(destination.space.number)"))
         previewBatchTask?.cancel()
         let token = UUID()
         previewBatchToken = token
         let originalContent = contentView
         let followsDestination = Defaults[.switchToDestinationSpaceAfterMoving]
         previewBatchTask = Task { @MainActor [weak self] in
+            defer { feedback?.finishRemaining(.cancelled) }
             guard let self else { return }
             defer {
                 if previewBatchToken == token { previewBatchTask = nil; previewBatchToken = nil }
@@ -1911,19 +1929,27 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                                                                   isRequestActive: { self.previewBatchToken == token })
                 { success in
                     pending.remove(identity)
+                    feedback?.finish(identity, success ? .completed : .failed)
                     if success { succeeded.append(window) } else { failed.append(identity) }
                 }
                 if let cancel { cancellations.append(cancel) }
             }
             guard requestedMove else {
+                feedback?.finishRemaining(.failed)
                 reportBatchFailures(targets.map(PreviewWindowIdentity.init), action: "moveToCurrentDestination")
                 return
+            }
+            for window in succeeded {
+                feedback?.finish(PreviewWindowIdentity(window), .completed)
             }
             for _ in 0 ..< 25 where !pending.isEmpty {
                 do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return }
             }
             guard !Task.isCancelled, previewBatchToken == token else { return }
             failed.append(contentsOf: pending)
+            for identity in pending {
+                feedback?.finish(identity, .failed)
+            }
             reportBatchFailures(failed, action: "moveToSpace")
             let succeededIdentities = Set(succeeded.map(PreviewWindowIdentity.init))
             if followsDestination, !succeeded.isEmpty, isVisible, contentView === originalContent,
@@ -1977,6 +2003,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let targets = targetApps.map { ($0, WindowInfo.windowlessEntry(for: $0)) }
         let keepPreviewsOpen = preservePreviews || WindowAction.PostActionCategory.closing.keepPreviewsOpen
 
+        let feedback = ActionFeedbackController.begin(action == .close ? .closeAllWindows : action, windows: targets.map(\.1), keyboard: true, usePreviews: false)
         for (app, entry) in targets {
             let appRows = preferredWindows.filter {
                 $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp
@@ -1986,6 +2013,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 keepPreviewOnQuit: false,
                 preferredWindows: appRows.isEmpty ? nil : appRows
             )
+            feedback?.finish(PreviewWindowIdentity(entry), .requested)
             if action.shouldScheduleAppRefresh {
                 scheduleInPlaceActionRefresh(for: app)
             }

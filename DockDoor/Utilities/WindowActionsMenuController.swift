@@ -36,7 +36,21 @@ final class WindowActionsMenuController: NSObject, NSMenuDelegate {
             let actions = WindowActionMenuBuilder.shared.makeMenu(
                 for: window,
                 showShortcutHints: false,
-                handleWindowAction: { action in _ = action.perform(on: window) }
+                handleWindowAction: { action in
+                    let targets = action == .closeAllWindows
+                        ? WindowUtil.readCachedWindows(for: window.app.processIdentifier).filter { !$0.isWindowlessApp }
+                        : [window]
+                    let feedback = ActionFeedbackController.begin(action, windows: targets, keyboard: NSApp.currentEvent?.type == .keyDown, usePreviews: false)
+                    if [.minimize, .close, .closeAllWindows].contains(action) {
+                        let restoring = action == .minimize && window.isMinimized
+                        Task { @MainActor in
+                            let result = await WindowUtil.performPreviewBatchAction(action, on: targets, feedback: feedback)
+                            if restoring, !result.succeeded.isEmpty { _ = await window.bringToFrontConfirmed() }
+                        }
+                    } else {
+                        _ = action.perform(on: window, feedback: feedback)
+                    }
+                }
             ).menu
             for item in actions.items {
                 actions.removeItem(item)

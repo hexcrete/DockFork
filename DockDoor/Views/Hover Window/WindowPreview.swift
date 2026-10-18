@@ -404,10 +404,13 @@ final class SpaceMoveMenuController: NSObject {
         if request.usesCheckedSelection,
            SharedPreviewWindowCoordinator.activeInstance?.performCheckedSpaceMove(request.window, to: request.destination, dismissPreviews: request.dismissPreviews) == true
         { return }
+        let feedback = ActionFeedbackController.space(request.destination.space.number, window: request.window, keyboard: NSApp.currentEvent?.type == .keyDown, usePreviews: request.usesCheckedSelection)
         WindowUtil.performConfirmedSpaceMove(
             request.window,
             to: request.destination,
-            dismissPreviews: request.dismissPreviews
+            dismissPreviews: request.dismissPreviews,
+            feedback: feedback,
+            completion: { success in feedback?.finishRemaining(success ? .completed : .failed) }
         )
     }
 
@@ -416,8 +419,10 @@ final class SpaceMoveMenuController: NSObject {
         if request.usesCheckedSelection,
            SharedPreviewWindowCoordinator.activeInstance?.performCheckedWindowAction(.toggleFullScreen, on: request.window, preservePreviews: true) != nil
         { return }
-        guard
-            WindowUtil.exitFullScreenWithoutActivation(request.window)
+        let feedback = ActionFeedbackController.begin(.toggleFullScreen, windows: [request.window], keyboard: NSApp.currentEvent?.type == .keyDown, usePreviews: request.usesCheckedSelection)
+        let accepted = WindowUtil.exitFullScreenWithoutActivation(request.window)
+        feedback?.finishRemaining(accepted ? .requested : .failed)
+        guard accepted
         else {
             NSSound.beep()
             return

@@ -147,9 +147,9 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
         releaseActivationTask = nil
         SharedPreviewWindowCoordinator.activeInstance?.restoreDockAutoHideState()
         if windowInfo.isMinimized {
-            handleWindowAction(.minimize)
+            ActionFeedbackController.withoutFeedback { handleWindowAction(.minimize) }
         } else if windowInfo.isEffectivelyHiddenForUI {
-            handleWindowAction(.hide)
+            ActionFeedbackController.withoutFeedback { handleWindowAction(.hide) }
         } else {
             let coordinator = SharedPreviewWindowCoordinator.activeInstance
             let sessionID = coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID
@@ -288,7 +288,7 @@ struct WindowPreviewInteractionModifier: ViewModifier {
 
     private func handleWindowTap() {
         if Defaults[.enableMultiWindowSelection],
-           (!windowInfo.isWindowlessApp || (windowSwitcherActive && Defaults[.enableWindowlessAppSelection])),
+           !windowInfo.isWindowlessApp || (windowSwitcherActive && Defaults[.enableWindowlessAppSelection]),
            NSEvent.modifierFlags.intersection([.command, .option, .control, .shift]) == .command,
            SharedPreviewWindowCoordinator.activeInstance?.permitsCommandClickSelection == true
         {
@@ -301,7 +301,9 @@ struct WindowPreviewInteractionModifier: ViewModifier {
         SharedPreviewWindowCoordinator.activeInstance?.restoreDockAutoHideState()
 
         if NSEvent.modifierFlags.contains(.shift) {
+            let feedback = ActionFeedbackController.begin(.openNewWindow, windows: [windowInfo])
             WindowUtil.activateAndOpenNewWindow(app: windowInfo.app)
+            feedback?.finishRemaining(.requested)
             onTap?()
             return
         }
@@ -310,9 +312,9 @@ struct WindowPreviewInteractionModifier: ViewModifier {
             WindowUtil.activateWindowlessApp(app: windowInfo.app)
             onTap?()
         } else if windowInfo.isMinimized {
-            handleWindowAction(.minimize)
+            ActionFeedbackController.withoutFeedback { handleWindowAction(.minimize) }
         } else if windowInfo.isEffectivelyHiddenForUI {
-            handleWindowAction(.hide)
+            ActionFeedbackController.withoutFeedback { handleWindowAction(.hide) }
         } else {
             let coordinator = SharedPreviewWindowCoordinator.activeInstance
             let sessionID = coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID
@@ -718,7 +720,7 @@ final class PreviewContextMenuController: NSObject {
         else { return }
 
         dismiss()
-        request.handler(request.action)
+        ActionFeedbackController.performKeyboardMenuAction { request.handler(request.action) }
     }
 
     private func effectiveShortcutKeybind() -> UserKeyBind {

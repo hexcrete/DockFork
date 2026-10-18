@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Defaults
 import SwiftUI
 
 /// AppKit-backed scroll container for preview cards. Each card keeps its SwiftUI view in its own hosting view, and scrolling moves the content view's origin instead of an NSClipView so the hosting views are never asked to re-render per frame.
@@ -283,12 +284,15 @@ struct CardGridScrollView: NSViewRepresentable {
                 previewCoordinator?.dragTargetGrid = nil
                 previewCoordinator?.setPreviewDragTarget(nil)
             }
+            if previewCoordinator?.actionFeedbackGrid === self { previewCoordinator?.actionFeedbackGrid = nil }
+            ActionFeedbackController.existing?.refreshAnchors()
             cancellables.removeAll()
             container = nil
         }
 
         func update(representable: CardGridScrollView) {
             guard let container else { return }
+            if representable.isInteractive, Defaults[.enableActionFeedback] { previewCoordinator?.actionFeedbackGrid = self }
             if representable.isInteractive, representable.layout.appearance.enableWindowDragTiling {
                 previewCoordinator?.dragTargetGrid = self
             } else if previewCoordinator?.dragTargetGrid === self {
@@ -338,6 +342,17 @@ struct CardGridScrollView: NSViewRepresentable {
                     }
                 }
             }
+            ActionFeedbackController.existing?.refreshAnchors()
+        }
+
+        func feedbackFrame(for identity: PreviewWindowIdentity) -> CGRect? {
+            guard let container, container.isInteractive, let window = container.window, window.isVisible,
+                  let index = contentKey.firstIndex(where: { $0.id == identity.windowID && $0.pid == identity.pid }),
+                  let frame = frames[.window(index)] else { return nil }
+            let local = frame.offsetBy(dx: container.scrollsVertically ? 0 : -container.offset,
+                                       dy: container.scrollsVertically ? -container.offset : 0)
+            guard container.bounds.contains(CGPoint(x: local.midX, y: local.midY)) else { return nil }
+            return window.convertToScreen(container.convert(local, to: nil))
         }
 
         func windowForDrop(at screenPoint: CGPoint) -> WindowInfo? {
@@ -488,6 +503,7 @@ struct CardGridScrollView: NSViewRepresentable {
         }
 
         private func offsetChanged(_: CGFloat) {
+            ActionFeedbackController.existing?.refreshAnchors()
             materializePending(onlyVisible: true)
         }
 

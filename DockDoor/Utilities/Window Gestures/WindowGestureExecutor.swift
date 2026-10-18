@@ -29,7 +29,9 @@ final class WindowGestureExecutor {
         switch command {
         case let .window(action):
             guard let window = zone.window else { return }
-            if action == .minimize { await minimize(window) } else { perform(action, on: window) }
+            if action == .minimize { await minimize(window) }
+            else if action == .close || action == .closeAllWindows { _ = await WindowUtil.performPreviewBatchAction(action, on: [window]) }
+            else { perform(action, on: window) }
         case .closeTab:
             closeTab(in: zone)
         case .minimizeFrontWindow:

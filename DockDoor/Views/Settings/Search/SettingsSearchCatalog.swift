@@ -2056,6 +2056,23 @@ enum SettingsSearchCatalog {
             icon: "command"
         ),
         SettingsSearchItem(
+            id: "gestures.enableActionFeedback",
+            title: String(localized: "Enable action feedback"),
+            description: String(localized: "Show progress and results for window and Space actions. Selection changes, ordinary activation, and AppleScript actions remain silent."),
+            keywords: ["feedback", "popup", "progress", "confirmation", "cursor"],
+            tab: "Keybinds",
+            section: String(localized: "Action Feedback"),
+            icon: "bubble.left"
+        ),
+        SettingsSearchItem(
+            id: "gestures.actionFeedbackPosition",
+            title: String(localized: "Position:"),
+            keywords: ["feedback", "popup", "progress", "confirmation", "cursor"],
+            tab: "Keybinds",
+            section: String(localized: "Action Feedback"),
+            icon: "bubble.left"
+        ),
+        SettingsSearchItem(
             id: "gestures.postActionMovingResizing",
             title: String(localized: "Move/Resize"),
             description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),

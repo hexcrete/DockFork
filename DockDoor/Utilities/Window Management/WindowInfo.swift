@@ -817,21 +817,27 @@ extension WindowInfo {
     }
 
     @discardableResult
-    func close() -> Bool {
-        guard !isWindowlessApp else { return false }
+    func close(progress: (@Sendable (Int, Int) -> Void)? = nil) -> Bool {
+        guard !isWindowlessApp, !Task.isCancelled else { return false }
         do {
             var finalCloseButton = closeButton
+            var nativeTabCount: Int?
             if Defaults[.collapseNativeTabsIntoSingleWindow],
                let group = try axElement.nativeTabGroup(),
                let initialTabs = try group.nativeBackgroundTabs(), !initialTabs.isEmpty
             {
+                let total = initialTabs.count + 1
+                nativeTabCount = total
+                progress?(0, total)
                 // Finder rebuilds tab buttons after Close. Keep the group, not its old buttons.
                 for remaining in stride(from: initialTabs.count, through: 1, by: -1) {
+                    guard !Task.isCancelled else { return false }
                     guard let tabs = try group.nativeBackgroundTabs(), tabs.count == remaining,
                           let tab = tabs.first,
                           var window = try group.attribute(kAXWindowAttribute, AXUIElement.self)
                     else { return false }
                     if try (window.cgWindowId()) == id {
+                        guard !Task.isCancelled else { return false }
                         try tab.performAction(kAXPressAction)
                         guard let selectedWindow = try group.attribute(kAXWindowAttribute, AXUIElement.self) else { return false }
                         window = selectedWindow
@@ -839,9 +845,11 @@ extension WindowInfo {
                     guard let selectedID = try window.cgWindowId(), selectedID != 0, selectedID != id,
                           let button = try window.closeButton()
                     else { return false }
+                    guard !Task.isCancelled else { return false }
                     try button.performAction(kAXPressAction)
                     // A save prompt or refused Close must not advance to another tab.
                     guard try window.closeButton() == nil else { return false }
+                    progress?(total - remaining, total)
                 }
                 // Preserve the original tab until last, even if the tab bar disappears.
                 finalCloseButton = try axElement.closeButton()
@@ -850,7 +858,9 @@ extension WindowInfo {
                 DebugLogger.log("WindowClose", details: "window: \(id), final Close button unavailable")
                 return false
             }
+            guard !Task.isCancelled else { return false }
             try finalCloseButton.performAction(kAXPressAction)
+            if let nativeTabCount { progress?(nativeTabCount, nativeTabCount) }
             DebugLogger.log("WindowClose", details: "window: \(id), final Close requested")
             return true
         } catch {

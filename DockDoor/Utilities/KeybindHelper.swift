@@ -2122,32 +2122,40 @@ class KeybindHelper {
         windowSwitchingCoordinator.takeKeyboardOwnership()
         WindowUtil.cancelPendingManagedSpaceSwitch()
 
+        func unavailable() {
+            let feedback = ActionFeedbackController.space(spaceNumber, window: previewCoordinator.windowSwitcherCoordinator.getCurrentWindow(), keyboard: true)
+            feedback?.finishRemaining(.failed)
+            NSSound.beep()
+        }
         let displays = WindowSpaces.managedDisplays()
         guard let destination = WindowSpaces.destination(forSpaceNumber: spaceNumber, in: displays) else {
-            NSSound.beep()
+            unavailable()
             return
         }
 
         let coordinator = previewCoordinator.windowSwitcherCoordinator
         if let selectedWindow = coordinator.getCurrentWindow() {
             guard destination.space.kind == .desktop else {
-                NSSound.beep()
+                unavailable()
                 return
             }
             if DockObserver.isCmdTabSwitcherActive {
                 cmdTabActionPerformed = true
             }
             if previewCoordinator.performCheckedSpaceMove(selectedWindow, to: destination,
-                                                          dismissPreviews: { [weak self] in self?.dismissPreviewsForSpaceChange() })
+                                                          dismissPreviews: { [weak self] in self?.dismissPreviewsForSpaceChange() }, keyboard: true)
             { return }
             preventSwitcherHideOnRelease = true
+            let feedback = ActionFeedbackController.space(spaceNumber, window: selectedWindow, keyboard: true)
             WindowUtil.performConfirmedSpaceMove(
                 selectedWindow,
                 to: destination,
                 dismissPreviews: { [weak self] in
                     self?.dismissPreviewsForSpaceChange()
                 },
+                feedback: feedback,
                 completion: { [weak self] success in
+                    feedback?.finishRemaining(success ? .completed : .failed)
                     if !success {
                         NSSound.beep()
                     }
@@ -2158,12 +2166,12 @@ class KeybindHelper {
         }
 
         guard coordinator.windowSwitcherActive, !DockObserver.isCmdTabSwitcherActive else {
-            NSSound.beep()
+            unavailable()
             return
         }
 
         guard destination.space.kind == .desktop || destination.space.kind == .fullscreen else {
-            NSSound.beep()
+            unavailable()
             return
         }
 
@@ -2171,12 +2179,14 @@ class KeybindHelper {
             display.identifier == destination.display.identifier && display.currentSpaceID == destination.space.id
         }
         guard !isCurrentDestination else {
-            NSSound.beep()
+            unavailable()
             return
         }
 
+        let feedback = ActionFeedbackController.space(spaceNumber, keyboard: true)
         dismissPreviewsForSpaceChange()
-        WindowUtil.switchToManagedSpace(destination) { success in
+        WindowUtil.switchToManagedSpace(destination, feedback: feedback) { success in
+            feedback?.finishRemaining(success ? .completed : .failed)
             if !success {
                 NSSound.beep()
             }

@@ -156,6 +156,25 @@ extension WindowAction {
         }
     }
 
+    func feedbackTitle(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> String {
+        if self == .autoTileSelectedWindows { return String(localized: "Auto Tile") }
+        if let batchTargets, batchTargets.count > 1 {
+            switch self {
+            case .minimize:
+                return batchTargetState(for: batchTargets) == false
+                    ? String(localized: "Un-minimize") : String(localized: "Minimize")
+            case .hide:
+                return batchTargetState(for: batchTargets) == false
+                    ? String(localized: "Unhide App") : String(localized: "Hide App")
+            case .toggleFullScreen:
+                return batchTargets.contains { $0.isFullscreen == true }
+                    ? String(localized: "Exit Full Screen") : String(localized: "Enter Full Screen")
+            default: break
+            }
+        }
+        return menuTitle(for: window, batchTargets: batchTargets)
+    }
+
     func menuTitle(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> String {
         if self == .toggleWindowSelection {
             return batchTargets == nil ? String(localized: "Add to Selection") : String(localized: "Remove from Selection")
