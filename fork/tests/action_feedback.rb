@@ -386,7 +386,7 @@ coordinator = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/S
 container = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift")
 menu = File.read("#{ROOT}/DockDoor/Utilities/WindowActionsMenuController.swift")
 abort 'Single preview minimize/Close must use async batch operation' unless coordinator.include?('performSingleWindowAction(action, on: window, preservePreviews: preservePreviews, keyboard: true)') && container.include?('coordinator.performSingleWindowAction(action, on: window)')
-abort 'Menu minimize/Close must use async batch operation' unless menu.include?('await WindowUtil.performPreviewBatchAction(action, on: targets, feedback: feedback)')
+abort 'Menu actions must use async batch operation' unless menu.include?('action.usesConfirmedSingleWindowAction(on: window)') && menu.include?('await WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback)')
 abort 'Minimize All must not settle on queueing' unless util.include?('if self != .autoTileSelectedWindows, self != .minimizeAllWindows { feedback?.finishRemaining(.requested) }')
 abort 'Minimize All action must forward feedback' unless util.include?('WindowUtil.minimizeAllWindows(for: window.app, preferredWindows: preferredWindows, feedback: feedback)')
 abort 'Container must wait for Minimize All confirmation' unless container.include?('if !awaitingMinimizeConfirmation { feedback?.finishRemaining(.requested) }') && container.include?('WindowUtil.minimizeAllWindows(for: app, preferredWindows: preferredWindows, feedback: feedback)')

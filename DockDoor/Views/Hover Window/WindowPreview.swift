@@ -420,12 +420,10 @@ final class SpaceMoveMenuController: NSObject {
            SharedPreviewWindowCoordinator.activeInstance?.performCheckedWindowAction(.toggleFullScreen, on: request.window, preservePreviews: true) != nil
         { return }
         let feedback = ActionFeedbackController.begin(.toggleFullScreen, windows: [request.window], keyboard: NSApp.currentEvent?.type == .keyDown, usePreviews: request.usesCheckedSelection)
-        let accepted = WindowUtil.exitFullScreenWithoutActivation(request.window)
-        feedback?.finishRemaining(accepted ? .requested : .failed)
-        guard accepted
-        else {
-            NSSound.beep()
-            return
+        Task { @MainActor in
+            let confirmed = await WindowUtil.exitFullScreenWithoutActivation(request.window)
+            feedback?.finishRemaining(Task.isCancelled ? .cancelled : (confirmed ? .completed : .failed))
+            if !confirmed, !Task.isCancelled { NSSound.beep() }
         }
     }
 }

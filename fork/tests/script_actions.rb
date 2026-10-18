@@ -41,12 +41,20 @@ class AsyncWindowCommand: NSScriptCommand {
  var operation: (@MainActor () async throws -> String)?
  func execute(_ operation: @escaping @MainActor () async throws -> String) -> Any? { self.operation = operation; return "suspended" }
 }
-enum WindowAction { case maximize, center, fill, toggleFullScreen, minimize, close, hide, quit, forceQuit }
-struct WindowInfo { let axElement = FakeAX(); let app = App(); let id = 1 }
-final class App { let processIdentifier: Int32 = 1 }
+enum WindowAction { case maximize, center, fill, toggleFullScreen, minimize, close, hide, quit, forceQuit
+ static let fullscreenConfirmationDelay: UInt64 = 180_000_000
+}
+struct WindowInfo { let axElement = FakeAX(); let app = App(); let id = 1
+ var appAxElement: FakeAX { axElement }; var isWindowlessApp: Bool { false }
+}
+final class App { let processIdentifier: Int32 = 1; let isTerminated = false }
+enum NSWorkspace { static let shared = Workspace() }
+struct Workspace { var frontmostApplication: App? { nil } }
 final class FakeAX {
  var full = false, refuses = false, writes = 0
  func isFullscreen() throws -> Bool { full }
+ func focusedWindow() throws -> FakeAX { self }
+ func cgWindowId() throws -> Int { 1 }
  func setAttribute(_ name: String, _ value: Bool) throws { writes += 1; if !refuses { full = value } }
 }
 let kAXFullscreenAttribute = "fullscreen"
@@ -72,7 +80,7 @@ enum WindowUtil {
   return failure ? "error: rejected" : "ok"
  }
  static func updateCachedWindowState(_ window: WindowInfo, isFullscreen: Bool) { cached = isFullscreen }
- static func scheduleCachedWindowMetadataReconciliation(pid: Int32, windowID: Int) { reconciled += 1 }
+ static func scheduleCachedWindowMetadataReconciliation(pid: Int32, windowID: Int, delayNanos: UInt64) { reconciled += 1 }
 SWIFT
 source += block(util, '    private static func changeFullscreenConfirmed(').sub('private static', 'static') + "\n}\n"
 source += block(scripts, 'class WindowActionCommand:') + "\n" + block(scripts, 'class PositionWindowCommand:') + "\n"

@@ -27,7 +27,7 @@ routes = {
   'preview controls' => block(hover, '    private func handleWindowAction(').include?('action.perform('),
   'preview selection' => hover.include?('performCheckedWindowAction(action, on: windowInfo)'),
   'keyboard coordinator' => block(coordinator, '    func performActionOnCurrentWindow(').include?('action.perform('),
-  'selected-window batch' => coordinator.include?('WindowUtil.performPreviewBatchAction(action, on: targets, feedback: feedback)'),
+  'selected-window batch' => coordinator.include?('WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: allowFullscreenEntry, feedback: feedback,'),
   'native menu clicks and shortcuts' => menus.scan('request.handler(request.action)').length == 2,
   'menu-bar actions' => File.read("#{root}/DockDoor/Utilities/WindowActionsMenuController.swift").include?('action.perform(on: window, feedback: feedback)'),
   'keyboard routing' => File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift").include?('performActionOnCurrentWindow(action: action)'),

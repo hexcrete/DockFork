@@ -30,8 +30,12 @@ final class WindowGestureExecutor {
         case let .window(action):
             guard let window = zone.window else { return }
             if action == .minimize { await minimize(window) }
-            else if action == .close || action == .closeAllWindows { _ = await WindowUtil.performPreviewBatchAction(action, on: [window]) }
-            else { perform(action, on: window) }
+            else if action.usesConfirmedSingleWindowAction(on: window) {
+                let result = await WindowUtil.performPreviewBatchAction(action, on: [window], allowFullscreenEntry: action == .toggleFullScreen)
+                if !Task.isCancelled, !result.succeeded.isEmpty,
+                   action == .openAppWindow || (action == .hide && window.isHidden)
+                { _ = await window.bringToFrontConfirmed() }
+            } else { perform(action, on: window) }
         case .closeTab:
             closeTab(in: zone)
         case .minimizeFrontWindow:

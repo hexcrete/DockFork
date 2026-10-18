@@ -13,6 +13,11 @@ struct WindowActionGroup: Identifiable {
 }
 
 extension WindowAction {
+    func usesConfirmedSingleWindowAction(on window: WindowInfo) -> Bool {
+        [.minimize, .hide, .toggleFullScreen, .closeAllWindows].contains(self) ||
+            (!window.isWindowlessApp && [.openAppWindow, .close].contains(self))
+    }
+
     func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> PreviewTilingLayout.Direction? {
         guard self == .autoTileSelectedWindows || (windowCount > 1 && fillActionsAutoTile) else { return nil }
         return tilingDirection

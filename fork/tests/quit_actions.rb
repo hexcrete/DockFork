@@ -108,8 +108,9 @@ enum WindowUtil {
  static func hasOnlyFullscreenWindows(for app: App) -> Bool { false }
  static func openNewWindow(app: App) {}
  static func canBringWindowToFrontWithoutSpaceSwitch(_ window: WindowInfo) -> Bool { true }
- static func setHiddenStateConfirmed(for app: App, isHidden: Bool) async -> Bool { true }
- static func changeFullscreenConfirmed(_ window: WindowInfo, toggle: Bool) async -> Bool { true }
+ static func setHiddenStateConfirmed(for app: App, isHidden: Bool, fullscreenCandidates: [AX] = [], beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { true }
+ static func revealWindowConfirmed(_ window: WindowInfo) async -> Bool { true }
+ static func changeFullscreenConfirmed(_ window: WindowInfo, toggle: Bool, beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { true }
  static func setMinimizedWindowsConfirmed(_ windows: [WindowInfo], isMinimized: Bool, progress: ((WindowInfo, Bool) -> Void)?) async -> [WindowInfo] { windows }
  static func tilePreviewWindows(_ windows: [WindowInfo], direction: Int, feedback: ActionFeedbackHandle?) async -> PreviewBatchResult { PreviewBatchResult() }
  static func closeWindows(_ windows: [WindowInfo], feedback: ActionFeedbackHandle?) async -> PreviewBatchResult { PreviewBatchResult(succeeded: windows) }

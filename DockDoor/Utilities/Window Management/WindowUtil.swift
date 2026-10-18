@@ -323,32 +323,6 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
     func shouldForcePreviewCloseForFullscreenTransition(on window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> Bool {
         switch self {
-        case .toggleFullScreen:
-            guard let isFullscreen = try? window.axElement.isFullscreen() else { return false }
-            if !isFullscreen {
-                return true
-            }
-
-            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == window.app.processIdentifier else {
-                return false
-            }
-            guard let focusedWindow = try? window.appAxElement.focusedWindow(),
-                  let focusedWindowID = try? focusedWindow.cgWindowId()
-            else {
-                return false
-            }
-            return focusedWindowID == window.id
-
-        case .hide:
-            // Unhiding can force a Space jump for fullscreen windows or windows on another Space.
-            guard window.isHidden else { return false }
-            let isFullscreen = (try? window.axElement.isFullscreen()) == true || window.isFullscreen == true
-            if isFullscreen {
-                return true
-            }
-
-            return WindowUtil.activationMaySwitchSpaces(for: window)
-
         case .minimize:
             // Unminimizing can jump Spaces when restoring a window located elsewhere.
             guard window.isMinimized else { return false }
@@ -360,7 +334,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             // This avoids hard-closing the container in the common edge case of mixed-space minimized sets.
             return false
 
-        case .autoTileSelectedWindows, .quit, .forceQuit, .close, .openAppWindow, .openNewWindow, .closeAllWindows, .bringToCurrentSpace,
+        case .autoTileSelectedWindows, .toggleFullScreen, .hide, .quit, .forceQuit, .close, .openAppWindow, .openNewWindow, .closeAllWindows, .bringToCurrentSpace,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center, .toggleWindowSelection, .selectAllWindows, .none:
@@ -495,27 +469,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             }
             return .noChange
 
-        case .toggleFullScreen:
-            var updatedWindow = window
-            if accepted(updatedWindow.toggleFullScreen()) {
-                return .dismissed
-            }
-            return .noChange
-
-        case .hide:
-            let currentHiddenState = hiddenStateBeforeAction ??
-                ((try? window.appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? window.isHidden)
-            let attemptingHide = !currentHiddenState
-            if attemptingHide,
-               WindowUtil.hasOnlyFullscreenWindows(for: window.app, preferredWindows: preferredWindows)
-            {
-                feedback?.finishRemaining(.failed)
-                return .noChange
-            }
-            var updatedWindow = window
-            if accepted(updatedWindow.toggleHidden(from: currentHiddenState) != nil) {
-                return .windowUpdated(updatedWindow)
-            }
+        case .toggleFullScreen, .hide:
+            // These actions require the asynchronous confirmed executor.
             return .noChange
 
         case .openAppWindow:
@@ -524,18 +479,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
                 return .dismissed
             }
 
-            if window.isMinimized {
-                var updatedWindow = window
-                return updatedWindow.toggleMinimize() != nil ? .dismissed : .noChange
-            }
-
-            if window.isHidden {
-                var updatedWindow = window
-                return updatedWindow.toggleHidden() != nil ? .dismissed : .noChange
-            }
-
-            window.bringToFront()
-            return .dismissed
+            return .noChange
 
         case .openNewWindow:
             WindowUtil.openNewWindow(app: window.app)
@@ -774,7 +718,8 @@ extension WindowUtil {
 
     @MainActor
     static func performPreviewBatchAction(_ action: WindowAction, on windows: [WindowInfo],
-                                          allowFullscreenEntry: Bool = false, feedback: ActionFeedbackHandle? = nil) async -> PreviewBatchResult
+                                          allowFullscreenEntry: Bool = false, feedback: ActionFeedbackHandle? = nil,
+                                          beforeActionChange: (@MainActor (Bool) -> Bool)? = nil) async -> PreviewBatchResult
     {
         defer { feedback?.finishRemaining(.cancelled) }
         guard !Task.isCancelled else { return PreviewBatchResult() }
@@ -789,8 +734,20 @@ extension WindowUtil {
         guard !targets.isEmpty else { result.failed = windows.map(PreviewWindowIdentity.init); feedback?.finish(result); return result }
         let hiddenTarget = action.batchTargetState(for: windows) ?? false
 
-        if action == .minimize || action == .minimizeAllWindows || action == .openAppWindow {
-            let minimizedTarget = action == .openAppWindow ? false : (action.batchTargetState(for: windows) ?? false)
+        if action == .openAppWindow {
+            for window in targets {
+                guard !Task.isCancelled else { return result }
+                let revealed = await revealWindowConfirmed(window)
+                guard !Task.isCancelled else { return result }
+                if revealed { result.succeeded.append(window) }
+                else { result.failed.append(PreviewWindowIdentity(window)) }
+                feedback?.finish(PreviewWindowIdentity(window), revealed ? .completed : .failed)
+            }
+            return result
+        }
+
+        if action == .minimize || action == .minimizeAllWindows {
+            let minimizedTarget = action.batchTargetState(for: windows) ?? false
             let candidates = (action == .minimizeAllWindows
                 ? targets.flatMap { readCachedWindows(for: $0.app.processIdentifier) }
                 : targets).filter { $0.isFullscreen != true }
@@ -824,11 +781,10 @@ extension WindowUtil {
             if !window.app.isTerminated, action == .toggleFullScreen || action.isAvailable(for: window) {
                 switch action {
                 case .hide:
-                    if !hiddenTarget || !hasOnlyFullscreenWindows(for: window.app) {
-                        succeeded = await setHiddenStateConfirmed(for: window.app, isHidden: hiddenTarget)
-                    }
+                    let candidates = readCachedWindows(for: pid).filter { !$0.isWindowlessApp }.map(\.axElement)
+                    succeeded = await setHiddenStateConfirmed(for: window.app, isHidden: hiddenTarget, fullscreenCandidates: candidates, beforeChange: beforeActionChange)
                 case .toggleFullScreen:
-                    succeeded = await changeFullscreenConfirmed(window, toggle: togglesFullscreen)
+                    succeeded = await changeFullscreenConfirmed(window, toggle: togglesFullscreen, beforeChange: beforeActionChange)
                 case .quit, .forceQuit:
                     succeeded = window.quit(force: action == .forceQuit)
                 case .close where shouldQuitAppOnWindowClose(processIdentifier: pid):
@@ -849,7 +805,7 @@ extension WindowUtil {
                     }
                 }
             }
-            if Task.isCancelled, action == .close || action == .closeAllWindows { return result }
+            guard !Task.isCancelled else { return result }
             if succeeded { result.succeeded.append(window) }
             else { result.failed.append(PreviewWindowIdentity(window)) }
             if let feedback, action.tilingDirection == nil, ![.maximize, .center, .bringToCurrentSpace].contains(action) {
@@ -872,28 +828,53 @@ extension WindowUtil {
         return result
     }
 
-    private static func changeFullscreenConfirmed(_ window: WindowInfo, toggle: Bool = false) async -> Bool {
+    private static func changeFullscreenConfirmed(_ window: WindowInfo, toggle: Bool = false,
+                                                  reconciliationDelayNanos: UInt64 = WindowAction.fullscreenConfirmationDelay,
+                                                  beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool
+    {
+        guard !Task.isCancelled, !window.isWindowlessApp, !window.app.isTerminated else { return false }
+        let element = window.axElement
+        let appElement = window.appAxElement
+        let windowID = window.id
+        let isFrontmost = if beforeChange != nil {
+            await MainActor.run { NSWorkspace.shared.frontmostApplication?.processIdentifier == window.app.processIdentifier }
+        } else { false }
         let worker = Task.detached(priority: .userInitiated) {
+            var result: (state: Bool?, attempted: Bool) = (nil, false)
             do {
-                guard let current = try? window.axElement.isFullscreen() else { return false }
+                guard !Task.isCancelled, let current = try? element.isFullscreen() else { return result }
                 let target = toggle ? !current : false
-                if current != target { try window.axElement.setAttribute(kAXFullscreenAttribute, target) }
+                guard !Task.isCancelled else { return result }
+                if current != target {
+                    if let beforeChange {
+                        let focusedID = isFrontmost && !target ? (try? appElement.focusedWindow()).flatMap { try? $0.cgWindowId() } : nil
+                        guard !Task.isCancelled,
+                              await beforeChange(target || focusedID == windowID), !Task.isCancelled
+                        else { return result }
+                    }
+                    guard !Task.isCancelled else { return result }
+                    result.attempted = true
+                    try element.setAttribute(kAXFullscreenAttribute, target)
+                }
                 for delay in [UInt64(0), 100_000_000, 300_000_000, 700_000_000] {
                     if delay > 0 { try await Task.sleep(nanoseconds: delay) }
-                    guard !Task.isCancelled else { return false }
-                    if (try? window.axElement.isFullscreen()) == target {
-                        guard !Task.isCancelled else { return false }
-                        updateCachedWindowState(window, isFullscreen: target)
-                        return true
+                    guard !Task.isCancelled else { return result }
+                    if (try? element.isFullscreen()) == target {
+                        guard !Task.isCancelled else { return result }
+                        result.state = target
+                        return result
                     }
                 }
-            } catch { return false }
-            return false
+            } catch { return result }
+            return result
         }
-        let succeeded = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
-        guard !Task.isCancelled else { return false }
-        scheduleCachedWindowMetadataReconciliation(pid: window.app.processIdentifier, windowID: window.id)
-        return succeeded
+        let result = await withTaskCancellationHandler { await worker.value } onCancel: { worker.cancel() }
+        if !Task.isCancelled, let state = result.state { updateCachedWindowState(window, isFullscreen: state) }
+        // A cancelled request can still have changed the app during an in-flight AX write.
+        if !Task.isCancelled || result.attempted {
+            scheduleCachedWindowMetadataReconciliation(pid: window.app.processIdentifier, windowID: window.id, delayNanos: reconciliationDelayNanos)
+        }
+        return !Task.isCancelled && result.state != nil
     }
 
     static func resizeRefreshDelayMilliseconds(from seconds: CGFloat, fallback: CGFloat) -> UInt64 {
@@ -1356,26 +1337,8 @@ extension WindowUtil {
     }
 
     @discardableResult
-    static func exitFullScreenWithoutActivation(_ windowInfo: WindowInfo) -> Bool {
-        guard !windowInfo.isWindowlessApp,
-              (try? windowInfo.axElement.isFullscreen()) == true
-        else { return false }
-
-        do {
-            try windowInfo.axElement.setAttribute(kAXFullscreenAttribute, false)
-            if (try? windowInfo.axElement.isFullscreen()) == false {
-                updateCachedWindowState(windowInfo, isFullscreen: false)
-            }
-            scheduleCachedWindowMetadataReconciliation(
-                pid: windowInfo.app.processIdentifier,
-                windowID: windowInfo.id,
-                delayNanos: fullscreenExitMetadataReconciliationDelayNanos
-            )
-            return true
-        } catch {
-            DebugLogger.log("Failed to exit fullscreen without activation for window \(windowInfo.id): \(error)")
-            return false
-        }
+    static func exitFullScreenWithoutActivation(_ windowInfo: WindowInfo) async -> Bool {
+        await changeFullscreenConfirmed(windowInfo, reconciliationDelayNanos: fullscreenExitMetadataReconciliationDelayNanos)
     }
 
     private static func reconcileCachedWindowMetadata(pid: pid_t, windowID: CGWindowID) {
@@ -4341,6 +4304,15 @@ extension WindowUtil {
         return await setMinimizedWindowsConfirmed(candidates.filter { !failedApps.contains($0.app.processIdentifier) }, isMinimized: false)
     }
 
+    static func revealWindowConfirmed(_ window: WindowInfo) async -> Bool {
+        guard !window.isWindowlessApp, !window.app.isTerminated, !Task.isCancelled else { return false }
+        if window.app.isHidden || window.isHidden,
+           await !setHiddenStateConfirmed(for: window.app, isHidden: false) { return false }
+        guard !Task.isCancelled else { return false }
+        if window.isMinimized { return await setMinimizedStateConfirmed([window], isMinimized: false) == 1 }
+        return true
+    }
+
     // Publish minimized state only after AX reports the requested value.
     static func setMinimizedStateConfirmed(_ windows: [WindowInfo], isMinimized: Bool) async -> Int {
         await setMinimizedWindowsConfirmed(windows, isMinimized: isMinimized).count
@@ -4422,11 +4394,26 @@ extension WindowUtil {
     // Publish app visibility only after AX reports the requested value.
     static func setHiddenStateConfirmed(
         for app: NSRunningApplication,
-        isHidden: Bool
+        isHidden: Bool,
+        fullscreenCandidates: [AXUIElement] = [],
+        beforeChange: (@MainActor (Bool) -> Bool)? = nil
     ) async -> Bool {
+        guard !Task.isCancelled, !app.isTerminated else { return false }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         let worker = Task.detached(priority: .userInitiated) {
             do {
+                if isHidden, !fullscreenCandidates.isEmpty {
+                    var allFullscreen = true
+                    for element in fullscreenCandidates {
+                        guard !Task.isCancelled else { return false }
+                        if (try? element.isFullscreen()) != true { allFullscreen = false; break }
+                    }
+                    guard !allFullscreen else { return false }
+                }
+                guard !Task.isCancelled else { return false }
+                if let beforeChange {
+                    guard await beforeChange(false), !Task.isCancelled else { return false }
+                }
                 try appElement.setAttribute(kAXHiddenAttribute, isHidden)
             } catch {
                 return false

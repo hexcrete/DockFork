@@ -330,54 +330,6 @@ extension WindowInfo {
     }
 
     @discardableResult
-    mutating func toggleHidden(from currentHiddenState: Bool? = nil) -> Bool? {
-        guard !isWindowlessApp else { return nil }
-        let resolvedHiddenState = currentHiddenState ??
-            ((try? appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? isHidden)
-        let newHiddenState = !resolvedHiddenState
-
-        do {
-            try appAxElement.setAttribute(kAXHiddenAttribute, newHiddenState)
-
-            if !newHiddenState {
-                app.activate()
-                bringToFront()
-            }
-
-            isHidden = newHiddenState
-            WindowUtil.updateCachedWindowState(self, isHidden: newHiddenState)
-            return newHiddenState
-        } catch {
-            print("Error toggling hidden state of application")
-            return nil
-        }
-    }
-
-    @discardableResult
-    mutating func toggleFullScreen() -> Bool {
-        guard !isWindowlessApp else { return false }
-        guard let isCurrentlyInFullScreen = try? axElement.isFullscreen() else {
-            print("Failed to determine current full screen state")
-            return false
-        }
-
-        do {
-            let targetState = !isCurrentlyInFullScreen
-            try axElement.setAttribute(kAXFullscreenAttribute, targetState)
-            // Non-blocking confirmation: if state does not reflect immediately, treat as no-change.
-            let confirmedState = (try? axElement.isFullscreen()) == targetState
-            if confirmedState {
-                isFullscreen = targetState
-                WindowUtil.updateCachedWindowState(self, isFullscreen: targetState)
-            }
-            return confirmedState
-        } catch {
-            print("Failed to toggle full screen")
-            return false
-        }
-    }
-
-    @discardableResult
     func zoom() -> Bool {
         positionWindow(.full)
     }

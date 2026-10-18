@@ -1563,7 +1563,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         let window = coordinator.windows[coordinator.currIndex]
         if let dismissed = performCheckedWindowAction(action, on: window, preservePreviews: preservePreviews, keyboard: true) { return dismissed }
-        if action == .minimize || (action == .close && !window.isWindowlessApp) || action == .closeAllWindows {
+        if action.usesConfirmedSingleWindowAction(on: window) {
             return performSingleWindowAction(action, on: window, preservePreviews: preservePreviews, keyboard: true)
         }
         if action == .toggleWindowSelection {
@@ -1582,7 +1582,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 .map(\.id)
         )
         let hiddenStateBeforeAction: Bool? = if action == .hide {
-            (try? window.appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? window.isHidden
+            window.isHidden
         } else {
             nil
         }
@@ -1610,11 +1610,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             (keepPreviewsOpen || forceImmediateCloseForFullscreenTransitionPreAction)
         let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
             !skipToggleFullscreenRefresh
-        let expectedFullscreenState: Bool? = if action == .toggleFullScreen {
-            (try? window.axElement.isFullscreen()).map(!)
-        } else {
-            nil
-        }
         let expectedMinimizedState: Bool? = if action == .minimize {
             !window.isMinimized
         } else {
@@ -1749,13 +1744,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
 
         switch action {
-        case .toggleFullScreen:
-            if let expectedFullscreenState {
-                scheduleFullscreenDismissConfirmation(
-                    window: window,
-                    targetFullscreenState: expectedFullscreenState
-                )
-            }
         case .openNewWindow:
             scheduleNewWindowDismissConfirmation(
                 window: window,
@@ -1811,7 +1799,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let targets = action == .closeAllWindows
             ? WindowUtil.readCachedWindows(for: window.app.processIdentifier).filter { !$0.isWindowlessApp }
             : [window]
-        return performPreviewBatchAction(action, on: targets, initiator: window, preservePreviews: preservePreviews, keyboard: keyboard)
+        return performPreviewBatchAction(action, on: targets, initiator: window, preservePreviews: preservePreviews, keyboard: keyboard,
+                                         allowFullscreenEntry: action == .toggleFullScreen)
     }
 
     @MainActor
@@ -1834,7 +1823,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     private func performPreviewBatchAction(_ action: WindowAction, on targets: [WindowInfo], initiator: WindowInfo,
-                                           preservePreviews: Bool = false, keyboard: Bool = false, usePreviews: Bool = true) -> Bool
+                                           preservePreviews: Bool = false, keyboard: Bool = false, usePreviews: Bool = true,
+                                           allowFullscreenEntry: Bool = false) -> Bool
     {
         previewBatchTask?.cancel()
         let token = UUID()
@@ -1844,23 +1834,42 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             ?? action.postActionCategory(for: initiator, preferredWindows: targets)
         let keepOpen = preservePreviews || selectionKeepsPreviewsOpen || (category?.keepPreviewsOpen ?? (action != .openAppWindow))
         let revealsWindows = action == .openAppWindow || category == .unhiding
-        let needsTransition = !preservePreviews && (action == .toggleFullScreen ||
+        var needsTransition = !preservePreviews && ((action == .toggleFullScreen && !allowFullscreenEntry) ||
             (revealsWindows && targets.contains { WindowUtil.activationMaySwitchSpaces(for: $0) }))
         let feedback = ActionFeedbackController.begin(action, windows: targets, keyboard: keyboard || NSApp.currentEvent?.type == .keyDown, usePreviews: usePreviews)
+        var suppressionToken: UUID?
         if needsTransition { hideWindow() }
         windowSwitcherCoordinator.consumeWindowlessSelection(in: targets)
+        let beforeChange: (@MainActor (Bool) -> Bool)? = if allowFullscreenEntry || action == .hide {
+            { [weak self] switchesSpaces in
+                guard let self, previewBatchToken == token else { return false }
+                guard contentView === originalContent || !isVisible else { return true }
+                if action == .hide, keepOpen, !needsTransition {
+                    suppressionToken = suppressNextActionDrivenActivationDismissal(for: initiator.app, wasHidden: category == .unhiding)
+                }
+                if switchesSpaces, !preservePreviews {
+                    needsTransition = true
+                    hideWindow()
+                }
+                return true
+            }
+        } else { nil }
         previewBatchTask = Task { @MainActor [weak self] in
-            let result = await WindowUtil.performPreviewBatchAction(action, on: targets, feedback: feedback)
+            let result = await WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: allowFullscreenEntry, feedback: feedback,
+                                                                    beforeActionChange: beforeChange)
             guard !Task.isCancelled, let self, previewBatchToken == token else { return }
             defer {
                 if previewBatchToken == token { previewBatchTask = nil; previewBatchToken = nil }
             }
             reportBatchFailures(result.failed, action: action.rawValue)
+            if result.succeeded.isEmpty { cancelActionDrivenActivationDismissalSuppression(token: suppressionToken) }
             var refreshedApps = Set<pid_t>()
             for window in targets where refreshedApps.insert(window.app.processIdentifier).inserted {
-                if action == .minimize || action == .minimizeAllWindows || action == .hide {
+                if action == .minimize || action == .minimizeAllWindows {
                     windowSwitcherCoordinator.scheduleVisibilityStateSync(processIdentifier: window.app.processIdentifier)
-                } else if action == .close || action.isQuitAction || action == .closeAllWindows || action == .openNewWindow {
+                } else if action == .close || action.isQuitAction || action == .closeAllWindows || action == .openNewWindow ||
+                    (targets.count == 1 && (action == .hide || action == .openAppWindow))
+                {
                     scheduleInPlaceActionRefresh(for: window.app, forceImageRefresh: action == .openNewWindow)
                 }
             }
@@ -1873,6 +1882,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 let refreshed = WindowUtil.readCachedWindows(for: first.app.processIdentifier).first { $0.id == first.id } ?? first
                 if !keepOpen || needsTransition || WindowUtil.canBringWindowToFrontWithoutSpaceSwitch(refreshed) {
                     if !keepOpen || needsTransition { hideWindow() }
+                    else if action == .hide || action == .openAppWindow { _ = suppressNextActionDrivenActivationDismissal(for: refreshed.app.processIdentifier) }
                     let activated = await refreshed.bringToFrontConfirmed()
                     guard !Task.isCancelled, previewBatchToken == token else { return }
                     if !activated { reportBatchFailures([PreviewWindowIdentity(first)], action: "activateAfterBatch") }
@@ -2365,30 +2375,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                     return
                 }
             }
-        }
-    }
-
-    private func scheduleFullscreenDismissConfirmation(
-        window: WindowInfo,
-        targetFullscreenState: Bool
-    ) {
-        let windowID = window.id
-        let pid = window.app.processIdentifier
-
-        startDeferredActionWatcher(pid: pid, action: .toggleFullScreen) { @MainActor [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(nanoseconds: WindowAction.fullscreenConfirmationDelay)
-            guard shouldRunDeferredWatchers else { return }
-            guard let confirmedFullscreen = try? window.axElement.isFullscreen(),
-                  confirmedFullscreen == targetFullscreenState
-            else { return }
-
-            let coordinator = windowSwitcherCoordinator
-            guard coordinator.windows.contains(where: { $0.id == windowID && $0.app.processIdentifier == pid }) else {
-                return
-            }
-
-            hideWindow()
         }
     }
 

@@ -1372,14 +1372,10 @@ class KeybindHelper {
 
         lastFocusedActivationTask = Task { @MainActor [weak self] in
             guard let self, !Task.isCancelled else { return }
-            var targetWindow = target
-            let activated: Bool = if targetWindow.isMinimized {
-                targetWindow.toggleMinimize() == false
-            } else if targetWindow.isEffectivelyHiddenForUI {
-                targetWindow.toggleHidden() == false
-            } else {
-                await targetWindow.bringToFrontConfirmed()
-            }
+            let targetWindow = target
+            let revealed = await WindowUtil.revealWindowConfirmed(targetWindow)
+            guard !Task.isCancelled else { return }
+            let activated = revealed ? await targetWindow.bringToFrontConfirmed() : false
             guard !Task.isCancelled else { return }
             lastFocusedActivationTask = nil
             if activated {

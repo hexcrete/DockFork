@@ -22,6 +22,8 @@ The October 15 merge includes upstream 1.41.0 through `3e08721`, including its n
 
 ## Scope and Compatibility Gates
 
+The staged action-responsiveness work should be extracted by operation family, not as a blanket concurrency rewrite. Stage 1 reuses confirmed visibility/fullscreen workers and preserves defaults, public scripting and single-versus-batch behavior; its shared action/session/feedback dependencies must accompany any focused extraction. Frame-worker serialization and the remaining caller audit are separate, unfinished stages. Keep the fork's verification records and Ruby fixtures out of upstream PRs, adapting required tests to the agreed upstream layout. No native latency improvement is established by fake AX responsiveness tests.
+
 The post-0.2.0 explicit-Quit follow-up preserves the stored `quit` action and defaults, but intentionally removes Option-dependent Force Quit from preview Quit and Close-to-Quit. Force Quit becomes an explicit assignable action with new AppleScript commands; documented Dock-icon Quick Quit is preserved. This behavior change needs explicit upstream scope agreement, not a claim of complete behavioral compatibility. Keep the shared action/lifecycle dependencies when extracting it; exclude these fork records and regression fixtures under the fork-only gate, adapting tests to upstream's agreed layout.
 
 - Discuss one proposed feature with the maintainer in an issue before preparing its contribution. Our existing implementation is a prototype for that discussion, not evidence of prior scope approval. Bug reports use the issue template too.

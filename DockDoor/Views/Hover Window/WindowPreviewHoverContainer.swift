@@ -1403,7 +1403,7 @@ struct WindowPreviewHoverContainer: View {
         }
         guard index < previewStateCoordinator.windows.count else { return }
         let window = previewStateCoordinator.windows[index]
-        if [.minimize, .close, .closeAllWindows].contains(action), !window.isWindowlessApp, !mockPreviewActive,
+        if action.usesConfirmedSingleWindowAction(on: window), !mockPreviewActive,
            let coordinator = SharedPreviewWindowCoordinator.activeInstance
         {
             coordinator.performSingleWindowAction(action, on: window)
@@ -1423,7 +1423,7 @@ struct WindowPreviewHoverContainer: View {
                 .map(\.id)
         )
         let hiddenStateBeforeAction: Bool? = if action == .hide {
-            (try? window.appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? window.isHidden
+            window.isHidden
         } else {
             nil
         }
@@ -1451,11 +1451,6 @@ struct WindowPreviewHoverContainer: View {
             (keepPreviewsOpen || forceImmediateCloseForFullscreenTransitionPreAction)
         let shouldRunInPlaceRefresh = action.shouldScheduleAppRefresh &&
             !skipToggleFullscreenRefresh
-        let expectedFullscreenState: Bool? = if action == .toggleFullScreen {
-            (try? window.axElement.isFullscreen()).map(!)
-        } else {
-            nil
-        }
         let expectedMinimizedState: Bool? = if action == .minimize {
             !window.isMinimized
         } else {
@@ -1592,13 +1587,6 @@ struct WindowPreviewHoverContainer: View {
         }
 
         switch action {
-        case .toggleFullScreen:
-            if let expectedFullscreenState {
-                scheduleFullscreenDismissConfirmation(
-                    window: window,
-                    targetFullscreenState: expectedFullscreenState
-                )
-            }
         case .openNewWindow:
             scheduleNewWindowDismissConfirmation(
                 window: window,
@@ -1980,31 +1968,6 @@ struct WindowPreviewHoverContainer: View {
                     return
                 }
             }
-        }
-    }
-
-    private func scheduleFullscreenDismissConfirmation(
-        window: WindowInfo,
-        targetFullscreenState: Bool
-    ) {
-        guard !mockPreviewActive else { return }
-
-        let windowID = window.id
-        let pid = window.app.processIdentifier
-
-        startDeferredActionWatcher(pid: pid, action: .toggleFullScreen) {
-            try? await Task.sleep(nanoseconds: WindowAction.fullscreenConfirmationDelay)
-            guard shouldRunDeferredWatchers else { return }
-            guard let confirmedFullscreen = try? window.axElement.isFullscreen(),
-                  confirmedFullscreen == targetFullscreenState
-            else { return }
-
-            let stillVisible = previewStateCoordinator.windows.contains(where: { $0.id == windowID && $0.app.processIdentifier == pid })
-            guard stillVisible else {
-                return
-            }
-
-            onWindowTap?()
         }
     }
 

@@ -311,14 +311,17 @@ struct WindowPreviewInteractionModifier: ViewModifier {
         if windowInfo.isWindowlessApp {
             WindowUtil.activateWindowlessApp(app: windowInfo.app)
             onTap?()
-        } else if windowInfo.isMinimized {
-            ActionFeedbackController.withoutFeedback { handleWindowAction(.minimize) }
-        } else if windowInfo.isEffectivelyHiddenForUI {
-            ActionFeedbackController.withoutFeedback { handleWindowAction(.hide) }
         } else {
             let coordinator = SharedPreviewWindowCoordinator.activeInstance
             let sessionID = coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID
             activationTask = Task { @MainActor [weak coordinator] in
+                if windowInfo.isMinimized || windowInfo.isHidden || windowInfo.app.isHidden {
+                    let revealed = await WindowUtil.revealWindowConfirmed(windowInfo)
+                    guard revealed, !Task.isCancelled,
+                          coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID == sessionID,
+                          coordinator?.isVisible != false
+                    else { return }
+                }
                 let activated = await windowInfo.bringToFrontConfirmed()
                 guard !Task.isCancelled,
                       coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID == sessionID,
