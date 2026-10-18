@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **138 later commits through `ba1c481f24b509d08e5fe31ed5f45f8c16e093a1`: 330 total, 325 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **139 later commits through `987f391d51f7e89e3a8bf2ebb8752641335b182f`: 331 total, 326 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
 
 The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The latest upstream integration and its ten incoming commits are included. The notification-timing, constrained-foregrounding and released-drag fixes are included through `86c3306`, with their exact hashes and changed-file counts. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The overflow-policy and Fill-action settings changes are included through `3b4d311`. The discarded header selection-scoping experiment was never committed.
 
@@ -341,7 +341,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..ba1c481f`, extended and verified against Git October 18, 2026. Action feedback, Mouse Follows Focus feedback, app-header wording and their documentation are included. The native-tab discovery/minimization fix and its verification records are included; unsuccessful membership-cache drafts were discarded. The new explicit Quit/Force Quit commits receive entries in the next ledger update. New commits receive their exact hashes in a subsequent ledger update, not in themselves. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..987f391d`, extended and verified against Git October 18, 2026. Action feedback, Mouse Follows Focus feedback, app-header wording and their documentation are included. The native-tab discovery/minimization fix and its verification records are included; unsuccessful membership-cache drafts were discarded. The core explicit Quit/Force Quit action change is included. The scripting/documentation commit receives its entry in the next ledger update. New commits receive their exact hashes in a subsequent ledger update, not in themselves. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -568,6 +568,8 @@ Coverage: `9efa1cc..ba1c481f`, extended and verified against Git October 18, 202
 | [`66a49569`](https://github.com/hexcrete/DockFork/commit/66a4956935c945ddbd416f05c24ca48903cb4dc7) | Record native-tab discovery fix verification, conservative failure handling, lifecycle/contribution boundaries and remaining native test gaps; extend ledger coverage through the preceding source fix. | Documentation | 5 |
 
 | [`ba1c481f`](https://github.com/hexcrete/DockFork/commit/ba1c481f24b509d08e5fe31ed5f45f8c16e093a1) | Shorten Close/Minimize All feedback titles and reflect restore intent/icon through the existing cached batch policy; preserve app-wide scope and execution. Add source-extracted title/icon/progress regressions and record user verification. | Fix / Actions / Feedback | 6 |
+
+| [`987f391d`](https://github.com/hexcrete/DockFork/commit/987f391d51f7e89e3a8bf2ebb8752641335b182f) | Separate normal Quit from explicit Force Quit across shared assignments, menus, feedback, windowless/batch targeting and Cmd+Tab; remove Option overrides from Quit/Close-to-Quit while retaining Dock Quick Quit. Preserve defaults and add inert-app request/refusal/cancellation regressions. | Fix / Actions / Quit | 15 |
 
 ## Upstream Attribution and Contribution Boundaries
 

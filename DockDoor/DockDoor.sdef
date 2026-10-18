@@ -122,6 +122,24 @@
             <result type="text" description="Success or error message."/>
         </command>
 
+        <command name="quit app" code="DKDRqapp" description="Request normal Quit for the apps owning these windows, once per app. Held modifiers do not change this action. A successful request does not confirm that the app has exited.">
+            <cocoa class="WindowActionCommand"/>
+            <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
+                <type type="text"/>
+                <type type="text" list="yes"/>
+            </direct-parameter>
+            <result type="text" description="ok if requests were accepted, or error: followed by failed window IDs. Successful requests are retained."/>
+        </command>
+
+        <command name="force quit app" code="DKDRfqap" description="Request Force Quit for the apps owning these windows, once per app. May discard unsaved changes. A successful request does not confirm that the app has exited.">
+            <cocoa class="WindowActionCommand"/>
+            <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">
+                <type type="text"/>
+                <type type="text" list="yes"/>
+            </direct-parameter>
+            <result type="text" description="ok if requests were accepted, or error: followed by failed window IDs. Successful requests are retained."/>
+        </command>
+
         <command name="maximize window" code="DKDRmxwn" description="Maximize windows to fill their screens. Respects the move/resize foreground preference and reports action failures.">
             <cocoa class="WindowActionCommand"/>
             <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">

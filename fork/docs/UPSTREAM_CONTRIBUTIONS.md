@@ -22,6 +22,8 @@ The October 15 merge includes upstream 1.41.0 through `3e08721`, including its n
 
 ## Scope and Compatibility Gates
 
+The post-0.2.0 explicit-Quit follow-up preserves the stored `quit` action and defaults, but intentionally removes Option-dependent Force Quit from preview Quit and Close-to-Quit. Force Quit becomes an explicit assignable action with new AppleScript commands; documented Dock-icon Quick Quit is preserved. This behavior change needs explicit upstream scope agreement, not a claim of complete behavioral compatibility. Keep the shared action/lifecycle dependencies when extracting it; exclude these fork records and regression fixtures under the fork-only gate, adapting tests to upstream's agreed layout.
+
 - Discuss one proposed feature with the maintainer in an issue before preparing its contribution. Our existing implementation is a prototype for that discussion, not evidence of prior scope approval. Bug reports use the issue template too.
 - Prepare a focused branch against current upstream for each agreed issue or feature. Keep bug fixes, refactors, and features separate; include only the agreed scope and its reviewed dependencies.
 - Retain every existing Defaults key and existing default. Introduce new keys when necessary; do not add migration code. Replacement of singular alternate-shortcut preferences and other preference-model changes need adaptation before submission. The main shortcut and traffic-light scale retain upstream defaults.

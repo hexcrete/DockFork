@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Runs the production script adapters and fullscreen worker against simulated APIs.
 require 'tmpdir'
+require 'rexml/document'
 ROOT = File.expand_path('../..', __dir__)
 def block(source, signature)
   start = source.index(signature) or abort "Missing #{signature}"
@@ -15,6 +16,17 @@ def block(source, signature)
 end
 scripts = File.read("#{ROOT}/DockDoor/Utilities/ScriptCommands.swift")
 util = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowUtil.swift")
+dictionary = REXML::Document.new(File.read("#{ROOT}/DockDoor/DockDoor.sdef"))
+commands = REXML::XPath.match(dictionary, '//command')
+codes = commands.map { |command| command.attributes['code'] }
+abort 'Duplicate Apple event code' unless codes.uniq.size == codes.size
+abort 'DockFork quit command changed' unless commands.any? { |c| c.attributes['name'] == 'quit' && c.attributes['code'] == 'aaboroot' && c.elements['cocoa'].attributes['class'] == 'NSQuitCommand' }
+['quit app', 'force quit app'].each do |name|
+  command = commands.find { |c| c.attributes['name'] == name } or abort "Missing #{name}"
+  abort 'App action must use shared asynchronous handler' unless command.elements['cocoa'].attributes['class'] == 'WindowActionCommand'
+  abort 'App action must accept lists' unless command.elements['direct-parameter/type[@list="yes"]']
+end
+
 abort 'Legacy direct-execution helpers remain' if scripts.include?('static func performWindowAction(') || scripts.include?('static func positionWindow(')
 abort 'Fullscreen entry must be limited to one target' unless util.include?('action == .toggleFullScreen && allowFullscreenEntry && windows.count == 1')
 source = <<~'SWIFT'
@@ -29,7 +41,7 @@ class AsyncWindowCommand: NSScriptCommand {
  var operation: (@MainActor () async throws -> String)?
  func execute(_ operation: @escaping @MainActor () async throws -> String) -> Any? { self.operation = operation; return "suspended" }
 }
-enum WindowAction { case maximize, center, fill, toggleFullScreen, minimize, close, hide }
+enum WindowAction { case maximize, center, fill, toggleFullScreen, minimize, close, hide, quit, forceQuit }
 struct WindowInfo { let axElement = FakeAX(); let app = App(); let id = 1 }
 final class App { let processIdentifier: Int32 = 1 }
 final class FakeAX {
@@ -67,7 +79,7 @@ source += block(scripts, 'class WindowActionCommand:') + "\n" + block(scripts, '
 source += <<~'SWIFT'
 @main struct Checks {
  @MainActor static func main() async throws {
-  for name in ["minimize window", "close window", "maximize window", "hide window", "toggle fullscreen", "center window"] {
+  for name in ["minimize window", "close window", "maximize window", "hide window", "toggle fullscreen", "center window", "quit app", "force quit app"] {
    for parameter: Any in ["1", ["1"], ["1", "2"]] {
     let command = WindowActionCommand(); command.commandDescription.commandName = name; command.directParameter = parameter
     precondition(command.performDefaultImplementation() as? String == "suspended")
@@ -108,7 +120,7 @@ source += <<~'SWIFT'
   let task = Task { await WindowUtil.changeFullscreenConfirmed(window, toggle: true) }
   try await Task.sleep(nanoseconds: 20_000_000); task.cancel()
   let cancelled = await task.value; precondition(!cancelled && WindowUtil.cached == false)
-  print("PASS 21 single/list routes, validation, error propagation, explicit focus, fullscreen toggle/exit/no-op/refusal/cancellation")
+  print("PASS 27 single/list routes, validation, error propagation, explicit focus, fullscreen toggle/exit/no-op/refusal/cancellation")
  }
 }
 SWIFT

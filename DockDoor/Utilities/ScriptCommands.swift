@@ -397,6 +397,8 @@ enum DockDoorCommands {
         lines.append("  minimize window \"active\"")
         lines.append("  minimize window {\"12345\", \"67890\"}")
         lines.append("  hide window {\"12345\", \"67890\"}")
+        lines.append("  quit app \"active\"")
+        lines.append("  force quit app {\"12345\", \"67890\"} -- may discard unsaved changes")
         lines.append("  position window {\"12345\", \"67890\"} to \"left\"")
         lines.append("  move window {\"12345\", \"67890\"} to space 3 with switching")
         lines.append("  position window \"active\" to \"left\"")
@@ -442,6 +444,8 @@ enum DockDoorCommands {
         switch commandName {
         case "minimize window": .minimize
         case "close window": .close
+        case "quit app": .quit
+        case "force quit app": .forceQuit
         case "maximize window": .maximize
         case "hide window": .hide
         case "toggle fullscreen": .toggleFullScreen

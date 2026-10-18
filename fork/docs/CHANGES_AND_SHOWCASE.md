@@ -14,11 +14,22 @@ Final review added conservative query-failure guards, validated by regression ch
 
 ## In Development: Explicit Quit Actions
 
-October 18 follow-up, user reports working: **Quit App** now always requests a normal quit, regardless of held modifiers. This also applies to Close configured to quit the app. **Force Quit App** is a separate assignable action with its own warning symbol, shared red menu styling, shortcut hints and feedback. It may discard unsaved changes. Existing Quit assignments retain the `quit` identity; no defaults or preferences are migrated. Default toolbar buttons and shortcuts are unchanged. Collapsed Quit controls expose both actions in the native More menu.
+October 18 follow-up, user reports working. Core actions are committed as `987f391d`; scripting support follows separately. **Quit App** now always requests a normal quit, regardless of held modifiers. This also applies to Close configured to quit the app. **Force Quit App** is a separate assignable action with its own warning symbol, shared red menu styling, shortcut hints and feedback. It may discard unsaved changes. Existing Quit assignments retain the `quit` identity; no defaults or preferences are migrated. Default toolbar buttons and shortcuts are unchanged. Collapsed Quit controls expose both actions in the native More menu.
 
 Both actions use the same app-wide target policy, deduplicate requests by process ID and support selected windowless apps. Existing termination notifications clear selection. Single and batch requests report acceptance/refusal rather than inventing a confirmed exit; an accepted normal Quit can still present a save prompt. The documented Command+Option+right-click Dock-icon Quick Quit gesture retains its existing force-quit behavior. No new timer, observer, monitor or discovery is added.
 
-The user reports the implementation working; final source review found no blocking issues. All nine combined-working-tree regression suites and SwiftFormat/diff checks pass, and an unlocked native presenter rerun passed after two fade assertions in a confirmed locked session. The signed development build and exact installed-source/binary checks passed. Agent-operated destructive tests, exhaustive session coverage and performance profiling remain unperformed. AppleScript exposure follows in a separate commit. Ledger coverage ends at `ba1c481f`; this commit receives its exact entry in the next update. No release or publication is included.
+AppleScript commands use existing window-ID targeting to identify owning apps, not app names:
+
+```applescript
+tell application "DockFork"
+    quit app "active"
+    force quit app {"12345", "67890"} -- May discard unsaved changes.
+end tell
+```
+
+Each app receives at most one request. Invalid targets are rejected before execution. Requests use the shared asynchronous command lifecycle and batch executor, return `ok`/`error: ...`, and never display action feedback. The standard `quit` command continues to quit DockFork itself; existing Apple event codes are unchanged. Commands require resolvable real-window IDs, so they do not add app-name or windowless-app lookup. UI windowless actions remain supported.
+
+All nine sandbox regression suites and SwiftFormat/diff checks pass; the native presenter fixture skips there without WindowServer access. Automated checks cover source-extracted normal/force dispatch, app deduplication, windowless targets, request refusals, terminated targets, Close-to-Quit and cancellation using inert apps. The Cmd+Tab highlighted-app route also reports a refused Quit request as failure instead of an acknowledgement. Script adapter checks include both commands; native AppleScript compilation succeeds against the installed dictionary without executing either action, and the running app's generated help lists them correctly. The final certificate-signed Debug build, strict signature, installed executable/debug-library comparison, built-source patch correspondence and exact development-path relaunch passed. Two extra display-enabled presenter runs failed the existing fade-in assertion while the system reported the screen locked. Popup presentation code is unchanged; the display-enabled native presenter rerun passed once the session was unlocked. The user reports the implementation working; final review found no blocking issues. Agent-operated destructive tests, exhaustive all-mode coverage and performance profiling remain unperformed. Ledger coverage extends through `987f391d`; the scripting/documentation commit receives its exact entry in the next update. No release build or publication is included.
 
 ## In Development: Shared Action Feedback
 

@@ -24,6 +24,8 @@ The optional preset is the reviewed 246-preference October 16 export with 15 sho
 
 New 0.2.0 defaults: Windowless-app selection in standalone Window Switcher is On under enabled multi-selection; only Quit and Open New Window include those apps in batch targets. Show selection summary is On, gated by enabled selection and checked windows; maximum tiling rows is 2 and columns is 3. Window Selection and Tiling have separate sections under Keybinds. Tile only what fits and group Fill-to-Auto-Tile default Off; overflow stacks in existing cells, and ordinary Fill does not switch Spaces. See the [settings reference](docs/CHANGES_AND_SHOWCASE.md#selection-and-tiling-settings) for locations, defaults and verification commands. Existing saved choices are preserved.
 
+Post-0.2.0 development separates **Quit App** from **Force Quit App**. Normal preview Quit and Close-to-Quit no longer force-quit because Option is held. Force Quit is independently assignable and available in native menus, including for selected windowless apps; it may discard unsaved changes. AppleScript adds explicit normal/force requests using window-ID targeting. The documented Dock-icon Quick Quit gesture is unchanged. See the [development guide](docs/CHANGES_AND_SHOWCASE.md#in-development-explicit-quit-actions) for behavior, examples and test gaps. These changes are not included in the published 0.2.0 package.
+
 ## Build a DockFork Package
 
 The packaging script is a fork-only CLI distribution workflow, not a replacement for upstream's Xcode development instructions. Building requires macOS 27 and Xcode 27 or later, with Xcode selected as the active developer directory. Initial dependency resolution requires network access. No Apple account is required for this ad-hoc-signing workflow.
