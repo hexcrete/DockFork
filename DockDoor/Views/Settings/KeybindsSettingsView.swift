@@ -228,13 +228,14 @@ private struct SpacesSettingsSection: View {
 private struct ActionFeedbackSettingsSection: View {
     @Default(.enableActionFeedback) private var enabled
     @Default(.actionFeedbackPosition) private var position
+    @Default(.showMouseFollowsFocusFeedback) private var mouseFollowsFocusFeedback
 
     var body: some View {
         SettingsGroup(header: "Action Feedback") {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Enable action feedback", isOn: $enabled)
                     .settingsSearchTarget("gestures.enableActionFeedback")
-                Text("Show progress and results for window and Space actions. Selection changes, ordinary activation, and AppleScript actions remain silent.")
+                Text("Show progress and results for window and Space actions. Selection changes and AppleScript actions remain silent.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if enabled {
@@ -242,6 +243,13 @@ private struct ActionFeedbackSettingsSection: View {
                         ForEach(ActionFeedbackPosition.allCases, id: \.self) { item in Text(item.title).tag(item) }
                     }
                     .settingsSearchTarget("gestures.actionFeedbackPosition")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Show feedback when Mouse Follows Focus", isOn: $mouseFollowsFocusFeedback)
+                            .settingsSearchTarget("gestures.showMouseFollowsFocusFeedback")
+                        Text("Mark the cursor's new location when Mouse Follows Focus moves it. Always shown at the cursor.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
         }

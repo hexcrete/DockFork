@@ -538,6 +538,13 @@ final class ActionFeedbackController {
                      keyboard: keyboard || origin == .keyboard, usePreviews: usePreviews && window != nil)
     }
 
+    static func mouseFollowedFocus() {
+        guard Defaults[.enableActionFeedback], Defaults[.showMouseFollowsFocusFeedback] else { return }
+        let feedback = start(title: String(localized: "Mouse Followed Focus"), symbol: "pointer.arrow.motionlines",
+                             identities: [PreviewWindowIdentity(pid: 0, windowID: 0)], keyboard: false, usePreviews: false)
+        feedback.finishRemaining(.requested)
+    }
+
     private static func start(title: String, symbol: String, identities: [PreviewWindowIdentity], keyboard: Bool,
                               usePreviews: Bool) -> ActionFeedbackHandle
     {

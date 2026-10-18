@@ -7,7 +7,7 @@ source = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowGestureHUD.
 keys = File.read("#{ROOT}/DockDoor/consts.swift")
 view = File.read("#{ROOT}/DockDoor/Views/Settings/KeybindsSettingsView.swift")
 catalog = File.read("#{ROOT}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
-%w[enableActionFeedback actionFeedbackPosition].each do |key|
+%w[enableActionFeedback actionFeedbackPosition showMouseFollowsFocusFeedback].each do |key|
   abort "Missing reset: #{key}" unless File.read("#{ROOT}/DockDoor/Views/Settings/MainSettingsView.swift").include?(".#{key}")
   abort "Missing search target: #{key}" unless view.include?("settingsSearchTarget(\"gestures.#{key}\")")
   abort "Missing/duplicate search entry: #{key}" unless catalog.scan("id: \"gestures.#{key}\"").size == 1
@@ -15,6 +15,7 @@ end
 abort 'Removed consolidation setting remains wired' if [source, keys, view, catalog, File.read("#{ROOT}/DockDoor/Views/Settings/MainSettingsView.swift")].any? { |text| text.include?('animateActionFeedbackConsolidation') }
 abort 'Consolidation must only fade' if source.include?('towards destination:')
 abort 'Feedback default must remain off' unless keys.include?('Key<Bool>("enableActionFeedback", default: false)')
+abort 'Mouse follows focus feedback must default off' unless keys.include?('Key<Bool>("showMouseFollowsFocusFeedback", default: false)')
 abort 'Unexpected timing change' unless source.include?('initiated: TimeInterval = 0.7') && source.include?('result: TimeInterval = 0.35')
 abort 'Cursor motion must not measure popup contents' if source[source.index('    func followCursor()')...source.index('    private func targetFrame')].include?('fittingSize')
 abort 'Popup must not slide or animate its frame' unless source.include?('animationBehavior = .none') && !source[source.index('final class ActionPopupPanel:')...source.index('final class ActionFeedbackController')].include?('animator().setFrame')
@@ -28,7 +29,7 @@ import AppKit
 struct Key<T> { let value: T }
 enum Defaults {
  protocol Serializable {}
- static var enabled = false, position = ActionFeedbackPosition.trigger
+ static var enabled = false, position = ActionFeedbackPosition.trigger, mouseFeedback = false
  static var callbacks: [UUID: (Change) -> Void] = [:]
  struct Change { let newValue: Bool }
  final class Observation { let id: UUID; init(_ id: UUID) { self.id = id }; func invalidate() { Defaults.callbacks[id] = nil } }
@@ -40,6 +41,7 @@ enum Defaults {
 }
 extension Key where T == Bool {
  static var enableActionFeedback: Self { Self(value: Defaults.enabled) }
+ static var showMouseFollowsFocusFeedback: Self { Self(value: Defaults.mouseFeedback) }
  static var tileOnlyWhatFits: Self { Self(value: false) }
  static var fillActionsAutoTileSelection: Self { Self(value: false) }
 }
@@ -154,8 +156,24 @@ extension ActionFeedbackController {
    precondition(ActionFeedbackPosition.focus.usesPreviews(keyboardTrigger: keyboard, focus: .keyboard))
   }
   precondition(ActionFeedbackController.begin(.close, windows: windows) == nil)
+  Defaults.mouseFeedback = true
+  ActionFeedbackController.mouseFollowedFocus()
   precondition(ActionPopupPanel.creates == 0 && TestEvent.monitors.isEmpty && Defaults.callbacks.isEmpty)
+  Defaults.mouseFeedback = false
   Defaults.enabled = true
+  ActionFeedbackController.mouseFollowedFocus()
+  precondition(ActionFeedbackController.existing == nil)
+  Defaults.mouseFeedback = true
+  Defaults.position = .preview
+  ActionFeedbackController.mouseFollowedFocus()
+  let mousePopup = ActionFeedbackController.existing!.snapshot
+  precondition(mousePopup.0 && mousePopup.2 == 1 && mousePopup.3 == 1)
+  precondition(mousePopup.4!.title == "Mouse Followed Focus" && mousePopup.4!.symbolName == "pointer.arrow.motionlines")
+  precondition(!mousePopup.4!.isSuccess && !mousePopup.4!.isBusy && mousePopup.4!.counter == nil)
+  await waitForCleanup()
+  precondition(TestEvent.monitors.isEmpty && Defaults.callbacks.isEmpty)
+  Defaults.mouseFeedback = false
+  Defaults.position = .trigger
   for action in [WindowAction.none, .toggleWindowSelection, .selectAllWindows, .openAppWindow] { precondition(ActionFeedbackController.begin(action, windows: windows) == nil) }
 ActionFeedbackController.withoutFeedback {
  precondition(ActionFeedbackController.begin(.minimize, windows: windows) == nil)
@@ -489,6 +507,7 @@ native_fixture += <<~'SWIFT'
   let app = NSApplication.shared
   app.setActivationPolicy(.prohibited)
   guard let screen = NSScreen.screens.first else { print("SKIP native popup presenter: no WindowServer display access"); return }
+  precondition(NSImage(systemSymbolName: "pointer.arrow.motionlines", accessibilityDescription: nil) != nil)
   let panel = ActionPopupPanel()
   defer { panel.close() }
   precondition(panel.animationBehavior == .none && panel.ignoresMouseEvents && panel.sharingType == .none)
@@ -541,4 +560,75 @@ Dir.mktmpdir('feedback-native-panel-') do |dir|
   out, status = Open3.capture2e("#{dir}/checks")
   puts out
   abort 'Native popup presenter tests failed' unless status.success?
+end
+
+# Run the production warp hook with fake cursor operations; never move the user's pointer.
+info = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowInfo.swift")
+warp = info[info.index('    func warpMouseToCenterIfNeeded()')...info.index('    @discardableResult\n    func close('.gsub('\\n', "\n"))]
+warp = warp.gsub('CGWarpMouseCursorPosition', 'testWarpMouseCursorPosition').gsub('CGAssociateMouseAndMouseCursorPosition', 'testAssociateMouseAndMouseCursorPosition').gsub('CGEvent(source:', 'TestCursorEvent(source:')
+warp_fixture = <<~'SWIFT'
+import Foundation
+import CoreGraphics
+struct Key<T> { let value: T }
+enum Mode { case never, always, differentDisplayOnly }
+enum Defaults { static var mode = Mode.always, enabled = false, hint = false; static subscript<T>(_ key: Key<T>) -> T { key.value } }
+extension Key where T == Bool {
+ static var enableActionFeedback: Self { Self(value: Defaults.enabled) }
+ static var showMouseFollowsFocusFeedback: Self { Self(value: Defaults.hint) }
+}
+extension Key where T == Mode { static var mouseFollowsFocusMode: Self { Self(value: Defaults.mode) } }
+enum Cursor { static var point = CGPoint.zero, succeeds = true, available = true, warps = 0, reads = 0 }
+struct TestCursorEvent {
+ init?(source: Int?) { Cursor.reads += 1; if !Cursor.available { return nil } }
+ var location: CGPoint { Cursor.point }
+}
+enum Result { case success, failure }
+func testWarpMouseCursorPosition(_ point: CGPoint) -> Result { Cursor.warps += 1; if Cursor.succeeds { Cursor.point = point }; return Cursor.succeeds ? .success : .failure }
+func testAssociateMouseAndMouseCursorPosition(_ value: Int) {}
+enum NSScreen { static func screenFromQuartzPoint(_ point: CGPoint) -> Bool { point.x >= 1000 } }
+struct AX { func position() throws -> CGPoint { CGPoint(x: 100, y: 100) }; func size() throws -> CGSize { CGSize(width: 200, height: 200) } }
+@MainActor enum ActionFeedbackController { static var count = 0; static func mouseFollowedFocus() { count += 1 } }
+struct WindowInfo { let axElement = AX()
+SWIFT
+warp_fixture += warp + "\n}\n"
+warp_fixture += <<~'SWIFT'
+@main struct Checks {
+ @MainActor static func settle() async { try? await Task.sleep(nanoseconds: 10_000_000) }
+ @MainActor static func main() async {
+  let window = WindowInfo()
+  window.warpMouseToCenterIfNeeded(); await settle()
+  precondition(Cursor.warps == 1 && Cursor.reads == 0 && ActionFeedbackController.count == 0)
+  Defaults.enabled = true; Defaults.hint = true; Cursor.point = .zero
+  window.warpMouseToCenterIfNeeded(); await settle()
+  precondition(Cursor.point == CGPoint(x: 200, y: 200) && ActionFeedbackController.count == 1)
+  window.warpMouseToCenterIfNeeded(); await settle()
+  precondition(ActionFeedbackController.count == 1, "No popup when cursor is already centered")
+  Cursor.point = .zero; Cursor.succeeds = false
+  window.warpMouseToCenterIfNeeded(); await settle()
+  precondition(ActionFeedbackController.count == 1, "No popup on failed warp")
+  Cursor.succeeds = true; Defaults.mode = .differentDisplayOnly
+  let before = Cursor.warps
+  window.warpMouseToCenterIfNeeded(); await settle()
+  precondition(Cursor.warps == before && ActionFeedbackController.count == 1)
+  Cursor.point = CGPoint(x: 1500, y: 200)
+  window.warpMouseToCenterIfNeeded(); await settle()
+  precondition(ActionFeedbackController.count == 2)
+  Cursor.available = false; Cursor.point = .zero; Defaults.mode = .always
+  window.warpMouseToCenterIfNeeded(); await settle()
+  precondition(Cursor.point == CGPoint(x: 200, y: 200) && ActionFeedbackController.count == 2)
+  Defaults.mode = .never
+  let reads = Cursor.reads, warps = Cursor.warps
+  window.warpMouseToCenterIfNeeded(); await settle()
+  precondition(Cursor.reads == reads && Cursor.warps == warps)
+  print("PASS Mouse Follows Focus hook: disabled cost, successful/no-op/failed warps, display policy and unavailable cursor reads")
+ }
+}
+SWIFT
+Dir.mktmpdir('feedback-mouse-warp-') do |dir|
+  File.write("#{dir}/checks.swift", warp_fixture)
+  out, status = Open3.capture2e('xcrun', 'swiftc', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+  abort out unless status.success?
+  out, status = Open3.capture2e("#{dir}/checks")
+  puts out
+  abort 'Mouse Follows Focus feedback hook tests failed' unless status.success?
 end

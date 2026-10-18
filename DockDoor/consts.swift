@@ -1072,6 +1072,7 @@ extension Defaults.Keys {
     static let cmdShortcuts = Key<[CmdShortcut]>("cmdShortcuts", default: CmdShortcut.defaultShortcuts)
     static let enableActionFeedback = Key<Bool>("enableActionFeedback", default: false)
     static let actionFeedbackPosition = Key<ActionFeedbackPosition>("actionFeedbackPosition", default: .trigger)
+    static let showMouseFollowsFocusFeedback = Key<Bool>("showMouseFollowsFocusFeedback", default: false)
 
     static let movingResizingPostActionBehavior = Key<Bool>("movingResizingPostActionBehavior", default: true)
     static let hidingPostActionBehavior = Key<Bool>("hidingPostActionBehavior", default: true)

@@ -802,9 +802,11 @@ extension WindowInfo {
               size.width > 0, size.height > 0
         else { return }
         let windowCenter = CGPoint(x: position.x + size.width / 2, y: position.y + size.height / 2)
+        let showsFeedback = Defaults[.enableActionFeedback] && Defaults[.showMouseFollowsFocusFeedback]
+        let mousePosition = mode == .differentDisplayOnly || showsFeedback ? CGEvent(source: nil)?.location : nil
 
         if mode == .differentDisplayOnly {
-            let mousePosition = DockObserver.getMousePosition()
+            guard let mousePosition else { return }
             let mouseScreen = NSScreen.screenFromQuartzPoint(mousePosition)
             let windowScreen = NSScreen.screenFromQuartzPoint(windowCenter)
             if mouseScreen == windowScreen {
@@ -812,8 +814,11 @@ extension WindowInfo {
             }
         }
 
-        CGWarpMouseCursorPosition(windowCenter)
+        let moved = CGWarpMouseCursorPosition(windowCenter) == .success
         CGAssociateMouseAndMouseCursorPosition(1)
+        if moved, showsFeedback, let mousePosition, mousePosition != windowCenter {
+            Task { @MainActor in ActionFeedbackController.mouseFollowedFocus() }
+        }
     }
 
     @discardableResult

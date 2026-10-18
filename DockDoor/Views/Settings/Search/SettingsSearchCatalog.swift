@@ -2058,7 +2058,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.enableActionFeedback",
             title: String(localized: "Enable action feedback"),
-            description: String(localized: "Show progress and results for window and Space actions. Selection changes, ordinary activation, and AppleScript actions remain silent."),
+            description: String(localized: "Show progress and results for window and Space actions. Selection changes and AppleScript actions remain silent."),
             keywords: ["feedback", "popup", "progress", "confirmation", "cursor"],
             tab: "Keybinds",
             section: String(localized: "Action Feedback"),
@@ -2071,6 +2071,15 @@ enum SettingsSearchCatalog {
             tab: "Keybinds",
             section: String(localized: "Action Feedback"),
             icon: "bubble.left"
+        ),
+        SettingsSearchItem(
+            id: "gestures.showMouseFollowsFocusFeedback",
+            title: String(localized: "Show feedback when Mouse Follows Focus"),
+            description: String(localized: "Mark the cursor's new location when Mouse Follows Focus moves it. Always shown at the cursor."),
+            keywords: ["feedback", "popup", "mouse", "cursor", "follow", "focus", "jump"],
+            tab: "Keybinds",
+            section: String(localized: "Action Feedback"),
+            icon: "pointer.arrow.motionlines"
         ),
         SettingsSearchItem(
             id: "gestures.postActionMovingResizing",
