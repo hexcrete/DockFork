@@ -51,16 +51,25 @@ extension Key where T == Int {
 }
 extension Key where T == ActionFeedbackPosition { static var actionFeedbackPosition: Self { Self(value: Defaults.position) } }
 struct PreviewWindowIdentity: Hashable { let pid: Int32; let windowID: UInt32; init(pid: Int32, windowID: UInt32) { self.pid = pid; self.windowID = windowID }; init(_ w: WindowInfo) { self.init(pid: 1, windowID: w.id) } }
-struct WindowInfo { enum WindowPositionRect: Equatable { case test }; let id: UInt32; var isFullscreen: Bool? = false; var isMinimized = false; var isHidden = false }
-enum WindowAction { case none, toggleWindowSelection, selectAllWindows, openAppWindow, close, minimize, minimizeAllWindows, hide, toggleFullScreen, autoTileSelectedWindows
+struct TestApp { let processIdentifier: Int32 = 1; let isHidden: Bool }
+struct WindowInfo { enum WindowPositionRect: Equatable { case test }; let id: UInt32; var isFullscreen: Bool? = false; var isMinimized = false; var isHidden = false; var isWindowlessApp = false; var app: TestApp { TestApp(isHidden: isHidden) } }
+enum WindowAction { case none, toggleWindowSelection, selectAllWindows, openAppWindow, close, closeAllWindows, minimize, minimizeAllWindows, hide, toggleFullScreen, autoTileSelectedWindows
  func appliesToSelectedWindow(_ w: WindowInfo) -> Bool { true }
  func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> Int? { self == .autoTileSelectedWindows ? 0 : nil }
- func menuTitle(for w: WindowInfo, batchTargets: [WindowInfo]?) -> String { "Close" }
- func batchTargetState(for windows: [WindowInfo]) -> Bool? { !(self == .hide ? windows.allSatisfy(\.isHidden) : windows.allSatisfy(\.isMinimized)) }
+ func menuTitle(for w: WindowInfo, batchTargets: [WindowInfo]?) -> String {
+  switch self { case .close: "Close Window"; case .closeAllWindows: "Close All Windows"; case .minimizeAllWindows: "Minimize All Windows"; default: "Other Action" }
+ }
+ func batchTargets(from windows: [WindowInfo]) -> [WindowInfo] { windows }
+ /* Batch target state */
  /* Feedback title */
- func menuIcon(for w: WindowInfo, batchTargets: [WindowInfo]?) -> String { "xmark" }
+ var iconName: String { self == .minimizeAllWindows ? "minus.circle.fill" : "xmark" }
+ /* Menu icon */
 }
-enum WindowUtil { struct PreviewBatchResult { var succeeded: [WindowInfo] = []; var failed: [PreviewWindowIdentity] = [] } }
+enum WindowUtil {
+ static var cachedWindows: [WindowInfo] = []
+ static func readCachedWindows(for pid: Int32) -> [WindowInfo] { cachedWindows.filter { $0.app.processIdentifier == pid } }
+ struct PreviewBatchResult { var succeeded: [WindowInfo] = []; var failed: [PreviewWindowIdentity] = [] }
+}
 final class PreviewStateCoordinator {
  enum SelectionInputSource { case mouse, keyboard, programmatic }
  var selectionInputSource = SelectionInputSource.programmatic
@@ -106,7 +115,10 @@ enum TestEvent {
 SWIFT
 stubs.sub!('/* Popup content */', source[source.index('    struct Content: Equatable {')...source.index('    private var tooltipPanel:')])
 actions = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
+stubs << actions[actions.index('enum PreviewBatchTogglePolicy {')...actions.index('struct WindowActionGroup:')]
+stubs.sub!('/* Batch target state */', actions[actions.index('    func batchTargetState(')...actions.index('    var isAppWidePreviewAction:')])
 stubs.sub!('/* Feedback title */', actions[actions.index('    func feedbackTitle(')...actions.index('    func menuTitle(')])
+stubs.sub!('/* Menu icon */', actions[actions.index('    func menuIcon(')...actions.rindex("\n}")])
 position = source[source.index('enum ActionFeedbackPosition:')...source.index('enum ActionFeedbackOutcome:')]
 handle = source[source.index('enum ActionFeedbackOutcome:')...source.index('@MainActor\nfinal class ActionPopupPanel'.gsub('\\n', "\n"))]
 controller = source[source.index('@MainActor\nfinal class ActionFeedbackController'.gsub('\\n', "\n"))..].gsub('NSEvent.', 'TestEvent.')
@@ -145,6 +157,22 @@ extension ActionFeedbackController {
   precondition(WindowAction.toggleFullScreen.feedbackTitle(for: fullscreen[0], batchTargets: fullscreen) == "Exit Full Screen")
   precondition(WindowAction.autoTileSelectedWindows.feedbackTitle(for: windows[0], batchTargets: windows) == "Auto Tile")
   precondition(WindowAction.close.feedbackTitle(for: windows[0], batchTargets: windows) == "Close")
+  for action in [WindowAction.close, .closeAllWindows] {
+   precondition(action.feedbackTitle(for: windows[0]) == "Close")
+   precondition(action.feedbackTitle(for: windows[0], batchTargets: windows) == "Close")
+  }
+  WindowUtil.cachedWindows = minimized
+  precondition(WindowAction.minimizeAllWindows.feedbackTitle(for: minimized[0]) == "Un-minimize")
+  precondition(WindowAction.minimizeAllWindows.feedbackTitle(for: minimized[0], batchTargets: minimized) == "Un-minimize")
+  precondition(WindowAction.minimizeAllWindows.menuIcon(for: minimized[0]) == "arrow.up.left.and.arrow.down.right.square")
+  WindowUtil.cachedWindows = [minimized[0], windows[1]]
+  precondition(WindowAction.minimizeAllWindows.feedbackTitle(for: minimized[0]) == "Minimize")
+  precondition(WindowAction.minimizeAllWindows.menuIcon(for: minimized[0]) == "minus.circle.fill")
+  precondition(WindowAction.minimize.feedbackTitle(for: minimized[0]) == "Un-minimize")
+  WindowUtil.cachedWindows = [minimized[0], fullscreen[0]]
+  precondition(WindowAction.minimizeAllWindows.feedbackTitle(for: minimized[0]) == "Un-minimize")
+  precondition(WindowAction.minimizeAllWindows.menuTitle(for: minimized[0], batchTargets: nil) == "Minimize All Windows")
+  WindowUtil.cachedWindows = []
   precondition(ActionPopupTiming.resultDuration(failed: true) == ActionPopupTiming.result * 2)
   precondition(ActionPopupTiming.resultDuration(failed: false) == ActionPopupTiming.result)
   for keyboard in [false, true] {
@@ -161,6 +189,19 @@ extension ActionFeedbackController {
   precondition(ActionPopupPanel.creates == 0 && TestEvent.monitors.isEmpty && Defaults.callbacks.isEmpty)
   Defaults.mouseFeedback = false
   Defaults.enabled = true
+  WindowUtil.cachedWindows = minimized
+  let headerRestore = ActionFeedbackController.begin(.minimizeAllWindows, windows: minimized, usePreviews: false)!
+  precondition(ActionFeedbackController.existing!.snapshot.4!.title == "Un-minimize")
+  precondition(ActionFeedbackController.existing!.snapshot.4!.symbolName == "arrow.up.left.and.arrow.down.right.square")
+  headerRestore.finish(first, .completed)
+  precondition(ActionFeedbackController.existing!.snapshot.2 == 1 && ActionFeedbackController.existing!.snapshot.3 == 2)
+  headerRestore.finish(second, .completed)
+  await waitForCleanup()
+  let headerClose = ActionFeedbackController.begin(.closeAllWindows, windows: windows, usePreviews: false)!
+  precondition(ActionFeedbackController.existing!.snapshot.4!.title == "Close")
+  headerClose.finish(first, .requested); headerClose.finish(second, .requested)
+  await waitForCleanup()
+  WindowUtil.cachedWindows = []
   ActionFeedbackController.mouseFollowedFocus()
   precondition(ActionFeedbackController.existing == nil)
   Defaults.mouseFeedback = true

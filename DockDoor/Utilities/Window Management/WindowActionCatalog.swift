@@ -158,11 +158,13 @@ extension WindowAction {
 
     func feedbackTitle(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> String {
         if self == .autoTileSelectedWindows { return String(localized: "Auto Tile") }
+        if self == .close || self == .closeAllWindows { return String(localized: "Close") }
+        if self == .minimize || self == .minimizeAllWindows {
+            return batchTargetState(for: batchTargets ?? [window]) == false
+                ? String(localized: "Un-minimize") : String(localized: "Minimize")
+        }
         if let batchTargets, batchTargets.count > 1 {
             switch self {
-            case .minimize:
-                return batchTargetState(for: batchTargets) == false
-                    ? String(localized: "Un-minimize") : String(localized: "Minimize")
             case .hide:
                 return batchTargetState(for: batchTargets) == false
                     ? String(localized: "Unhide App") : String(localized: "Hide App")
@@ -209,13 +211,13 @@ extension WindowAction {
     }
 
     func menuIcon(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> String {
+        if self == .minimize || self == .minimizeAllWindows {
+            return batchTargetState(for: batchTargets ?? [window]) == false ? "arrow.up.left.and.arrow.down.right.square" : iconName
+        }
         if let batchTargets, batchTargets.count > 1 {
-            if self == .minimize { return batchTargetState(for: batchTargets) == false ? "arrow.up.left.and.arrow.down.right.square" : iconName }
             if self == .hide { return batchTargetState(for: batchTargets) == false ? "eye" : iconName }
         }
         return switch self {
-        case .minimize where window.isMinimized:
-            "arrow.up.left.and.arrow.down.right.square"
         case .hide where window.isHidden:
             "eye"
         default:
