@@ -1,6 +1,34 @@
 # DockFork Roadmap
 
+Post-0.2.0 development: optional shared action feedback is committed as `70d56b90`, has passed final review and the user reports the refined behavior looking good on October 18. It shares presentation with upstream's existing window-gesture HUD, without changing that subsystem's execution or result semantics. Progress/results for selected-window actions are feedback, not the separate future selection-action popup. Spaces Bar remains deferred. See [the development notes](CHANGES_AND_SHOWCASE.md#in-development-shared-action-feedback). No additional release has been prepared.
+
 This document separates completed development milestones, release preparation and future ideas. Future items are not shipped features or delivery promises. The [current guide](CHANGES_AND_SHOWCASE.md) and [commit ledger](COMMIT_LEDGER.md) describe what is implemented. Resolve feasibility and interaction choices before each feature is started.
+
+## Deferred Quit Modifier Semantics
+
+October 18 source/documentation review: inherited preview Quit execution and its dynamic menu title both treat any held Option key as Force Quit. This includes Option required by the active preview shortcut or held switcher session. The [README](../../README.md) Quick Quit description and [1.26 changelog](../../CHANGELOG.md#126) document extra Option for Command-right-click on Dock icons, not this required-modifier interaction in preview actions. The current action-feedback work exposes the inherited behavior without changing it; do not relabel actual Force Quit as normal Quit.
+
+Handle this separately from the action-feedback commit:
+
+- Add an explicit **Force Quit App** action to the shared action catalog and assignable shortcut/action lists, preserving the existing Quit action's stored identity. Reuse the shared menu builders for preview/context/overflow/menu-bar availability, symbols, destructive styling, hints and feedback. The explicit action always requests Force Quit, independently of held modifiers.
+- Apply the same app-wide selection rules as Quit, including windowless apps. Deduplicate requests by PID when several selected windows belong to one app, and reuse termination-driven selection cleanup. Make the risk of losing unsaved work clear in documentation.
+- Expose explicit Force Quit through AppleScript using the shared action pipeline and existing target-resolution conventions, including supported single/list targets. Add the scripting-dictionary entry, dispatcher mapping, descriptions, generated help and examples. Keep existing command names/event codes and the built-in command for quitting DockFork unchanged. Scripted actions remain feedback-free.
+- Agree the normal Quit modifier policy separately: distinguish required initializer/action modifiers from an extra deliberate Force Quit modifier, or make normal Quit unconditional now that Force Quit is separately assignable. Review single/batch Quit and Close configured to quit the app. Snapshot the chosen intent once so presentation and asynchronous execution cannot disagree after modifiers change. Preserve the documented Dock-icon Quick Quit gesture unless an explicit behavior change is agreed.
+- Add visible guidance and regression coverage for main/alternate held sessions, persistent previews, native Cmd+Tab, menus, windowless apps, app-wide deduplication and scripted targeting. Test destructive execution only on disposable apps/windows with explicit permission.
+
+The explicit shared action and AppleScript support are agreed follow-up scope. The normal Quit modifier policy remains undecided. No implementation or current Quit behavior change is included in the action-feedback work.
+
+## Deferred Action Responsiveness Audit
+
+Source inspection on October 18 identified follow-ups, not measured hangs. Real-preview and shared batch native-tab Close have been moved off the UI thread in the action-feedback work; the following remain deferred:
+
+1. Reuse confirmed background workers for single-window Hide/Unhide and Full Screen, preserving single-window enter/exit behavior rather than the batch exit-only policy. Full Screen currently performs immediate readback, which can also produce premature failure.
+2. Move synchronous AX frame transactions and readback out of main-actor resize/Auto Tile paths. Capture screen geometry and coordinate UI/cache publication appropriately. Keep Enhanced UI disable/write/restore atomic, ordered and serialized where app-wide state is shared.
+3. Apply the same separation to drag-drop placement, retaining clamping, confirmed Space moves, foreground order and cancellation semantics.
+4. Audit action preflight: some live AX reads precede feedback creation, and fullscreen-only guards can scan an app's windows on the UI thread. Moving only the final write would leave those potential stalls.
+5. The legacy Cmd+Tab highlighted-app Close route still dispatches app-level closes synchronously through windowless routing entries. Route it through the shared executor in a separate change while preserving its app-wide target policy, fallback Quit behavior and dismissal semantics. Its synthetic entries are not eligible real-window feedback targets today.
+
+Confirmation sleeps already use asynchronous waits, and activation retries already run on their AX queue. Do not replace quick Quit/Open New Window requests or move AppKit presentation off the main thread indiscriminately. A plain inherited Task is not a substitute for moving blocking AX work off the main actor. No changes from this deferred audit have been implemented, and no runtime latency measurements are claimed.
 
 ## Publication First
 

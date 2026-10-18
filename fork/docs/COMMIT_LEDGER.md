@@ -2,7 +2,7 @@
 
 Audit snapshot: fork `9efa1cc188ff3a1f64556360ca18ef2f1d41a857`; upstream `0bd2e46bb2c56d3bdb121883190728103fab3c99`.
 
-The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **130 later commits through `29de103a7e2beeca09b508c99fc9a54a5cc22ed4`: 322 total, 317 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
+The original frozen inventory covers **192 branch-only commits: 189 non-merge and 3 merge commits**, ending October 8, 2026. The continuation covers **132 later commits through `70d56b90afff830191ff0cb1cf6350d858dc5530`: 324 total, 319 non-merge and 5 merge commits**. Category totals below describe the original snapshot; the continuation is counted separately. Coverage ends at that explicit tip.
 
 The latest records include the tiling/activation reliability fix, formatting-only cleanup and release-preparation records. The latest upstream integration and its ten incoming commits are included. The notification-timing, constrained-foregrounding and released-drag fixes are included through `86c3306`, with their exact hashes and changed-file counts. Any commit containing this ledger update must receive its exact hash, purpose and changed-file count in the next update; a commit cannot contain its own final hash. The overflow-policy and Fill-action settings changes are included through `3b4d311`. The discarded header selection-scoping experiment was never committed.
 
@@ -341,7 +341,7 @@ No recorded commit is described as a full revert without evidence. An Evolved ro
 
 ## Post-Audit Continuation
 
-Coverage: `9efa1cc..e751f05`, extended and verified against Git October 16, 2026. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
+Coverage: `9efa1cc..70d56b90`, extended and verified against Git October 18, 2026. The action-feedback implementation is included; the documentation commit recording it will receive its own entry in the next update. These commits are recorded once here rather than inserted into the frozen category tables. The fixed audit baseline means this continuation also includes fourteen later-integrated upstream commits, explicitly attributed below; they are not fork-authored features. Fork-only documentation/build assets are excluded from upstream PRs; the application-default change is separate and still requires upstream compatibility review.
 
 | Commit | Category / purpose | Role | Changed files |
 |---|---|---|---:|
@@ -552,6 +552,10 @@ Coverage: `9efa1cc..e751f05`, extended and verified against Git October 16, 2026
 
 | [`ef373d4`](https://github.com/hexcrete/DockFork/commit/ef373d43602c236b417546a0f757bc0f7758ba5b) | Record verified 0.2.0 prerelease publication, exact candidate/tag correspondence, ten downloaded-back assets, public download checks and remaining installation/media gaps. | Documentation / Publication | 8 |
 | [`29de103a`](https://github.com/hexcrete/DockFork/commit/29de103a7e2beeca09b508c99fc9a54a5cc22ed4) | Close collapsed native tab groups through stable group ownership and refreshed controls; preserve the original tab until last, stop on read failures or refused background Close, and add regression/routing tests plus validation records. | Fix / Discovery / Native Tabs | 7 |
+
+| [`c41e00e`](https://github.com/hexcrete/DockFork/commit/c41e00e0183bdaadb71d43083139569ad23f4c91) | Record native-tab Close behavior, verification and pending cross-app/media coverage; extend the ledger through the preceding code fix. | Documentation | 3 |
+
+| [`70d56b90`](https://github.com/hexcrete/DockFork/commit/70d56b90afff830191ff0cb1cf6350d858dc5530) | Add default-Off shared action feedback with cursor/per-preview progress, fade-only presentation, stable symbol/spinner geometry, crossfade consolidation and cleanup; reuse confirmed operation outcomes and asynchronous native-tab Close, preserving silent scripts and ordinary activation. Include state-machine, native-panel, minimize, close and tiling regressions. | Feature / Actions / Feedback | 21 |
 
 ## Upstream Attribution and Contribution Boundaries
 

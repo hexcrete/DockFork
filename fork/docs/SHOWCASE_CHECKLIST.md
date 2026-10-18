@@ -140,6 +140,13 @@ These candidates require the new development build, not the published 0.1.0 rele
 | [ ] | D02 | Optional video: cross-display drag | Requires two displays; drop a large window on a smaller display and show the resulting usable placement. Do not claim resizing never occurs if macOS constrains the window. | `78f65dd` |
 | [ ] | D03 | Video: external drag spring-loading | Drag a disposable file over a preview, wait for activation/dismissal, and finish the native drag onto a supporting app. Show custom delay and cancellation on leaving early. Don't frame this as a Dock-icon reliability fix. | `1ceb007`, `ba665c2` |
 
+## Action Feedback (In Development)
+
+| Pick | ID | Capture | Setup and visible result | Commits |
+|---|---|---|---|---|
+| [ ] | AF01 | Video: optional action feedback | Enable Keybinds > Action Feedback. Compare pointer and keyboard actions, cursor-left/preview-center alignment, Compact Mode, pending spinner, action-only request labels and verified-success green checkmarks. Check Minimize confirmation, Un-minimize fade-in, the longer failure result, stable symbol/spinner width, and fade-only presentation. Move the pointer repeatedly across previews and outside the app to compare cursor following. Close a disposable differently named native-tab stack: the label must appear at initiation, update tab counts, and show a spinner if still pending after 0.7 seconds. Compare single-stack cursor/preview placement and multi-window batch totals. Keep AppleScript, selection and ordinary activation silent. | `70d56b90`; user reports refined popup behavior working October 18; media and exhaustive coverage pending |
+| [ ] | AF02 | Video: batch progress and consolidation | Use disposable windows. Show per-preview results and action-only labels. Check distinct warning/cancellation symbols when observed, pending settled/total counters and final successful/total counters, including partial failures. Then close/remove a target to consolidate at the live cursor. Verify crossfade consolidation, including completions during the handoff; check Reduce Motion and animations Off. Confirm concise multi-selection labels and Minimize counters without early completion. Do not imply a failure was deliberately triggered unless observed. | `70d56b90`; user reports refined popup behavior working October 18; media and exhaustive coverage pending |
+
 ## Reliability and Diagnostics
 
 | Pick | ID | Capture | Setup and visible result | Commits |
