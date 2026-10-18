@@ -1,5 +1,17 @@
 # DockFork: Changes and Showcase
 
+## In Development: Native Tab Discovery After Minimization
+
+Implemented in `e7fe0ba9` after 0.2.0; not part of the published package. Finder's inactive native tabs can report AXMinimized while having no Space assignment and being ordered out. The shared discovery policy returned early for minimized/hidden rows before checking that native visibility state. This inherited upstream behavior could expand three previews into fifteen after restoration, without macOS actually detaching any tabs.
+
+With Collapse native tabs enabled, discovery and cache cleanup now share the exclusion rule. On-screen, ScreenCaptureKit-backed, fullscreen, Space-backed minimized/hidden and ordered-in windows retain their existing handling. Failed Space, fullscreen or ordering reads keep minimized/hidden rows. Existing Space-query callers retain their empty-on-error contract. Disabling collapsing preserves the prior behavior. Cleanup validates its already-matched CG record rather than searching again; a duplicate Dock grouping pass is removed.
+
+Earlier uncommitted membership-cache prototypes did not cover newly discovered tabs and were discarded. The existing per-PID/Space snapshots and geometry model are unchanged. The final fix requires no prior visible observation and does not infer membership from tab names or stale frames. It adds no AX reads, observers, timers, captures or retained state. Extra ordering queries are limited to suspect unassigned minimized/hidden rows; this is not a measured whole-app speedup.
+
+Validation: all eight regression suites pass, including 18 original grouping cases, the unlearned 3-to-15 discovery reproduction and 576 old/new policy comparisons. Executed production cache-cleanup fixtures cover valid/invalid/missing records, hidden-only/minimized/fullscreen/unknown states, read failures and query-count gates. A read-only native policy comparison changed Finder's eight accepted rows to one real window plus seven excluded background tabs; other inspected app windows were unchanged. The running app subsequently listed three Finder windows, including a real minimized window. Counts describe changing inventories, not a fixed test setup. No windows were manipulated by these probes. The user reports the original splitting sequence resolved October 18.
+
+Final review added conservative query-failure guards, validated by regression checks. SwiftFormat/diff checks, the certificate-signed rebuild, strict signature, installed executable/debug-library comparisons, built-source correspondence and exact development-path relaunch passed. Relaunch required a retry after macOS error -600. The unrelated native popup-presenter fixture skipped without WindowServer access. Full native fault injection, exhaustive cache/action lifecycle tests, multiple displays, older macOS versions and performance profiling remain unverified. The broader AX responsiveness work remains deferred. Ledger coverage extends through `e7fe0ba9`; this documentation commit receives its entry in the next update. No release or publication was performed.
+
 ## In Development: Shared Action Feedback
 
 Implemented in `70d56b90` after 0.2.0; not included in the published prerelease. The user reports the final popup behavior looking good on October 18. Final source review and automated checks passed; the remaining test gaps are recorded below.
