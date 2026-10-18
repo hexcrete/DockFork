@@ -15,8 +15,12 @@ extension CGWindowID {
     }
 
     func cgsSpaces() -> [CGSSpaceID] {
+        cgsSpacesIfAvailable() ?? []
+    }
+
+    func cgsSpacesIfAvailable() -> [CGSSpaceID]? {
         let arr: CFArray = [NSNumber(value: UInt32(self))] as CFArray
-        guard let spaces = CGSCopySpacesForWindows(CGSMainConnectionID(), kCGSAllSpacesMask, arr) as? [NSNumber] else { return [] }
+        guard let spaces = CGSCopySpacesForWindows(CGSMainConnectionID(), kCGSAllSpacesMask, arr) as? [NSNumber] else { return nil }
         return spaces.map(\.uint64Value)
     }
 }

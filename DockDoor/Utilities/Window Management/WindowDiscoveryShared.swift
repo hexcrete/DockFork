@@ -935,6 +935,11 @@ enum WindowSpaces {
     }
 }
 
+func shouldExcludeInactiveNativeTab(windowID: CGWindowID, isFullscreen: Bool, isOnscreen: Bool, windowSpaces: Set<Int>?) -> Bool {
+    guard Defaults[.collapseNativeTabsIntoSingleWindow], !isFullscreen, !isOnscreen, let windowSpaces, windowSpaces.isEmpty else { return false }
+    return SLSWindowIsOrderedIn(windowID) == false
+}
+
 // Decide if a window should be accepted considering on-screen state,
 // ScreenCaptureKit presence, multi-Space, and window/app state.
 func shouldAcceptWindow(axWindow: AXUIElement,
@@ -948,9 +953,11 @@ func shouldAcceptWindow(axWindow: AXUIElement,
 
     // Base: role/subrole, level, size/alpha checks already enforced by caller
     let isOnscreen = (cgEntry[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
-    let axIsFullscreen = (try? axWindow.isFullscreen()) ?? false
+    let fullscreenState = try? axWindow.isFullscreen()
+    let axIsFullscreen = fullscreenState ?? false
     let axIsMinimized = (try? axWindow.isMinimized()) ?? false
-    let windowSpaces = Set(windowID.cgsSpaces().map { Int($0) })
+    let knownWindowSpaces = windowID.cgsSpacesIfAvailable().map { Set($0.map { Int($0) }) }
+    let windowSpaces = knownWindowSpaces ?? []
 
     // Keep DockDoor's Settings window, but reject its borderless preview and helper panels.
     if app.processIdentifier == ProcessInfo.processInfo.processIdentifier,
@@ -968,7 +975,11 @@ func shouldAcceptWindow(axWindow: AXUIElement,
 
     if isOnscreen || scBacked { return true }
 
-    if app.isHidden || axIsFullscreen || axIsMinimized { return true }
+    if app.isHidden || axIsFullscreen || axIsMinimized {
+        // AX marks inactive native tabs as minimized too; that must not bypass native visibility.
+        guard fullscreenState != nil else { return true }
+        return !shouldExcludeInactiveNativeTab(windowID: windowID, isFullscreen: axIsFullscreen, isOnscreen: isOnscreen, windowSpaces: knownWindowSpaces)
+    }
 
     if windowSpaces.isEmpty, SLSWindowIsOrderedIn(windowID) == false {
         return false

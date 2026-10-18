@@ -540,8 +540,6 @@ final class DockObserver {
             cachedWindows = []
         }
 
-        cachedWindows = WindowUtil.collapseNativeTabsIfNeeded(cachedWindows)
-
         // Filter cached windows by current space before showing preview
         if Defaults[.showWindowsFromCurrentSpaceOnly], !cachedWindows.isEmpty {
             cachedWindows = WindowUtil.filterWindowsByCurrentSpace(cachedWindows)

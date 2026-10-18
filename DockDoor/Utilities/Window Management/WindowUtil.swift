@@ -3378,8 +3378,9 @@ extension WindowUtil {
                     !WindowOwnerResolver.ownerBelongsToDisplayApp(window.ownerApp, displayApp: window.app)
 
                 if !shouldRemove {
-                    if let cgEntry = findCGEntry(for: window.id, in: cgCandidates) {
-                        let hasValidCGWindow = isValidCGWindowCandidate(window.id, in: cgCandidates)
+                    let cgEntry = findCGEntry(for: window.id, in: cgCandidates)
+                    let hasValidCGWindow = cgEntry.map(isValidCGWindowEntry) ?? false
+                    if let cgEntry {
                         if !hasValidCGWindow,
                            !window.isMinimized,
                            !window.isHidden
@@ -3400,6 +3401,18 @@ extension WindowUtil {
                         let isFullscreen = window.isFullscreen == true || (try? window.axElement.isFullscreen()) == true
                         let liveSpaceIDs = Set(window.id.cgsSpaces().map { Int($0) })
                         shouldRemove = !isFullscreen && (liveSpaceIDs.isEmpty || liveSpaceIDs.isDisjoint(with: managedSpaceIDs))
+                    }
+
+                    if !shouldRemove, Defaults[.collapseNativeTabsIntoSingleWindow],
+                       window.isMinimized || window.isHidden, window.isFullscreen == false,
+                       !hasValidCGWindow
+                    {
+                        shouldRemove = shouldExcludeInactiveNativeTab(
+                            windowID: window.id,
+                            isFullscreen: false,
+                            isOnscreen: (cgEntry?[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue == true,
+                            windowSpaces: window.id.cgsSpacesIfAvailable().map { Set($0.map { Int($0) }) }
+                        )
                     }
                 }
 
