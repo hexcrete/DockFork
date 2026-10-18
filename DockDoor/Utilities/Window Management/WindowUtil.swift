@@ -3698,18 +3698,18 @@ extension WindowUtil {
     }
 
     private actor CloseExecutor {
-        func close(_ windows: [WindowInfo], feedback: ActionFeedbackHandle?) -> PreviewBatchResult {
-            WindowUtil.requestWindowClosures(windows, feedback: feedback)
+        func close(_ windows: [WindowInfo], feedback: ActionFeedbackHandle?, settleFailures: Bool) -> PreviewBatchResult {
+            WindowUtil.requestWindowClosures(windows, feedback: feedback, settleFailures: settleFailures)
         }
     }
 
     private static let closeExecutor = CloseExecutor()
 
-    static func closeWindows(_ windows: [WindowInfo], feedback: ActionFeedbackHandle? = nil) async -> PreviewBatchResult {
-        await closeExecutor.close(windows, feedback: feedback)
+    static func closeWindows(_ windows: [WindowInfo], feedback: ActionFeedbackHandle? = nil, settleFailures: Bool = true) async -> PreviewBatchResult {
+        await closeExecutor.close(windows, feedback: feedback, settleFailures: settleFailures)
     }
 
-    private static func requestWindowClosures(_ windows: [WindowInfo], feedback: ActionFeedbackHandle?) -> PreviewBatchResult {
+    private static func requestWindowClosures(_ windows: [WindowInfo], feedback: ActionFeedbackHandle?, settleFailures: Bool = true) -> PreviewBatchResult {
         var result = PreviewBatchResult()
         for window in windows where !window.isWindowlessApp {
             guard !Task.isCancelled else { break }
@@ -3722,7 +3722,7 @@ extension WindowUtil {
                 break
             } else {
                 result.failed.append(identity)
-                feedback?.finish(identity, .failed)
+                if settleFailures { feedback?.finish(identity, .failed) }
             }
         }
         return result

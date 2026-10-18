@@ -2009,21 +2009,18 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
         guard !targetApps.isEmpty else { return false }
 
-        let preferredWindows = windowSwitcherCoordinator.windows
+        if action == .close { return closeCmdTabHighlightedApps(targetApps, preservePreviews: preservePreviews) }
+
         let targets = targetApps.map { ($0, WindowInfo.windowlessEntry(for: $0)) }
         let keepPreviewsOpen = preservePreviews || WindowAction.PostActionCategory.closing.keepPreviewsOpen
 
-        let feedback = ActionFeedbackController.begin(action == .close ? .closeAllWindows : action, windows: targets.map(\.1), keyboard: true, usePreviews: false)
+        let feedback = ActionFeedbackController.begin(action, windows: targets.map(\.1), keyboard: true, usePreviews: false)
         for (app, entry) in targets {
-            let appRows = preferredWindows.filter {
-                $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp
-            }
             let result = action.perform(
                 on: entry,
-                keepPreviewOnQuit: false,
-                preferredWindows: appRows.isEmpty ? nil : appRows
+                keepPreviewOnQuit: false
             )
-            if action.isQuitAction, case .noChange = result {
+            if case .noChange = result {
                 feedback?.finish(PreviewWindowIdentity(entry), .failed)
             } else {
                 feedback?.finish(PreviewWindowIdentity(entry), .requested)
@@ -2036,16 +2033,63 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         guard !keepPreviewsOpen else { return false }
 
-        for (app, entry) in targets {
+        for (_, entry) in targets {
             scheduleFailedClosingFocusNotification(
                 action: action,
                 window: entry,
-                willQuitOnClose: action == .close &&
-                    WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: app.processIdentifier)
+                willQuitOnClose: false
             )
         }
         hideWindow()
         return true
+    }
+
+    @MainActor
+    private func closeCmdTabHighlightedApps(_ apps: [NSRunningApplication], preservePreviews: Bool) -> Bool {
+        let preferredWindows = windowSwitcherCoordinator.windows
+        let requests = apps.map { app in
+            let appRows = preferredWindows.filter { $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp }
+            let windows = appRows.isEmpty ? WindowUtil.readCachedWindows(for: app.processIdentifier).filter { !$0.isWindowlessApp } : appRows
+            return (app: app, entry: WindowInfo.windowlessEntry(for: app), windows: windows)
+        }
+        let feedback = ActionFeedbackController.begin(.closeAllWindows, windows: requests.flatMap(\.windows), keyboard: true, usePreviews: false)
+        let keepOpen = preservePreviews || WindowAction.PostActionCategory.closing.keepPreviewsOpen
+        let sessionID = windowSwitcherCoordinator.pointerInteractionSessionID
+        previewBatchTask?.cancel()
+        let token = UUID()
+        previewBatchToken = token
+        previewBatchTask = Task { @MainActor [weak self] in
+            defer {
+                feedback?.finishRemaining(.cancelled)
+                if let self, previewBatchToken == token { previewBatchTask = nil; previewBatchToken = nil }
+            }
+            for request in requests {
+                guard !Task.isCancelled else { return }
+                // A failed Close may still fall back to normal Quit. Settle it after that decision.
+                let result = await WindowUtil.closeWindows(request.windows, feedback: feedback, settleFailures: false)
+                guard !Task.isCancelled else { return }
+                let quitAccepted = result.succeeded.isEmpty &&
+                    WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: request.app.processIdentifier) && request.entry.quit(force: false)
+                for identity in result.failed {
+                    feedback?.finish(identity, quitAccepted ? .requested : .failed)
+                }
+                if let self, previewBatchToken == token,
+                   windowSwitcherCoordinator.pointerInteractionSessionID == sessionID, isVisible
+                { scheduleInPlaceActionRefresh(for: request.app) }
+            }
+            guard !Task.isCancelled, let self, previewBatchToken == token,
+                  windowSwitcherCoordinator.pointerInteractionSessionID == sessionID, isVisible
+            else { return }
+            windowSwitcherCoordinator.scheduleActiveFocusedWindowRefresh()
+            if !keepOpen {
+                for request in requests {
+                    scheduleFailedClosingFocusNotification(action: .close, window: request.entry,
+                                                           willQuitOnClose: WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: request.app.processIdentifier))
+                }
+                hideWindow()
+            }
+        }
+        return false
     }
 
     private func scheduleInPlaceActionRefresh(

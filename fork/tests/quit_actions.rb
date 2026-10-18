@@ -29,7 +29,7 @@ abort 'Force Quit missing from shared menus' unless catalog.include?('[.close, .
 abort 'Force Quit missing from assignments' unless util[util.index('    static let assignablePreviewActions:')...util.index('    func postActionCategory(')].include?('.forceQuit')
 coordinator = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
 highlighted = block(coordinator, '    func performActionOnCmdTabHighlightedApps(')
-abort 'Cmd+Tab app requests must report refusal' unless highlighted.include?('if action.isQuitAction, case .noChange = result {')
+abort 'Cmd+Tab app requests must report refusal' unless highlighted.include?('if case .noChange = result {')
 defaults = File.read("#{ROOT}/DockDoor/consts.swift")
 abort 'Force Quit must not gain a default assignment' if defaults.include?('.forceQuit')
 %w[quit forceQuit].each do |action|
