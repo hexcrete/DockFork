@@ -38,7 +38,7 @@ private struct WindowSelectionSettingsSection: View {
                 if enabled {
                     Toggle("Enable selection of windowless apps in Window Switcher", isOn: $enableWindowlessAppSelection)
                         .settingsSearchTarget("gestures.enableWindowlessAppSelection")
-                    Text("Only actions applicable to windowless apps are \"Quit\" and \"Open New Window\".")
+                    Text("Only \"Quit\", \"Force Quit\" and \"Open New Window\" apply to windowless apps.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.leading, 20)

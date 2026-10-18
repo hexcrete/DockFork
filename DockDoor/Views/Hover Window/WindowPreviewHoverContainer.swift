@@ -1557,7 +1557,7 @@ struct WindowPreviewHoverContainer: View {
 
         guard shouldClosePreviews else { return }
 
-        if action == .close || action == .quit {
+        if action == .close || action.isQuitAction {
             scheduleFailedClosingFocusNotification(
                 action: action,
                 window: window,
@@ -1620,10 +1620,10 @@ struct WindowPreviewHoverContainer: View {
                     window: window
                 )
             }
-        case .quit:
+        case .quit, .forceQuit:
             scheduleAppTerminationDismissConfirmation(
                 window: window,
-                sourceAction: .quit
+                sourceAction: action
             )
         case .closeAllWindows:
             scheduleCloseAllDismissConfirmation(
@@ -1657,7 +1657,7 @@ struct WindowPreviewHoverContainer: View {
                 try? await Task.sleep(nanoseconds: delay)
                 guard shouldRunDeferredWatchers else { return }
 
-                if action == .quit || willQuitOnClose {
+                if action.isQuitAction || willQuitOnClose {
                     if app.isTerminated || NSRunningApplication(processIdentifier: pid) == nil {
                         return
                     }

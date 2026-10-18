@@ -34,7 +34,7 @@ extension WindowAction {
     }
 
     func appliesToSelectedWindow(_ window: WindowInfo) -> Bool {
-        !window.isWindowlessApp || self == .quit || self == .openNewWindow
+        !window.isWindowlessApp || isQuitAction || self == .openNewWindow
     }
 
     func batchTargets(from windows: [WindowInfo]) -> [WindowInfo] {
@@ -66,9 +66,11 @@ extension WindowAction {
         }
     }
 
+    var isQuitAction: Bool { self == .quit || self == .forceQuit }
+
     var isAppWidePreviewAction: Bool {
         switch self {
-        case .hide, .quit, .closeAllWindows, .minimizeAllWindows, .openNewWindow: true
+        case .hide, .quit, .forceQuit, .closeAllWindows, .minimizeAllWindows, .openNewWindow: true
         default: false
         }
     }
@@ -97,7 +99,7 @@ extension WindowAction {
                 [.autoTileSelectedWindows, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
                  .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center]
             case .app:
-                [.close, .quit]
+                [.close, .quit, .forceQuit]
             }
         }
     }
@@ -121,7 +123,7 @@ extension WindowAction {
             if self == .toggleWindowSelection || self == .selectAllWindows {
                 return Defaults[.enableMultiWindowSelection] && Defaults[.enableWindowlessAppSelection]
             }
-            return self == .openAppWindow || self == .openNewWindow || self == .quit || self == .hide
+            return self == .openAppWindow || self == .openNewWindow || isQuitAction || self == .hide
         }
 
         switch self {
@@ -203,8 +205,6 @@ extension WindowAction {
             String(localized: "Un-minimize", comment: "Window action for an already minimized window")
         case .hide where window.isHidden:
             String(localized: "Unhide App", comment: "Window action for an already hidden app")
-        case .quit where NSEvent.modifierFlags.contains(.option):
-            String(localized: "Force Quit App", comment: "Window action when option is held")
         default:
             localizedName
         }

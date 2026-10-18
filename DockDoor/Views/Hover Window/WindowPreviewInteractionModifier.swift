@@ -456,6 +456,7 @@ final class WindowActionMenuBuilder: NSObject {
                 overflow.actions.contains($0) && ($0.isAvailable(for: window) ||
                     ($0 == .toggleFullScreen && batchTargets?.contains { $0.isFullscreen == true } == true))
             }
+            .flatMap { $0 == .quit ? [.quit, .forceQuit] : [$0] }
             if !actions.isEmpty {
                 addSeparatorIfNeeded(to: menu)
                 add(actions, for: window, batchTargets: batchTargets, to: menu,
@@ -596,7 +597,7 @@ final class WindowActionMenuBuilder: NSObject {
                 item.keyEquivalentModifierMask = WindowSwitcherShortcutResolver.appKitModifierMask(for: shortcutKeybind)
                 displayedShortcuts[shortcut.keyCode] = action
             }
-            if action == .quit {
+            if action.isQuitAction {
                 item.attributedTitle = NSAttributedString(
                     string: item.title,
                     attributes: [.foregroundColor: NSColor.systemRed]

@@ -1714,7 +1714,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         guard shouldClosePreviews else { return false }
 
-        if action == .close || action == .quit {
+        if action == .close || action.isQuitAction {
             scheduleFailedClosingFocusNotification(
                 action: action,
                 window: window,
@@ -1769,8 +1769,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             } else {
                 scheduleWindowClosureDismissConfirmation(window: window)
             }
-        case .quit:
-            scheduleAppTerminationDismissConfirmation(window: window, sourceAction: .quit)
+        case .quit, .forceQuit:
+            scheduleAppTerminationDismissConfirmation(window: window, sourceAction: action)
         case .closeAllWindows:
             scheduleCloseAllDismissConfirmation(window: window, sourceAction: .closeAllWindows)
         default:
@@ -1860,7 +1860,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             for window in targets where refreshedApps.insert(window.app.processIdentifier).inserted {
                 if action == .minimize || action == .minimizeAllWindows || action == .hide {
                     windowSwitcherCoordinator.scheduleVisibilityStateSync(processIdentifier: window.app.processIdentifier)
-                } else if action == .close || action == .quit || action == .closeAllWindows || action == .openNewWindow {
+                } else if action == .close || action.isQuitAction || action == .closeAllWindows || action == .openNewWindow {
                     scheduleInPlaceActionRefresh(for: window.app, forceImageRefresh: action == .openNewWindow)
                 }
             }
@@ -1991,7 +1991,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         apps: [NSRunningApplication],
         preservePreviews: Bool = false
     ) -> Bool {
-        guard action == .close || action == .quit else { return false }
+        guard action == .close || action.isQuitAction else { return false }
 
         var seenPIDs = Set<pid_t>()
         let targetApps = apps.filter {
@@ -2008,12 +2008,16 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             let appRows = preferredWindows.filter {
                 $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp
             }
-            _ = action.perform(
+            let result = action.perform(
                 on: entry,
                 keepPreviewOnQuit: false,
                 preferredWindows: appRows.isEmpty ? nil : appRows
             )
-            feedback?.finish(PreviewWindowIdentity(entry), .requested)
+            if action.isQuitAction, case .noChange = result {
+                feedback?.finish(PreviewWindowIdentity(entry), .failed)
+            } else {
+                feedback?.finish(PreviewWindowIdentity(entry), .requested)
+            }
             if action.shouldScheduleAppRefresh {
                 scheduleInPlaceActionRefresh(for: app)
             }
@@ -2182,7 +2186,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 try? await Task.sleep(nanoseconds: delay)
                 guard shouldRunDeferredWatchers else { return }
 
-                if action == .quit || willQuitOnClose {
+                if action.isQuitAction || willQuitOnClose {
                     if app.isTerminated || NSRunningApplication(processIdentifier: pid) == nil {
                         return
                     }

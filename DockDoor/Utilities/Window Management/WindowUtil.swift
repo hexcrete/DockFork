@@ -146,6 +146,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
     // Existing actions
     case quit
+    case forceQuit
     case close
     case minimize
     case toggleFullScreen
@@ -178,6 +179,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         switch self {
         case .quit:
             String(localized: "Quit App", comment: "Window action")
+        case .forceQuit:
+            String(localized: "Force Quit App", comment: "Window action; may discard unsaved changes")
         case .close:
             String(localized: "Close Window", comment: "Window action")
         case .minimize:
@@ -230,6 +233,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     var iconName: String {
         switch self {
         case .quit: "xmark.circle.fill"
+        case .forceQuit: "exclamationmark.octagon.fill"
         case .close: "xmark.square"
         case .minimize: "minus.circle"
         case .toggleFullScreen: "arrow.up.left.and.arrow.down.right"
@@ -259,14 +263,14 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     /// Actions that can be assigned to preview shortcuts, gestures, and mouse interactions.
     static let assignablePreviewActions: [WindowAction] = [
         .none, .toggleWindowSelection, .selectAllWindows, .autoTileSelectedWindows, .openAppWindow, .openNewWindow, .close, .closeAllWindows,
-        .minimize, .minimizeAllWindows, .maximize, .toggleFullScreen, .bringToCurrentSpace, .hide, .quit,
+        .minimize, .minimizeAllWindows, .maximize, .toggleFullScreen, .bringToCurrentSpace, .hide, .quit, .forceQuit,
         .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
         .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center,
     ]
 
     func postActionCategory(for window: WindowInfo, preferredWindows: [WindowInfo]? = nil) -> PostActionCategory? {
         switch self {
-        case .quit, .close, .closeAllWindows:
+        case .quit, .forceQuit, .close, .closeAllWindows:
             return .closing
         case .openNewWindow:
             return .newWindow
@@ -312,7 +316,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             !window.isMinimized
         case .minimizeAllWindows:
             category == .hiding
-        case .openAppWindow, .hide, .close, .quit, .closeAllWindows, .toggleWindowSelection, .selectAllWindows, .none:
+        case .openAppWindow, .hide, .close, .quit, .forceQuit, .closeAllWindows, .toggleWindowSelection, .selectAllWindows, .none:
             false
         }
     }
@@ -356,7 +360,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             // This avoids hard-closing the container in the common edge case of mixed-space minimized sets.
             return false
 
-        case .autoTileSelectedWindows, .quit, .close, .openAppWindow, .openNewWindow, .closeAllWindows, .bringToCurrentSpace,
+        case .autoTileSelectedWindows, .quit, .forceQuit, .close, .openAppWindow, .openNewWindow, .closeAllWindows, .bringToCurrentSpace,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center, .toggleWindowSelection, .selectAllWindows, .none:
@@ -384,7 +388,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
     var shouldScheduleAppRefresh: Bool {
         switch self {
-        case .openAppWindow, .openNewWindow, .close, .quit, .closeAllWindows, .bringToCurrentSpace,
+        case .openAppWindow, .openNewWindow, .close, .quit, .forceQuit, .closeAllWindows, .bringToCurrentSpace,
              .minimize, .hide, .minimizeAllWindows,
              .maximize, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
@@ -399,7 +403,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
     var shouldScheduleDockReconciliation: Bool {
         switch self {
-        case .openNewWindow, .close, .quit, .closeAllWindows, .toggleFullScreen:
+        case .openNewWindow, .close, .quit, .forceQuit, .closeAllWindows, .toggleFullScreen:
             true
         case .autoTileSelectedWindows, .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
@@ -411,7 +415,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
 
     var requiresDeferredSuccessWatcher: Bool {
         switch self {
-        case .toggleFullScreen, .openNewWindow, .close, .quit, .closeAllWindows:
+        case .toggleFullScreen, .openNewWindow, .close, .quit, .forceQuit, .closeAllWindows:
             true
         case .autoTileSelectedWindows, .openAppWindow, .minimize, .hide, .minimizeAllWindows, .maximize, .bringToCurrentSpace,
              .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
@@ -448,8 +452,8 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             return success
         }
         switch self {
-        case .quit:
-            window.quit(force: NSEvent.modifierFlags.contains(.option))
+        case .quit, .forceQuit:
+            guard accepted(window.quit(force: self == .forceQuit)) else { return .noChange }
             if keepPreviewOnQuit {
                 return .noChange
             } else {
@@ -461,7 +465,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             if window.isWindowlessApp {
                 let closedCount = WindowUtil.closeAllWindows(for: window.app, preferredWindows: preferredWindows, feedback: feedback)
                 if closedCount == 0, WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: pid) {
-                    window.quit(force: NSEvent.modifierFlags.contains(.option))
+                    guard accepted(window.quit(force: false)) else { return .noChange }
                     if keepPreviewOnQuit {
                         return .noChange
                     } else {
@@ -472,7 +476,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             }
 
             if WindowUtil.shouldQuitAppOnWindowClose(processIdentifier: pid) {
-                window.quit(force: NSEvent.modifierFlags.contains(.option))
+                guard accepted(window.quit(force: false)) else { return .noChange }
                 if keepPreviewOnQuit {
                     return .noChange
                 } else {
@@ -784,7 +788,6 @@ extension WindowUtil {
         let targets = togglesFullscreen ? windows : action.batchTargets(from: windows)
         guard !targets.isEmpty else { result.failed = windows.map(PreviewWindowIdentity.init); feedback?.finish(result); return result }
         let hiddenTarget = action.batchTargetState(for: windows) ?? false
-        let forceQuit = NSEvent.modifierFlags.contains(.option)
 
         if action == .minimize || action == .minimizeAllWindows || action == .openAppWindow {
             let minimizedTarget = action == .openAppWindow ? false : (action.batchTargetState(for: windows) ?? false)
@@ -826,11 +829,11 @@ extension WindowUtil {
                     }
                 case .toggleFullScreen:
                     succeeded = await changeFullscreenConfirmed(window, toggle: togglesFullscreen)
-                case .quit:
-                    succeeded = forceQuit ? window.app.forceTerminate() : window.app.terminate()
+                case .quit, .forceQuit:
+                    succeeded = window.quit(force: action == .forceQuit)
                 case .close where shouldQuitAppOnWindowClose(processIdentifier: pid):
                     if quitApps.insert(pid).inserted {
-                        succeeded = forceQuit ? window.app.forceTerminate() : window.app.terminate()
+                        succeeded = window.quit(force: false)
                     } else { succeeded = true }
                 case .close:
                     succeeded = await !closeWindows([window], feedback: feedback).succeeded.isEmpty
@@ -852,7 +855,7 @@ extension WindowUtil {
             if let feedback, action.tilingDirection == nil, ![.maximize, .center, .bringToCurrentSpace].contains(action) {
                 let affected = windows.filter { $0.app.processIdentifier == pid }
                 for target in affected where action.isAppWidePreviewAction || target.id == window.id {
-                    feedback.finish(PreviewWindowIdentity(target), succeeded ? ([WindowAction.close, .closeAllWindows, .quit, .openNewWindow].contains(action) ? .requested : .completed) : .failed)
+                    feedback.finish(PreviewWindowIdentity(target), succeeded ? ([WindowAction.close, .closeAllWindows, .quit, .forceQuit, .openNewWindow].contains(action) ? .requested : .completed) : .failed)
                 }
             }
             await Task.yield()
@@ -865,7 +868,7 @@ extension WindowUtil {
                 if await !window.bringToFrontConfirmed() { result.failed.append(PreviewWindowIdentity(window)) }
             }
         }
-        feedback?.finish(result, requested: [.close, .closeAllWindows, .quit, .openNewWindow].contains(action))
+        feedback?.finish(result, requested: [.close, .closeAllWindows, .quit, .forceQuit, .openNewWindow].contains(action))
         return result
     }
 

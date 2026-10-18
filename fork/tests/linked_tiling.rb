@@ -169,7 +169,8 @@ source += "\n@MainActor final class DragPreviewCoordinator {\nprivate var dropTo
 %w[isCompletingDrop completeDrop].each { |name| source += block(drag, "    func #{name}(") + "\n" }
 source += block(drag, '    private func cancelPendingDrop(') + "\n}\n"
 catalog = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
-source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize, quit, openNewWindow, hide, close, closeAllWindows, minimizeAllWindows, toggleFullScreen, toggleWindowSelection, selectAllWindows, maximize, center, bringToCurrentSpace, none\n"
+source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize, quit, forceQuit, openNewWindow, hide, close, closeAllWindows, minimizeAllWindows, toggleFullScreen, toggleWindowSelection, selectAllWindows, maximize, center, bringToCurrentSpace, none\n"
+source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    var isAppWidePreviewAction:')]
 %w[tilingDirection isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }
 %w[autoTilingDirection appliesToSelectedWindow batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
 source += "}\n"
@@ -273,7 +274,7 @@ checks = <<~'SWIFT'
   let mixedSelection = selectionModel.checkedActionTargets(includingWindowlessApps: true)!
   for action in WindowAction.allCases {
    let eligible = action.batchTargets(from: mixedSelection)
-   precondition(eligible.contains { $0.isWindowlessApp } == (action == .quit || action == .openNewWindow))
+   precondition(eligible.contains { $0.isWindowlessApp } == (action.isQuitAction || action == .openNewWindow))
    let realOnly = mixedSelection.filter { action.appliesToSelectedWindow($0) }
    if action == .fillLeftHalf { precondition(action.autoTilingDirection(windowCount: realOnly.count, fillActionsAutoTile: true) == nil) }
   }
@@ -290,10 +291,11 @@ checks = <<~'SWIFT'
   selectionModel.windows = [empty]; WindowUtil.cachedWindows = []
   selectionModel.reconcileCheckedWindows()
   precondition(selectionModel.checkedActionTargets()?.isEmpty == true && selectionModel.checkedWindowCount == 1)
-  for action in WindowAction.allCases where action != .quit && action != .openNewWindow && action != .toggleWindowSelection && action != .selectAllWindows && action != .none {
+  for action in WindowAction.allCases where !action.isQuitAction && action != .openNewWindow && action != .toggleWindowSelection && action != .selectAllWindows && action != .none {
    precondition(actionModel.performCheckedWindowAction(action, on: empty) == false)
   }
   precondition(actionModel.performCheckedWindowAction(.quit, on: empty) == true)
+  precondition(actionModel.performCheckedWindowAction(.forceQuit, on: empty) == true)
   precondition(actionModel.performCheckedWindowAction(.openNewWindow, on: empty) == true)
   precondition(actionModel.performCheckedSpaceMove(empty, to: WindowSpaces.destination(forSpaceID: 1)!, dismissPreviews: nil))
   Model.reset()
@@ -301,7 +303,7 @@ checks = <<~'SWIFT'
   precondition(Model.moves == 0 && Model.placements == 0 && Model.focus.isEmpty)
   emptyApp.isTerminated = true; selectionModel.reconcileCheckedWindows()
   precondition(selectionModel.checkedWindowCount == 0)
-  print("PASS windowless selection: option/mode gates, filtered Select All, cache reconciliation, termination, Quit/New-only targets, real-only tiling/counts and empty no-op")
+  print("PASS windowless selection: option/mode gates, filtered Select All, cache reconciliation, termination, Quit/Force Quit/New-only targets, real-only tiling/counts and empty no-op")
   let terminationModel = SelectionHarness()
   let quitApp = App(60000), survivor = App(60001)
   let quitRows = [WindowInfo(id: 101, app: quitApp, axElement: FakeAX(60000, 101, .zero)), WindowInfo(id: 102, app: quitApp, axElement: FakeAX(60000, 102, .zero)), WindowInfo(id: 0, app: quitApp, axElement: FakeAX(60000, 0, .zero), isWindowlessApp: true)]

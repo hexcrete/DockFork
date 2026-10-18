@@ -53,7 +53,7 @@ extension Key where T == ActionFeedbackPosition { static var actionFeedbackPosit
 struct PreviewWindowIdentity: Hashable { let pid: Int32; let windowID: UInt32; init(pid: Int32, windowID: UInt32) { self.pid = pid; self.windowID = windowID }; init(_ w: WindowInfo) { self.init(pid: 1, windowID: w.id) } }
 struct TestApp { let processIdentifier: Int32 = 1; let isHidden: Bool }
 struct WindowInfo { enum WindowPositionRect: Equatable { case test }; let id: UInt32; var isFullscreen: Bool? = false; var isMinimized = false; var isHidden = false; var isWindowlessApp = false; var app: TestApp { TestApp(isHidden: isHidden) } }
-enum WindowAction { case none, toggleWindowSelection, selectAllWindows, openAppWindow, close, closeAllWindows, minimize, minimizeAllWindows, hide, toggleFullScreen, autoTileSelectedWindows
+enum WindowAction { case quit, forceQuit, none, toggleWindowSelection, selectAllWindows, openAppWindow, close, closeAllWindows, minimize, minimizeAllWindows, hide, toggleFullScreen, autoTileSelectedWindows
  func appliesToSelectedWindow(_ w: WindowInfo) -> Bool { true }
  func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> Int? { self == .autoTileSelectedWindows ? 0 : nil }
  func menuTitle(for w: WindowInfo, batchTargets: [WindowInfo]?) -> String {

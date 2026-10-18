@@ -2198,7 +2198,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.enableWindowlessAppSelection",
             title: String(localized: "Enable selection of windowless apps in Window Switcher"),
-            description: String(localized: "Only actions applicable to windowless apps are \"Quit\" and \"Open New Window\"."),
+            description: String(localized: "Only \"Quit\", \"Force Quit\" and \"Open New Window\" apply to windowless apps."),
             keywords: ["selection", "windowless", "apps", "quit", "new window"],
             tab: "Keybinds",
             section: String(localized: "Window Selection"),

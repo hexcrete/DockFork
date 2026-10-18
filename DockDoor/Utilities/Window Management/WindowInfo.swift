@@ -875,7 +875,8 @@ extension WindowInfo {
         }
     }
 
-    func quit(force: Bool) {
+    @discardableResult
+    func quit(force: Bool) -> Bool {
         if force {
             app.forceTerminate()
         } else {
