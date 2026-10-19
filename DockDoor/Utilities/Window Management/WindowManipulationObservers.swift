@@ -44,9 +44,10 @@ class WindowManipulationObservers {
         keepPreviewOnHoverActivation: Bool,
         previewHoverAction: PreviewHoverAction,
         mouseIsWithinPreviewWindow: Bool,
-        hasCheckedWindows: Bool = false
+        hasCheckedWindows: Bool = false,
+        hasExternalDragTarget: Bool = false
     ) -> Bool {
-        guard !isKeybindSessionActive, !hasCheckedWindows else { return false }
+        guard !isKeybindSessionActive, !hasCheckedWindows, !hasExternalDragTarget else { return false }
         return !(keepPreviewOnHoverActivation && previewHoverAction == .tap && mouseIsWithinPreviewWindow)
     }
 
@@ -259,7 +260,8 @@ class WindowManipulationObservers {
             keepPreviewOnHoverActivation: Defaults[.keepPreviewOnHoverActivation],
             previewHoverAction: Defaults[.previewHoverAction],
             mouseIsWithinPreviewWindow: tapSnapshot.mouseIsWithinPreviewWindow,
-            hasCheckedWindows: previewCoordinator.selectionKeepsPreviewsOpen
+            hasCheckedWindows: previewCoordinator.selectionKeepsPreviewsOpen,
+            hasExternalDragTarget: previewCoordinator.hasExternalDragTarget
         ), !suppressActionDrivenDismissal {
             previewCoordinator.hideWindow()
         }

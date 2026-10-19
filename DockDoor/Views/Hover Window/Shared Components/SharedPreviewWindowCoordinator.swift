@@ -144,6 +144,20 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private let tapSnapshotLock = NSLock()
     private var currentTapSnapshot = TapSnapshot()
     private weak var previewInteractionView: NSView?
+    private var externalDragTargetToken: UUID?
+    var hasExternalDragTarget: Bool { externalDragTargetToken != nil }
+
+    func beginExternalDragTarget() -> UUID? {
+        guard isVisible else { return nil }
+        let token = UUID()
+        externalDragTargetToken = token
+        return token
+    }
+
+    func endExternalDragTarget(_ token: UUID?) {
+        guard let token, externalDragTargetToken == token else { return }
+        externalDragTargetToken = nil
+    }
 
     struct ContextMenuShortcutRoutingSnapshot {
         let token: UUID
@@ -530,6 +544,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     func hideWindow(cancelPendingShow shouldCancelPendingShow: Bool = true) {
+        externalDragTargetToken = nil
         ActionFeedbackController.existing?.previewWillDisappear(self)
         windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)
         stopPreviewFocusFade()

@@ -305,3 +305,64 @@ Dir.mktmpdir('dockfork-responsiveness-') do |dir|
   abort 'Swift compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', '-suppress-warnings', "#{dir}/checks.swift", '-o', "#{dir}/checks")
   abort 'Responsiveness checks failed' unless system("#{dir}/checks")
 end
+
+observers = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowManipulationObservers.swift")
+interaction = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreviewInteractionModifier.swift")
+policy = block(observers, '    static func shouldDismissPreviewOnAppActivation(')
+activation = block(observers, '    @objc private func appDidActivate(')
+abort 'App activation must consult native drag targeting' unless activation.include?('hasExternalDragTarget: previewCoordinator.hasExternalDragTarget')
+abort 'Activation bookkeeping must continue after the dismissal decision' unless activation.index('Self.ensureObserver(for: app)') > activation.index('previewCoordinator.hideWindow()')
+hide = block(coordinator, '    func hideWindow(')
+abort 'Explicit hide must clear native drag targeting before visibility checks' unless hide.index('externalDragTargetToken = nil') < hide.index('guard isVisible')
+begin_hover = block(interaction, '    private func beginSpringLoading(')
+abort 'Disabled/windowless spring loading must not acquire a drag target' unless begin_hover.index('guard Defaults[.enableSpringLoading], !windowInfo.isWindowlessApp') < begin_hover.index('beginExternalDragTarget()')
+cancel_hover = block(interaction, '    private func cancelSpringLoading(')
+abort 'Native leave/drop/disappearance must release its token' unless cancel_hover.include?('endExternalDragTarget(externalDragTargetToken)') && cancel_hover.include?('externalDragTargetToken = nil')
+abort 'Drop must cancel hover ownership before fallback' unless interaction.index('cancelSpringLoading()', interaction.index('.onDrop')) < interaction.index('performReleaseFallback()', interaction.index('.onDrop'))
+%w[isTargeted windowIdentity].each do |property|
+ handler = interaction.split("            .onChange(of: #{property})", 2).last&.split(/            \.(onChange|onDisappear)/, 2)&.first
+ abort "Missing cleanup on #{property}" unless handler&.include?('cancelSpringLoading()')
+end
+abort 'Disappearance must cancel hover ownership' unless block(interaction, '            .onDisappear').include?('cancelSpringLoading()')
+source = "import Foundation\nenum PreviewHoverAction { case tap, none }\n"
+source += "enum Policy {\n#{policy}\n}\n"
+source += "@MainActor final class Target {\nvar isVisible = true\nprivate var externalDragTargetToken: UUID?\n"
+source += coordinator.lines.find { |line| line.include?('var hasExternalDragTarget: Bool') } || abort('Missing target property')
+source += block(coordinator, '    func beginExternalDragTarget(') + "\n"
+source += block(coordinator, '    func endExternalDragTarget(') + "\n"
+source += "func hide() {externalDragTargetToken = nil; isVisible = false}\n}\n"
+source += <<~'SWIFT'
+@main struct Checks {
+ @MainActor static func main() {
+  for keybind in [false,true] {for keep in [false,true] {for tap in [false,true] {for inside in [false,true] {for checked in [false,true] {
+   let expected = !keybind && !checked && !(keep && tap && inside)
+   let actual = Policy.shouldDismissPreviewOnAppActivation(isKeybindSessionActive:keybind,keepPreviewOnHoverActivation:keep,previewHoverAction:tap ? .tap : .none,mouseIsWithinPreviewWindow:inside,hasCheckedWindows:checked)
+   precondition(actual == expected, "Normal activation policy changed")
+   precondition(!Policy.shouldDismissPreviewOnAppActivation(isKeybindSessionActive:keybind,keepPreviewOnHoverActivation:keep,previewHoverAction:tap ? .tap : .none,mouseIsWithinPreviewWindow:inside,hasCheckedWindows:checked,hasExternalDragTarget:true))
+  }}}}}
+  let target = Target()
+  func dismisses() -> Bool {
+   Policy.shouldDismissPreviewOnAppActivation(isKeybindSessionActive:false,keepPreviewOnHoverActivation:false,previewHoverAction:.none,mouseIsWithinPreviewWindow:true,hasExternalDragTarget:target.hasExternalDragTarget)
+  }
+  precondition(dismisses())
+  let first = target.beginExternalDragTarget()!
+  precondition(!dismisses())
+  let second = target.beginExternalDragTarget()!
+  target.endExternalDragTarget(first); target.endExternalDragTarget(nil)
+  precondition(!dismisses(), "Stale target cleared current native drag")
+  target.endExternalDragTarget(second)
+  precondition(dismisses(), "Native leave/drop retained activation protection")
+  _ = target.beginExternalDragTarget()
+  target.hide()
+  precondition(!target.hasExternalDragTarget && target.beginExternalDragTarget() == nil)
+  target.endExternalDragTarget(first)
+  precondition(!target.hasExternalDragTarget)
+  print("PASS spring-loading activation: unchanged normal policy, targeted-drag protection, stale/nil cleanup, native exit, explicit hide and hidden-panel acquisition")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-spring-activation-') do |dir|
+ File.write("#{dir}/checks.swift",source)
+ abort 'Spring activation compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Spring activation checks failed' unless system("#{dir}/checks")
+end

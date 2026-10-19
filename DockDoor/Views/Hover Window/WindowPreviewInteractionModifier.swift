@@ -48,6 +48,7 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
     @State private var isTargeted = false
     @State private var springLoadTask: Task<Void, Never>?
     @State private var releaseActivationTask: Task<Void, Never>?
+    @State private var externalDragTargetToken: UUID?
 
     private var windowIdentity: String {
         "\(windowInfo.app.processIdentifier)-\(windowInfo.id)"
@@ -105,6 +106,7 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
 
         let coordinator = SharedPreviewWindowCoordinator.activeInstance
         let sessionID = coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID
+        externalDragTargetToken = coordinator?.beginExternalDragTarget()
         springLoadTask = Task { @MainActor [weak coordinator] in
             do {
                 try await Task.sleep(nanoseconds: UInt64(effectiveSpringLoadingDelay * 1_000_000_000))
@@ -168,6 +170,8 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
     private func cancelSpringLoading() {
         springLoadTask?.cancel()
         springLoadTask = nil
+        SharedPreviewWindowCoordinator.activeInstance?.endExternalDragTarget(externalDragTargetToken)
+        externalDragTargetToken = nil
     }
 }
 
