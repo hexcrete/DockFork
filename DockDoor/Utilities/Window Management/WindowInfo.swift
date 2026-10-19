@@ -450,11 +450,7 @@ struct WindowInfo: Identifiable, Hashable {
 
 extension WindowInfo {
     var isEffectivelyHiddenForUI: Bool {
-        guard isHidden else { return false }
-        if let isFullscreen {
-            return !isFullscreen
-        }
-        return (try? axElement.isFullscreen()) != true
+        isHidden && isFullscreen != true
     }
 
     static func windowlessEntry(for app: NSRunningApplication) -> WindowInfo {
@@ -483,36 +479,6 @@ extension WindowInfo {
         )
         info.isWindowlessApp = true
         return info
-    }
-
-    @discardableResult
-    mutating func toggleMinimize() -> Bool? {
-        guard !isWindowlessApp else { return nil }
-        let newMinimizedState = !isMinimized
-
-        do {
-            if !newMinimizedState, app.isHidden {
-                app.unhide()
-            }
-
-            try axElement.setAttribute(kAXMinimizedAttribute, newMinimizedState)
-
-            if !newMinimizedState {
-                app.activate()
-                bringToFront()
-            }
-
-            let confirmedState = try? axElement.isMinimized()
-            guard confirmedState == newMinimizedState else {
-                return nil
-            }
-
-            isMinimized = newMinimizedState
-            WindowUtil.updateCachedWindowState(self, isMinimized: newMinimizedState)
-            return newMinimizedState
-        } catch {
-            return nil
-        }
     }
 
     // MARK: - Window Positioning
@@ -625,6 +591,35 @@ extension WindowInfo {
         let target = frameTarget, context = WindowFrameContext()
         return await WindowFrameTransactions.run(for: target.ownerPID) { cancellation in
             cancellation.isCancelled ? nil : target.frame(primaryMaxY: context.primaryMaxY, cancellation: cancellation)
+        } ?? nil
+    }
+
+    func readFullscreenState() async -> Bool? {
+        let element = axElement
+        return await WindowFrameTransactions.run(for: ownerApp.processIdentifier) { cancellation in
+            guard !cancellation.isCancelled else { return nil as Bool? }
+            return try? element.isFullscreen()
+        } ?? nil
+    }
+
+    func readMinimizedState() async -> Bool? {
+        let element = axElement
+        return await WindowFrameTransactions.run(for: ownerApp.processIdentifier) { cancellation in
+            guard !cancellation.isCancelled else { return nil as Bool? }
+            return try? element.isMinimized()
+        } ?? nil
+    }
+
+    func readVisibilityState() async -> (minimized: Bool?, hidden: Bool?, fullscreen: Bool?)? {
+        let element = axElement, application = appAxElement
+        return await WindowFrameTransactions.run(for: ownerApp.processIdentifier) { cancellation in
+            guard !cancellation.isCancelled else { return nil as (Bool?, Bool?, Bool?)? }
+            let minimized = try? element.isMinimized()
+            guard !cancellation.isCancelled else { return nil }
+            let hidden = try? application.attribute(kAXHiddenAttribute, Bool.self)
+            guard !cancellation.isCancelled else { return nil }
+            let fullscreen = try? element.isFullscreen()
+            return (minimized, hidden, fullscreen)
         } ?? nil
     }
 

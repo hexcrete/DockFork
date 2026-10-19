@@ -99,6 +99,7 @@ struct WindowInfo: Sendable {
  let id = 1
  var appAxElement: FakeAX { app.element }
  var isWindowlessApp = false, isMinimized = false, isHidden = false
+ func readMinimizedState() async -> Bool? { isMinimized }
  @MainActor func bringToFrontConfirmed() async -> Bool {
   precondition(!app.isHidden); ActivationEvents.record("focus"); return true
  }
@@ -306,6 +307,166 @@ Dir.mktmpdir('dockfork-responsiveness-') do |dir|
   abort 'Responsiveness checks failed' unless system("#{dir}/checks")
 end
 
+# Space menus use snapshots; only accepted execution paths perform live AX validation.
+spaces = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowDiscoveryShared.swift")
+abort 'UI hidden-state helper performs live AX' if block(info, '    var isEffectivelyHiddenForUI:').include?('axElement')
+abort 'Synchronous minimize toggle remains' if info.include?('func toggleMinimize(')
+abort 'Post-action category performs live AX' if block(util, '    func postActionCategory(').include?('axElement')
+abort 'Drag setup performs live AX' if block(container, '    private func beginPreviewDrag(').include?('axElement')
+abort 'Space picker performs live AX' if block(spaces, '    static func validateMoveSource(').include?('axElement')
+abort 'Group placement bypasses live validation' unless block(util, '    private static func performWindowGroupPlacement(').include?('await WindowSpaces.validateMoveSourceConfirmed')
+[container,coordinator].each do |caller|
+ watcher=block(caller,'    private func scheduleVisibilityDismissConfirmation(')
+ guard=watcher.index('guard !Task.isCancelled, shouldRunDeferredWatchers')
+ abort 'State read can dismiss a newer preview session' unless guard && guard>watcher.index('await window.readMinimizedState()') && guard<watcher.index('if confirmed {')
+end
+abort 'Spring loading bypasses confirmed restoration' unless block(util, '    static func springLoadWindow(').include?('await revealWindowConfirmed')
+fallback = batch[batch.index('let fullscreen = await window.readFullscreenState()')..]
+abort 'Cancelled preflight can execute a stale action' unless fallback.index('guard !Task.isCancelled') < fallback.index('action.perform(on:')
+script = File.read("#{ROOT}/DockDoor/Utilities/ScriptCommands.swift")
+move_command = script.split('class MoveWindowCommand:', 2).last.split('@objc(', 2).first
+abort 'Script duplicates asynchronous Space validation outside request ownership' if move_command.include?('await WindowSpaces.validateMoveConfirmed')
+source = <<~'SWIFT'
+import Foundation
+typealias pid_t = Int32
+typealias CGSSpaceID = UInt64
+final class Gate: @unchecked Sendable {let entered=DispatchSemaphore(value:0),release=DispatchSemaphore(value:0)}
+final class AX: @unchecked Sendable {
+ var full=false,reads=0;var gate:Gate?
+ func isFullscreen()throws->Bool {
+  precondition(!Thread.isMainThread);reads+=1
+  if let gate {self.gate=nil;gate.entered.signal();gate.release.wait()}
+  return full
+ }
+}
+final class App {let processIdentifier:Int32=1;var isTerminated=false}
+struct WindowInfo {
+ var id=1;let app=App();var axElement=AX();var isFullscreen:Bool?=false;var isWindowlessApp=false;var spaces:Set<UInt64>=[1]
+ var ownerApp:App {app}
+ @MainActor func bringToFrontConfirmed() async -> Bool {WindowUtil.events.append("focus");return true}
+SWIFT
+source += block(info, '    func readFullscreenState(') + "\n}\n"
+source += block(info, 'enum WindowFrameTransactions {') + "\n"
+source += <<~'SWIFT'
+struct PreviewWindowIdentity:Hashable {let id:Int;init(_ window:WindowInfo){id=window.id}}
+enum Kind {case desktop,fullscreen}
+struct ManagedSpaceDescriptor {let id:UInt64;var kind:Kind? = .desktop}
+struct ManagedDisplayDescriptor {let identifier:String;var spaces:[ManagedSpaceDescriptor]}
+struct ManagedSpaceDestination {let display:ManagedDisplayDescriptor;let space:ManagedSpaceDescriptor}
+SWIFT
+source += block(spaces, 'enum ManagedSpaceMoveValidationError:') + "\n"
+source += <<~'SWIFT'
+enum WindowSpaces {
+ static let topology=[ManagedDisplayDescriptor(identifier:"display",spaces:[ManagedSpaceDescriptor(id:1),ManagedSpaceDescriptor(id:2),ManagedSpaceDescriptor(id:3)])]
+ static func managedDisplays()->[ManagedDisplayDescriptor] {topology}
+ static func sourceSpaceIDs(for window:WindowInfo)->Set<UInt64> {window.spaces}
+SWIFT
+%w[validateMoveSource validateMove validateMoveSourceConfirmed validateMoveConfirmed].each do |name|
+ source += block(spaces, "    static func #{name}(") + "\n"
+end
+source += "}\n"
+source += <<~'SWIFT'
+enum Outcome {case completed,failed,cancelled}
+@MainActor final class ActionFeedbackHandle {
+ var outcomes:[Outcome]=[]
+ func finish(_ id:PreviewWindowIdentity,_ outcome:Outcome) {outcomes.append(outcome)}
+}
+enum Key {case switchToDestinationSpaceAfterMoving}
+enum Defaults {static subscript(_ key:Key)->Bool {false}}
+@MainActor enum WindowUtil {
+ struct PendingWindowRefresh {let token:UUID;let task:Task<Void,Never>}
+ static var pendingManagedSpaceFollows:[String:PendingWindowRefresh]=[:]
+ static var events:[String]=[]
+ static var moveGate:Gate?
+ static var refuseMove=false
+ static var currentSpaces:Set<UInt64>=[2]
+ static func revealWindowConfirmed(_ window:WindowInfo) async -> Bool {events.append("reveal");return true}
+ static func moveWindowConfirmed(_ window:WindowInfo,toManagedSpace destination:UInt64,feedback:ActionFeedbackHandle?,completion:@escaping @MainActor (Bool)->Void)->Task<Void,Never>? {
+  events.append("move")
+  if refuseMove {Task {@MainActor in completion(false)};return nil}
+  return Task {@MainActor in
+   if let gate=moveGate {moveGate=nil;gate.entered.signal();while gate.release.wait(timeout:.now()) != .success {await Task.yield()}}
+   guard !Task.isCancelled else {return}
+   completion(true)
+  }
+ }
+SWIFT
+# The fake source membership remains the destination after its native move acknowledgement.
+spaceRequest=block(util,'    static func performConfirmedSpaceMove(')
+spaceRequest=spaceRequest.gsub('WindowSpaces.sourceSpaceIDs(for: movedWindow)','currentSpaces')
+source += spaceRequest + "\n}\n"
+source += <<~'SWIFT'
+@main struct Checks {
+ @MainActor static func main() async throws {
+  func entered(_ gate:Gate) async throws {
+   for _ in 0..<2000 {if gate.entered.wait(timeout:.now()) == .success {return};try await Task.sleep(nanoseconds:1_000_000)}
+   preconditionFailure("Worker never entered")
+  }
+  func settle(_ predicate:()->Bool) async throws {
+   for _ in 0..<2000 {if predicate() {return};try await Task.sleep(nanoseconds:1_000_000)}
+   preconditionFailure("Action never settled")
+  }
+  let topology=WindowSpaces.managedDisplays(),dest=ManagedSpaceDestination(display:WindowSpaces.topology[0],space:ManagedSpaceDescriptor(id:2))
+  var window=WindowInfo()
+  precondition(WindowSpaces.validateMoveSource(window,in:topology)==nil && window.axElement.reads==0)
+  window.axElement.full=true
+  let liveError=await WindowSpaces.validateMoveConfirmed(window,to:dest,in:topology)
+  precondition(liveError == .fullscreen && window.axElement.reads==1)
+  window.isWindowlessApp=true
+  let windowless=await WindowSpaces.validateMoveSourceConfirmed(window,in:topology)
+  precondition(windowless == .windowless && window.axElement.reads==1)
+  window.isWindowlessApp=false;window.axElement.full=false;window.spaces=[1,3]
+  let multiple=await WindowSpaces.validateMoveConfirmed(window,to:dest,in:topology)
+  precondition(multiple == .multipleDesktopSpaces && window.axElement.reads==1)
+  window.spaces=[2]
+  let current=await WindowSpaces.validateMoveConfirmed(window,to:dest,in:topology)
+  precondition(current == .alreadyOnDestination && window.axElement.reads==1)
+  window.spaces=[1];window.axElement.gate=Gate();let slow=window.axElement.gate!
+  let feedback=ActionFeedbackHandle();var replies=0
+  let cancel=WindowUtil.performConfirmedSpaceMove(window,to:dest,dismissPreviews:nil,feedback:feedback){_ in replies+=1}
+  try await entered(slow);precondition(WindowUtil.events.isEmpty && replies==0)
+  cancel?();slow.release.signal()
+  try await settle {WindowUtil.pendingManagedSpaceFollows.isEmpty}
+  try await Task.sleep(nanoseconds:10_000_000)
+  precondition(WindowUtil.events.isEmpty && replies==0)
+  let normal=WindowInfo();let move=Gate();WindowUtil.moveGate=move
+  let cancelOld=WindowUtil.performConfirmedSpaceMove(normal,to:dest,dismissPreviews:nil){_ in replies+=1}
+  try await entered(move)
+  let pendingToken=WindowUtil.pendingManagedSpaceFollows.values.first!.token
+  let inactive=WindowUtil.performConfirmedSpaceMove(normal,to:dest,dismissPreviews:nil,isRequestActive:{false}){_ in preconditionFailure("Inactive callback")}
+  precondition(inactive == nil && WindowUtil.pendingManagedSpaceFollows.values.first?.token == pendingToken)
+  _ = WindowUtil.performConfirmedSpaceMove(normal,to:dest,dismissPreviews:nil,switchToDestination:true){_ in replies+=1}
+  try await settle {replies==1}
+  move.release.signal();try await Task.sleep(nanoseconds:10_000_000)
+  precondition(replies==1 && WindowUtil.events==["move","move","reveal","focus"] && WindowUtil.pendingManagedSpaceFollows.isEmpty)
+  cancelOld?();precondition(WindowUtil.pendingManagedSpaceFollows.isEmpty)
+  var active=false
+  _ = WindowUtil.performConfirmedSpaceMove(normal,to:dest,dismissPreviews:nil,isRequestActive:{active}){_ in preconditionFailure("Inactive callback")}
+  try await settle {WindowUtil.pendingManagedSpaceFollows.isEmpty}
+  precondition(WindowUtil.events.count==4)
+  WindowUtil.refuseMove=true
+  let refusedFeedback=ActionFeedbackHandle();var refusedReplies:[Bool]=[]
+  _ = WindowUtil.performConfirmedSpaceMove(normal,to:dest,dismissPreviews:nil,feedback:refusedFeedback){refusedReplies.append($0)}
+  try await settle {refusedReplies.count==1}
+  try await Task.sleep(nanoseconds:10_000_000)
+  precondition(refusedReplies == [false] && refusedFeedback.outcomes == [.failed] && WindowUtil.pendingManagedSpaceFollows.isEmpty)
+  WindowUtil.refuseMove=false
+  let cancelled=WindowInfo();cancelled.axElement.gate=Gate();let timedOut=cancelled.axElement.gate!
+  var activeRequest=true
+  _ = WindowUtil.performConfirmedSpaceMove(cancelled,to:dest,dismissPreviews:nil,isRequestActive:{activeRequest}){_ in preconditionFailure("Timed-out callback")}
+  try await entered(timedOut);activeRequest=false;timedOut.release.signal()
+  try await settle {WindowUtil.pendingManagedSpaceFollows.isEmpty}
+  precondition(WindowUtil.events.count==5)
+  print("PASS Space preflight: snapshot menus, background live fullscreen, invalid/current/multi-Space gates, held AX/main-actor progress, cancellation, inactive-request isolation, latest-wins callbacks, immediate native refusal, confirmed reveal/focus order and task cleanup")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-preflight-') do |dir|
+ File.write("#{dir}/checks.swift",source)
+ abort 'Space preflight compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library','-suppress-warnings',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Space preflight checks failed' unless system("#{dir}/checks")
+end
+
 observers = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowManipulationObservers.swift")
 interaction = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreviewInteractionModifier.swift")
 policy = block(observers, '    static func shouldDismissPreviewOnAppActivation(')
@@ -365,4 +526,94 @@ Dir.mktmpdir('dockfork-spring-activation-') do |dir|
  File.write("#{dir}/checks.swift",source)
  abort 'Spring activation compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
  abort 'Spring activation checks failed' unless system("#{dir}/checks")
+end
+
+state_coordinator = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift")
+abort 'Immediate hidden-state publication performs AX reads' if block(state_coordinator, '    func updateHiddenStateForApp(').include?('axElement')
+schedule = block(state_coordinator, '    func scheduleVisibilityStateSync(')
+abort 'Visibility sync timing changed' unless schedule.include?('[80_000_000, 220_000_000]')
+abort 'Superseded sync can clear the newer task' unless schedule.include?("await syncVisibilityState(processIdentifier: pid)\n                guard !Task.isCancelled")
+source = <<~'SWIFT'
+import Foundation
+let kAXHiddenAttribute = "hidden"
+final class Gate: @unchecked Sendable {let entered=DispatchSemaphore(value:0),release=DispatchSemaphore(value:0)}
+final class AX: @unchecked Sendable {
+ var calls:[String]=[],gate:Gate?,refuse=false
+ func read(_ key:String)throws->Bool {
+  precondition(!Thread.isMainThread);calls.append(key)
+  if let gate {self.gate=nil;gate.entered.signal();gate.release.wait()}
+  if refuse {throw NSError(domain:"AX",code:1)}
+  return true
+ }
+ func isMinimized()throws->Bool {try read("minimized")}
+ func isFullscreen()throws->Bool {try read("fullscreen")}
+ func attribute(_ key:String,_ type:Bool.Type)throws->Bool {try read(key)}
+}
+struct App {let processIdentifier:Int32=1;var isHidden=false}
+struct Snapshot:Equatable {let minimized:Bool,hidden:Bool,fullscreen:Bool?}
+struct WindowInfo {
+ var id:Int;var app=App();let axElement:AX
+ var appAxElement:AX {axElement};var ownerApp:App {app}
+ var isWindowlessApp=false,isMinimized=false,isHidden=false;var isFullscreen:Bool?=false
+ var title="retained"
+ var viewSnapshot:Snapshot {Snapshot(minimized:isMinimized,hidden:isHidden,fullscreen:isFullscreen)}
+SWIFT
+source += block(info, '    func readVisibilityState(') + "\n}\n"
+source += block(info, 'enum WindowFrameTransactions {') + "\n"
+source += <<~'SWIFT'
+struct PreviewWindowIdentity:Hashable {let id:Int;init(_ window:WindowInfo){id=window.id}}
+@MainActor enum WindowUtil {
+ static var updates:[Int]=[]
+ static func updateCachedWindowState(_ window:WindowInfo,isMinimized:Bool,isHidden:Bool,isFullscreen:Bool?) {updates.append(window.id)}
+}
+@MainActor final class Coordinator {
+ var windows:[WindowInfo]=[] {didSet {publications+=1}}
+ var publications=0;var pointerInteractionSessionID=UUID()
+SWIFT
+source += block(state_coordinator, '    private func syncVisibilityState(').sub('private func','func') + "\n}\n"
+source += <<~'SWIFT'
+@main struct Checks {
+ @MainActor static func main() async throws {
+  func entered(_ gate:Gate)async throws {
+   for _ in 0..<2000 {if gate.entered.wait(timeout:.now()) == .success {return};try await Task.sleep(nanoseconds:1_000_000)}
+   preconditionFailure("AX worker did not start")
+  }
+  let c=Coordinator(),one=AX(),two=AX(),windowless=AX()
+  c.windows=[WindowInfo(id:1,axElement:one),WindowInfo(id:2,axElement:two),WindowInfo(id:3,axElement:windowless,isWindowlessApp:true)]
+  one.gate=Gate();let slow=one.gate!
+  let task=Task {@MainActor in await c.syncVisibilityState(processIdentifier:1)}
+  try await entered(slow)
+  c.windows.swapAt(0,1);c.windows[1].title="new title";c.publications=0
+  precondition(WindowUtil.updates.isEmpty)
+  slow.release.signal();await task.value
+  precondition(c.windows.map(\.id)==[2,1,3] && c.windows[1].title=="new title")
+  precondition(c.windows[0].isMinimized && c.windows[1].isHidden && c.windows[1].isFullscreen==true && c.publications==1)
+  precondition(one.calls==["minimized","hidden","fullscreen"] && two.calls==one.calls && windowless.calls.isEmpty)
+  precondition(WindowUtil.updates==[2,1])
+  c.publications=0;await c.syncVisibilityState(processIdentifier:1)
+  precondition(c.publications==0, "Unchanged sample republished rows")
+  WindowUtil.updates=[];one.calls=[];one.gate=Gate();let cancelled=one.gate!
+  c.windows=[WindowInfo(id:1,axElement:one)]
+  let old=Task {@MainActor in await c.syncVisibilityState(processIdentifier:1)}
+  try await entered(cancelled);old.cancel();cancelled.release.signal();await old.value
+  precondition(WindowUtil.updates.isEmpty && !c.windows[0].isMinimized && one.calls==["minimized"])
+  one.gate=Gate();let replaced=one.gate!
+  let session=Task {@MainActor in await c.syncVisibilityState(processIdentifier:1)}
+  try await entered(replaced);c.pointerInteractionSessionID=UUID();replaced.release.signal();await session.value
+  precondition(WindowUtil.updates.isEmpty && !c.windows[0].isHidden)
+  one.gate=Gate();let removed=one.gate!
+  let gone=Task {@MainActor in await c.syncVisibilityState(processIdentifier:1)}
+  try await entered(removed);c.windows=[];removed.release.signal();await gone.value
+  precondition(c.windows.isEmpty && WindowUtil.updates.isEmpty)
+  one.refuse=true;c.windows=[WindowInfo(id:1,axElement:one,isMinimized:true)]
+  await c.syncVisibilityState(processIdentifier:1)
+  precondition(c.windows[0].isMinimized && !c.windows[0].isHidden && c.windows[0].isFullscreen==nil)
+  print("PASS post-action visibility: off-main AX and unchanged three-read fast path, main-actor progress, reordered/removed rows, retained metadata, one publication, unchanged suppression, cancellation between reads, stale session and AX failure fallbacks")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-visibility-sync-') do |dir|
+ File.write("#{dir}/checks.swift",source)
+ abort 'Visibility sync compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Visibility sync checks failed' unless system("#{dir}/checks")
 end

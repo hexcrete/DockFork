@@ -748,7 +748,7 @@ struct WindowPreviewHoverContainer: View {
         isDragging = true
         dragPoints.removeAll(keepingCapacity: true)
         lastShakeCheck = .distantPast
-        let logicalWindowSize = (try? window.axElement.size()) ?? window.frame.size
+        let logicalWindowSize = window.frame.size
         DragPreviewCoordinator.shared.startDragging(
             image: window.image,
             fallbackIcon: window.app.icon,
@@ -1297,12 +1297,6 @@ struct WindowPreviewHoverContainer: View {
         previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
     }
 
-    private func closeAllWindows() {
-        onWindowTap?()
-        guard let app = previewStateCoordinator.windows.first?.app else { return }
-        _ = WindowUtil.closeAllWindows(for: app, preferredWindows: previewStateCoordinator.windows)
-    }
-
     private func handleAppHeaderAction(_ action: WindowAction) {
         guard !mockPreviewActive, hasAppHeaderWindowTargets else { return }
         SharedPreviewWindowCoordinator.activeInstance?.performAppHeaderAction(action)
@@ -1354,18 +1348,18 @@ struct WindowPreviewHoverContainer: View {
             if wasAppActiveBeforeClick {
                 switch Defaults[.dockClickAction] {
                 case .hide:
-                    if WindowUtil.hasOnlyFullscreenWindows(for: app, preferredWindows: originalWindows) {
-                        previewStateCoordinator.scheduleVisibilityStateSync(processIdentifier: app.processIdentifier)
-                        return
+                    awaitingMinimizeConfirmation = true
+                    let candidates = originalWindows.filter { !$0.isWindowlessApp }.map(\.axElement)
+                    Task { @MainActor in
+                        let accepted = await WindowUtil.setHiddenStateConfirmed(for: app, isHidden: true, fullscreenCandidates: candidates)
+                        feedback?.finishRemaining(Task.isCancelled ? .cancelled : accepted ? .completed : .failed)
                     }
-                    let accepted = app.hide()
-                    if !accepted { feedback?.finishRemaining(.failed) }
                     previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
                 case .minimize:
                     let preferredToMinimize = originalWindows.filter {
                         !$0.isWindowlessApp &&
                             !$0.isMinimized &&
-                            (try? $0.axElement.isFullscreen()) != true
+                            $0.isFullscreen != true
                     }
                     runSharedMinimizeAll(with: preferredToMinimize)
                     previewStateCoordinator.setWindows([], dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: mockPreviewActive)
@@ -1382,7 +1376,7 @@ struct WindowPreviewHoverContainer: View {
                 let preferredToRestore = originalWindows.filter {
                     !$0.isWindowlessApp &&
                         $0.isMinimized &&
-                        (try? $0.axElement.isFullscreen()) != true
+                        $0.isFullscreen != true
                 }
                 runSharedMinimizeAll(with: preferredToRestore)
             }
@@ -1714,7 +1708,7 @@ struct WindowPreviewHoverContainer: View {
                 switch action {
                 case .minimize:
                     if let targetMinimizedState {
-                        confirmed = (try? window.axElement.isMinimized()) == targetMinimizedState
+                        confirmed = await window.readMinimizedState() == targetMinimizedState
                     }
                 case .hide:
                     if let targetHiddenState {
@@ -1723,7 +1717,7 @@ struct WindowPreviewHoverContainer: View {
                 case .minimizeAllWindows:
                     if let targetMinimizeAllState {
                         let nonFullscreen = WindowUtil.readCachedWindows(for: pid).filter {
-                            !$0.isWindowlessApp && (try? $0.axElement.isFullscreen()) != true
+                            !$0.isWindowlessApp && $0.isFullscreen != true
                         }
                         if !nonFullscreen.isEmpty {
                             if targetMinimizeAllState {
@@ -1737,6 +1731,7 @@ struct WindowPreviewHoverContainer: View {
                     break
                 }
 
+                guard !Task.isCancelled, shouldRunDeferredWatchers else { return }
                 if confirmed {
                     onWindowTap?()
                     return

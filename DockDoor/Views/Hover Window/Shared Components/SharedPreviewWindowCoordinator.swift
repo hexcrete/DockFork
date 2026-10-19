@@ -1983,7 +1983,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             let topology = WindowSpaces.managedDisplays()
             for window in targets {
                 let identity = PreviewWindowIdentity(window)
-                if WindowSpaces.validateMoveSource(window, in: topology) == nil,
+                let sourceError = await WindowSpaces.validateMoveSourceConfirmed(window, in: topology)
+                guard !Task.isCancelled, previewBatchToken == token else { return }
+                if sourceError == nil,
                    WindowSpaces.sourceSpaceIDs(for: window).contains(destination.space.id), destination.space.kind == .desktop
                 {
                     succeeded.append(window)
@@ -2367,7 +2369,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 switch action {
                 case .minimize:
                     if let targetMinimizedState {
-                        confirmed = (try? window.axElement.isMinimized()) == targetMinimizedState
+                        confirmed = await window.readMinimizedState() == targetMinimizedState
                     }
                 case .hide:
                     if let targetHiddenState {
@@ -2376,7 +2378,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 case .minimizeAllWindows:
                     if let targetMinimizeAllState {
                         let nonFullscreen = WindowUtil.readCachedWindows(for: pid).filter {
-                            !$0.isWindowlessApp && (try? $0.axElement.isFullscreen()) != true
+                            !$0.isWindowlessApp && $0.isFullscreen != true
                         }
                         if !nonFullscreen.isEmpty {
                             if targetMinimizeAllState {
@@ -2390,6 +2392,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                     break
                 }
 
+                guard !Task.isCancelled, shouldRunDeferredWatchers else { return }
                 if confirmed {
                     hideWindow()
                     return

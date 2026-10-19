@@ -849,7 +849,7 @@ enum WindowSpaces {
         if window.isWindowlessApp {
             return .windowless
         }
-        if window.isFullscreen == true || (try? window.axElement.isFullscreen()) == true {
+        if window.isFullscreen == true {
             return .fullscreen
         }
 
@@ -881,6 +881,25 @@ enum WindowSpaces {
         if sourceSpaceIDs(for: window).contains(destination.space.id) {
             return .alreadyOnDestination
         }
+        return nil
+    }
+
+    static func validateMoveSourceConfirmed(
+        _ window: WindowInfo,
+        in displays: [ManagedDisplayDescriptor]
+    ) async -> ManagedSpaceMoveValidationError? {
+        if let error = validateMoveSource(window, in: displays) { return error }
+        if await window.readFullscreenState() == true { return .fullscreen }
+        return nil
+    }
+
+    static func validateMoveConfirmed(
+        _ window: WindowInfo,
+        to destination: ManagedSpaceDestination,
+        in displays: [ManagedDisplayDescriptor]
+    ) async -> ManagedSpaceMoveValidationError? {
+        if let error = validateMove(window, to: destination, in: displays) { return error }
+        if await window.readFullscreenState() == true { return .fullscreen }
         return nil
     }
 

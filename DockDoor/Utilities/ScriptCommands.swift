@@ -800,14 +800,9 @@ class MoveWindowCommand: AsyncWindowCommand {
             succeeded: windows.filter { succeeded.contains(PreviewWindowIdentity($0)) },
             failed: windows.map(PreviewWindowIdentity.init).filter { !succeeded.contains($0) }
         )
-        if switching, var first = result.succeeded.first {
+        if switching, let first = result.succeeded.first {
             (NSApp.delegate as? AppDelegate)?.dismissPreviews()
-            var revealed = true
-            if first.app.isHidden { revealed = await WindowUtil.setHiddenStateConfirmed(for: first.app, isHidden: false) }
-            if revealed, first.isMinimized || (try? first.axElement.isMinimized()) == true {
-                revealed = await !WindowUtil.setMinimizedWindowsConfirmed([first], isMinimized: false).isEmpty
-                if revealed { first.isMinimized = false }
-            }
+            var revealed = await WindowUtil.revealWindowConfirmed(first, checkingLiveState: true)
             guard !Task.isCancelled else { return "error: Space move cancelled" }
             if !WindowSpaces.sourceSpaceIDs(for: first).contains(destination.space.id) { revealed = false }
             if revealed { revealed = await first.bringToFrontConfirmed() }

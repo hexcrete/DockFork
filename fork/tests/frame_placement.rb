@@ -35,7 +35,7 @@ final class Model {
  func setAttribute(_ key:String,_ value:Bool)throws {precondition(!Thread.isMainThread);try ModeAX.shared.setAttribute(key,value)}
  func position()throws->CGPoint? {precondition(!Thread.isMainThread);calls.append("read position");if let gate=readGate {readGate=nil;gate.entered.signal();gate.release.wait()};frameReads+=1;if noReadableFrame{return nil};if settlesOnSecondRead && frameReads==2,let origin=pendingOrigin {frame.origin=origin};return CGPoint(x:frame.minX,y:982-frame.maxY)}
 
- var fullscreen=false;func isFullscreen()throws->Bool {precondition(!Thread.isMainThread);return fullscreen};var readGate:Gate?;var writeGate:Gate?;var frame=CGRect(x:20,y:30,width:400,height:300)
+ var minimized=false;func isMinimized()throws->Bool {precondition(!Thread.isMainThread);return minimized};var fullscreen=false;func isFullscreen()throws->Bool {precondition(!Thread.isMainThread);return fullscreen};var readGate:Gate?;var writeGate:Gate?;var frame=CGRect(x:20,y:30,width:400,height:300)
  var calls:[String]=[];var sizeFailures:Set<Int>=[];var writes:[String]=[];var positionWrites=0;var ignorePositions=0;var fails=false;var minWidth:CGFloat=0
  var oldPositionHeightLimit:CGFloat=0;var rejectPosition=false;var rejectSize=false;var refreshes=0;var sizeReads=0;var frameReads=0;var settlesOnSecondRead=false;var pendingOrigin:CGPoint?;var noReadableFrame=false
  func size()throws->CGSize? {precondition(!Thread.isMainThread);calls.append("read size");sizeReads+=1;return fails || sizeFailures.contains(sizeReads) ? nil : frame.size}
@@ -69,6 +69,7 @@ struct WindowInfo {
 SWIFT
 s=block(source,'enum WindowFramePlacementResult {')+"\n"+s
 s=block(source,'enum WindowFrameTransactions {')+"\n"+block(source,'struct WindowFrameContext {')+"\n"+block(source,'struct WindowFrameTarget {')+"\n"+s
+s+=block(source,'    func readFullscreenState(')+"\n"+block(source,'    func readMinimizedState(')+"\n"
 s+=block(source,'    enum WindowPositionRect {')+"\n"+block(source,'    var frameTarget:')+"\n@MainActor\n"+block(source,'    private func publishFrameResult(')+"\n@MainActor\n"+block(source,'    func setWindowFrameResult(')+"\n@MainActor\n"+block(source,'    func positionWindow(')+"\n@MainActor\n"+block(source,'    func readWindowFrame(')+"\n@MainActor\n"+block(source,'    func setWindowFrame(')+"\n}\n"
 observer=File.read(File.expand_path('../../DockDoor/Utilities/DockObserver.swift',__dir__))
 start=observer.index('            let pid = window.ownerApp.processIdentifier',observer.index('private func handleTitleBarScroll')) || observer.index('            let pid = window.ownerApp.processIdentifier')
@@ -309,6 +310,19 @@ fullPreview.fullPreviewWindow=nil;captured.imageCapturedTime+=1
 fullPreview.refreshDisplayedFullPreview(after:[captured])
 precondition(fullPreview.fullPreviewRefresh==nil && captureModel.frameReads==readsBeforeClosed)
 print("PASS full-size cache refresh: displayed identity/image/geometry, unrelated/duplicate/stale update gates, latest-wins cancellation, hide/hover replacement/fade protection, unreadable-frame cleanup and no work without a visible panel")
+
+let stateModel=Model();stateModel.fullscreen=true;stateModel.minimized=true
+let stateWindow=WindowInfo(axElement:stateModel)
+let liveFull=await stateWindow.readFullscreenState(),liveMin=await stateWindow.readMinimizedState()
+precondition(liveFull==true && liveMin==true && stateModel.writes.isEmpty)
+let stateGate=Gate();stateModel.writeGate=stateGate
+let stateBlocker=Task {await stateWindow.setWindowFrameResult(target,on:screen,isRequestActive:{true})}
+try await waitEntered(stateGate)
+let staleRead=Task {await stateWindow.readFullscreenState()}
+for _ in 0..<2000 {if WindowFrameTransactions.testUsers(1)==2 {break};try await Task.sleep(nanoseconds:1_000_000)}
+staleRead.cancel();stateGate.release.signal();_ = await stateBlocker.value
+let cancelledState=await staleRead.value;precondition(cancelledState==nil && WindowFrameTransactions.testWorkerCount==0)
+print("PASS action preflight state reads: production workers execute off main, share app serialization, accept live state and cancel queued reads without writes")
 
 // Compare unchanged ordinary drop call counts and visible-frame placement, including another display.
 let dragScreen=NSScreen(frame:CGRect(x:0,y:0,width:1200,height:900),usableFrame:CGRect(x:0,y:40,width:1200,height:830),identifier:"destination")

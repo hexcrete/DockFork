@@ -85,6 +85,7 @@ struct WindowInfo {
  var ownerApp: App { App.instances[axElement.pid] ?? app }
  var isWindowlessApp = false
  var isMinimized: Bool { get { axElement.minimized } set { axElement.minimized = newValue } }
+ func readMinimizedState() async -> Bool? {let element=axElement;return await WindowFrameTransactions.run(for:ownerApp.processIdentifier) { _ in try? element.isMinimized()} ?? nil}
  var isHidden: Bool { app.isHidden }
  var isFullscreen: Bool? { axElement.full }
  var spaceID: Int? { axElement.spaces.first.map(Int.init) }
@@ -120,7 +121,7 @@ enum WindowSpaces {
  static func managedDisplays() -> [Int] { [] }
  static func currentManagedSpaceID(mouseLocation: CGPoint) -> UInt64? { 1 }
  static func screen(forDisplayIdentifier: String) -> NSScreen? { NSScreen() }
- static func validateMoveSource(_ window: WindowInfo, in topology: [Int]) -> String? {
+ static func validateMoveSourceConfirmed(_ window: WindowInfo, in topology: [Int]) async -> String? {
   window.isWindowlessApp || window.axElement.full || window.axElement.spaces.count != 1 ? "invalid" : nil
  }
 }

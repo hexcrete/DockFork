@@ -65,6 +65,7 @@ struct WindowInfo {
  var isHidden: Bool { app.isHidden }
  var axElement: AX { AX() }
  func close() -> Bool { true }
+ func readFullscreenState() async -> Bool? {false}
  func positionWindow(_ rect:Int) async -> Bool {preconditionFailure("Quit entered frame worker")}
  func bringToFrontConfirmed() async -> Bool { true }
 SWIFT
@@ -90,7 +91,7 @@ source += <<~'SWIFT'
   func accepted(_ success: Bool) -> Bool { if !success { feedback?.finishRemaining(.failed) }; return success }
   switch self {
 SWIFT
-source += perform[perform.index('        case .quit, .forceQuit:')...perform.index('        case .minimize:')]
+source += perform[perform.index('        case .quit, .forceQuit:')...perform.index('        case .minimize, .toggleFullScreen, .hide:')]
 source += "default: return .noChange\n}\n}\n}\n"
 source += <<~'SWIFT'
 enum Outcome { case requested, completed, failed, cancelled }

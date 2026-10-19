@@ -649,20 +649,13 @@ class PreviewStateCoordinator: ObservableObject {
         for index in updatedWindows.indices where updatedWindows[index].app.processIdentifier == pid {
             var row = updatedWindows[index]
 
-            // Keep fullscreen cache fresh so hidden-tag semantics remain correct across mixed fullscreen/non-fullscreen apps.
-            let liveFullscreen = try? row.axElement.isFullscreen()
-            if row.isFullscreen != liveFullscreen {
-                row.isFullscreen = liveFullscreen
-                hasPublishedChanges = true
-            }
-
             if row.isHidden != isHidden {
                 row.isHidden = isHidden
                 hasPublishedChanges = true
             }
 
             updatedWindows[index] = row
-            WindowUtil.updateCachedWindowState(row, isHidden: isHidden, isFullscreen: row.isFullscreen)
+            WindowUtil.updateCachedWindowState(row, isHidden: isHidden)
         }
 
         if hasPublishedChanges {
@@ -680,7 +673,8 @@ class PreviewStateCoordinator: ObservableObject {
             for delay in delays {
                 try? await Task.sleep(nanoseconds: delay)
                 guard !Task.isCancelled else { return }
-                syncVisibilityState(processIdentifier: pid)
+                await syncVisibilityState(processIdentifier: pid)
+                guard !Task.isCancelled else { return }
             }
 
             visibilitySyncTasksByPID.removeValue(forKey: pid)
@@ -688,31 +682,28 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    private func syncVisibilityState(processIdentifier pid: pid_t) {
+    private func syncVisibilityState(processIdentifier pid: pid_t) async {
+        let sessionID = pointerInteractionSessionID
+        let targets = windows.filter { $0.app.processIdentifier == pid && !$0.isWindowlessApp }
+        var states: [PreviewWindowIdentity: (minimized: Bool?, hidden: Bool?, fullscreen: Bool?)] = [:]
+        for target in targets {
+            guard !Task.isCancelled, pointerInteractionSessionID == sessionID else { return }
+            let state = await target.readVisibilityState()
+            guard !Task.isCancelled, pointerInteractionSessionID == sessionID else { return }
+            states[PreviewWindowIdentity(target)] = state
+        }
         var updatedWindows = windows
         var hasPublishedChanges = false
-
-        for index in updatedWindows.indices where updatedWindows[index].app.processIdentifier == pid {
-            guard !updatedWindows[index].isWindowlessApp else { continue }
+        for index in updatedWindows.indices {
+            guard let state = states[PreviewWindowIdentity(updatedWindows[index])] else { continue }
             var row = updatedWindows[index]
 
-            if let isMinimized = try? row.axElement.isMinimized(), row.isMinimized != isMinimized {
+            if let isMinimized = state.minimized {
                 row.isMinimized = isMinimized
-                hasPublishedChanges = true
             }
-
-            let isHidden = (try? row.appAxElement.attribute(kAXHiddenAttribute, Bool.self)) ?? row.app.isHidden
-            if row.isHidden != isHidden {
-                row.isHidden = isHidden
-                hasPublishedChanges = true
-            }
-
-            let isFullscreen = try? row.axElement.isFullscreen()
-            if row.isFullscreen != isFullscreen {
-                row.isFullscreen = isFullscreen
-                hasPublishedChanges = true
-            }
-
+            row.isHidden = state.hidden ?? row.app.isHidden
+            row.isFullscreen = state.fullscreen
+            if row.viewSnapshot != updatedWindows[index].viewSnapshot { hasPublishedChanges = true }
             updatedWindows[index] = row
             WindowUtil.updateCachedWindowState(
                 row,
@@ -721,10 +712,7 @@ class PreviewStateCoordinator: ObservableObject {
                 isFullscreen: row.isFullscreen
             )
         }
-
-        if hasPublishedChanges {
-            windows = updatedWindows
-        }
+        if hasPublishedChanges { windows = updatedWindows }
     }
 
     @MainActor
