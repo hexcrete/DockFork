@@ -61,9 +61,10 @@ class SpaceWindowCacheManager {
             }
             registry.reconcileCachedWindows(batch.updated)
         }
-        guard let coordinator = SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator else { return }
+        guard let preview = SharedPreviewWindowCoordinator.activeInstance else { return }
         MainActor.assumeIsolated {
-            coordinator.applyCacheChanges(removed: batch.removed, added: batch.added, updated: batch.updated)
+            preview.windowSwitcherCoordinator.applyCacheChanges(removed: batch.removed, added: batch.added, updated: batch.updated)
+            preview.refreshDisplayedFullPreview(after: batch.updated)
         }
     }
 

@@ -178,6 +178,8 @@ final class DockObserver {
     private let dockScrollActionDebounceInterval: TimeInterval = 0.3
     private var lastTitleBarScrollActionTime: Date = .distantPast
     private var pendingTitleBarRestoreState: PendingRestoreState?
+    private var titleBarActionTasks: [pid_t: (token: UUID, task: Task<Void, Never>)] = [:]
+    private var latestTitleBarAction: UUID?
 
     private let titleBarScrollActionDebounceInterval: TimeInterval = 0.35
     private let minimumTitleBarScrollDelta: Double = 0.15
@@ -244,6 +246,7 @@ final class DockObserver {
         healthCheckTimer?.invalidate()
         dockPreviewDiscoveryTask?.cancel()
         dockClickActionTasks.values.forEach { $0.task.cancel() }
+        titleBarActionTasks.values.forEach { $0.task.cancel() }
         teardownObserver()
         teardownCmdTabObserver()
 
@@ -1745,35 +1748,46 @@ final class DockObserver {
         }
 
         DispatchQueue.main.async { [weak self] in
-            if normalizedDeltaY > 0 {
-                self?.handleTitleBarVerticalScroll(.maximize, for: window, now: now)
-            } else {
-                self?.handleTitleBarVerticalScroll(.center, for: window, now: now)
+            guard let self else { return }
+            let pid = window.ownerApp.processIdentifier
+            let previous = titleBarActionTasks[pid]?.task
+            let token = UUID()
+            let task = Task { @MainActor [weak self] in
+                await previous?.value
+                guard !Task.isCancelled, let self else { return }
+                latestTitleBarAction = token
+                defer { if titleBarActionTasks[pid]?.token == token { titleBarActionTasks.removeValue(forKey: pid) } }
+                await handleTitleBarVerticalScroll(normalizedDeltaY > 0 ? .maximize : .center, for: window, now: now, token: token)
             }
+            titleBarActionTasks[pid] = (token, task)
         }
 
         return true
     }
 
-    private func handleTitleBarVerticalScroll(_ action: VerticalScrollAction, for window: WindowInfo, now: Date) {
+    @MainActor
+    private func handleTitleBarVerticalScroll(_ action: VerticalScrollAction, for window: WindowInfo, now: Date, token: UUID) async {
         if let pendingTitleBarRestoreState,
            pendingTitleBarRestoreState.windowId == window.id,
            pendingTitleBarRestoreState.processIdentifier == window.app.processIdentifier,
            pendingTitleBarRestoreState.action == action,
            pendingTitleBarRestoreState.expirationDate > now
         {
-            window.setWindowFrame(pendingTitleBarRestoreState.originalFrame)
-            self.pendingTitleBarRestoreState = nil
+            await window.setWindowFrame(pendingTitleBarRestoreState.originalFrame)
+            if self.pendingTitleBarRestoreState?.expirationDate == pendingTitleBarRestoreState.expirationDate,
+               self.pendingTitleBarRestoreState?.windowId == window.id
+            { self.pendingTitleBarRestoreState = nil }
             return
         }
 
-        guard let originalFrame = window.currentWindowFrame() else {
-            performTitleBarVerticalScrollAction(action, on: window)
-            pendingTitleBarRestoreState = nil
+        guard let originalFrame = await window.readWindowFrame() else {
+            await performTitleBarVerticalScrollAction(action, on: window)
+            if latestTitleBarAction == token { pendingTitleBarRestoreState = nil }
             return
         }
 
-        performTitleBarVerticalScrollAction(action, on: window)
+        await performTitleBarVerticalScrollAction(action, on: window)
+        guard !Task.isCancelled, latestTitleBarAction == token else { return }
         pendingTitleBarRestoreState = PendingRestoreState(
             windowId: window.id,
             processIdentifier: window.app.processIdentifier,
@@ -1783,20 +1797,20 @@ final class DockObserver {
         )
     }
 
-    private func performTitleBarVerticalScrollAction(_ action: VerticalScrollAction, on window: WindowInfo) {
+    @MainActor
+    private func performTitleBarVerticalScrollAction(_ action: VerticalScrollAction, on window: WindowInfo) async {
         switch action {
         case .maximize:
-            window.zoom()
+            await window.positionWindow(.full)
         case .center:
             switch centeredWindowSizingMode {
             case .uniform:
-                window.centerWindow(scale: centeredWindowScale)
+                await window.positionWindow(.center, widthScale: centeredWindowScale, heightScale: centeredWindowScale)
             case .separate:
-                window.centerWindow(
-                    widthScale: centeredWindowWidthScale,
-                    heightScale: centeredWindowHeightScale,
-                    lockAspectRatio: centeredWindowLockAspectRatio
-                )
+                await window.positionWindow(.center,
+                                            widthScale: centeredWindowWidthScale,
+                                            heightScale: centeredWindowHeightScale,
+                                            lockAspectRatio: centeredWindowLockAspectRatio)
             }
         }
     }

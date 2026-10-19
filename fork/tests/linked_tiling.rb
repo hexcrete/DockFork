@@ -50,14 +50,15 @@ final class App {
  init(_ pid: pid_t) { processIdentifier = pid; Self.instances[pid] = self }
 }
 final class FakeAX {
+ static var windows: [CGWindowID:FakeAX] = [:]
  let pid: pid_t; let id: CGWindowID
  var spaces: Set<UInt64> = [1], frame: CGRect
  var minimized = false, full = false, refuses = false, focusFails = false
  var writes = 0, reads = 0, stateReads = 0
  var minimumWidth: CGFloat = 0
  var readDelay: TimeInterval = 0
- var frameReadHook: (() -> Void)?
- init(_ pid: pid_t, _ id: CGWindowID, _ frame: CGRect) { self.pid = pid; self.id = id; self.frame = frame }
+ var frameReadHook: (() -> Void)?, afterWrite: (() -> Void)?
+ init(_ pid: pid_t, _ id: CGWindowID, _ frame: CGRect) { self.pid = pid; self.id = id; self.frame = frame; if id != 0 {Self.windows[id]=self} }
  func cgWindowId() throws -> CGWindowID { id }
  func isMinimized() throws -> Bool { stateReads += 1; return minimized }
  func isFullscreen() throws -> Bool { stateReads += 1; return full }
@@ -78,6 +79,8 @@ enum CGEventSource {
 struct WindowInfo {
  let id: CGWindowID; let app: App; let axElement: FakeAX
  var payload: AnyObject? = nil
+ var frameTarget: WindowFrameTarget {WindowFrameTarget(element:axElement,application:axElement,ownerPID:ownerApp.processIdentifier,identity:PreviewWindowIdentity(self))}
+ @MainActor func readWindowFrame() async -> CGRect? {let target=frameTarget;return await WindowFrameTransactions.run(for:target.ownerPID) { _ in target.frame(primaryMaxY:1200)} ?? nil}
  var ownerApp: App { App.instances[axElement.pid] ?? app }
  var isWindowlessApp = false
  var isMinimized: Bool { get { axElement.minimized } set { axElement.minimized = newValue } }
@@ -138,6 +141,8 @@ struct ActionFeedbackHandle {
  func finishRemaining(_ outcome: ActionFeedbackOutcome) {}
 }
 enum WindowUtil {
+ static func refreshCachedPreviewAfterProgrammaticResize(_ window:WindowInfo,targetScreenIdentifier:String) {}
+ static func scheduleCachedWindowMetadataReconciliation(pid:pid_t,windowID:CGWindowID) {}
  static var cachedWindows: [WindowInfo] = []
  static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { cachedWindows.filter { $0.app.processIdentifier == pid } }
  static var activeSpaces: Set<Int> = [1]
@@ -161,7 +166,40 @@ SWIFT
 util = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowUtil.swift")
 info = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowInfo.swift")
 registry = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowSnapRegistry.swift").gsub(/^import .*\n/, '')
-source = stubs + block(util, '    struct PreviewBatchResult') + "\n" + block(util, '    @MainActor\n    static func tilePreviewWindows('.gsub('\\n', "\n")) + "\n" + block(util, '    @MainActor\n    private static func performWindowGroupPlacement('.gsub('\\n', "\n")) + "\n}\n" + registry + "\n" + block(info, 'enum PreviewTilingLayout {') + "\n" + block(info, 'enum WindowFramePlacementResult {')
+stubs = <<~'SWIFT' + stubs
+struct WindowFrameContext {
+ struct Screen { let bounds: CGRect; let identifier = "display" }
+ let primaryMaxY: CGFloat = 1200
+ func screen(containing frame: CGRect) -> Screen? {
+  frame.minX >= 5000 ? nil : Screen(bounds: NSScreen().snappingFrame)
+ }
+}
+func AXUIElementCreateApplication(_ pid: pid_t) -> FakeAX { FakeAX(pid, 0, .zero) }
+extension CGWindowID {
+ func cgsSpaces() -> [CGSSpaceID] { Array(FakeAX.windows[self]?.spaces ?? []) }
+}
+struct WindowFrameTarget {
+ let element: FakeAX, application: FakeAX
+ let ownerPID: pid_t; let identity: PreviewWindowIdentity
+ struct Result {var applied = false; var attempted = false; var frame: CGRect?}
+ func frame(primaryMaxY: CGFloat, cancellation: WindowFrameTransactions.Cancellation? = nil) -> CGRect? {
+  precondition(!Thread.isMainThread)
+  element.frameReadHook?(); element.reads += 1
+  if element.readDelay > 0 { Thread.sleep(forTimeInterval: element.readDelay) }
+  return element.frame
+ }
+ func apply(_ frame: CGRect, primaryMaxY: CGFloat, cancellation: WindowFrameTransactions.Cancellation, preservesSnapRecord: Bool = false) -> Result {
+  precondition(!Thread.isMainThread)
+  guard !cancellation.isCancelled else { return Result() }
+  element.writes += 1
+  guard !element.refuses else { return Result(attempted:true) }
+  element.frame = frame; element.frame.size.width = max(frame.width, element.minimumWidth)
+  element.afterWrite?()
+  return Result(applied:true,attempted:true,frame:element.frame)
+ }
+}
+SWIFT
+source = block(info, 'enum WindowFrameTransactions {') + "\n" + stubs + block(util, '    struct PreviewBatchResult') + "\n" + block(util, '    @MainActor\n    static func tilePreviewWindows('.gsub('\\n', "\n")) + "\n" + block(util, '    @MainActor\n    private static func performWindowGroupPlacement('.gsub('\\n', "\n")) + "\n}\n" + registry + "\n" + block(info, 'enum PreviewTilingLayout {') + "\n" + block(info, 'enum WindowFramePlacementResult {')
 drag = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/DragPreviewCoordinator.swift")
 abort 'A new drag must cancel the prior released drop' unless block(drag, '    func startDragging(').include?('cancelPendingDrop()')
 abort 'Ghost cleanup must not cancel a released drop' if block(drag, '    func endDragging(').include?('cancelPendingDrop()')
@@ -495,11 +533,13 @@ checks = <<~'SWIFT'
   let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
   busy[0].axElement.frameReadHook = { entered.signal(); release.wait() }
   registry.windowFrameChanged(busy[0].axElement, mouseIsDown: CGEventSource.pressed)
-  precondition(entered.wait(timeout: .now() + 2) == .success)
+  for _ in 0..<2000 {
+   if entered.wait(timeout:.now()) == .success {break};try? await Task.sleep(nanoseconds:1_000_000)
+  }
   // Queue an old generation behind the blocked worker, then replace it before it runs.
   registry.windowFrameChanged(race[0].axElement, mouseIsDown: CGEventSource.pressed)
   let origin = registry.record(for: race[1])!.origin
-  registry.snapped(race[0], restoreFrame: race[0].axElement.frame, origin: origin)
+  await registry.snapped(race[0], restoreFrame: race[0].axElement.frame, origin: origin)
   race[0].axElement.frame.size.width += 100
   registry.windowFrameChanged(race[0].axElement, mouseIsDown: CGEventSource.pressed)
   release.signal()
@@ -517,7 +557,9 @@ checks = <<~'SWIFT'
   let blocked = DispatchSemaphore(value: 0), resume = DispatchSemaphore(value: 0)
   blocker[0].axElement.frameReadHook = { blocked.signal(); resume.wait() }
   registry.windowFrameChanged(blocker[0].axElement, mouseIsDown: CGEventSource.pressed)
-  precondition(blocked.wait(timeout: .now() + 2) == .success)
+  for _ in 0..<2000 {
+   if blocked.wait(timeout:.now()) == .success {break};try? await Task.sleep(nanoseconds:1_000_000)
+  }
   registry.windowFrameChanged(delayed[0].axElement, mouseIsDown: false)
   delayed[0].axElement.frame.size.width += 100
   registry.windowFrameChanged(delayed[0].axElement, mouseIsDown: CGEventSource.pressed)
@@ -541,7 +583,18 @@ checks = <<~'SWIFT'
   }
   precondition(registry.record(for: unrelated[0]) == nil && unrelated[1].axElement.frame.minX == 900)
   clear(unrelated)
-  print("PASS quick resize: coalesced pointer changes survive release; unrelated non-pointer changes detach")
+print("PASS quick resize: coalesced pointer changes survive release; unrelated non-pointer changes detach")
+Model.reset();let notifying=windows(2)
+_ = await WindowUtil.tilePreviewWindows(notifying,direction:.neutral)
+notifying[1].axElement.afterWrite = {registry.windowFrameChanged(notifying[1].axElement,mouseIsDown:true)}
+notifying[0].axElement.frame.size.width += 100
+registry.windowFrameChanged(notifying[0].axElement,mouseIsDown:true)
+for _ in 0..<200 {if registry.record(for:notifying[1])?.snappedFrame.minX==1000 {break};try? await Task.sleep(nanoseconds:5_000_000)}
+try? await Task.sleep(nanoseconds:30_000_000)
+precondition(registry.record(for:notifying[1])?.snappedFrame.minX==1000,"A linked write notification must see its measured registry frame")
+notifying[1].axElement.afterWrite=nil;clear(notifying)
+print("PASS programmatic linked notifications: measured state is published before the next same-app AX read")
+
   let lifecycle = windows(3)
   _ = await WindowUtil.tilePreviewWindows(lifecycle, direction: .neutral)
   lifecycle[0].app.isHidden = true; lifecycle[1].axElement.minimized = true; lifecycle[2].axElement.full = true
@@ -553,9 +606,9 @@ checks = <<~'SWIFT'
   precondition(lifecycle.allSatisfy { registry.record(for: $0) == nil })
   var imageWindow = windows(1)[0]
   weak var image: NSObject?
-  autoreleasepool {
+  do {
    let payload = NSObject(); image = payload; imageWindow.payload = payload
-   registry.snapped(imageWindow, restoreFrame: imageWindow.axElement.frame)
+   await registry.snapped(imageWindow, restoreFrame: imageWindow.axElement.frame)
    imageWindow.payload = nil
   }
   precondition(image == nil)

@@ -65,12 +65,13 @@ struct WindowInfo {
  var isHidden: Bool { app.isHidden }
  var axElement: AX { AX() }
  func close() -> Bool { true }
+ func positionWindow(_ rect:Int) async -> Bool {preconditionFailure("Quit entered frame worker")}
  func bringToFrontConfirmed() async -> Bool { true }
 SWIFT
 source += block(info, '    func quit(force:') + "\n}\n"
 case_start = util.index('    // Existing actions')
 cases = util[case_start...util.index('    var localizedName:', case_start)].scan(/^    case (\w+)$/).flatten
-source += "enum WindowAction { case #{cases.join(', ')}\n"
+source += "enum WindowAction { case #{cases.join(', ')}\n var positionRect:Int? {nil}\n"
 %w[localizedName iconName].each { |name| source += block(util[case_start..], "    var #{name}:") + "\n" }
 source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    var isAppWidePreviewAction:')]
 %w[isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }

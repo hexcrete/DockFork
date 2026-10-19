@@ -494,8 +494,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             return accepted(changedCount > 0) ? .dismissed : .noChange
 
         case .maximize:
-            guard (try? window.axElement.isFullscreen()) != true else { feedback?.finishRemaining(.failed); return .noChange }
-            return accepted(window.zoom()) ? .dismissed : .noChange
+            return .noChange
 
         case .bringToCurrentSpace:
             if accepted(WindowUtil.moveWindowToCurrentManagedSpace(window)) {
@@ -503,41 +502,10 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
             }
             return .noChange
 
-        case .fillLeftHalf:
-            guard (try? window.axElement.isFullscreen()) != true else { feedback?.finishRemaining(.failed); return .noChange }
-            return accepted(window.fillLeftHalf()) ? .dismissed : .noChange
-
-        case .fillRightHalf:
-            guard (try? window.axElement.isFullscreen()) != true else { feedback?.finishRemaining(.failed); return .noChange }
-            return accepted(window.fillRightHalf()) ? .dismissed : .noChange
-
-        case .fillTopHalf:
-            guard (try? window.axElement.isFullscreen()) != true else { feedback?.finishRemaining(.failed); return .noChange }
-            return accepted(window.fillTopHalf()) ? .dismissed : .noChange
-
-        case .fillBottomHalf:
-            guard (try? window.axElement.isFullscreen()) != true else { feedback?.finishRemaining(.failed); return .noChange }
-            return accepted(window.fillBottomHalf()) ? .dismissed : .noChange
-
-        case .fillTopLeftQuarter:
-            guard (try? window.axElement.isFullscreen()) != true else { feedback?.finishRemaining(.failed); return .noChange }
-            return accepted(window.fillTopLeftQuarter()) ? .dismissed : .noChange
-
-        case .fillTopRightQuarter:
-            guard (try? window.axElement.isFullscreen()) != true else { feedback?.finishRemaining(.failed); return .noChange }
-            return accepted(window.fillTopRightQuarter()) ? .dismissed : .noChange
-
-        case .fillBottomLeftQuarter:
-            guard (try? window.axElement.isFullscreen()) != true else { feedback?.finishRemaining(.failed); return .noChange }
-            return accepted(window.fillBottomLeftQuarter()) ? .dismissed : .noChange
-
-        case .fillBottomRightQuarter:
-            guard (try? window.axElement.isFullscreen()) != true else { feedback?.finishRemaining(.failed); return .noChange }
-            return accepted(window.fillBottomRightQuarter()) ? .dismissed : .noChange
-
-        case .center:
-            guard (try? window.axElement.isFullscreen()) != true else { feedback?.finishRemaining(.failed); return .noChange }
-            return accepted(window.centerWindow()) ? .dismissed : .noChange
+        case .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+             .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .center:
+            // Frame actions require the asynchronous shared executor.
+            return .noChange
 
         case .autoTileSelectedWindows:
             Task { @MainActor in
@@ -800,7 +768,9 @@ extension WindowUtil {
                     openNewWindow(app: window.app)
                     succeeded = true
                 default:
-                    if (try? window.axElement.isFullscreen()) != true {
+                    if let rect = action.positionRect {
+                        succeeded = await window.positionWindow(rect)
+                    } else if (try? window.axElement.isFullscreen()) != true {
                         if case .dismissed = action.perform(on: window, preferredWindows: windows) { succeeded = true }
                     }
                 }
@@ -1089,13 +1059,17 @@ extension WindowUtil {
         else { feedback?.finishRemaining(.failed); return PreviewBatchResult(failed: windows.map(PreviewWindowIdentity.init)) }
         let maximumRows = Defaults[.maximumTilingRows]
         let maximumColumns = Defaults[.maximumTilingColumns]
+        let tilingBounds = screen.snappingFrame
         let capacity = min(6, max(1, maximumRows)) * min(6, max(1, maximumColumns))
         let targets = Defaults[.tileOnlyWhatFits] ? Array(windows.prefix(capacity)) : windows
         let linksEnabled = Defaults[.linkTiledWindowsWhenResizing] && capacity > 1
         var restoreFrames: [PreviewWindowIdentity: CGRect] = [:]
         if linksEnabled {
             for window in targets where !window.isWindowlessApp && !window.app.isTerminated {
-                restoreFrames[PreviewWindowIdentity(window)] = WindowSnapRegistry.existing?.liveRecord(for: window)?.restoreFrame ?? window.currentWindowFrame()
+                guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult() }
+                let record = await WindowSnapRegistry.existing?.liveRecord(for: window)
+                let frame = record == nil ? await window.readWindowFrame() : record?.restoreFrame
+                restoreFrames[PreviewWindowIdentity(window)] = frame
             }
         }
         var batches: [Int: UUID] = [:]
@@ -1106,7 +1080,7 @@ extension WindowUtil {
                                                        isRequestActive: isRequestActive, feedback: feedback)
         { window, index, count in
             if frames == nil {
-                frames = PreviewTilingLayout.frames(count: count, in: screen.snappingFrame, direction: direction,
+                frames = PreviewTilingLayout.frames(count: count, in: tilingBounds, direction: direction,
                                                     maximumRows: maximumRows, maximumColumns: maximumColumns)
             }
             guard let frame = frames?[index] else { return .confirmed }
@@ -1122,7 +1096,8 @@ extension WindowUtil {
         if !Task.isCancelled, isRequestActive(), Defaults[.linkTiledWindowsWhenResizing], !registrations.isEmpty {
             let registry = WindowSnapRegistry.shared
             for (window, restoreFrame, batch) in registrations {
-                registry.snapped(window, restoreFrame: restoreFrame, origin: .tiling(batch), confirmedDestination: destination)
+                guard !Task.isCancelled, isRequestActive() else { break }
+                await registry.snapped(window, restoreFrame: restoreFrame, origin: .tiling(batch), confirmedDestination: destination)
             }
         }
         return result

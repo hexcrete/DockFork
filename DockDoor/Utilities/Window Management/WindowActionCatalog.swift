@@ -14,7 +14,7 @@ struct WindowActionGroup: Identifiable {
 
 extension WindowAction {
     func usesConfirmedSingleWindowAction(on window: WindowInfo) -> Bool {
-        [.minimize, .hide, .toggleFullScreen, .closeAllWindows].contains(self) ||
+        positionRect != nil || [.minimize, .hide, .toggleFullScreen, .closeAllWindows].contains(self) ||
             (!window.isWindowlessApp && [.openAppWindow, .close].contains(self))
     }
 

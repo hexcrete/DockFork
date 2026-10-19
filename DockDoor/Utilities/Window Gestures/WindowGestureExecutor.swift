@@ -30,12 +30,13 @@ final class WindowGestureExecutor {
         case let .window(action):
             guard let window = zone.window else { return }
             if action == .minimize { await minimize(window) }
+            else if action.positionRect != nil { await perform(action, on: window) }
             else if action.usesConfirmedSingleWindowAction(on: window) {
                 let result = await WindowUtil.performPreviewBatchAction(action, on: [window], allowFullscreenEntry: action == .toggleFullScreen)
                 if !Task.isCancelled, !result.succeeded.isEmpty,
                    action == .openAppWindow || (action == .hide && window.isHidden)
                 { _ = await window.bringToFrontConfirmed() }
-            } else { perform(action, on: window) }
+            } else { await perform(action, on: window) }
         case .closeTab:
             closeTab(in: zone)
         case .minimizeFrontWindow:
@@ -59,24 +60,25 @@ final class WindowGestureExecutor {
 
     // MARK: - Windows
 
-    private func perform(_ action: WindowAction, on window: WindowInfo) {
+    @MainActor
+    private func perform(_ action: WindowAction, on window: WindowInfo) async {
         if action == .center {
-            let restoreSize = registry.liveRecord(for: window)?.restoreFrame.size
+            let restoreSize = await registry.liveRecord(for: window)?.restoreFrame.size
             registry.remove(PreviewWindowIdentity(window))
-            if window.positionWindow(.center, size: restoreSize) {
+            if await window.positionWindow(.center, size: restoreSize) {
                 window.bringToFront()
             }
             return
         }
-        guard action.positionRect != nil, let current = window.currentWindowFrame() else {
+        guard let rect = action.positionRect, let current = await window.readWindowFrame() else {
             _ = action.perform(on: window)
             return
         }
-        let restoreFrame = registry.liveRecord(for: window)?.restoreFrame ?? current
+        let restoreFrame = await registry.liveRecord(for: window)?.restoreFrame ?? current
         registry.remove(PreviewWindowIdentity(window))
-        if case .dismissed = action.perform(on: window) {
+        if await window.positionWindow(rect) {
             window.bringToFront()
-            registry.snapped(window, restoreFrame: restoreFrame)
+            await registry.snapped(window, restoreFrame: restoreFrame)
         }
     }
 

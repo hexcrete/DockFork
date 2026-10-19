@@ -160,6 +160,147 @@ final class WindowActivationCoordinator: @unchecked Sendable {
     }
 }
 
+enum WindowFrameTransactions {
+    final class Cancellation: @unchecked Sendable {
+        private let lock = NSLock()
+        private var cancelled = false
+        var isCancelled: Bool { lock.withLock { cancelled } }
+        func cancel() { lock.withLock { cancelled = true } }
+    }
+
+    private struct Worker {
+        let queue: DispatchQueue
+        var users: Int
+    }
+
+    private static let lock = NSLock()
+    private static var workers: [pid_t: Worker] = [:]
+
+    private static func acquire(_ pid: pid_t) -> DispatchQueue {
+        lock.withLock {
+            var worker = workers[pid] ?? Worker(queue: DispatchQueue(label: "com.ethanbills.DockDoor.frames.\(pid)", qos: .userInteractive), users: 0)
+            worker.users += 1
+            workers[pid] = worker
+            return worker.queue
+        }
+    }
+
+    private static func release(_ pid: pid_t) {
+        lock.withLock {
+            guard var worker = workers[pid] else { return }
+            worker.users -= 1
+            workers[pid] = worker.users == 0 ? nil : worker
+        }
+    }
+
+    static func run<T>(for pid: pid_t, _ operation: @escaping (Cancellation) -> T) async -> T? {
+        let cancellation = Cancellation()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                let queue = acquire(pid)
+                queue.async {
+                    let result = cancellation.isCancelled ? nil : operation(cancellation)
+                    release(pid)
+                    continuation.resume(returning: result)
+                }
+            }
+        } onCancel: { cancellation.cancel() }
+    }
+}
+
+struct WindowFrameContext {
+    struct Screen {
+        let frame: CGRect
+        let bounds: CGRect
+        let identifier: String
+    }
+
+    let primaryMaxY: CGFloat
+    let screens: [Screen]
+    let fallbackIdentifier: String?
+
+    @MainActor
+    init() {
+        primaryMaxY = NSScreen.screens.first?.frame.maxY ?? NSScreen.main?.frame.maxY ?? 0
+        screens = NSScreen.screens.map { Screen(frame: $0.frame, bounds: $0.snappingFrame, identifier: $0.uniqueIdentifier()) }
+        fallbackIdentifier = NSScreen.main?.uniqueIdentifier()
+    }
+
+    func screen(containing frame: CGRect) -> Screen? {
+        func overlap(_ a: CGRect, _ b: CGRect) -> CGFloat {
+            let intersection = a.intersection(b)
+            return intersection.isNull ? 0 : intersection.width * intersection.height
+        }
+        return screens.max { overlap($0.frame, frame) < overlap($1.frame, frame) }
+            .flatMap { overlap($0.frame, frame) > 0 ? $0 : screens.first { $0.identifier == fallbackIdentifier } }
+    }
+}
+
+struct WindowFrameTarget {
+    let element: AXUIElement
+    let application: AXUIElement
+    let ownerPID: pid_t
+    let identity: PreviewWindowIdentity
+
+    func frame(primaryMaxY: CGFloat, cancellation: WindowFrameTransactions.Cancellation? = nil) -> CGRect? {
+        guard cancellation?.isCancelled != true, let position = try? element.position(),
+              cancellation?.isCancelled != true, let size = try? element.size(), cancellation?.isCancelled != true else { return nil }
+        return CGRect(x: position.x, y: primaryMaxY - position.y - size.height, width: size.width, height: size.height)
+    }
+
+    struct Result {
+        var applied = false
+        var attempted = false
+        var accepted = false
+        var frame: CGRect?
+    }
+
+    func apply(_ targetFrame: CGRect, primaryMaxY: CGFloat, cancellation: WindowFrameTransactions.Cancellation,
+               preservesSnapRecord: Bool = false, captureFrame: Bool = true) -> Result
+    {
+        var result = Result()
+        let readBack: Bool = {
+            guard !cancellation.isCancelled,
+                  let position = AXValue.from(point: CGPoint(x: targetFrame.minX, y: primaryMaxY - targetFrame.maxY)),
+                  let size = AXValue.from(size: targetFrame.size)
+            else { return false }
+            if !preservesSnapRecord { WindowSnapRegistry.existing?.remove(identity) }
+            let attribute = "AXEnhancedUserInterface"
+            let restore = (try? application.attribute(attribute, Bool.self)) == true
+            var modeAttempted = false
+            defer { if restore, modeAttempted { try? application.setAttribute(attribute, true) } }
+            guard !cancellation.isCancelled else { return false }
+            // A write can take effect even when AX returns an error. Always restore the prior mode.
+            if restore {
+                modeAttempted = true
+                try? application.setAttribute(attribute, false)
+            }
+            guard !cancellation.isCancelled else { return false }
+            let existingSize = try? element.size()
+            guard !cancellation.isCancelled else { return false }
+            var sized = existingSize == targetFrame.size
+            if !sized {
+                result.attempted = true
+                sized = (try? element.setAttribute(kAXSizeAttribute, size)) != nil
+            }
+            guard !cancellation.isCancelled else { return false }
+            result.attempted = true
+            let positioned = (try? element.setAttribute(kAXPositionAttribute, position)) != nil
+            guard !cancellation.isCancelled else { return false }
+            if positioned, let actualSize = try? element.size(), actualSize != targetFrame.size {
+                guard !cancellation.isCancelled else { return false }
+                sized = (try? element.setAttribute(kAXSizeAttribute, size)) != nil
+            }
+            result.applied = positioned && sized
+            guard !cancellation.isCancelled else { return false }
+            return positioned || sized
+        }()
+        result.accepted = readBack
+        if captureFrame, readBack, !cancellation.isCancelled { result.frame = frame(primaryMaxY: primaryMaxY, cancellation: cancellation) }
+        return result
+    }
+}
+
 struct WindowInfo: Identifiable, Hashable {
     let id: CGWindowID
     let windowProvider: WindowPropertiesProviding
@@ -329,11 +470,6 @@ extension WindowInfo {
         }
     }
 
-    @discardableResult
-    func zoom() -> Bool {
-        positionWindow(.full)
-    }
-
     // MARK: - Window Positioning
 
     enum WindowPositionRect {
@@ -421,14 +557,8 @@ extension WindowInfo {
         }
     }
 
-    private func currentWindowPlacementContext() -> (screen: NSScreen, size: CGSize)? {
-        guard let windowFrame = currentWindowFrame(),
-              let screen = NSScreen.screen(containing: windowFrame)
-        else {
-            return nil
-        }
-
-        return (screen, windowFrame.size)
+    var frameTarget: WindowFrameTarget {
+        WindowFrameTarget(element: axElement, application: AXUIElementCreateApplication(ownerApp.processIdentifier), ownerPID: ownerApp.processIdentifier, identity: PreviewWindowIdentity(self))
     }
 
     static func positionedFrame(_ rect: WindowPositionRect, for windowFrame: CGRect, size: CGSize? = nil) -> CGRect? {
@@ -437,78 +567,43 @@ extension WindowInfo {
     }
 
     static func currentWindowFrame(for element: AXUIElement) -> CGRect? {
-        guard let currentPosition = try? element.position(),
-              let currentSize = try? element.size()
-        else {
-            return nil
-        }
-
+        guard let currentPosition = try? element.position(), let currentSize = try? element.size() else { return nil }
         let primaryScreenMaxY = NSScreen.screens.first?.frame.maxY ?? NSScreen.main?.frame.maxY ?? 0
-        return CGRect(
-            x: currentPosition.x,
-            y: primaryScreenMaxY - currentPosition.y - currentSize.height,
-            width: currentSize.width,
-            height: currentSize.height
-        )
+        return CGRect(x: currentPosition.x, y: primaryScreenMaxY - currentPosition.y - currentSize.height,
+                      width: currentSize.width, height: currentSize.height)
     }
 
-    func currentWindowFrame() -> CGRect? {
-        Self.currentWindowFrame(for: axElement)
+    func currentWindowFrame() -> CGRect? { Self.currentWindowFrame(for: axElement) }
+
+    @MainActor
+    func readWindowFrame() async -> CGRect? {
+        let target = frameTarget, context = WindowFrameContext()
+        return await WindowFrameTransactions.run(for: target.ownerPID) { cancellation in
+            cancellation.isCancelled ? nil : target.frame(primaryMaxY: context.primaryMaxY, cancellation: cancellation)
+        } ?? nil
     }
 
+    @MainActor
+    private func publishFrameResult(_ result: WindowFrameTarget.Result?, screenIdentifier: String?, active: Bool) {
+        guard let result, result.attempted else { return }
+        if active, result.accepted, let screenIdentifier {
+            WindowUtil.refreshCachedPreviewAfterProgrammaticResize(self, targetScreenIdentifier: screenIdentifier)
+        } else {
+            // An in-flight AX write may have taken effect after cancellation; reconcile without stale UI publication.
+            WindowUtil.scheduleCachedWindowMetadataReconciliation(pid: app.processIdentifier, windowID: id)
+        }
+    }
+
+    @MainActor
     @discardableResult
-    private func applyWindowFrame(_ targetFrame: CGRect, on screen: NSScreen, refreshPreview: Bool = true, preservesSnapRecord: Bool = false) -> Bool {
-        let primaryScreenMaxY = NSScreen.screens.first?.frame.maxY ?? screen.frame.maxY
-        let axY = primaryScreenMaxY - targetFrame.maxY
-        let newPosition = CGPoint(x: targetFrame.origin.x, y: axY)
-        let newSize = CGSize(width: targetFrame.width, height: targetFrame.height)
-
-        guard let positionValue = AXValue.from(point: newPosition),
-              let sizeValue = AXValue.from(size: newSize)
-        else {
-            return false
+    func setWindowFrame(_ targetFrame: CGRect, on targetScreen: NSScreen? = nil) async -> Bool {
+        let context = WindowFrameContext(), target = frameTarget
+        guard let screenIdentifier = targetScreen?.uniqueIdentifier() ?? context.screen(containing: targetFrame)?.identifier else { return false }
+        let result = await WindowFrameTransactions.run(for: target.ownerPID) { cancellation in
+            target.apply(targetFrame, primaryMaxY: context.primaryMaxY, cancellation: cancellation, captureFrame: false)
         }
-
-        if !preservesSnapRecord { WindowSnapRegistry.existing?.remove(PreviewWindowIdentity(self)) }
-        let enhancedUIAttribute = "AXEnhancedUserInterface"
-        let restoreEnhancedUI = (try? appAxElement.attribute(enhancedUIAttribute, Bool.self)) == true
-        // Some apps apply this write despite reporting an error; always restore the prior state.
-        if restoreEnhancedUI { try? appAxElement.setAttribute(enhancedUIAttribute, false) }
-        defer {
-            if restoreEnhancedUI { try? appAxElement.setAttribute(enhancedUIAttribute, true) }
-        }
-
-        // Either write can be constrained by the old frame; finish resizing at the new position if needed.
-        var sizeApplied = (try? axElement.size()) == newSize ||
-            (try? axElement.setAttribute(kAXSizeAttribute, sizeValue)) != nil
-        let positionApplied = (try? axElement.setAttribute(kAXPositionAttribute, positionValue)) != nil
-        if positionApplied, let actualSize = try? axElement.size(), actualSize != newSize {
-            sizeApplied = (try? axElement.setAttribute(kAXSizeAttribute, sizeValue)) != nil
-        }
-
-        guard positionApplied || sizeApplied else { return false }
-        if refreshPreview || !positionApplied || !sizeApplied {
-            WindowUtil.refreshCachedPreviewAfterProgrammaticResize(self, targetScreenIdentifier: screen.uniqueIdentifier())
-        }
-        return positionApplied && sizeApplied
-    }
-
-    @discardableResult
-    func setWindowFrame(_ targetFrame: CGRect, on targetScreen: NSScreen? = nil) -> Bool {
-        guard let screen = targetScreen ?? NSScreen.screens.first(where: { $0.frame.intersects(targetFrame) })
-            ?? currentWindowPlacementContext()?.screen
-            ?? NSScreen.main
-        else {
-            return false
-        }
-
-        return applyWindowFrame(targetFrame, on: screen)
-    }
-
-    @discardableResult
-    func applyFrame(_ targetFrame: CGRect) -> Bool {
-        guard let screen = NSScreen.screen(containing: targetFrame) else { return false }
-        return applyWindowFrame(targetFrame, on: screen, preservesSnapRecord: true)
+        publishFrameResult(result, screenIdentifier: screenIdentifier, active: !Task.isCancelled)
+        return !Task.isCancelled && result?.applied == true
     }
 
     @MainActor
@@ -516,21 +611,24 @@ extension WindowInfo {
                               isRequestActive: @escaping @MainActor () -> Bool) async -> WindowFramePlacementResult
     {
         guard !Task.isCancelled, isRequestActive() else { return .failed }
-        var actualFrame: CGRect?
-        let applied = applyWindowFrame(targetFrame, on: screen, refreshPreview: false)
-        defer {
-            if applied, !Task.isCancelled, isRequestActive() {
-                WindowUtil.refreshCachedPreviewAfterProgrammaticResize(self, targetScreenIdentifier: screen.uniqueIdentifier())
-            }
+        let target = frameTarget, context = WindowFrameContext(), screenIdentifier = screen.uniqueIdentifier()
+        let result = await WindowFrameTransactions.run(for: target.ownerPID) { cancellation in
+            target.apply(targetFrame, primaryMaxY: context.primaryMaxY, cancellation: cancellation)
         }
-        if applied {
+        defer { publishFrameResult(result, screenIdentifier: screenIdentifier, active: !Task.isCancelled && isRequestActive()) }
+        guard !Task.isCancelled, isRequestActive() else { return .failed }
+        var actualFrame = result?.frame
+        if result?.applied == true {
             for check in 0 ..< 2 {
                 if check == 1 {
                     do { try await Task.sleep(nanoseconds: 100_000_000) }
                     catch { return .failed }
+                    guard !Task.isCancelled, isRequestActive() else { return .failed }
+                    actualFrame = await WindowFrameTransactions.run(for: target.ownerPID) { cancellation in
+                        cancellation.isCancelled ? nil : target.frame(primaryMaxY: context.primaryMaxY, cancellation: cancellation)
+                    } ?? nil
                 }
                 guard !Task.isCancelled, isRequestActive() else { return .failed }
-                actualFrame = currentWindowFrame()
                 if let actualFrame,
                    abs(actualFrame.minX - targetFrame.minX) <= 1,
                    abs(actualFrame.minY - targetFrame.minY) <= 1,
@@ -540,111 +638,34 @@ extension WindowInfo {
             }
         }
         DebugLogger.log("WindowPlacement", details: "PID: \(app.processIdentifier), window: \(id), target: \(targetFrame), actual: \(String(describing: actualFrame)), confirmed: false")
-        return applied && actualFrame != nil ? .unconfirmed : .failed
+        return result?.applied == true && actualFrame != nil ? .unconfirmed : .failed
     }
 
+    @MainActor
     @discardableResult
-    func positionWindow(_ rect: WindowPositionRect, size: CGSize? = nil) -> Bool {
-        guard let context = currentWindowPlacementContext() else {
-            return false
-        }
-
-        let visibleFrame = context.screen.snappingFrame
-        let targetFrame = rect.frame(in: visibleFrame, currentSize: size ?? context.size)
-        return applyWindowFrame(targetFrame, on: context.screen)
-    }
-
-    @discardableResult
-    func fillLeftHalf() -> Bool {
-        positionWindow(.leftHalf)
-    }
-
-    @discardableResult
-    func fillRightHalf() -> Bool {
-        positionWindow(.rightHalf)
-    }
-
-    @discardableResult
-    func fillTopHalf() -> Bool {
-        positionWindow(.topHalf)
-    }
-
-    @discardableResult
-    func fillBottomHalf() -> Bool {
-        positionWindow(.bottomHalf)
-    }
-
-    @discardableResult
-    func fillTopLeftQuarter() -> Bool {
-        positionWindow(.topLeftQuarter)
-    }
-
-    @discardableResult
-    func fillTopRightQuarter() -> Bool {
-        positionWindow(.topRightQuarter)
-    }
-
-    @discardableResult
-    func fillBottomLeftQuarter() -> Bool {
-        positionWindow(.bottomLeftQuarter)
-    }
-
-    @discardableResult
-    func fillBottomRightQuarter() -> Bool {
-        positionWindow(.bottomRightQuarter)
-    }
-
-    @discardableResult
-    func centerWindow() -> Bool {
-        positionWindow(.center)
-    }
-
-    func centerWindow(scale: CGFloat) {
-        guard let context = currentWindowPlacementContext() else {
-            return
-        }
-
-        let visibleFrame = context.screen.snappingFrame
-        let clampedScale = min(max(scale, 0.2), 1.0)
-        let targetSize = CGSize(
-            width: visibleFrame.width * clampedScale,
-            height: visibleFrame.height * clampedScale
-        )
-        let targetFrame = WindowPositionRect.center.frame(in: visibleFrame, currentSize: targetSize)
-        setWindowFrame(targetFrame)
-    }
-
-    func centerWindow(widthScale: CGFloat, heightScale: CGFloat, lockAspectRatio: Bool) {
-        guard let context = currentWindowPlacementContext() else {
-            return
-        }
-
-        let visibleFrame = context.screen.snappingFrame
-
-        let clampedWidthScale = min(max(widthScale, 0.2), 1.0)
-        let clampedHeightScale = min(max(heightScale, 0.2), 1.0)
-
-        let maxWidth = visibleFrame.width * clampedWidthScale
-        let maxHeight = visibleFrame.height * clampedHeightScale
-
-        let targetSize: CGSize
-        if lockAspectRatio {
-            let currentSize = context.size
-            guard currentSize.width > 0, currentSize.height > 0 else {
-                targetSize = CGSize(width: maxWidth, height: maxHeight)
-                let targetFrame = WindowPositionRect.center.frame(in: visibleFrame, currentSize: targetSize)
-                setWindowFrame(targetFrame)
-                return
+    func positionWindow(_ rect: WindowPositionRect, size: CGSize? = nil,
+                        widthScale: CGFloat? = nil, heightScale: CGFloat? = nil, lockAspectRatio: Bool = false) async -> Bool
+    {
+        let target = frameTarget, context = WindowFrameContext()
+        let placement = await WindowFrameTransactions.run(for: target.ownerPID) { cancellation -> (WindowFrameTarget.Result, String)? in
+            guard !cancellation.isCancelled, (try? target.element.isFullscreen()) != true,
+                  !cancellation.isCancelled, let current = target.frame(primaryMaxY: context.primaryMaxY, cancellation: cancellation),
+                  !cancellation.isCancelled, let screen = context.screen(containing: current)
+            else { return nil }
+            var resolvedSize = size ?? current.size
+            if let widthScale, let heightScale {
+                let maximum = CGSize(width: screen.bounds.width * min(max(widthScale, 0.2), 1),
+                                     height: screen.bounds.height * min(max(heightScale, 0.2), 1))
+                if lockAspectRatio, current.width > 0, current.height > 0 {
+                    let scale = min(maximum.width / current.width, maximum.height / current.height)
+                    resolvedSize = CGSize(width: current.width * scale, height: current.height * scale)
+                } else { resolvedSize = maximum }
             }
-
-            let scaleFactor = min(maxWidth / currentSize.width, maxHeight / currentSize.height)
-            targetSize = CGSize(width: currentSize.width * scaleFactor, height: currentSize.height * scaleFactor)
-        } else {
-            targetSize = CGSize(width: maxWidth, height: maxHeight)
-        }
-
-        let targetFrame = WindowPositionRect.center.frame(in: visibleFrame, currentSize: targetSize)
-        setWindowFrame(targetFrame)
+            return (target.apply(rect.frame(in: screen.bounds, currentSize: resolvedSize), primaryMaxY: context.primaryMaxY,
+                                 cancellation: cancellation, captureFrame: false), screen.identifier)
+        } ?? nil
+        publishFrameResult(placement?.0, screenIdentifier: placement?.1, active: !Task.isCancelled)
+        return !Task.isCancelled && placement?.0.applied == true
     }
 
     @discardableResult

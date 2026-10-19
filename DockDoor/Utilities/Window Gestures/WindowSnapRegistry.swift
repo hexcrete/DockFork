@@ -50,6 +50,7 @@ final class WindowSnapRegistry: @unchecked Sendable {
     private struct PendingChange {
         let token: UUID
         var mouseIsDown: Bool
+        var revision = 0
     }
 
     private var pendingChanges: [PreviewWindowIdentity: PendingChange] = [:]
@@ -61,19 +62,28 @@ final class WindowSnapRegistry: @unchecked Sendable {
         return lock.withLock { records[PreviewWindowIdentity(window)] }
     }
 
-    func snapped(_ window: WindowInfo, restoreFrame: CGRect, origin: Origin = .gesture, confirmedDestination: ManagedSpaceDestination? = nil) {
+    @MainActor
+    func snapped(_ window: WindowInfo, restoreFrame: CGRect, origin: Origin = .gesture, confirmedDestination: ManagedSpaceDestination? = nil) async {
         guard origin.isEnabled else { return }
-        let spaces = WindowSpaces.sourceSpaceIDs(for: window)
-        guard spaces.count == 1, let spaceID = spaces.first,
-              (confirmedDestination ?? WindowSpaces.destination(forSpaceID: spaceID))?.space.kind == .desktop,
-              let frame = window.currentWindowFrame(),
-              let screen = NSScreen.screen(containing: frame)
-        else { return }
-        guard confirmedDestination == nil || confirmedDestination?.space.id == spaceID else { return }
-        let record = Record(origin: origin, identity: PreviewWindowIdentity(window), element: window.axElement, ownerPID: window.ownerApp.processIdentifier,
-                            snappedFrame: frame, restoreFrame: restoreFrame,
-                            screenIdentifier: screen.uniqueIdentifier(), spaceID: spaceID)
-        guard isLive(record, window: window, frame: frame) else { return }
+        let target = window.frameTarget, context = WindowFrameContext()
+        let fallbackSpace = window.spaceID, hidden = window.app.isHidden
+        let topology = WindowSpaces.managedDisplays()
+        let candidate = await WindowFrameTransactions.run(for: target.ownerPID) { cancellation -> Record? in
+            guard !cancellation.isCancelled else { return nil }
+            let reported = target.identity.windowID.cgsSpaces()
+            let spaces = Set(reported.isEmpty ? fallbackSpace.map { [CGSSpaceID($0)] } ?? [] : reported)
+            guard spaces.count == 1, let spaceID = spaces.first,
+                  (confirmedDestination ?? WindowSpaces.destination(forSpaceID: spaceID, in: topology))?.space.kind == .desktop,
+                  !cancellation.isCancelled, let frame = target.frame(primaryMaxY: context.primaryMaxY, cancellation: cancellation),
+                  let screen = context.screen(containing: frame),
+                  confirmedDestination == nil || confirmedDestination?.space.id == spaceID
+            else { return nil }
+            let record = Record(origin: origin, identity: target.identity, element: target.element, ownerPID: target.ownerPID,
+                                snappedFrame: frame, restoreFrame: restoreFrame, screenIdentifier: screen.identifier, spaceID: spaceID)
+            guard !cancellation.isCancelled, Self.isLive(record, hidden: hidden, frame: frame, context: context, fallbackSpace: fallbackSpace, cancellation: cancellation) else { return nil }
+            return record
+        } ?? nil
+        guard !Task.isCancelled, origin.isEnabled, let record = candidate else { return }
         lock.withLock {
             if let old = identitiesByWindowID[record.identity.windowID] { records.removeValue(forKey: old) }
             records[record.identity] = record
@@ -84,19 +94,22 @@ final class WindowSnapRegistry: @unchecked Sendable {
     @discardableResult
     func remove(_ identity: PreviewWindowIdentity) -> Record? {
         lock.withLock {
+            pendingChanges.removeValue(forKey: identity)
             guard let removed = records.removeValue(forKey: identity) else { return nil }
             if identitiesByWindowID[identity.windowID] == identity { identitiesByWindowID.removeValue(forKey: identity.windowID) }
             return removed
         }
     }
 
-    func liveRecord(for window: WindowInfo) -> Record? {
+    @MainActor
+    func liveRecord(for window: WindowInfo) async -> Record? {
         guard let record = record(for: window) else { return nil }
-        guard let frame = window.currentWindowFrame(), Self.matches(frame, record.snappedFrame), isLive(record, window: window, frame: frame) else {
-            replace(record, with: nil)
+        let context = WindowFrameContext()
+        guard let frame = await liveFrame(record, context: context), Self.matches(frame, record.snappedFrame) else {
+            if !Task.isCancelled { replace(record, with: nil) }
             return nil
         }
-        return record
+        return !Task.isCancelled && isCurrent(record) ? record : nil
     }
 
     func windowFrameChanged(_ element: AXUIElement, mouseIsDown: Bool) {
@@ -108,6 +121,7 @@ final class WindowSnapRegistry: @unchecked Sendable {
             guard let record = records[identity], record.ownerPID == pid else { return nil }
             if var pending = pendingChanges[identity], pending.token == record.token {
                 pending.mouseIsDown = pending.mouseIsDown || mouseIsDown
+                pending.revision += 1
                 pendingChanges[identity] = pending
                 return nil
             }
@@ -117,28 +131,51 @@ final class WindowSnapRegistry: @unchecked Sendable {
         guard let token else { return }
         queue.async { [weak self] in
             guard let self else { return }
-            let change = lock.withLock {
-                self.pendingChanges[identity]?.token == token ? self.pendingChanges.removeValue(forKey: identity) : nil
+            Task { [weak self] in
+                guard let self else { return }
+                let context = await MainActor.run { WindowFrameContext() }
+                while let change = lock.withLock({ self.pendingChanges[identity] }), change.token == token {
+                    guard let record = lock.withLock({ self.records[identity] }), record.token == token else {
+                        lock.withLock { if self.pendingChanges[identity]?.token == token { self.pendingChanges.removeValue(forKey: identity) } }
+                        return
+                    }
+                    await handleFrameChange(record, mouseIsDown: change.mouseIsDown, context: context)
+                    let finished = lock.withLock {
+                        guard self.pendingChanges[identity]?.token == token else { return true }
+                        guard self.pendingChanges[identity]?.revision == change.revision else { return false }
+                        self.pendingChanges.removeValue(forKey: identity)
+                        return true
+                    }
+                    if finished { return }
+                }
             }
-            guard let change else { return }
-            guard let record = lock.withLock({ self.records[identity] }), record.token == token else { return }
-            handleFrameChange(record, mouseIsDown: change.mouseIsDown)
         }
     }
 
-    private func resolve(_ record: Record) -> WindowInfo? {
-        guard let app = LauncherShortcutResolver.application(forProcessIdentifier: record.identity.pid), !app.isTerminated,
-              (try? record.element.cgWindowId()) == record.identity.windowID
-        else { return nil }
-        return WindowUtil.windowInfo(for: record.element, app: app, windowID: record.identity.windowID)
+    private static func isLive(_ record: Record, hidden: Bool, frame: CGRect, context: WindowFrameContext, fallbackSpace: Int?,
+                               cancellation: WindowFrameTransactions.Cancellation) -> Bool
+    {
+        guard !hidden, !cancellation.isCancelled, (try? record.element.isMinimized()) == false,
+              !cancellation.isCancelled, (try? record.element.isFullscreen()) == false,
+              !cancellation.isCancelled,
+              context.screen(containing: frame)?.identifier == record.screenIdentifier else { return false }
+        let reported = record.identity.windowID.cgsSpaces()
+        let spaces = Set(reported.isEmpty ? fallbackSpace.map { [CGSSpaceID($0)] } ?? [] : reported)
+        return spaces == Set([record.spaceID])
     }
 
-    private func isLive(_ record: Record, window: WindowInfo, frame: CGRect) -> Bool {
-        !window.app.isHidden &&
-            (try? record.element.isMinimized()) == false &&
-            (try? record.element.isFullscreen()) == false &&
-            WindowSpaces.sourceSpaceIDs(for: window) == Set([record.spaceID]) &&
-            NSScreen.screen(containing: frame)?.uniqueIdentifier() == record.screenIdentifier
+    private func liveFrame(_ record: Record, context: WindowFrameContext) async -> CGRect? {
+        guard let app = LauncherShortcutResolver.application(forProcessIdentifier: record.identity.pid), !app.isTerminated else { return nil }
+        let hidden = app.isHidden
+        let fallbackSpace = WindowUtil.readCachedWindows(for: record.identity.pid).first { $0.id == record.identity.windowID }?.spaceID ?? Int(record.spaceID)
+        let target = WindowFrameTarget(element: record.element, application: AXUIElementCreateApplication(record.ownerPID), ownerPID: record.ownerPID, identity: record.identity)
+        return await WindowFrameTransactions.run(for: record.ownerPID) { cancellation in
+            guard !cancellation.isCancelled, (try? record.element.cgWindowId()) == record.identity.windowID,
+                  !cancellation.isCancelled, let frame = target.frame(primaryMaxY: context.primaryMaxY, cancellation: cancellation),
+                  !cancellation.isCancelled, Self.isLive(record, hidden: hidden, frame: frame, context: context, fallbackSpace: fallbackSpace, cancellation: cancellation)
+            else { return nil as CGRect? }
+            return frame
+        } ?? nil
     }
 
     func removeDisabledRecords() {
@@ -153,7 +190,7 @@ final class WindowSnapRegistry: @unchecked Sendable {
             }
         }
         for record in stale {
-            replace(record, with: nil)
+            replace(record, with: nil, matchingFrame: false)
         }
     }
 
@@ -187,7 +224,7 @@ final class WindowSnapRegistry: @unchecked Sendable {
             guard let self else { return }
             for (identity, token) in invalidated {
                 guard let record = lock.withLock({ self.records[identity] }), record.token == token else { continue }
-                replace(record, with: nil)
+                replace(record, with: nil, matchingFrame: false)
             }
         }
     }
@@ -196,8 +233,8 @@ final class WindowSnapRegistry: @unchecked Sendable {
         lock.withLock { records[record.identity]?.token == record.token && records[record.identity]?.snappedFrame == record.snappedFrame }
     }
 
-    private func handleFrameChange(_ record: Record, mouseIsDown: Bool) {
-        guard let window = resolve(record), let frame = window.currentWindowFrame(), isLive(record, window: window, frame: frame) else {
+    private func handleFrameChange(_ record: Record, mouseIsDown: Bool, context: WindowFrameContext) async {
+        guard let frame = await liveFrame(record, context: context) else {
             replace(record, with: nil)
             return
         }
@@ -206,47 +243,70 @@ final class WindowSnapRegistry: @unchecked Sendable {
             replace(record, with: nil)
             return
         }
-        if Self.matches(frame.size, record.snappedFrame.size) { unsnap(record, draggedTo: frame) }
-        else { resizeNeighbors(of: record, to: frame) }
+        if Self.matches(frame.size, record.snappedFrame.size) { await unsnap(record, draggedTo: frame, context: context) }
+        else { await resizeNeighbors(of: record, to: frame, context: context) }
     }
 
-    private func unsnap(_ record: Record, draggedTo frame: CGRect) {
+    private func apply(_ frame: CGRect, to record: Record, context: WindowFrameContext, source: Record? = nil) async -> WindowFrameTarget.Result? {
+        let target = WindowFrameTarget(element: record.element, application: AXUIElementCreateApplication(record.ownerPID), ownerPID: record.ownerPID, identity: record.identity)
+        let result = await WindowFrameTransactions.run(for: record.ownerPID) { [self] cancellation -> WindowFrameTarget.Result? in
+            guard !cancellation.isCancelled, record.origin.isEnabled,
+                  source.map({ isCurrent($0) && isCurrent(record) }) ?? lock.withLock({ pendingChanges[record.identity]?.token == record.token })
+            else { return nil }
+            let result = target.apply(frame, primaryMaxY: context.primaryMaxY, cancellation: cancellation, preservesSnapRecord: true)
+            if source != nil {
+                // Publish the linked frame before the next queued AX read can observe its notification.
+                if result.applied, let actual = result.frame, Self.matches(actual, frame, tolerance: 1) {
+                    var updated = record
+                    updated.snappedFrame = actual
+                    replace(record, with: updated)
+                } else { replace(record, with: nil) }
+            }
+            return result
+        } ?? nil
+        if result?.attempted == true {
+            await MainActor.run {
+                if let window = WindowUtil.readCachedWindows(for: record.identity.pid).first(where: { $0.id == record.identity.windowID }) {
+                    WindowUtil.refreshCachedPreviewAfterProgrammaticResize(window, targetScreenIdentifier: record.screenIdentifier)
+                } else {
+                    WindowUtil.scheduleCachedWindowMetadataReconciliation(pid: record.identity.pid, windowID: record.identity.windowID)
+                }
+            }
+        }
+        return result
+    }
+
+    private func unsnap(_ record: Record, draggedTo frame: CGRect, context: WindowFrameContext) async {
         guard isCurrent(record) else { return }
         replace(record, with: nil)
-        guard let screen = NSScreen.screen(containing: frame) else { return }
-        let bounds = screen.snappingFrame
+        guard let screen = context.screen(containing: frame) else { return }
+        let bounds = screen.bounds
         let size = CGSize(width: min(record.restoreFrame.width, bounds.width), height: min(record.restoreFrame.height, bounds.height))
-        let cursorX = DockObserver.getMousePosition().x
+        let cursorX = await MainActor.run { DockObserver.getMousePosition().x }
         let fraction = frame.width > 0 ? min(1, max(0, (cursorX - frame.minX) / frame.width)) : 0.5
         let x = min(max(cursorX - fraction * size.width, bounds.minX), bounds.maxX - size.width)
         let y = min(max(frame.maxY - size.height, bounds.minY), bounds.maxY - size.height)
-        resolve(record)?.applyFrame(CGRect(origin: CGPoint(x: x.rounded(), y: y.rounded()), size: size))
+        _ = await apply(CGRect(origin: CGPoint(x: x.rounded(), y: y.rounded()), size: size), to: record, context: context)
     }
 
-    private func resizeNeighbors(of record: Record, to frame: CGRect) {
+    private func resizeNeighbors(of record: Record, to frame: CGRect, context: WindowFrameContext) async {
         let neighbors = lock.withLock {
             records.values.filter { $0.identity != record.identity && $0.origin == record.origin && $0.screenIdentifier == record.screenIdentifier && $0.spaceID == record.spaceID }
         }
         let possible = Self.linkedFrames([record.snappedFrame] + neighbors.map(\.snappedFrame), movingFirstTo: frame)
-        var eligible: [(Record, WindowInfo)] = []
+        var eligible: [Record] = []
         for (index, neighbor) in neighbors.enumerated() where possible[index + 1] != nil {
-            guard let window = resolve(neighbor), let actual = window.currentWindowFrame(),
-                  Self.matches(actual, neighbor.snappedFrame), isLive(neighbor, window: window, frame: actual)
-            else { replace(neighbor, with: nil); continue }
-            eligible.append((neighbor, window))
+            guard let actual = await liveFrame(neighbor, context: context), Self.matches(actual, neighbor.snappedFrame) else {
+                replace(neighbor, with: nil); continue
+            }
+            eligible.append(neighbor)
         }
-        let targets = Self.linkedFrames([record.snappedFrame] + eligible.map(\.0.snappedFrame), movingFirstTo: frame)
-        for (index, member) in eligible.enumerated() {
+        let targets = Self.linkedFrames([record.snappedFrame] + eligible.map(\.snappedFrame), movingFirstTo: frame)
+        for (index, neighbor) in eligible.enumerated() {
             guard isCurrent(record) else { return }
-            let (neighbor, window) = member
             guard let target = targets[index + 1], isCurrent(neighbor) else { continue }
-            let applied = window.applyFrame(target)
-            if applied, let actual = window.currentWindowFrame(), Self.matches(actual, target, tolerance: 1) {
-                var updated = neighbor
-                updated.snappedFrame = actual
-                replace(neighbor, with: updated)
-            } else {
-                replace(neighbor, with: nil)
+            guard let result = await apply(target, to: neighbor, context: context, source: record) else { continue }
+            if !result.applied || result.frame.map({ !Self.matches($0, target, tolerance: 1) }) != false {
                 DebugLogger.log("WindowSnapping", details: "Neighbor refused resize: PID \(neighbor.identity.pid), window \(neighbor.identity.windowID)")
             }
         }
@@ -255,9 +315,10 @@ final class WindowSnapRegistry: @unchecked Sendable {
         replace(record, with: updated)
     }
 
-    private func replace(_ record: Record, with updated: Record?) {
+    private func replace(_ record: Record, with updated: Record?, matchingFrame: Bool = true) {
         lock.withLock {
-            guard records[record.identity]?.token == record.token, updated == nil || records[record.identity]?.snappedFrame == record.snappedFrame else { return }
+            guard records[record.identity]?.token == record.token,
+                  (!matchingFrame && updated == nil) || records[record.identity]?.snappedFrame == record.snappedFrame else { return }
             records[record.identity] = updated
             if updated == nil, identitiesByWindowID[record.identity.windowID] == record.identity {
                 identitiesByWindowID.removeValue(forKey: record.identity.windowID)
