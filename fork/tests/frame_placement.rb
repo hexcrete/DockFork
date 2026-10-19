@@ -2,7 +2,7 @@
 # Exercises production AX placement using test doubles; never manipulates live windows.
 require 'tmpdir'
 def block(s,sig)
- a=s.index(sig) or abort sig;b=s.index('{',a);d=0
+ a=s.index(sig) or abort sig;b=s.index(/\{\n/,a);d=0
  (b...s.length).each{|i|d+=1 if s[i]=='{';d-=1 if s[i]=='}';return s[a..i] if d==0}
 end
 source=File.read(File.expand_path('../../DockDoor/Utilities/Window Management/WindowInfo.swift', __dir__))
@@ -15,7 +15,7 @@ final class Gate: @unchecked Sendable {let entered=DispatchSemaphore(value:0),re
  preconditionFailure("Worker never entered")
 }
 extension WindowFrameTransactions {static var testWorkerCount:Int {lock.withLock {workers.count}};static func testUsers(_ pid:pid_t)->Int {lock.withLock {workers[pid]?.users ?? 0}}}
-struct NSScreen {var frame=CGRect(x:0,y:0,width:1512,height:982);static let screens=[NSScreen()];static let main:NSScreen?=NSScreen();static func screen(containing frame:CGRect)->NSScreen? {NSScreen()};var snappingFrame:CGRect {frame};func uniqueIdentifier()->String {"test"}}
+struct NSScreen {var frame=CGRect(x:0,y:0,width:1512,height:982);var usableFrame:CGRect?;var identifier="test";var visibleFrame:CGRect {usableFrame ?? frame};static let screens=[NSScreen()];static let main:NSScreen?=NSScreen();static func screen(containing frame:CGRect)->NSScreen? {NSScreen()};var snappingFrame:CGRect {frame};func uniqueIdentifier()->String {identifier}}
 let kAXPositionAttribute="position",kAXSizeAttribute="size"
 enum FakeValue {case point(CGPoint),size(CGSize)}
 enum AXValue {static func from(point:CGPoint)->FakeValue? {.point(point)};static func from(size:CGSize)->FakeValue? {.size(size)}}
@@ -33,14 +33,14 @@ final class Model {
  static let application=Model()
  func attribute<T>(_ key:String,_ type:T.Type)throws->T? {precondition(!Thread.isMainThread);return try ModeAX.shared.attribute(key,type)}
  func setAttribute(_ key:String,_ value:Bool)throws {precondition(!Thread.isMainThread);try ModeAX.shared.setAttribute(key,value)}
- func position()throws->CGPoint? {precondition(!Thread.isMainThread);if let gate=readGate {readGate=nil;gate.entered.signal();gate.release.wait()};frameReads+=1;if noReadableFrame{return nil};if settlesOnSecondRead && frameReads==2,let origin=pendingOrigin {frame.origin=origin};return CGPoint(x:frame.minX,y:982-frame.maxY)}
+ func position()throws->CGPoint? {precondition(!Thread.isMainThread);calls.append("read position");if let gate=readGate {readGate=nil;gate.entered.signal();gate.release.wait()};frameReads+=1;if noReadableFrame{return nil};if settlesOnSecondRead && frameReads==2,let origin=pendingOrigin {frame.origin=origin};return CGPoint(x:frame.minX,y:982-frame.maxY)}
 
  var fullscreen=false;func isFullscreen()throws->Bool {precondition(!Thread.isMainThread);return fullscreen};var readGate:Gate?;var writeGate:Gate?;var frame=CGRect(x:20,y:30,width:400,height:300)
- var writes:[String]=[];var positionWrites=0;var ignorePositions=0;var fails=false;var minWidth:CGFloat=0
+ var calls:[String]=[];var sizeFailures:Set<Int>=[];var writes:[String]=[];var positionWrites=0;var ignorePositions=0;var fails=false;var minWidth:CGFloat=0
  var oldPositionHeightLimit:CGFloat=0;var rejectPosition=false;var rejectSize=false;var refreshes=0;var sizeReads=0;var frameReads=0;var settlesOnSecondRead=false;var pendingOrigin:CGPoint?;var noReadableFrame=false
- func size()throws->CGSize? {precondition(!Thread.isMainThread);sizeReads+=1;return fails ? nil : frame.size}
+ func size()throws->CGSize? {precondition(!Thread.isMainThread);calls.append("read size");sizeReads+=1;return fails || sizeFailures.contains(sizeReads) ? nil : frame.size}
  func setAttribute(_ key:String,_ value:FakeValue)throws {
-  writes.append(key)
+  precondition(!Thread.isMainThread);calls.append("write \(key)");writes.append(key)
   if fails || (rejectPosition && key==kAXPositionAttribute) || (rejectSize && key==kAXSizeAttribute) {throw NSError(domain:"AX",code:1)}
   switch value {
    case let .point(p):positionWrites+=1;let origin=CGPoint(x:p.x,y:982-p.y-frame.height);if positionWrites>ignorePositions {frame.origin=origin} else {pendingOrigin=origin}
@@ -48,13 +48,24 @@ final class Model {
   }
  }
 }
-enum WindowUtil {static var reconciliations=0;static func scheduleCachedWindowMetadataReconciliation(pid:Int32,windowID:Int){reconciliations+=1};static func refreshCachedPreviewAfterProgrammaticResize(_ window:WindowInfo,targetScreenIdentifier:String) {window.axElement.refreshes+=1}}
+extension Int {func cgsSpaces()->[UInt64] {[1]}}
+enum WindowUtil {
+ static var reconciliations=0,captures=0
+ static var dragUpdates:[(CGRect,String?)]=[]
+ static var lastRefreshScreen:String?
+ static let programmaticResizeRefreshDelayNanos:UInt64=180_000_000
+ static func resetDragPublication() {reconciliations=0;captures=0;dragUpdates=[];lastRefreshScreen=nil}
+ static func scheduleCachedWindowMetadataReconciliation(pid:Int32,windowID:Int){reconciliations+=1}
+ static func refreshCachedPreviewAfterProgrammaticResize(_ window:WindowInfo,targetScreenIdentifier:String?) {window.axElement.refreshes+=1;captures+=1;lastRefreshScreen=targetScreenIdentifier}
+ static func updateCachedWindowState(_ window:WindowInfo,spaceID:Int?,screenIdentifier:String??,frame:CGRect) {dragUpdates.append((frame,screenIdentifier ?? nil))}
+ static func scheduleForcedPreviewRecapture(pid:Int32,windowID:Int,fallbackWindowInfo:WindowInfo?,targetScreenIdentifier:String?,delayNanos:UInt64) {captures+=1}
+}
 enum DebugLogger {static func log(_ name:String,details:String){}}
-struct PreviewWindowIdentity:Hashable {let pid:Int32,id:Int;init(_ w:WindowInfo){pid=w.app.processIdentifier;id=w.id}}
+struct PreviewWindowIdentity:Hashable {let pid:Int32,id:Int;var windowID:Int {id};init(_ w:WindowInfo){pid=w.app.processIdentifier;id=w.id}}
 final class FakeSnap {func remove(_ id:PreviewWindowIdentity){}}
 enum WindowSnapRegistry {static let existing:FakeSnap?=nil}
 struct WindowInfo {
- var id:Int=1;var app=App();let axElement:Model;var imageCapturedTime=Date(timeIntervalSince1970:0);var ownerApp:App {app}
+ var id:Int=1;var app=App();let axElement:Model;var imageCapturedTime=Date(timeIntervalSince1970:0);var isWindowlessApp=false;var spaceID:Int?=1;var ownerApp:App {app}
 SWIFT
 s=block(source,'enum WindowFramePlacementResult {')+"\n"+s
 s=block(source,'enum WindowFrameTransactions {')+"\n"+block(source,'struct WindowFrameContext {')+"\n"+block(source,'struct WindowFrameTarget {')+"\n"+s
@@ -99,6 +110,11 @@ s+=<<~'SWIFT'
  }
 SWIFT
 s+=refresh+"\n}\n"
+util=File.read(File.expand_path('../../DockDoor/Utilities/Window Management/WindowUtil.swift',__dir__))
+placement=block(util,'    static func placeWindowCentered(')
+abort 'Drag placement retains UI-thread AX calls' if placement.include?('axElement.')
+abort 'Group drop must await placement under its existing owner' unless block(util,'    static func placeDraggedWindows(').include?('await placeWindowCentered(window, at: center, on: screen, isRequestActive: isRequestActive)')
+s+="\nextension WindowUtil {\n"+block(util,'    struct WindowPlacementResult {')+"\n@MainActor\n"+placement+"\n}\n"
 s+=<<~'SWIFT'
 @main struct Checks { @MainActor static func main() async throws {
 let target=CGRect(x:50,y:100,width:700,height:600)
@@ -293,6 +309,85 @@ fullPreview.fullPreviewWindow=nil;captured.imageCapturedTime+=1
 fullPreview.refreshDisplayedFullPreview(after:[captured])
 precondition(fullPreview.fullPreviewRefresh==nil && captureModel.frameReads==readsBeforeClosed)
 print("PASS full-size cache refresh: displayed identity/image/geometry, unrelated/duplicate/stale update gates, latest-wins cancellation, hide/hover replacement/fade protection, unreadable-frame cleanup and no work without a visible panel")
+
+// Compare unchanged ordinary drop call counts and visible-frame placement, including another display.
+let dragScreen=NSScreen(frame:CGRect(x:0,y:0,width:1200,height:900),usableFrame:CGRect(x:0,y:40,width:1200,height:830),identifier:"destination")
+let dragCases:[(CGSize,CGPoint,CGRect)]=[
+ (CGSize(width:400,height:300),CGPoint(x:600,y:450),CGRect(x:400,y:300,width:400,height:300)),
+ (CGSize(width:400,height:300),CGPoint(x:-100,y:450),CGRect(x:0,y:300,width:400,height:300)),
+ (CGSize(width:400,height:300),CGPoint(x:2000,y:450),CGRect(x:800,y:300,width:400,height:300)),
+ (CGSize(width:400,height:300),CGPoint(x:600,y:-100),CGRect(x:400,y:40,width:400,height:300)),
+ (CGSize(width:400,height:300),CGPoint(x:600,y:2000),CGRect(x:400,y:570,width:400,height:300)),
+ (CGSize(width:1800,height:1100),CGPoint(x:600,y:450),CGRect(x:0,y:40,width:1200,height:830))
+]
+for (size,pointer,expected) in dragCases {
+ WindowUtil.resetDragPublication()
+ let model=Model();model.frame.size=size
+ let modeReads=ModeAX.shared.reads
+ let placement=await WindowUtil.placeWindowCentered(WindowInfo(axElement:model),at:pointer,on:dragScreen)
+ let fits=size.width<=1200 && size.height<=830
+ let calls=fits ? ["read size","read size","write position","read position","read size"] : ["read size","write size","read size","write position","read position","read size"]
+ precondition(placement != nil && model.frame==expected && model.calls==calls)
+ precondition(placement!.frame==CGRect(x:expected.minX,y:982-expected.maxY,width:expected.width,height:expected.height) && placement!.screenIdentifier=="destination")
+ precondition(WindowUtil.dragUpdates.count==1 && WindowUtil.dragUpdates[0].0==placement!.frame && WindowUtil.captures==1 && WindowUtil.reconciliations==1)
+ precondition(ModeAX.shared.reads==modeReads,"Drag changed the inherited Enhanced UI policy")
+}
+WindowUtil.resetDragPublication()
+let constrainedDrag=Model();constrainedDrag.frame.size=CGSize(width:1800,height:1100);constrainedDrag.minWidth=1400
+let constrainedDrop=await WindowUtil.placeWindowCentered(WindowInfo(axElement:constrainedDrag),at:CGPoint(x:600,y:450),on:dragScreen)
+precondition(constrainedDrop != nil && constrainedDrag.frame==CGRect(x:-100,y:40,width:1400,height:830))
+let otherScreen=NSScreen(frame:CGRect(x:-1440,y:-600,width:1440,height:900),usableFrame:CGRect(x:-1440,y:-560,width:1440,height:820),identifier:"other-display")
+let otherGeometry=Model()
+let otherDrop=await WindowUtil.placeWindowCentered(WindowInfo(axElement:otherGeometry),at:CGPoint(x:-200,y:-800),on:otherScreen)
+precondition(otherDrop != nil && otherGeometry.frame==CGRect(x:-400,y:-560,width:400,height:300) && otherDrop!.screenIdentifier=="other-display")
+print("PASS drag geometry/call counts: center, every edge, usable rather than snapping bounds, oversized fitting, app minimum size, negative-coordinate display and AX-coordinate cache publication")
+
+for kind in 0..<5 {
+ WindowUtil.resetDragPublication()
+ let model=Model()
+ var info=WindowInfo(axElement:model)
+ if kind==0 {model.fails=true}
+ if kind==1 {info.isWindowlessApp=true}
+ if kind==2 {model.frame.size = .zero}
+ if kind==3 {model.rejectPosition=true}
+ let result=await WindowUtil.placeWindowCentered(info,at:CGPoint(x:500,y:500),on:dragScreen,isRequestActive:{kind != 4})
+ precondition(result==nil && WindowUtil.dragUpdates.isEmpty && WindowUtil.captures==0)
+ precondition(WindowUtil.reconciliations==(kind==3 ? 1 : 0))
+ if kind==1 || kind==4 {precondition(model.calls.isEmpty)}
+}
+WindowUtil.resetDragPublication()
+let partialDrag=Model();partialDrag.frame.size=CGSize(width:1800,height:1100);partialDrag.rejectPosition=true
+let partialDrop=await WindowUtil.placeWindowCentered(WindowInfo(axElement:partialDrag),at:CGPoint(x:500,y:500),on:dragScreen)
+precondition(partialDrop==nil && WindowUtil.dragUpdates.isEmpty && partialDrag.refreshes==1 && WindowUtil.lastRefreshScreen==nil && WindowUtil.reconciliations==1)
+let readFallback=Model();readFallback.noReadableFrame=true;readFallback.sizeFailures=[3]
+let fallbackDrop=await WindowUtil.placeWindowCentered(WindowInfo(axElement:readFallback),at:CGPoint(x:600,y:450),on:dragScreen)
+precondition(fallbackDrop != nil && fallbackDrop!.frame==CGRect(x:400,y:382,width:400,height:300))
+print("PASS drag failures: invalid/windowless/stale targets, partial resize reconciliation without optimistic display/frame cache, and unchanged accepted-position/readback fallback")
+
+WindowUtil.resetDragPublication()
+let fitGate=Gate(), pendingDrag=Model();pendingDrag.frame.size=CGSize(width:1800,height:1100);pendingDrag.writeGate=fitGate
+let pendingDrop=Task {await WindowUtil.placeWindowCentered(WindowInfo(axElement:pendingDrag),at:CGPoint(x:500,y:500),on:dragScreen)}
+try await waitEntered(fitGate)
+let anotherDrag=Model()
+let anotherDrop=await WindowUtil.placeWindowCentered(WindowInfo(app:App(processIdentifier:2),axElement:anotherDrag),at:CGPoint(x:600,y:450),on:dragScreen)
+precondition(anotherDrop != nil && pendingDrag.writes==["size"])
+pendingDrop.cancel();fitGate.release.signal()
+let cancelledDrop=await pendingDrop.value
+precondition(cancelledDrop==nil && pendingDrag.writes==["size"] && WindowUtil.dragUpdates.count==1 && WindowUtil.captures==1 && WindowUtil.reconciliations==2)
+
+WindowUtil.resetDragPublication()
+let sharedGate=Gate(), sharedResize=Model();sharedResize.writeGate=sharedGate
+let runningResize=Task {await WindowInfo(axElement:sharedResize).setWindowFrameResult(target,on:screen,isRequestActive:{true})}
+try await waitEntered(sharedGate)
+let queuedDrag=Model()
+let queuedDrop=Task {await WindowUtil.placeWindowCentered(WindowInfo(axElement:queuedDrag),at:CGPoint(x:500,y:500),on:dragScreen)}
+for _ in 0..<2000 {if WindowFrameTransactions.testUsers(1)==2 {break};try await Task.sleep(nanoseconds:1_000_000)}
+precondition(WindowFrameTransactions.testUsers(1)==2 && queuedDrag.calls.isEmpty,"Drag bypassed the application's active frame transaction")
+queuedDrop.cancel();sharedGate.release.signal()
+_ = await runningResize.value
+let cancelledQueuedDrop=await queuedDrop.value
+precondition(cancelledQueuedDrop==nil && queuedDrag.calls.isEmpty && WindowUtil.dragUpdates.isEmpty && WindowFrameTransactions.testWorkerCount==0)
+print("PASS drag transaction ownership: main-actor progress during held fitting AX, independent apps, same-app resize/drag serialization, queued/in-flight cancellation, no stale publication and queue cleanup")
 
 }}
 SWIFT

@@ -69,6 +69,7 @@ struct NSScreen {
  static func screen(containing frame: CGRect) -> Self? { frame.minX >= 5000 ? nil : Self() }
  func uniqueIdentifier() -> String { "display" }
  var snappingFrame: CGRect { CGRect(x: 0, y: 0, width: 1800, height: 1200) }
+ var visibleFrame: CGRect { CGRect(x:0,y:30,width:1800,height:1140) }
 }
 extension CGPoint { func screen() -> NSScreen? { NSScreen() } }
 enum NSEvent { static var mouseLocation = CGPoint.zero }
@@ -131,9 +132,10 @@ enum DebugLogger { static func log(_ label: String, details: String) {} }
 @MainActor enum Model {
  static var placements = 0, moves = 0
  static var focus: [CGWindowID] = []
+ static var dragPlacements:[(CGWindowID,CGPoint)]=[]
  static var afterPlacement: ((Int) -> Void)?
  static var active = true
- static func reset() { placements = 0; moves = 0; focus = []; afterPlacement = nil; active = true }
+ static func reset() { dragPlacements=[];placements = 0; moves = 0; focus = []; afterPlacement = nil; active = true }
 }
 enum ActionFeedbackOutcome { case completed, requested, failed, cancelled }
 struct ActionFeedbackHandle {
@@ -143,7 +145,16 @@ struct ActionFeedbackHandle {
 enum WindowUtil {
  static func refreshCachedPreviewAfterProgrammaticResize(_ window:WindowInfo,targetScreenIdentifier:String) {}
  static func scheduleCachedWindowMetadataReconciliation(pid:pid_t,windowID:CGWindowID) {}
- static var cachedWindows: [WindowInfo] = []
+struct WindowPlacementResult {}
+@MainActor static func placeWindowCentered(_ window:WindowInfo,at center:CGPoint,on screen:NSScreen,isRequestActive:@escaping @MainActor ()->Bool) async -> WindowPlacementResult? {
+ await Task.yield()
+ guard !Task.isCancelled,isRequestActive() else {return nil}
+ precondition(!window.app.isHidden && !window.axElement.minimized && window.axElement.spaces==[1],"Placement preceded confirmed move/reveal")
+ Model.dragPlacements.append((window.id,center));Model.placements+=1;Model.afterPlacement?(Model.placements)
+ return window.axElement.refuses ? nil : WindowPlacementResult()
+}
+static var cachedWindows: [WindowInfo] = []
+
  static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { cachedWindows.filter { $0.app.processIdentifier == pid } }
  static var activeSpaces: Set<Int> = [1]
  static func currentActiveSpaceIDs() -> Set<Int> { activeSpaces }
@@ -201,6 +212,7 @@ struct WindowFrameTarget {
 SWIFT
 source = block(info, 'enum WindowFrameTransactions {') + "\n" + stubs + block(util, '    struct PreviewBatchResult') + "\n" + block(util, '    @MainActor\n    static func tilePreviewWindows('.gsub('\\n', "\n")) + "\n" + block(util, '    @MainActor\n    private static func performWindowGroupPlacement('.gsub('\\n', "\n")) + "\n}\n" + registry + "\n" + block(info, 'enum PreviewTilingLayout {') + "\n" + block(info, 'enum WindowFramePlacementResult {')
 drag = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/DragPreviewCoordinator.swift")
+source += "\n"+block(drag,'struct PreviewDragTarget {')+"\n"+block(drag,'enum PreviewDragLayout {')+"\nextension WindowUtil {\n@MainActor\n"+block(util,'    static func placeDraggedWindows(')+"\n}\n"
 abort 'A new drag must cancel the prior released drop' unless block(drag, '    func startDragging(').include?('cancelPendingDrop()')
 abort 'Ghost cleanup must not cancel a released drop' if block(drag, '    func endDragging(').include?('cancelPendingDrop()')
 source += "\n@MainActor final class DragPreviewCoordinator {\nprivate var dropToken: UUID?\nprivate var dropTask: Task<Void, Never>?\n"
@@ -647,7 +659,34 @@ print("PASS programmatic linked notifications: measured state is published befor
   for _ in 0..<200 where !finalReplied { try? await Task.sleep(nanoseconds: 5_000_000) }
   precondition(finalReplied && !staleStarted)
   print("PASS released drops: preview closure does not interrupt four-window foregrounding; newer requests cancel stale work and replies; completed task/token cleared")
-  print("PASS all production-flow checks; OS calls are simulated, native interaction remains a separate test")
+Model.reset();Defaults.foreground=false
+let moving=windows(3), pointer=CGPoint(x:100,y:80)
+moving[0].axElement.spaces=[2];moving[0].app.isHidden=true;moving[0].axElement.minimized=true
+let targets=moving.enumerated().map {index,window in PreviewDragTarget(window:window,originalFrame:CGRect(x:index*450,y:100,width:420,height:320))}
+let expectedCenters=PreviewDragLayout.centers(for:targets.map(\.originalFrame),at:pointer,within:NSScreen().visibleFrame)!
+let dragOwner=DragPreviewCoordinator(), releasedToken=UUID()
+var dragFinished=false, dragPreviewVisible=true
+Model.afterPlacement={_ in dragPreviewVisible=false}
+dragOwner.completeDrop(token:releasedToken,operation:{
+ await WindowUtil.placeDraggedWindows(targets,at:pointer,on:NSScreen(),destination:WindowSpaces.destination(forSpaceID:1)!,isRequestActive:{dragOwner.isCompletingDrop(token:releasedToken)})
+},completion:{result in
+ precondition(result.failed.isEmpty && result.succeeded.map(\.id)==moving.map(\.id));dragFinished=true
+})
+for _ in 0..<200 where !dragFinished {try? await Task.sleep(nanoseconds:5_000_000)}
+precondition(dragFinished && !dragPreviewVisible && Model.moves==1 && Model.focus==moving.reversed().map(\.id))
+precondition(Model.dragPlacements.map(\.0)==moving.map(\.id) && Model.dragPlacements.map(\.1)==expectedCenters)
+precondition(!dragOwner.isCompletingDrop(token:releasedToken))
+Model.reset();let partiallyMovable=windows(3);partiallyMovable[1].axElement.refuses=true
+let partialTargets=partiallyMovable.map {PreviewDragTarget(window:$0,originalFrame:$0.axElement.frame)}
+let partialDrop=await WindowUtil.placeDraggedWindows(partialTargets,at:.zero,on:NSScreen(),destination:WindowSpaces.destination(forSpaceID:1)!,isRequestActive:{true})
+precondition(partialDrop.succeeded.map(\.id)==[partiallyMovable[0].id,partiallyMovable[2].id] && partialDrop.failed==[PreviewWindowIdentity(partiallyMovable[1])])
+precondition(Model.focus==[partiallyMovable[2].id,partiallyMovable[0].id])
+Model.reset()
+let invalidDrop=await WindowUtil.placeDraggedWindows([PreviewDragTarget(window:partiallyMovable[0],originalFrame:.zero)],at:.zero,on:NSScreen(),destination:WindowSpaces.destination(forSpaceID:1)!,isRequestActive:{true})
+precondition(invalidDrop.succeeded.isEmpty && invalidDrop.failed.count==1 && Model.moves==0 && Model.dragPlacements.isEmpty && Model.focus.isEmpty)
+print("PASS released group drops: Space confirmation/reveal precedes placement, formation uses visible bounds, foreground order ignores resize preference, preview disappearance retains operation, partial failures and invalid-frame no-op")
+print("PASS all production-flow checks; OS calls are simulated, native interaction remains a separate test")
+
  }
 }
 SWIFT

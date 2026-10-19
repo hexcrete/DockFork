@@ -299,6 +299,51 @@ struct WindowFrameTarget {
         if captureFrame, readBack, !cancellation.isCancelled { result.frame = frame(primaryMaxY: primaryMaxY, cancellation: cancellation) }
         return result
     }
+
+    func placeCentered(at pointer: CGPoint, within bounds: CGRect, primaryMaxY: CGFloat,
+                       cancellation: WindowFrameTransactions.Cancellation) -> Result
+    {
+        var result = Result()
+        guard !cancellation.isCancelled, let windowSize = try? element.size(),
+              windowSize.width > 0, windowSize.height > 0, !cancellation.isCancelled
+        else { return result }
+        WindowSnapRegistry.existing?.remove(identity)
+        let fittedSize = CGSize(width: min(windowSize.width, bounds.width), height: min(windowSize.height, bounds.height))
+        if fittedSize != windowSize, let value = AXValue.from(size: fittedSize) {
+            result.attempted = true
+            result.accepted = (try? element.setAttribute(kAXSizeAttribute, value)) != nil
+        }
+        guard !cancellation.isCancelled else { return result }
+        let resolvedSize = (try? element.size()) ?? fittedSize
+        guard !cancellation.isCancelled else { return result }
+        let origin = CGPoint(x: Self.clampedCenteredOrigin(pointer: pointer.x, length: resolvedSize.width, minimum: bounds.minX, maximum: bounds.maxX),
+                             y: Self.clampedCenteredOrigin(pointer: pointer.y, length: resolvedSize.height, minimum: bounds.minY, maximum: bounds.maxY))
+        let position = CGPoint(x: origin.x, y: primaryMaxY - origin.y - resolvedSize.height)
+        guard let value = AXValue.from(point: position) else { return result }
+        do {
+            result.attempted = true
+            try element.setAttribute(kAXPositionAttribute, value)
+        } catch {
+            DebugLogger.log("WindowUtil.placeWindowCentered", details: "Failed to position window \(identity.windowID): \(error)")
+            return result
+        }
+        result.applied = true
+        result.accepted = true
+        guard !cancellation.isCancelled else { return result }
+        let actualPosition = (try? element.position()) ?? position
+        guard !cancellation.isCancelled else { return result }
+        let actualSize = (try? element.size()) ?? resolvedSize
+        guard !cancellation.isCancelled else { return result }
+        result.frame = CGRect(x: actualPosition.x, y: primaryMaxY - actualPosition.y - actualSize.height,
+                              width: actualSize.width, height: actualSize.height)
+        return result
+    }
+
+    private static func clampedCenteredOrigin(pointer: CGFloat, length: CGFloat, minimum: CGFloat, maximum: CGFloat) -> CGFloat {
+        let availableLength = maximum - minimum
+        guard length <= availableLength else { return minimum + (availableLength - length) / 2 }
+        return min(max(pointer - length / 2, minimum), maximum - length)
+    }
 }
 
 struct WindowInfo: Identifiable, Hashable {
