@@ -25,7 +25,7 @@ end
 restore = block(File.read("#{ROOT}/DockDoor/Utilities/KeybindHelper.swift"), '    private func switchToLastFocusedWindow(')
 abort 'Last-focused restoration must confirm before activation' unless restore.index('await WindowUtil.revealWindowConfirmed') < restore.index('await targetWindow.bringToFrontConfirmed')
 abort 'Last-focused restoration still uses synchronous toggles' if restore.match?(/toggleHidden|toggleMinimize|isEffectivelyHiddenForUI/)
-batch = block(util, '    static func performPreviewBatchAction(')
+batch = block(util, '    static func performPreviewBatchAction(') + block(util, '    private static func executePreviewAction(')
 abort 'Hide retains main-actor fullscreen scan' if batch.include?('hasOnlyFullscreenWindows')
 info = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowInfo.swift")
 abort 'Bypassed synchronous visibility toggles remain' if info.match?(/func toggleHidden\(|func toggleFullScreen\(/)

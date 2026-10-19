@@ -227,8 +227,8 @@ source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    va
 source += "}\n"
 coordinator = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
 dispatch = block(coordinator, '    private func performPreviewBatchAction(')
-consume = dispatch.index('windowSwitcherCoordinator.consumeWindowlessSelection(in: targets)')
-abort 'Consume windowless checks at dispatch, not in a late completion' unless consume && consume < dispatch.index('previewBatchTask = Task')
+consume = dispatch.index('windowSwitcherCoordinator.consumeWindowlessSelection(in: admittedTargets)')
+abort 'Consume windowless checks at dispatch, not in a late completion' unless consume && consume < dispatch.index('let task = Task')
 action_guard = block(coordinator, '    func performCheckedWindowAction(').split('        if action == .bringToCurrentSpace').first
 space_guard = block(coordinator, '    func performCheckedSpaceMove(').split('        let feedback =').first
 source += "@MainActor final class ActionHarness { let windowSwitcherCoordinator: SelectionHarness; init(_ selection: SelectionHarness) { windowSwitcherCoordinator = selection }\n"
@@ -247,8 +247,9 @@ source += "@MainActor final class SelectionHarness { var selection = SelectionSt
   source += block(selection, "    func #{name}(") + "\n"
 end
 source += "}\n"
+source += catalog[catalog.index('final class WindowActionRequest:')...catalog.index('enum PreviewBatchTogglePolicy {')] + "\n"
 source += "\nextension WindowUtil {\n" + block(util, '    static func canBringWindowToFrontWithoutSpaceSwitch(')
-source += "\n@MainActor static func finishIndependentFill(_ action: WindowAction, windows: [WindowInfo]) async -> PreviewBatchResult {\nvar result = PreviewBatchResult(succeeded: windows)\n"
+source += "\n@MainActor static func finishIndependentFill(_ action: WindowAction, windows: [WindowInfo]) async -> PreviewBatchResult {\nvar result = PreviewBatchResult(succeeded: windows)\nlet request = WindowActionOwnership.shared.begin(windows.map(PreviewWindowIdentity.init)); defer { request.finish() }\n"
 source += block(util, '        if action.tilingDirection != nil || action == .maximize') + "\nreturn result\n}\n}\n"
 
 checks = <<~'SWIFT'

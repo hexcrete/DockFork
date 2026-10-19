@@ -393,38 +393,66 @@ abort 'Container must wait for Minimize All confirmation' unless container.inclu
 minimize_fixture = <<~'SWIFT'
 import Foundation
 let kAXMinimizedAttribute = "minimized"
-struct App { let bundleIdentifier: String? = "test"; let processIdentifier: Int32 = 1 }
+struct App { let bundleIdentifier: String? = "test"; var processIdentifier: Int32 = 1 }
 final class AX: @unchecked Sendable {
  let lock = NSLock()
  var desired = false, fullscreen = false, refuses = false
- var changeAt: Date?
- func isFullscreen() throws -> Bool { fullscreen }
+ var changeAt: Date?, fullscreenGate: Gate?, writeGate: Gate?
+ var settleDelay: TimeInterval = 0.07
+ private var writes: [Bool] = []
+ var writeValues: [Bool] { lock.withLock { writes } }
+ func isFullscreen() throws -> Bool {
+  precondition(!Thread.isMainThread)
+  let pending=lock.withLock {let value=fullscreenGate;fullscreenGate=nil;return value}
+  if let pending {pending.entered.signal();pending.release.wait()}
+  return lock.withLock {fullscreen}
+ }
  func isMinimized() throws -> Bool {
   lock.lock(); defer { lock.unlock() }
   return changeAt.map { Date() >= $0 && !refuses ? desired : !desired } ?? false
  }
  func setAttribute(_ key: String, _ value: Bool) throws {
-  lock.lock(); defer { lock.unlock() }
-  desired = value
-  if changeAt == nil { changeAt = Date().addingTimeInterval(0.07) }
+  precondition(!Thread.isMainThread)
+  let pending=lock.withLock {
+   writes.append(value);desired=value
+   if changeAt == nil {changeAt=Date().addingTimeInterval(settleDelay)}
+   let pending=writeGate;writeGate=nil;return pending
+  }
+  if let pending {pending.entered.signal();pending.release.wait()}
  }
 }
 struct WindowInfo: @unchecked Sendable {
  let id: UInt32
  var axElement = AX()
- let app = App()
+ var app = App()
+ var ownerApp: App { app }
  var isWindowlessApp = false
  var isFullscreen: Bool? = false
 }
-struct PreviewWindowIdentity: Hashable { let id: UInt32; init(_ w: WindowInfo) { id = w.id } }
+struct PreviewWindowIdentity: Hashable { let id: UInt32, pid: Int32; init(_ w: WindowInfo) { id = w.id; pid = w.app.processIdentifier } }
 enum WindowUtil {
- static var cached = Set<UInt32>()
- static func updateCachedWindowStates(for pid: Int32, matchingWindowIDs: Set<UInt32>, insertingMissing: [WindowInfo], isMinimized: Bool) { cached.formUnion(matchingWindowIDs) }
+ static var cached = Set<UInt32>(), reconciled = Set<UInt32>()
+ static var cachedStates: [UInt32: Bool] = [:]
+ static var quitOnClose = false
+ static func shouldQuitAppOnWindowClose(processIdentifier pid: Int32) -> Bool { quitOnClose }
+ static func scheduleCachedWindowMetadataReconciliation(pid: Int32, windowID: UInt32) {reconciled.insert(windowID)}
+ static func updateCachedWindowStates(for pid: Int32, matchingWindowIDs: Set<UInt32>, insertingMissing: [WindowInfo], isMinimized: Bool) { cached.formUnion(matchingWindowIDs);for id in matchingWindowIDs {cachedStates[id]=isMinimized} }
 SWIFT
+info_source = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowInfo.swift")
+transactions = info_source[info_source.index('enum WindowFrameTransactions {')...info_source.index('struct WindowFrameContext {')]
+catalog = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
+request_model = catalog[catalog.index('final class WindowActionRequest:')...catalog.index('enum PreviewBatchTogglePolicy {')]
+minimize_fixture.sub!("import Foundation\n", "import Foundation\n" + transactions + request_model + "\nfinal class Gate: @unchecked Sendable {let entered=DispatchSemaphore(value:0),release=DispatchSemaphore(value:0)}\n")
+minimize_fixture += "}\nextension WindowUtil {\n"
+abort 'Preview tasks must retain their own execution lifetime' unless coordinator.include?('previewActionTasks[token] = (request, task)')
+abort 'Request cleanup missing' unless coordinator.include?('request.finish()') && coordinator.include?('self?.previewActionTasks.removeValue(forKey: token)')
+abort 'New feedback must not let old actions dismiss previews' unless coordinator.include?('guard !Task.isCancelled, let self, previewBatchToken == token else { return }')
+abort 'Single replacement must cancel cooperative workers' unless coordinator.include?('request.onSuperseded { task.cancel() }')
+abort 'Minimize-specific admission must be removed' if coordinator.include?('PreviewMinimizeRequest') || util.include?('isMinimizeTargetActive')
 minimize_fixture += confirmation + "\n}\n"
 minimize_fixture += <<~'SWIFT'
 @main struct Checks {
- static func main() async {
+ @MainActor static func main() async {
   let delayed = WindowInfo(id: 1)
   let refusal = WindowInfo(id: 2); refusal.axElement.refuses = true
   let fullscreen = WindowInfo(id: 3); fullscreen.axElement.fullscreen = true
@@ -441,6 +469,75 @@ minimize_fixture += <<~'SWIFT'
   task.cancel()
   let cancelled = await task.value
   precondition(cancelled.isEmpty && WindowUtil.cached == [1])
+func entered(_ gate:Gate) async {
+ for _ in 0..<2000 {if gate.entered.wait(timeout:.now()) == .success {return};try? await Task.sleep(nanoseconds:1_000_000)}
+ preconditionFailure("Worker did not reach gate")
+}
+func fast(_ id:UInt32, pid:Int32=1)->WindowInfo {
+ var result=WindowInfo(id:id);result.app.processIdentifier=pid;result.axElement.settleDelay=0;return result
+}
+let owner=WindowActionOwnership()
+let a=fast(10),b=fast(11),c=fast(12)
+let independent=owner.begin([a,b].map(PreviewWindowIdentity.init))
+a.axElement.fullscreenGate=Gate();let held=a.axElement.fullscreenGate!
+let batch=Task {await WindowUtil.setMinimizedWindowsConfirmed([a,b],isMinimized:true,isTargetActive:{independent.contains($0)})}
+await entered(held)
+let rejected=owner.begin([PreviewWindowIdentity(a)])
+precondition(rejected.admitted.isEmpty && rejected.rejected == [PreviewWindowIdentity(a)])
+let separate=owner.begin([PreviewWindowIdentity(c)])
+let separateResult=await WindowUtil.setMinimizedWindowsConfirmed([c],isMinimized:true,isTargetActive:{separate.contains($0)})
+precondition(separateResult.map(\.id)==[12] && WindowUtil.cached.contains(12));separate.finish()
+held.release.signal();let independentResult=await batch.value
+precondition(independentResult.map(\.id)==[10,11] && a.axElement.writeValues==[true] && b.axElement.writeValues==[true])
+let partial=owner.begin([a,c].map(PreviewWindowIdentity.init))
+precondition(partial.admitted == [PreviewWindowIdentity(c)] && partial.rejected == [PreviewWindowIdentity(a)])
+let partialBlocked=owner.begin([PreviewWindowIdentity(c)])
+precondition(partialBlocked.admitted.isEmpty,"Partially admitted batch lost protection")
+partial.finish();independent.finish(PreviewWindowIdentity(a))
+let released=owner.begin([PreviewWindowIdentity(a)])
+precondition(released.admitted.count==1 && independent.contains(PreviewWindowIdentity(b)))
+released.finish();independent.finish()
+let f=fast(30),g=fast(31)
+let inflight=owner.begin([PreviewWindowIdentity(g)])
+g.axElement.writeGate=Gate();let writing=g.axElement.writeGate!
+let older=Task {await WindowUtil.setMinimizedWindowsConfirmed([g],isMinimized:true,isTargetActive:{inflight.contains($0)})}
+inflight.onSuperseded {older.cancel()}
+await entered(writing)
+let replacement=owner.begin([PreviewWindowIdentity(g)])
+let newer=Task {await WindowUtil.setMinimizedWindowsConfirmed([g],isMinimized:false,isTargetActive:{replacement.contains($0)})}
+try? await Task.sleep(nanoseconds:20_000_000)
+precondition(g.axElement.writeValues==[true], "New write overtook in-flight AX")
+writing.release.signal();let oldResult=await older.value;let newResult=await newer.value
+precondition(oldResult.isEmpty && newResult.map(\.id)==[31] && g.axElement.writeValues==[true,false])
+precondition(WindowUtil.cachedStates[31]==false && WindowUtil.reconciled.contains(31))
+inflight.finish();precondition(replacement.contains(PreviewWindowIdentity(g)),"Stale cleanup released newer owner");replacement.finish()
+let first=fast(40),last=fast(41);first.axElement.writeGate=Gate();let cancelGate=first.axElement.writeGate!
+let interrupted=Task {await WindowUtil.setMinimizedWindowsConfirmed([first,last],isMinimized:true)}
+await entered(cancelGate);interrupted.cancel();cancelGate.release.signal();let interruptedResult=await interrupted.value
+precondition(interruptedResult.isEmpty && first.axElement.writeValues==[true] && last.axElement.writeValues.isEmpty)
+precondition(WindowUtil.reconciled.contains(40) && WindowUtil.cachedStates[40]==nil)
+let otherApp=fast(10,pid:2)
+let protected=owner.begin([PreviewWindowIdentity(a)],protect:true)
+let appClaim=owner.begin([a,b,otherApp].map(PreviewWindowIdentity.init),apps:[1,2])
+precondition(Set(appClaim.rejected)==Set([a,b].map(PreviewWindowIdentity.init)) && appClaim.admitted == [PreviewWindowIdentity(otherApp)])
+let sibling=fast(100,pid:2)
+precondition(owner.begin([PreviewWindowIdentity(sibling)]).admitted.isEmpty,"App scope failed to protect sibling")
+appClaim.finish();protected.finish()
+let oldSingle=owner.begin([PreviewWindowIdentity(a)])
+let newBatch=owner.begin([a,b].map(PreviewWindowIdentity.init))
+precondition(!oldSingle.contains(PreviewWindowIdentity(a)) && newBatch.admitted.count==2)
+oldSingle.finish();newBatch.finish()
+var temporary:WindowActionRequest?=owner.begin([PreviewWindowIdentity(a)],protect:true)
+precondition(temporary!.contains(PreviewWindowIdentity(a)));temporary=nil
+let available=owner.begin([PreviewWindowIdentity(a)])
+precondition(available.admitted.count==1)
+let late=owner.begin([PreviewWindowIdentity(a)])
+available.onSuperseded {let nested=owner.begin([PreviewWindowIdentity(f)]);nested.finish()}
+precondition(late.contains(PreviewWindowIdentity(a)));late.finish()
+let appSingle=owner.begin([PreviewWindowIdentity(a)])
+let appReplace=owner.begin([PreviewWindowIdentity(b)],apps:[1])
+precondition(!appSingle.contains(PreviewWindowIdentity(a)) && appReplace.admitted.count==1);appReplace.finish()
+print("PASS shared ownership: protected batch/terminal/app scopes, disjoint targets, partial admission, per-target release, single replacement, in-flight write ordering, app atomicity, stale cleanup, deinit and reentrant cancellation")
   print("PASS delayed minimize confirmation, real refusal, fullscreen exclusion, confirmed-only cache and cancellation")
  }
 }

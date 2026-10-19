@@ -44,6 +44,11 @@ enum Defaults { static subscript<T>(_ key: Key<T>) -> T { key.value } }
 extension Key where T == Bool {
  static var fillActionsAutoTileSelection: Self { Self(value: false) }
  static var moveResizeBringToForeground: Self { Self(value: false) }
+ static var tileOnlyWhatFits: Self { Self(value: false) }
+}
+extension Key where T == Int {
+ static var maximumTilingRows: Self { Self(value: 2) }
+ static var maximumTilingColumns: Self { Self(value: 3) }
 }
 final class App {
  let processIdentifier: pid_t
@@ -80,9 +85,10 @@ source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    va
 source += <<~'SWIFT'
  var tilingDirection: Int? { nil }
  func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> Int? { nil }
- func batchTargetState(for windows: [WindowInfo]) -> Bool? { nil }
+
  func isAvailable(for window: WindowInfo) -> Bool { true }
 SWIFT
+source += block(catalog, '    func batchTargetState(') + "\n"
 source += block(catalog, '    func menuTitle(') + "\n" + block(catalog, '    func feedbackTitle(') + "\n"
 source += <<~'SWIFT'
  enum ActionResult { case noChange, dismissed }
@@ -102,7 +108,15 @@ final class ActionFeedbackHandle {
  func finish(_ id: PreviewWindowIdentity, _ outcome: Outcome) { if states[id] == nil { states[id] = outcome } }
  func finish(_ result: WindowUtil.PreviewBatchResult, requested: Bool = false) {}
 }
+@MainActor final class PendingAX {
+ var started=false
+ private var completion:CheckedContinuation<Void,Never>?
+ func wait() async {started=true;await withCheckedContinuation {completion=$0}}
+ func release() {completion?.resume();completion=nil}
+}
 enum WindowUtil {
+ @MainActor static var pendingMinimize:PendingAX?
+ static var hiddenRequests: [(pid_t, Bool)] = [], minimizedRequests: [Bool] = []
  static var quitOnClose = false
  static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { [] }
  static func shouldQuitAppOnWindowClose(processIdentifier pid: pid_t) -> Bool { quitOnClose }
@@ -110,15 +124,17 @@ enum WindowUtil {
  static func hasOnlyFullscreenWindows(for app: App) -> Bool { false }
  static func openNewWindow(app: App) {}
  static func canBringWindowToFrontWithoutSpaceSwitch(_ window: WindowInfo) -> Bool { true }
- static func setHiddenStateConfirmed(for app: App, isHidden: Bool, fullscreenCandidates: [AX] = [], beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { true }
+ static func setHiddenStateConfirmed(for app: App, isHidden: Bool, fullscreenCandidates: [AX] = [], beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { hiddenRequests.append((app.processIdentifier, isHidden)); return true }
  static func revealWindowConfirmed(_ window: WindowInfo) async -> Bool { true }
  static func changeFullscreenConfirmed(_ window: WindowInfo, toggle: Bool, beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { true }
- static func setMinimizedWindowsConfirmed(_ windows: [WindowInfo], isMinimized: Bool, progress: ((WindowInfo, Bool) -> Void)?) async -> [WindowInfo] { windows }
+ static func setMinimizedWindowsConfirmed(_ windows: [WindowInfo], isMinimized: Bool, isTargetActive: @escaping @Sendable (PreviewWindowIdentity) -> Bool = { _ in true }, progress: ((WindowInfo, Bool) -> Void)?) async -> [WindowInfo] { minimizedRequests.append(isMinimized); if let pending=await pendingMinimize { await MainActor.run {pendingMinimize=nil}; await pending.wait() }; return Task.isCancelled ? [] : windows }
  static func tilePreviewWindows(_ windows: [WindowInfo], direction: Int, feedback: ActionFeedbackHandle?) async -> PreviewBatchResult { PreviewBatchResult() }
  static func closeWindows(_ windows: [WindowInfo], feedback: ActionFeedbackHandle?) async -> PreviewBatchResult { PreviewBatchResult(succeeded: windows) }
 SWIFT
+source += block(util, '    static func beginPreviewActionRequest(') + "\n"
 source += block(util, '    struct PreviewBatchResult') + "\n"
-source += block(util, '    static func performPreviewBatchAction(') + "\n}\n"
+source = block(catalog, 'enum PreviewBatchTogglePolicy {') + "\n" + catalog[catalog.index('final class WindowActionRequest:')...catalog.index('enum PreviewBatchTogglePolicy {')] + "\n" + source
+source += block(util, '    static func performPreviewBatchAction(') + "\n" + block(util, '    private static func executePreviewAction(') + "\n}\n"
 source += <<~'SWIFT'
 @main struct Checks {
  @MainActor static func main() async {
@@ -166,6 +182,32 @@ source += <<~'SWIFT'
   }
   _ = await task.value
   precondition(cancelled.normal == 0 && cancelled.forced == 0)
+let visibleApp=App(10),hiddenApp=App(11);hiddenApp.isHidden=true
+let visible=WindowInfo(id:100,app:visibleApp),hidden=WindowInfo(id:101,app:hiddenApp)
+let protected=WindowActionOwnership.shared.begin([PreviewWindowIdentity(visible)],protect:true)
+let mixedHide=await WindowUtil.performPreviewBatchAction(.hide,on:[visible,hidden])
+precondition(mixedHide.failed == [PreviewWindowIdentity(visible)] && mixedHide.succeeded.map(\.id)==[101])
+precondition(WindowUtil.hiddenRequests.last!.0==11 && WindowUtil.hiddenRequests.last!.1,"Busy filtering reversed app toggle intent")
+let allBusy=await WindowUtil.performPreviewBatchAction(.quit,on:[visible,WindowInfo(id:102,app:visibleApp)])
+precondition(allBusy.failed.count==2 && visibleApp.normal==0,"App-wide claim was not atomic")
+let minimized=WindowInfo(id:103,app:hiddenApp,isMinimized:true)
+let mixedMinimize=await WindowUtil.performPreviewBatchAction(.minimize,on:[visible,minimized])
+precondition(mixedMinimize.failed == [PreviewWindowIdentity(visible)] && mixedMinimize.succeeded.map(\.id)==[103])
+precondition(WindowUtil.minimizedRequests.last==true,"Busy filtering reversed window toggle intent")
+protected.finish()
+let afterRelease=await WindowUtil.performPreviewBatchAction(.quit,on:[visible])
+precondition(afterRelease.failed.isEmpty && visibleApp.normal==1,"Completed request left targets busy")
+let pending=PendingAX();WindowUtil.pendingMinimize=pending
+let earlier=Task {await WindowUtil.performPreviewBatchAction(.minimize,on:[visible])}
+for _ in 0..<1000 where !pending.started {await Task.yield()}
+precondition(pending.started,"Standalone worker did not start")
+let newer=await WindowUtil.performPreviewBatchAction(.minimize,on:[visible])
+precondition(newer.succeeded.map(\.id)==[100])
+pending.release();let superseded=await earlier.value
+precondition(superseded.succeeded.isEmpty,"Standalone superseded worker did not receive cancellation")
+let clean=WindowActionOwnership.shared.begin([PreviewWindowIdentity(visible)])
+precondition(clean.admitted.count==1);clean.finish()
+print("PASS shared executor admission: atomic app rejection, partial failures, frozen Hide/Minimize intent and cleanup")
   print("PASS normal/force dispatch, PID deduplication, windowless targets, acknowledgements, refusal, terminated targets, Close-to-Quit and cancellation")
  }
 }

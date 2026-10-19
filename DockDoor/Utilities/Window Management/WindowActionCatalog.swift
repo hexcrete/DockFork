@@ -1,6 +1,104 @@
 import AppKit
 import Defaults
 
+final class WindowActionRequest: @unchecked Sendable {
+    let token: UUID
+    let admitted: [PreviewWindowIdentity]
+    let rejected: [PreviewWindowIdentity]
+    private let owner: WindowActionOwnership
+
+    fileprivate init(token: UUID, admitted: [PreviewWindowIdentity], rejected: [PreviewWindowIdentity], owner: WindowActionOwnership) {
+        self.token = token
+        self.admitted = admitted
+        self.rejected = rejected
+        self.owner = owner
+    }
+
+    func contains(_ identity: PreviewWindowIdentity) -> Bool { owner.contains(identity, token: token) }
+    func finish(_ identity: PreviewWindowIdentity) { owner.finish(identity, token: token) }
+    func finish() { owner.finish(token: token) }
+    func onSuperseded(_ cancel: @escaping @Sendable () -> Void) { owner.onSuperseded(token: token, cancel: cancel) }
+
+    deinit { finish() }
+}
+
+final class WindowActionOwnership: @unchecked Sendable {
+    static let shared = WindowActionOwnership()
+
+    private struct Record {
+        var targets: Set<PreviewWindowIdentity>
+        var apps: Set<pid_t>
+        let protected: Bool
+        var cancel: (@Sendable () -> Void)?
+    }
+
+    private let lock = NSLock()
+    private var records: [UUID: Record] = [:]
+
+    func begin(_ targets: [PreviewWindowIdentity], apps: Set<pid_t> = [], protect: Bool = false) -> WindowActionRequest {
+        var seen = Set<PreviewWindowIdentity>()
+        let targets = targets.filter { seen.insert($0).inserted }
+        let token = UUID()
+        var admitted: [PreviewWindowIdentity] = []
+        var claimedApps = Set<pid_t>()
+        var cancellations: [@Sendable () -> Void] = []
+        lock.lock()
+        let blockedApps = Set(apps.filter { pid in
+            records.values.contains { $0.protected && ($0.apps.contains(pid) || $0.targets.contains { $0.pid == pid }) }
+        })
+        for target in targets {
+            guard !blockedApps.contains(target.pid) else { continue }
+            let overlaps = records.filter { _, record in
+                record.apps.contains(target.pid) || record.targets.contains(target) ||
+                    (apps.contains(target.pid) && record.targets.contains { $0.pid == target.pid })
+            }
+            guard !overlaps.values.contains(where: \.protected) else { continue }
+            for (previous, record) in overlaps {
+                records.removeValue(forKey: previous)
+                if let cancel = record.cancel { cancellations.append(cancel) }
+            }
+            admitted.append(target)
+            if apps.contains(target.pid) { claimedApps.insert(target.pid) }
+        }
+        if !admitted.isEmpty {
+            records[token] = Record(targets: Set(admitted), apps: claimedApps,
+                                    protected: protect || targets.count > 1 || !claimedApps.isEmpty)
+        }
+        lock.unlock()
+        // Cancelling can resume tasks; never invoke a callback under the ownership lock.
+        for cancel in cancellations {
+            cancel()
+        }
+        let accepted = Set(admitted)
+        return WindowActionRequest(token: token, admitted: admitted, rejected: targets.filter { !accepted.contains($0) }, owner: self)
+    }
+
+    fileprivate func contains(_ identity: PreviewWindowIdentity, token: UUID) -> Bool {
+        lock.withLock { records[token]?.targets.contains(identity) == true }
+    }
+
+    fileprivate func onSuperseded(token: UUID, cancel: @escaping @Sendable () -> Void) {
+        let inactive = lock.withLock {
+            guard records[token] != nil else { return true }
+            records[token]?.cancel = cancel
+            return false
+        }
+        if inactive { cancel() }
+    }
+
+    fileprivate func finish(_ identity: PreviewWindowIdentity, token: UUID) {
+        lock.withLock {
+            guard var record = records[token] else { return }
+            record.targets.remove(identity)
+            if !record.targets.contains(where: { $0.pid == identity.pid }) { record.apps.remove(identity.pid) }
+            if record.targets.isEmpty { records.removeValue(forKey: token) }
+            else { records[token] = record }
+        }
+    }
+
+    fileprivate func finish(token: UUID) { _ = lock.withLock { records.removeValue(forKey: token) } }
+}
+
 enum PreviewBatchTogglePolicy {
     static func targetState(_ states: [Bool]) -> Bool? {
         states.isEmpty ? nil : !states.allSatisfy { $0 }
