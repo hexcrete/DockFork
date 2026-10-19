@@ -42,11 +42,17 @@ final class WindowActionsMenuController: NSObject, NSMenuDelegate {
                         : [window]
                     let feedback = ActionFeedbackController.begin(action, windows: targets, keyboard: NSApp.currentEvent?.type == .keyDown, usePreviews: false)
                     if action.usesConfirmedSingleWindowAction(on: window) {
+                        let request = WindowUtil.beginPreviewActionRequest(action, windows: targets)
+                        guard !request.admitted.isEmpty else { feedback?.finishRemaining(.failed); return }
                         let restoring = action == .openAppWindow || (action == .hide && window.app.isHidden) || (action == .minimize && window.isMinimized)
-                        Task { @MainActor in
-                            let result = await WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback)
-                            if !Task.isCancelled, restoring, !result.succeeded.isEmpty { _ = await window.bringToFrontConfirmed() }
+                        let task = Task { @MainActor in
+                            defer { request.finish() }
+                            await WindowActionRequest.$current.withValue(request) {
+                                let result = await WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback, request: request)
+                                if !Task.isCancelled, request.mayForeground, restoring, !result.succeeded.isEmpty { _ = await window.bringToFrontConfirmed() }
+                            }
                         }
+                        request.onSuperseded { task.cancel() }
                     } else {
                         _ = action.perform(on: window, feedback: feedback)
                     }

@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Runs the production script adapters and fullscreen worker against simulated APIs.
 require 'tmpdir'
+require_relative 'support/action_ownership'
 require 'rexml/document'
 ROOT = File.expand_path('../..', __dir__)
 def block(source, signature)
@@ -44,6 +45,7 @@ class AsyncWindowCommand: NSScriptCommand {
 enum WindowAction { case maximize, center, fill, toggleFullScreen, minimize, close, hide, quit, forceQuit
  static let fullscreenConfirmationDelay: UInt64 = 180_000_000
 }
+struct PreviewWindowIdentity:Hashable {let pid:Int32;let windowID:Int;init(_ w:WindowInfo){pid=w.app.processIdentifier;windowID=w.id}}
 struct WindowInfo { let axElement = FakeAX(); let app = App(); let id = 1
  var appAxElement: FakeAX { axElement }; var isWindowlessApp: Bool { false }
 }
@@ -133,7 +135,87 @@ source += <<~'SWIFT'
 }
 SWIFT
 Dir.mktmpdir('dockfork-script-actions-') do |dir|
-  path = "#{dir}/checks.swift"; File.write(path, source)
+  path = "#{dir}/checks.swift"; File.write(path, with_action_ownership(source))
   abort 'Swift compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', '-suppress-warnings', path, '-o', "#{dir}/checks")
   abort 'Script checks failed' unless system("#{dir}/checks")
+end
+
+# Run the actual list-Space adapter with held callbacks, including group ownership.
+source = <<~'SWIFT'
+import Foundation
+struct PreviewWindowIdentity: Hashable { let pid: Int32; let windowID: Int
+ init(_ window: WindowInfo) { pid=1;windowID=window.id }
+}
+struct App { var processIdentifier: Int32 { 1 } }
+struct WindowInfo { let id: Int; let app=App()
+ @MainActor func bringToFrontConfirmed() async -> Bool {
+  precondition(WindowActionRequest.current?.contains(PreviewWindowIdentity(self)) == true)
+  WindowUtil.focused += 1;return true
+ }
+}
+struct Space { let id=2 }
+struct ManagedSpaceDestination { let space=Space() }
+enum WindowSpaces { static func sourceSpaceIDs(for window: WindowInfo) -> Set<Int> { [2] } }
+class AppDelegate { func dismissPreviews() {} }
+struct Application { let delegate: Any?=nil }
+let NSApp=Application()
+enum DockDoorCommands {
+ static func batchResult(_ result: WindowUtil.PreviewBatchResult) -> String {
+  result.failed.isEmpty ? "ok" : "error: " + result.failed.map { String($0.windowID) }.joined(separator: ",")
+ }
+}
+@MainActor enum WindowUtil {
+ struct PreviewBatchResult { var succeeded:[WindowInfo]=[];var failed:[PreviewWindowIdentity]=[] }
+ static var callbacks:[Int:(Bool)->Void]=[:], tokens:[UUID]=[], focused=0
+ static func performConfirmedSpaceMove(_ window:WindowInfo,to destination:ManagedSpaceDestination,dismissPreviews:(()->Void)?,switchToDestination:Bool,completion:@escaping @MainActor(Bool)->Void)->(()->Void)? {
+  let request=WindowActionRequest.current!
+  precondition(request.contains(PreviewWindowIdentity(window)))
+  tokens.append(request.token);callbacks[window.id]=completion
+  return {callbacks.removeValue(forKey:window.id)}
+ }
+ static func revealWindowConfirmed(_ window:WindowInfo,checkingLiveState:Bool) async -> Bool {true}
+}
+extension WindowActionOwnership { var testCount:Int {lock.withLock {records.count}} }
+@MainActor enum MoveAdapter {
+SWIFT
+source += block(scripts, '    private static func moveWindows(').sub('private static', 'static') + "\n}\n"
+source += <<~'SWIFT'
+@main struct SpaceChecks {
+ @MainActor static func until(_ ready:()->Bool) async {
+  for _ in 0..<10000 {if ready(){return};await Task.yield()};preconditionFailure("Move did not start")
+ }
+ @MainActor static func main() async {
+  let a=WindowInfo(id:1),b=WindowInfo(id:2),c=WindowInfo(id:3),destination=ManagedSpaceDestination()
+  let first=Task {await MoveAdapter.moveWindows([a,b],to:destination,switching:false)}
+  await until {WindowUtil.callbacks.count==2}
+  precondition(Set(WindowUtil.tokens).count==1,"Each member claimed an independent single request")
+  let second=await MoveAdapter.moveWindows([a,b],to:destination,switching:false)
+  precondition(second=="error: 1,2" && WindowUtil.tokens.count==2,"Busy group interrupted accepted move")
+  let partial=Task {await MoveAdapter.moveWindows([a,c],to:destination,switching:false)}
+  await until {WindowUtil.callbacks[3] != nil}
+  WindowUtil.callbacks[3]?(true)
+  let partialResult=await partial.value
+  precondition(partialResult=="error: 1","Partial admission lost busy failure")
+  WindowUtil.callbacks[1]?(true);WindowUtil.callbacks[2]?(true)
+  let result=await first.value;precondition(result=="ok")
+  WindowUtil.callbacks.removeAll()
+  precondition(WindowActionOwnership.shared.testCount==0)
+  let follow=Task {await MoveAdapter.moveWindows([a,b],to:destination,switching:true)}
+  await until {WindowUtil.callbacks.count==2}
+  WindowUtil.callbacks[1]?(true);WindowUtil.callbacks[2]?(true)
+  let followed=await follow.value
+  precondition(followed=="ok" && WindowUtil.focused==1 && WindowActionOwnership.shared.testCount==0)
+  WindowUtil.callbacks.removeAll()
+  let cancelled=Task {await MoveAdapter.moveWindows([a,b],to:destination,switching:false)}
+  await until {WindowUtil.callbacks.count==2};cancelled.cancel()
+  let cancellation=await cancelled.value
+  precondition(cancellation=="error: Space move cancelled" && WindowUtil.callbacks.isEmpty && WindowActionOwnership.shared.testCount==0)
+  print("PASS scripted Space lists: one protected group, overlapping refusal, unrelated partial progress, owned destination following, cancellation and cleanup")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-script-space-ownership-') do |dir|
+  file="#{dir}/checks.swift"; File.write(file, with_action_ownership(source))
+  abort 'Space-list fixture compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',file,'-o',"#{dir}/checks")
+  abort 'Space-list ownership checks failed' unless system("#{dir}/checks")
 end

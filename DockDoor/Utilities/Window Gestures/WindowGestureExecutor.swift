@@ -8,6 +8,12 @@ final class WindowGestureExecutor {
     private var pending: [(WindowGestureCommand, WindowGestureZone, CGPoint)] = []
 
     func perform(_ command: WindowGestureCommand, zone: WindowGestureZone, cursor: CGPoint) {
+        switch command {
+        case .switchApp, .openSwitcher: break
+        default:
+            Task.detached(priority: .userInitiated) { [self] in await run(command, zone: zone, cursor: cursor) }
+            return
+        }
         queue.async { [self] in
             pending.append((command, zone, cursor))
             if pending.count == 1 { runNext() }
@@ -26,6 +32,25 @@ final class WindowGestureExecutor {
     }
 
     private func run(_ command: WindowGestureCommand, zone: WindowGestureZone, cursor: CGPoint) async {
+        let reservesWindow = switch command {
+        case .switchApp, .openSwitcher: false
+        default: true
+        }
+        if reservesWindow, WindowActionRequest.current == nil, let window = zone.window {
+            let apps: Set<pid_t>
+            let terminal: Bool
+            switch command {
+            case let .window(action):
+                apps = action.isAppWidePreviewAction ? [window.app.processIdentifier] : []
+                terminal = action == .close || action.isQuitAction
+            case .closeTab: apps = []; terminal = true
+            default: apps = []; terminal = false
+            }
+            _ = await WindowActionRequest.run([PreviewWindowIdentity(window)], apps: apps, protect: terminal) { _ in
+                await self.run(command, zone: zone, cursor: cursor)
+            }
+            return
+        }
         switch command {
         case let .window(action):
             guard let window = zone.window else { return }
@@ -46,7 +71,7 @@ final class WindowGestureExecutor {
             guard let app = zone.app else { return }
             await restoreLastMinimized(of: app)
         case .quitApp:
-            zone.app?.terminate()
+            if let app = zone.app { _ = WindowInfo.windowlessEntry(for: app).quit(force: false) }
         case let .switchApp(forward):
             await switchApp(forward: forward)
         case .openSwitcher:
@@ -125,6 +150,10 @@ final class WindowGestureExecutor {
     }
 
     private func restore(_ windows: [WindowInfo]) async {
+        if WindowActionRequest.current == nil {
+            _ = await WindowActionRequest.run(windows.map(PreviewWindowIdentity.init)) { _ in await self.restore(windows) }
+            return
+        }
         let restored = await WindowUtil.restoreWindowsConfirmed(windows)
         if restored.count != windows.count {
             DebugLogger.log("WindowGestures", details: "Restoration confirmed \(restored.count)/\(windows.count) windows")

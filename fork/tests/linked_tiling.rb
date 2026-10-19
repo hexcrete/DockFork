@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Runs production tiling/registry code against simulated window APIs, never live windows.
 require 'tmpdir'
+require_relative 'support/action_ownership'
 require 'open3'
 
 ROOT = File.expand_path('../..', __dir__)
@@ -230,7 +231,7 @@ dispatch = block(coordinator, '    private func performPreviewBatchAction(')
 consume = dispatch.index('windowSwitcherCoordinator.consumeWindowlessSelection(in: admittedTargets)')
 abort 'Consume windowless checks at dispatch, not in a late completion' unless consume && consume < dispatch.index('let task = Task')
 action_guard = block(coordinator, '    func performCheckedWindowAction(').split('        if action == .bringToCurrentSpace').first
-space_guard = block(coordinator, '    func performCheckedSpaceMove(').split('        let feedback =').first
+space_guard = block(coordinator, '    func performCheckedSpaceMove(').split('        let request = WindowUtil.beginPreviewActionRequest').first
 source += "@MainActor final class ActionHarness { let windowSwitcherCoordinator: SelectionHarness; init(_ selection: SelectionHarness) { windowSwitcherCoordinator = selection }\n"
 source += action_guard + "return true\n}\n" + space_guard + "return true\n}\n}\n"
 selection = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift")
@@ -695,7 +696,7 @@ SWIFT
 
 Dir.mktmpdir('dockfork-linked-tiling-') do |dir|
   path = "#{dir}/Checks.swift"
-  File.write(path, source + "\n" + checks)
+  File.write(path, with_action_ownership(source + "\n" + checks))
   command = ['swiftc', '-swift-version', '5', '-parse-as-library', '-suppress-warnings', path, '-o', "#{dir}/checks"]
   abort 'Swift compilation failed' unless system(*command)
   output, errors, status = Open3.capture3("#{dir}/checks")

@@ -771,6 +771,11 @@ class MoveWindowCommand: AsyncWindowCommand {
     private static func moveWindows(_ windows: [WindowInfo], to destination: ManagedSpaceDestination,
                                     switching: Bool) async -> String
     {
+        guard let request = WindowActionRequest.current else {
+            return await WindowActionRequest.run(windows.map(PreviewWindowIdentity.init)) { _ in
+                await moveWindows(windows, to: destination, switching: switching)
+            } ?? DockDoorCommands.batchResult(WindowUtil.PreviewBatchResult(failed: windows.map(PreviewWindowIdentity.init)))
+        }
         var succeeded = Set<PreviewWindowIdentity>()
         var pending = Set<PreviewWindowIdentity>()
         var cancellations: [@MainActor () -> Void] = []
@@ -780,6 +785,7 @@ class MoveWindowCommand: AsyncWindowCommand {
         for window in windows {
             guard !Task.isCancelled else { return "error: Space move cancelled" }
             let identity = PreviewWindowIdentity(window)
+            guard request.contains(identity) else { continue }
             pending.insert(identity)
             if let cancel = WindowUtil.performConfirmedSpaceMove(window, to: destination, dismissPreviews: nil,
                                                                  switchToDestination: false,
@@ -800,7 +806,7 @@ class MoveWindowCommand: AsyncWindowCommand {
             succeeded: windows.filter { succeeded.contains(PreviewWindowIdentity($0)) },
             failed: windows.map(PreviewWindowIdentity.init).filter { !succeeded.contains($0) }
         )
-        if switching, let first = result.succeeded.first {
+        if switching, request.mayForeground, let first = result.succeeded.first {
             (NSApp.delegate as? AppDelegate)?.dismissPreviews()
             var revealed = await WindowUtil.revealWindowConfirmed(first, checkingLiveState: true)
             guard !Task.isCancelled else { return "error: Space move cancelled" }

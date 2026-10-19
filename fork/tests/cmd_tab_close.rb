@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Exercise the production Cmd+Tab Close dispatcher and executor with inert app/window targets.
 require 'tmpdir'
+require_relative 'support/action_ownership'
 ROOT = File.expand_path('../..', __dir__)
 def block(source, signature)
   start = source.index(signature) or abort "Missing #{signature}"
@@ -17,7 +18,7 @@ util = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowUtil.swift"
 coordinator = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
 dispatch = block(coordinator, '    private func closeCmdTabHighlightedApps(')
 abort 'Cmd+Tab Close bypasses async executor' unless dispatch.include?('await WindowUtil.closeWindows(') && !dispatch.include?('action.perform(')
-abort 'Close must snapshot targets and start feedback before dispatch' unless dispatch.index('let requests =') < dispatch.index('previewBatchTask = Task') && dispatch.index('ActionFeedbackController.begin') < dispatch.index('previewBatchTask = Task')
+abort 'Close must snapshot targets and start feedback before dispatch' unless dispatch.index('let requests =') < dispatch.index('let task = WindowActionRequest.$current.withValue') && dispatch.index('ActionFeedbackController.begin') < dispatch.index('let task = WindowActionRequest.$current.withValue')
 hide = block(coordinator, '    func hideWindow(')
 abort 'Preview dismissal must not cancel accepted Close work' if hide.include?('previewBatchTask') || hide.include?('cancelPreviewBatchAction')
 source = <<~'SWIFT'
@@ -129,6 +130,8 @@ source += <<~'SWIFT'
 @MainActor final class Coordinator {
  let windowSwitcherCoordinator = PreviewState()
  var previewBatchTask: Task<Void, Never>?, previewBatchToken: UUID?
+ var previewActionTasks: [UUID:(request:WindowActionRequest, task:Task<Void,Never>)] = [:]
+ var pendingAction:Task<Void,Never>? {previewBatchToken.flatMap {previewActionTasks[$0]?.task}}
  var isVisible = true, hides = 0, refreshes: [pid_t] = []
  func hideWindow() { hides += 1; isVisible = false; windowSwitcherCoordinator.windows = [] }
  func scheduleInPlaceActionRefresh(for app: NSRunningApplication) { refreshes.append(app.processIdentifier) }
@@ -158,15 +161,15 @@ source += <<~'SWIFT'
   precondition(!dismissed && baseline.isVisible)
   let feedback = ActionFeedbackController.handles.last!
   precondition(feedback.identities == [a1, a2, b1].map(PreviewWindowIdentity.init))
-  await baseline.previewBatchTask?.value
+  await baseline.pendingAction?.value
   precondition([a1, a2, b1].allSatisfy { $0.target.calls == 1 && feedback.state($0) == .requested && feedback.progress($0) == 2 })
   precondition(hiddenByFilter.target.calls == 0 && a.normalQuits == 0 && baseline.hides == 1)
-  precondition(baseline.previewBatchTask == nil && baseline.previewBatchToken == nil && baseline.refreshes == [1, 2])
+  precondition(baseline.pendingAction == nil && baseline.previewBatchToken == nil && baseline.refreshes == [1, 2])
   for (setting, preserve) in [(true, false), (false, true)] {
    Defaults.keepOpen = setting
    let owner = Coordinator(); owner.windowSwitcherCoordinator.windows = [a1]
    owner.performActionOnCmdTabHighlightedApps(action: .close, apps: [a], preservePreviews: preserve)
-   await owner.previewBatchTask?.value
+   await owner.pendingAction?.value
    precondition(owner.isVisible && owner.hides == 0)
   }
   Defaults.keepOpen = false
@@ -176,7 +179,7 @@ source += <<~'SWIFT'
    first.target.gate = gate
    let owner = Coordinator(); owner.windowSwitcherCoordinator.windows = [first, second]
    owner.performActionOnCmdTabHighlightedApps(action: .close, apps: [app], preservePreviews: true)
-   let task = owner.previewBatchTask!, feedback = ActionFeedbackController.handles.last!
+   let task = owner.pendingAction!, feedback = ActionFeedbackController.handles.last!
    try await entered(gate)
    // This main-actor work runs while the Close AX call remains blocked.
    precondition(feedback.state(first) == nil && feedback.progress(first) == 1)
@@ -196,7 +199,7 @@ source += <<~'SWIFT'
    let owner = Coordinator(); owner.windowSwitcherCoordinator.windows = [refused]
    owner.performActionOnCmdTabHighlightedApps(action: .close, apps: [app], preservePreviews: true)
    let feedback = ActionFeedbackController.handles.last!
-   await owner.previewBatchTask?.value
+   await owner.pendingAction?.value
    let attempts = eligible && !finder ? 1 : 0
    precondition(app.normalQuits == attempts && app.forceQuits == 0)
    precondition(feedback.state(refused) == (attempts == 1 && accepted ? .requested : .failed))
@@ -207,21 +210,21 @@ source += <<~'SWIFT'
   let mixed = Coordinator(); mixed.windowSwitcherCoordinator.windows = [accepted, refused]
   mixed.performActionOnCmdTabHighlightedApps(action: .close, apps: [mixedApp], preservePreviews: true)
   let mixedFeedback = ActionFeedbackController.handles.last!
-  await mixed.previewBatchTask?.value
+  await mixed.pendingAction?.value
   precondition(mixedApp.normalQuits == 0 && mixedFeedback.state(accepted) == .requested && mixedFeedback.state(refused) == .failed)
   let app = NSRunningApplication(8), gate = Gate(), refusal = window(NSRunningApplication(9), 40, accepts: false)
   let held = window(app, 41, accepts: false); held.target.gate = gate
   WindowUtil.cache[8] = [held]
   let changed = Coordinator(); changed.windowSwitcherCoordinator.windows = [held]
   changed.performActionOnCmdTabHighlightedApps(action: .close, apps: [app], preservePreviews: true)
-  let changedTask = changed.previewBatchTask!
+  let changedTask = changed.pendingAction!
   try await entered(gate)
   WindowUtil.cache[8] = [held, window(app, 42)]
   gate.release.signal(); await changedTask.value
   precondition(app.normalQuits == 0)
   let emptyApp = NSRunningApplication(10), empty = Coordinator()
   empty.performActionOnCmdTabHighlightedApps(action: .close, apps: [emptyApp], preservePreviews: true)
-  await empty.previewBatchTask?.value
+  await empty.pendingAction?.value
   precondition(emptyApp.normalQuits == 1 && emptyApp.forceQuits == 0)
   Defaults.quitOnClose = false
   let directRefusal = window(NSRunningApplication(13), 49, accepts: false)
@@ -232,35 +235,35 @@ source += <<~'SWIFT'
   staleFirst.target.gate = staleGate
   let latest = Coordinator(); latest.windowSwitcherCoordinator.windows = [staleFirst, staleSecond]
   latest.performActionOnCmdTabHighlightedApps(action: .close, apps: [staleApp], preservePreviews: true)
-  let oldTask = latest.previewBatchTask!
+  let oldTask = latest.pendingAction!
   try await entered(staleGate)
   latest.windowSwitcherCoordinator.windows = [b1]
   latest.performActionOnCmdTabHighlightedApps(action: .close, apps: [b], preservePreviews: true)
-  let newTask = latest.previewBatchTask!, newFeedback = ActionFeedbackController.handles.last!
+  let newTask = latest.pendingAction!, newFeedback = ActionFeedbackController.handles.last!
   staleGate.release.signal(); await oldTask.value; await newTask.value
-  precondition(staleFirst.target.calls == 1 && staleSecond.target.calls == 0 && newFeedback.state(b1) == .requested)
-  precondition(latest.refreshes == [2] && latest.previewBatchTask == nil && latest.previewBatchToken == nil)
+  precondition(staleFirst.target.calls == 1 && staleSecond.target.calls == 1 && newFeedback.state(b1) == .requested)
+  precondition(latest.refreshes == [2] && latest.pendingAction == nil && latest.previewBatchToken == nil)
   for action in [WindowAction.quit, .forceQuit] {
    let app = NSRunningApplication(12), owner = Coordinator()
    owner.performActionOnCmdTabHighlightedApps(action: action, apps: [app, app], preservePreviews: true)
-   precondition(owner.previewBatchTask == nil && app.normalQuits == (action == .quit ? 1 : 0) && app.forceQuits == (action == .forceQuit ? 1 : 0))
+   precondition(owner.pendingAction == nil && app.normalQuits == (action == .quit ? 1 : 0) && app.forceQuits == (action == .forceQuit ? 1 : 0))
   }
   let cancelled = Coordinator(); cancelled.windowSwitcherCoordinator.windows = [refusal]
   cancelled.performActionOnCmdTabHighlightedApps(action: .close, apps: [refusal.app])
-  let cancelledTask = cancelled.previewBatchTask!; cancelledTask.cancel(); await cancelledTask.value
+  let cancelledTask = cancelled.pendingAction!; cancelledTask.cancel(); await cancelledTask.value
   precondition(refusal.target.calls == 0 && cancelled.hides == 0 && cancelled.previewBatchToken == nil)
   ActionFeedbackController.enabled = false
   let count = ActionFeedbackController.handles.count, disabled = Coordinator()
   disabled.windowSwitcherCoordinator.windows = [b1]
   disabled.performActionOnCmdTabHighlightedApps(action: .close, apps: [b], preservePreviews: true)
-  await disabled.previewBatchTask?.value
+  await disabled.pendingAction?.value
   precondition(ActionFeedbackController.handles.count == count)
   print("PASS Cmd+Tab Close: off-main AX/main-actor progress, target snapshots/PID deduplication, real feedback/progress, keep-open policy, dismissal/reopening, fallback/refusal/Finder/partial success, live fallback validation, supersession, queued cancellation, cleanup, disabled feedback and synchronous Quit/Force Quit")
  }
 }
 SWIFT
 Dir.mktmpdir('dockfork-cmd-tab-close-') do |dir|
-  File.write("#{dir}/checks.swift", source)
+  File.write("#{dir}/checks.swift", with_action_ownership(source))
   abort 'Swift compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', '-suppress-warnings', "#{dir}/checks.swift", '-o', "#{dir}/checks")
   abort 'Cmd+Tab Close checks failed' unless system("#{dir}/checks")
 end

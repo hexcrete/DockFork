@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Exercises production AX placement using test doubles; never manipulates live windows.
 require 'tmpdir'
+require_relative 'support/action_ownership'
 def block(s,sig)
  a=s.index(sig) or abort sig;b=s.index(/\{\n/,a);d=0
  (b...s.length).each{|i|d+=1 if s[i]=='{';d-=1 if s[i]=='}';return s[a..i] if d==0}
@@ -16,11 +17,11 @@ final class Gate: @unchecked Sendable {let entered=DispatchSemaphore(value:0),re
 }
 extension WindowFrameTransactions {static var testWorkerCount:Int {lock.withLock {workers.count}};static func testUsers(_ pid:pid_t)->Int {lock.withLock {workers[pid]?.users ?? 0}}}
 struct NSScreen {var frame=CGRect(x:0,y:0,width:1512,height:982);var usableFrame:CGRect?;var identifier="test";var visibleFrame:CGRect {usableFrame ?? frame};static let screens=[NSScreen()];static let main:NSScreen?=NSScreen();static func screen(containing frame:CGRect)->NSScreen? {NSScreen()};var snappingFrame:CGRect {frame};func uniqueIdentifier()->String {identifier}}
-let kAXPositionAttribute="position",kAXSizeAttribute="size"
+let kAXPositionAttribute="position",kAXSizeAttribute="size",kAXMinimizedAttribute="minimized"
 enum FakeValue {case point(CGPoint),size(CGSize)}
 enum AXValue {static func from(point:CGPoint)->FakeValue? {.point(point)};static func from(size:CGSize)->FakeValue? {.size(size)}}
 typealias pid_t = Int32
-struct App {var processIdentifier:Int32=1}
+struct App {var processIdentifier:Int32=1;let bundleIdentifier:String?="fixture"}
 typealias AXUIElement=Model
 func AXUIElementCreateApplication(_ pid:Int32)->Model {Model.application}
 
@@ -32,7 +33,7 @@ final class ModeAX {
 final class Model {
  static let application=Model()
  func attribute<T>(_ key:String,_ type:T.Type)throws->T? {precondition(!Thread.isMainThread);return try ModeAX.shared.attribute(key,type)}
- func setAttribute(_ key:String,_ value:Bool)throws {precondition(!Thread.isMainThread);try ModeAX.shared.setAttribute(key,value)}
+ func setAttribute(_ key:String,_ value:Bool)throws {precondition(!Thread.isMainThread);if key=="minimized" {minimized=value;calls.append("write minimized")} else {try ModeAX.shared.setAttribute(key,value)}}
  func position()throws->CGPoint? {precondition(!Thread.isMainThread);calls.append("read position");if let gate=readGate {readGate=nil;gate.entered.signal();gate.release.wait()};frameReads+=1;if noReadableFrame{return nil};if settlesOnSecondRead && frameReads==2,let origin=pendingOrigin {frame.origin=origin};return CGPoint(x:frame.minX,y:982-frame.maxY)}
 
  var minimized=false;func isMinimized()throws->Bool {precondition(!Thread.isMainThread);return minimized};var fullscreen=false;func isFullscreen()throws->Bool {precondition(!Thread.isMainThread);return fullscreen};var readGate:Gate?;var writeGate:Gate?;var frame=CGRect(x:20,y:30,width:400,height:300)
@@ -65,7 +66,7 @@ struct PreviewWindowIdentity:Hashable {let pid:Int32,id:Int;var windowID:Int {id
 final class FakeSnap {func remove(_ id:PreviewWindowIdentity){}}
 enum WindowSnapRegistry {static let existing:FakeSnap?=nil}
 struct WindowInfo {
- var id:Int=1;var app=App();let axElement:Model;var imageCapturedTime=Date(timeIntervalSince1970:0);var isWindowlessApp=false;var spaceID:Int?=1;var ownerApp:App {app}
+ var isFullscreen:Bool? {axElement.fullscreen};var id:Int=1;var app=App();let axElement:Model;var imageCapturedTime=Date(timeIntervalSince1970:0);var isWindowlessApp=false;var spaceID:Int?=1;var ownerApp:App {app}
 SWIFT
 s=block(source,'enum WindowFramePlacementResult {')+"\n"+s
 s=block(source,'enum WindowFrameTransactions {')+"\n"+block(source,'struct WindowFrameContext {')+"\n"+block(source,'struct WindowFrameTarget {')+"\n"+s
@@ -116,6 +117,9 @@ placement=block(util,'    static func placeWindowCentered(')
 abort 'Drag placement retains UI-thread AX calls' if placement.include?('axElement.')
 abort 'Group drop must await placement under its existing owner' unless block(util,'    static func placeDraggedWindows(').include?('await placeWindowCentered(window, at: center, on: screen, isRequestActive: isRequestActive)')
 s+="\nextension WindowUtil {\n"+block(util,'    struct WindowPlacementResult {')+"\n@MainActor\n"+placement+"\n}\n"
+util_source=File.read(File.expand_path('../../DockDoor/Utilities/Window Management/WindowUtil.swift',__dir__))
+worker=block(util_source,'    static func setMinimizedWindowsConfirmed(')
+s+="\nextension WindowUtil {\nstatic var minimizedCache:Set<Int> = []\nstatic func updateCachedWindowStates(for pid:Int32,matchingWindowIDs:Set<Int>,insertingMissing:[WindowInfo],isMinimized:Bool) {if isMinimized {minimizedCache.formUnion(matchingWindowIDs)}}\n"+worker+"\n}\n"
 s+=<<~'SWIFT'
 @main struct Checks { @MainActor static func main() async throws {
 let target=CGRect(x:50,y:100,width:700,height:600)
@@ -394,7 +398,7 @@ let sharedGate=Gate(), sharedResize=Model();sharedResize.writeGate=sharedGate
 let runningResize=Task {await WindowInfo(axElement:sharedResize).setWindowFrameResult(target,on:screen,isRequestActive:{true})}
 try await waitEntered(sharedGate)
 let queuedDrag=Model()
-let queuedDrop=Task {await WindowUtil.placeWindowCentered(WindowInfo(axElement:queuedDrag),at:CGPoint(x:500,y:500),on:dragScreen)}
+let queuedDrop=Task {await WindowUtil.placeWindowCentered(WindowInfo(id:900,axElement:queuedDrag),at:CGPoint(x:500,y:500),on:dragScreen)}
 for _ in 0..<2000 {if WindowFrameTransactions.testUsers(1)==2 {break};try await Task.sleep(nanoseconds:1_000_000)}
 precondition(WindowFrameTransactions.testUsers(1)==2 && queuedDrag.calls.isEmpty,"Drag bypassed the application's active frame transaction")
 queuedDrop.cancel();sharedGate.release.signal()
@@ -402,12 +406,43 @@ _ = await runningResize.value
 let cancelledQueuedDrop=await queuedDrop.value
 precondition(cancelledQueuedDrop==nil && queuedDrag.calls.isEmpty && WindowUtil.dragUpdates.isEmpty && WindowFrameTransactions.testWorkerCount==0)
 print("PASS drag transaction ownership: main-actor progress during held fitting AX, independent apps, same-app resize/drag serialization, queued/in-flight cancellation, no stale publication and queue cleanup")
+ModeAX.shared.enabled=true;ModeAX.shared.failAfterWrite=false
+let ownedAX=Model(), siblingAX=Model(), independentAX=Model()
+let owned=WindowInfo(id:200,axElement:ownedAX),sibling=WindowInfo(id:201,axElement:siblingAX),independentWindow=WindowInfo(id:202,axElement:independentAX)
+let batchClaim=WindowActionOwnership.shared.begin([owned,sibling].map(PreviewWindowIdentity.init))
+let blockedFrame=await owned.positionWindow(.full)
+let blockedMinimize=await WindowUtil.setMinimizedWindowsConfirmed([owned],isMinimized:true)
+precondition(!blockedFrame && blockedMinimize.isEmpty && ownedAX.calls.isEmpty,"Cross-route busy target performed AX")
+let independentMinimize=await WindowUtil.setMinimizedWindowsConfirmed([independentWindow],isMinimized:true)
+precondition(independentMinimize.count==1 && independentAX.minimized)
+batchClaim.finish()
+let nested=await WindowActionRequest.run([owned,sibling].map(PreviewWindowIdentity.init)) { request in
+ precondition(WindowActionRequest.current?.token==request.token)
+ let placed=await owned.positionWindow(.leftHalf)
+ let minimized=await WindowUtil.setMinimizedWindowsConfirmed([sibling],isMinimized:true)
+ return placed && minimized.count==1
+}
+precondition(nested==true,"Compound frame/minimize reacquired its own targets")
+let replacingAX=Model(),replacementGate=Gate();replacingAX.writeGate=replacementGate
+let replacing=WindowInfo(id:203,axElement:replacingAX)
+let oldFrame=Task {await replacing.positionWindow(.full)}
+try await waitEntered(replacementGate)
+let newMinimize=Task {await WindowUtil.setMinimizedWindowsConfirmed([replacing],isMinimized:true)}
+try await Task.sleep(nanoseconds:20_000_000)
+precondition(!replacingAX.minimized,"New minimize overtook in-flight frame write")
+replacementGate.release.signal()
+let replaced=await oldFrame.value,newMinimized=await newMinimize.value
+precondition(!replaced && newMinimized.count==1 && replacingAX.minimized && ModeAX.shared.enabled,"Replacement lost cancellation or Enhanced UI cleanup")
+let deadAX=Model();deadAX.fails=true;let dead=WindowInfo(id:204,axElement:deadAX)
+let deadFailed=await dead.positionWindow(.full);precondition(!deadFailed)
+deadAX.fails=false;let ownershipRecovery=await dead.positionWindow(.full);precondition(ownershipRecovery,"Failed target kept ownership")
+print("PASS cross-route ownership: batch rejection without AX, independentWindow same-app target, compound parent reuse, resize-to-minimize replacement, Enhanced UI cleanup and failed-target release")
 
 }}
 SWIFT
 Dir.mktmpdir('dockfork-frame-placement-') do |dir|
  path="#{dir}/Checks.swift"
- File.write(path,s)
+ File.write(path, with_action_ownership(s))
  abort 'Swift compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library','-suppress-warnings',path,'-o',"#{dir}/checks")
  abort 'Frame placement checks failed' unless system("#{dir}/checks")
 end

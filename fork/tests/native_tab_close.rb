@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Runs production native-tab lookup and Close against simulated AX controls.
 require 'tmpdir'
+require_relative 'support/action_ownership'
 root = File.expand_path('../..', __dir__)
 def block(source, signature)
   start = source.index(signature) or abort "Missing #{signature}"
@@ -79,7 +80,7 @@ source += block(ax, '    func nativeBackgroundTabs()') + "\n}\n"
 source += "struct WindowInfo { let id = 900; let axElement: AXUIElement; let closeButton: AXUIElement?; var isWindowlessApp = false\n"
 source += block(window, '    func close(progress:') + "\n}\n"
 source += <<~'SWIFT'
-struct PreviewWindowIdentity { init(_ window: WindowInfo) {} }
+struct PreviewWindowIdentity:Hashable {let pid:Int32=1;let windowID:Int;init(_ window:WindowInfo){windowID=window.id}}
 enum ActionFeedbackOutcome { case requested, failed }
 final class CloseMetrics: @unchecked Sendable {
  let lock = NSLock()
@@ -242,7 +243,7 @@ print("Passed background native Close responsiveness, ordered tab progress and c
 SWIFT
 Dir.mktmpdir('dockfork-native-close-') do |dir|
   path = "#{dir}/Checks.swift"
-  File.write(path, source)
+  File.write(path, with_action_ownership(source))
   abort 'Compilation failed' unless system('swiftc', path, '-o', "#{dir}/checks")
   abort 'Checks failed' unless system("#{dir}/checks")
 end

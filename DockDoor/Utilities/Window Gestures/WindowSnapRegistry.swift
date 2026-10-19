@@ -248,6 +248,10 @@ final class WindowSnapRegistry: @unchecked Sendable {
     }
 
     private func apply(_ frame: CGRect, to record: Record, context: WindowFrameContext, source: Record? = nil) async -> WindowFrameTarget.Result? {
+        if WindowActionRequest.current == nil {
+            return await WindowActionRequest.run([record.identity]) { _ in await self.apply(frame, to: record, context: context, source: source) } ?? nil
+        }
+        guard WindowActionRequest.current?.contains(record.identity) == true else { return nil }
         let target = WindowFrameTarget(element: record.element, application: AXUIElementCreateApplication(record.ownerPID), ownerPID: record.ownerPID, identity: record.identity)
         let result = await WindowFrameTransactions.run(for: record.ownerPID) { [self] cancellation -> WindowFrameTarget.Result? in
             guard !cancellation.isCancelled, record.origin.isEnabled,
@@ -301,18 +305,20 @@ final class WindowSnapRegistry: @unchecked Sendable {
             }
             eligible.append(neighbor)
         }
-        let targets = Self.linkedFrames([record.snappedFrame] + eligible.map(\.snappedFrame), movingFirstTo: frame)
-        for (index, neighbor) in eligible.enumerated() {
-            guard isCurrent(record) else { return }
-            guard let target = targets[index + 1], isCurrent(neighbor) else { continue }
-            guard let result = await apply(target, to: neighbor, context: context, source: record) else { continue }
-            if !result.applied || result.frame.map({ !Self.matches($0, target, tolerance: 1) }) != false {
-                DebugLogger.log("WindowSnapping", details: "Neighbor refused resize: PID \(neighbor.identity.pid), window \(neighbor.identity.windowID)")
+        _ = await WindowActionRequest.run([record.identity] + eligible.map(\.identity), atomic: true) { [self] _ in
+            let targets = Self.linkedFrames([record.snappedFrame] + eligible.map(\.snappedFrame), movingFirstTo: frame)
+            for (index, neighbor) in eligible.enumerated() {
+                guard isCurrent(record) else { return }
+                guard let target = targets[index + 1], isCurrent(neighbor) else { continue }
+                guard let result = await apply(target, to: neighbor, context: context, source: record) else { continue }
+                if !result.applied || result.frame.map({ !Self.matches($0, target, tolerance: 1) }) != false {
+                    DebugLogger.log("WindowSnapping", details: "Neighbor refused resize: PID \(neighbor.identity.pid), window \(neighbor.identity.windowID)")
+                }
             }
+            var updated = record
+            updated.snappedFrame = frame
+            replace(record, with: updated)
         }
-        var updated = record
-        updated.snappedFrame = frame
-        replace(record, with: updated)
     }
 
     private func replace(_ record: Record, with updated: Record?, matchingFrame: Bool = true) {

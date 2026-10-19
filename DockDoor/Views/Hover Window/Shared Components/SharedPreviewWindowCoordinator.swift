@@ -1936,6 +1936,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                                                                     request: request, targetState: targetState,
                                                                     beforeActionChange: beforeChange)
             guard !Task.isCancelled, let self, previewBatchToken == token else { return }
+            let succeededIdentities = Set(result.succeeded.map(PreviewWindowIdentity.init))
+            let focusTarget = revealsWindows ? targets.first(where: { succeededIdentities.contains(PreviewWindowIdentity($0)) }) ?? result.succeeded.first : nil
+            for identity in request.admitted where focusTarget.map(PreviewWindowIdentity.init) != identity {
+                request.finish(identity)
+            }
             // Mutations are settled; newer actions may cancel remaining focus/presentation work.
             previewBatchTask = previewActionTasks[token]?.task
             reportBatchFailures(result.failed, action: action.rawValue)
@@ -1952,10 +1957,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
             let samePresentation = contentView === originalContent && isVisible
             guard samePresentation || (needsTransition && !isVisible) else { return }
-            let succeededIdentities = Set(result.succeeded.map(PreviewWindowIdentity.init))
-            if revealsWindows,
-               let first = targets.first(where: { succeededIdentities.contains(PreviewWindowIdentity($0)) }) ?? result.succeeded.first
-            {
+            if request.mayForeground, let first = focusTarget {
                 let refreshed = WindowUtil.readCachedWindows(for: first.app.processIdentifier).first { $0.id == first.id } ?? first
                 if !keepOpen || needsTransition || WindowUtil.canBringWindowToFrontWithoutSpaceSwitch(refreshed) {
                     if !keepOpen || needsTransition { hideWindow() }
@@ -1982,13 +1984,16 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         guard let targets = windowSwitcherCoordinator.checkedActionTargets(for: initiator) else { return false }
         guard !targets.isEmpty else { return true }
         guard targets.count > 1 || initiator.isWindowlessApp || windowSwitcherCoordinator.checkedWindowCount > targets.count else { return false }
+        let request = WindowUtil.beginPreviewActionRequest(.bringToCurrentSpace, windows: targets)
         let feedback = ActionFeedbackController.begin(.bringToCurrentSpace, windows: targets, keyboard: keyboard || NSApp.currentEvent?.type == .keyDown, title: String(localized: "Move to Space \(destination.space.number)"))
+        guard !request.admitted.isEmpty else { feedback?.finishRemaining(.failed); return true }
         previewBatchTask?.cancel()
         let token = UUID()
         previewBatchToken = token
         let originalContent = contentView
         let followsDestination = Defaults[.switchToDestinationSpaceAfterMoving]
-        previewBatchTask = Task { @MainActor [weak self] in
+        let task = WindowActionRequest.$current.withValue(request) { Task { @MainActor [weak self] in
+            defer { request.finish(); self?.previewActionTasks.removeValue(forKey: token) }
             defer { feedback?.finishRemaining(.cancelled) }
             guard let self else { return }
             defer {
@@ -2005,8 +2010,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             let topology = WindowSpaces.managedDisplays()
             for window in targets {
                 let identity = PreviewWindowIdentity(window)
+                guard request.contains(identity) else { failed.append(identity); feedback?.finish(identity, .failed); continue }
                 let sourceError = await WindowSpaces.validateMoveSourceConfirmed(window, in: topology)
-                guard !Task.isCancelled, previewBatchToken == token else { return }
+                guard !Task.isCancelled else { return }
                 if sourceError == nil,
                    WindowSpaces.sourceSpaceIDs(for: window).contains(destination.space.id), destination.space.kind == .desktop
                 {
@@ -2017,7 +2023,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 pending.insert(identity)
                 let cancel = WindowUtil.performConfirmedSpaceMove(window, to: destination, dismissPreviews: nil,
                                                                   switchToDestination: false,
-                                                                  isRequestActive: { self.previewBatchToken == token })
+                                                                  isRequestActive: { request.contains(identity) })
                 { success in
                     pending.remove(identity)
                     feedback?.finish(identity, success ? .completed : .failed)
@@ -2036,14 +2042,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             for _ in 0 ..< 25 where !pending.isEmpty {
                 do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return }
             }
-            guard !Task.isCancelled, previewBatchToken == token else { return }
+            guard !Task.isCancelled else { return }
             failed.append(contentsOf: pending)
             for identity in pending {
                 feedback?.finish(identity, .failed)
             }
             reportBatchFailures(failed, action: "moveToSpace")
             let succeededIdentities = Set(succeeded.map(PreviewWindowIdentity.init))
-            if followsDestination, !succeeded.isEmpty, isVisible, contentView === originalContent,
+            if request.mayForeground, previewBatchToken == token, followsDestination, !succeeded.isEmpty, isVisible, contentView === originalContent,
                let first = targets.first(where: { succeededIdentities.contains(PreviewWindowIdentity($0)) })
             {
                 dismissPreviews?()
@@ -2054,12 +2060,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                     canFocus = await !(WindowUtil.setMinimizedWindowsConfirmed([moved], isMinimized: false)).isEmpty
                     if canFocus { moved.isMinimized = false }
                 }
-                guard !Task.isCancelled, previewBatchToken == token else { return }
+                guard !Task.isCancelled else { return }
                 if canFocus { canFocus = await moved.bringToFrontConfirmed() }
                 if !canFocus { reportBatchFailures([PreviewWindowIdentity(first)], action: "followSpace") }
             }
-            guard !Task.isCancelled, previewBatchToken == token else { return }
-        }
+            guard !Task.isCancelled else { return }
+        } }
+        previewActionTasks[token] = (request, task)
+        request.onSuperseded { task.cancel() }
         return true
     }
 
@@ -2080,7 +2088,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     func performActionOnCmdTabHighlightedApps(
         action: WindowAction,
         apps: [NSRunningApplication],
-        preservePreviews: Bool = false
+        preservePreviews: Bool = false, feedback: ActionFeedbackHandle? = nil
     ) -> Bool {
         guard action == .close || action.isQuitAction else { return false }
 
@@ -2095,7 +2103,32 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let targets = targetApps.map { ($0, WindowInfo.windowlessEntry(for: $0)) }
         let keepPreviewsOpen = preservePreviews || WindowAction.PostActionCategory.closing.keepPreviewsOpen
 
-        let feedback = ActionFeedbackController.begin(action, windows: targets.map(\.1), keyboard: true, usePreviews: false)
+        let feedback = feedback ?? ActionFeedbackController.begin(action, windows: targets.map(\.1), keyboard: true, usePreviews: false)
+        if WindowActionRequest.current == nil {
+            let request = WindowActionOwnership.shared.begin(targets.map { PreviewWindowIdentity($0.1) }, apps: Set(targetApps.map(\.processIdentifier)), protect: true)
+            guard !request.admitted.isEmpty else { feedback?.finishRemaining(.failed); return false }
+            if request.predecessorsResolved {
+                defer { request.finish() }
+                return WindowActionRequest.$current.withValue(request) {
+                    performActionOnCmdTabHighlightedApps(action: action, apps: targetApps, preservePreviews: preservePreviews, feedback: feedback)
+                }
+            }
+            let session = windowSwitcherCoordinator.pointerInteractionSessionID
+            let task = Task { @MainActor [weak self] in
+                defer { request.finish(); feedback?.finishRemaining(.cancelled); self?.previewActionTasks.removeValue(forKey: request.token) }
+                await request.waitForPredecessors()
+                guard !Task.isCancelled, let self else { return }
+                _ = WindowActionRequest.$current.withValue(request) {
+                    performActionOnCmdTabHighlightedApps(action: action, apps: targetApps,
+                                                         preservePreviews: preservePreviews || windowSwitcherCoordinator.pointerInteractionSessionID != session,
+                                                         feedback: feedback)
+                }
+            }
+            previewActionTasks[request.token] = (request, task)
+            request.onSuperseded { task.cancel() }
+            return false
+        }
+        var accepted = false
         for (app, entry) in targets {
             let result = action.perform(
                 on: entry,
@@ -2103,13 +2136,16 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             )
             if case .noChange = result {
                 feedback?.finish(PreviewWindowIdentity(entry), .failed)
+                continue
             } else {
+                accepted = true
                 feedback?.finish(PreviewWindowIdentity(entry), .requested)
             }
             if action.shouldScheduleAppRefresh {
                 scheduleInPlaceActionRefresh(for: app)
             }
         }
+        guard accepted else { return false }
         windowSwitcherCoordinator.scheduleActiveFocusedWindowRefresh()
 
         guard !keepPreviewsOpen else { return false }
@@ -2134,18 +2170,27 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             return (app: app, entry: WindowInfo.windowlessEntry(for: app), windows: windows)
         }
         let feedback = ActionFeedbackController.begin(.closeAllWindows, windows: requests.flatMap(\.windows), keyboard: true, usePreviews: false)
+        let ownership = WindowActionOwnership.shared.begin(requests.map { PreviewWindowIdentity($0.entry) }, apps: Set(apps.map(\.processIdentifier)), protect: true)
+        guard !ownership.admitted.isEmpty else { feedback?.finishRemaining(.failed); return false }
         let keepOpen = preservePreviews || WindowAction.PostActionCategory.closing.keepPreviewsOpen
         let sessionID = windowSwitcherCoordinator.pointerInteractionSessionID
         previewBatchTask?.cancel()
         let token = UUID()
         previewBatchToken = token
-        previewBatchTask = Task { @MainActor [weak self] in
+        let task = WindowActionRequest.$current.withValue(ownership) { Task { @MainActor [weak self] in
+            defer { ownership.finish(); self?.previewActionTasks.removeValue(forKey: token) }
             defer {
                 feedback?.finishRemaining(.cancelled)
                 if let self, previewBatchToken == token { previewBatchTask = nil; previewBatchToken = nil }
             }
             for request in requests {
                 guard !Task.isCancelled else { return }
+                guard ownership.contains(PreviewWindowIdentity(request.entry)) else {
+                    for window in request.windows {
+                        feedback?.finish(PreviewWindowIdentity(window), .failed)
+                    }
+                    continue
+                }
                 // A failed Close may still fall back to normal Quit. Settle it after that decision.
                 let result = await WindowUtil.closeWindows(request.windows, feedback: feedback, settleFailures: false)
                 guard !Task.isCancelled else { return }
@@ -2169,7 +2214,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 }
                 hideWindow()
             }
-        }
+        } }
+        previewActionTasks[token] = (ownership, task)
+        ownership.onSuperseded { task.cancel() }
         return false
     }
 

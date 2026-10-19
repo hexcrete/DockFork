@@ -2,22 +2,80 @@ import AppKit
 import Defaults
 
 final class WindowActionRequest: @unchecked Sendable {
+    fileprivate final class Completion: @unchecked Sendable {
+        private let lock = NSLock()
+        private var done = false
+        private var waiters: [CheckedContinuation<Void, Never>] = []
+        var isComplete: Bool { lock.withLock { done } }
+        func wait() async {
+            await withCheckedContinuation { waiter in
+                let ready = lock.withLock {
+                    if done { return true }
+                    waiters.append(waiter); return false
+                }
+                if ready { waiter.resume() }
+            }
+        }
+
+        func finish() {
+            let ready = lock.withLock {
+                done = true
+                let ready = waiters; waiters.removeAll(); return ready
+            }
+            for waiter in ready {
+                waiter.resume()
+            }
+        }
+    }
+
+    @TaskLocal static var current: WindowActionRequest?
     let token: UUID
     let admitted: [PreviewWindowIdentity]
     let rejected: [PreviewWindowIdentity]
     private let owner: WindowActionOwnership
+    fileprivate let completion: Completion
+    private let predecessors: [Completion]
 
-    fileprivate init(token: UUID, admitted: [PreviewWindowIdentity], rejected: [PreviewWindowIdentity], owner: WindowActionOwnership) {
+    fileprivate init(token: UUID, admitted: [PreviewWindowIdentity], rejected: [PreviewWindowIdentity], owner: WindowActionOwnership,
+                     completion: Completion, predecessors: [Completion] = [])
+    {
         self.token = token
         self.admitted = admitted
         self.rejected = rejected
         self.owner = owner
+        self.completion = completion
+        self.predecessors = predecessors
     }
 
     func contains(_ identity: PreviewWindowIdentity) -> Bool { owner.contains(identity, token: token) }
+    func containsApp(_ pid: pid_t) -> Bool { owner.containsApp(pid, token: token) }
+    func reserveApp(_ pid: pid_t) -> Bool { owner.reserveApp(pid, token: token) }
+    var mayForeground: Bool { owner.mayForeground(token: token) }
     func finish(_ identity: PreviewWindowIdentity) { owner.finish(identity, token: token) }
-    func finish() { owner.finish(token: token) }
+    func finish() { owner.finish(token: token); completion.finish() }
+    var predecessorsResolved: Bool { predecessors.allSatisfy(\.isComplete) }
+    func waitForPredecessors() async { for predecessor in predecessors {
+        await predecessor.wait()
+    } }
     func onSuperseded(_ cancel: @escaping @Sendable () -> Void) { owner.onSuperseded(token: token, cancel: cancel) }
+
+    static func run<T>(_ targets: [PreviewWindowIdentity], apps: Set<pid_t> = [], protect: Bool = false,
+                       atomic: Bool = false, operation: @escaping (WindowActionRequest) async -> T) async -> T?
+    {
+        guard !Task.isCancelled else { return nil }
+        let parent = current
+        let request = parent ?? WindowActionOwnership.shared.begin(targets, apps: apps, protect: protect, atomic: atomic)
+        defer { if parent == nil { request.finish() } }
+        guard targets.contains(where: request.contains), !atomic || targets.allSatisfy(request.contains) else { return nil }
+        if parent != nil { return await operation(request) }
+        let task = Task {
+            await request.waitForPredecessors()
+            guard !Task.isCancelled else { return nil as T? }
+            return await $current.withValue(request) { await operation(request) }
+        }
+        request.onSuperseded { task.cancel() }
+        return await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+    }
 
     deinit { finish() }
 }
@@ -28,41 +86,60 @@ final class WindowActionOwnership: @unchecked Sendable {
     private struct Record {
         var targets: Set<PreviewWindowIdentity>
         var apps: Set<pid_t>
-        let protected: Bool
+        var protected: Bool
+        var superseded = false
         var cancel: (@Sendable () -> Void)?
+        let completion: WindowActionRequest.Completion
     }
 
     private let lock = NSLock()
     private var records: [UUID: Record] = [:]
+    private var latestForegroundToken: UUID?
 
-    func begin(_ targets: [PreviewWindowIdentity], apps: Set<pid_t> = [], protect: Bool = false) -> WindowActionRequest {
+    func begin(_ targets: [PreviewWindowIdentity], apps: Set<pid_t> = [], protect: Bool = false, atomic: Bool = false,
+               replacingSingles: Bool = true) -> WindowActionRequest
+    {
         var seen = Set<PreviewWindowIdentity>()
         let targets = targets.filter { seen.insert($0).inserted }
         let token = UUID()
         var admitted: [PreviewWindowIdentity] = []
         var claimedApps = Set<pid_t>()
         var cancellations: [@Sendable () -> Void] = []
+        let completion = WindowActionRequest.Completion()
+        var predecessors: [WindowActionRequest.Completion] = []
         lock.lock()
         let blockedApps = Set(apps.filter { pid in
-            records.values.contains { $0.protected && ($0.apps.contains(pid) || $0.targets.contains { $0.pid == pid }) }
+            records.values.contains { ((!$0.superseded && $0.protected) || !replacingSingles) && ($0.apps.contains(pid) || $0.targets.contains { $0.pid == pid }) }
         })
+        if atomic, !blockedApps.isEmpty || targets.contains(where: { target in
+            records.values.contains { ((!$0.superseded && $0.protected) || !replacingSingles) && ($0.apps.contains(target.pid) || $0.targets.contains(target)) }
+        }) {
+            lock.unlock()
+            return WindowActionRequest(token: token, admitted: [], rejected: targets, owner: self, completion: completion)
+        }
         for target in targets {
             guard !blockedApps.contains(target.pid) else { continue }
             let overlaps = records.filter { _, record in
                 record.apps.contains(target.pid) || record.targets.contains(target) ||
                     (apps.contains(target.pid) && record.targets.contains { $0.pid == target.pid })
             }
-            guard !overlaps.values.contains(where: \.protected) else { continue }
+            guard !overlaps.values.contains(where: { (!$0.superseded && $0.protected) || !replacingSingles }) else { continue }
             for (previous, record) in overlaps {
-                records.removeValue(forKey: previous)
-                if let cancel = record.cancel { cancellations.append(cancel) }
+                predecessors.append(record.completion)
+                if !record.superseded {
+                    if let cancel = record.cancel { cancellations.append(cancel) }
+                    // Retain its cleanup barrier until the in-flight AX transaction returns.
+                    records[previous]?.superseded = true
+                    records[previous]?.cancel = nil
+                }
             }
             admitted.append(target)
             if apps.contains(target.pid) { claimedApps.insert(target.pid) }
         }
         if !admitted.isEmpty {
+            latestForegroundToken = token
             records[token] = Record(targets: Set(admitted), apps: claimedApps,
-                                    protected: protect || targets.count > 1 || !claimedApps.isEmpty)
+                                    protected: protect || targets.count > 1 || !claimedApps.isEmpty, completion: completion)
         }
         lock.unlock()
         // Cancelling can resume tasks; never invoke a callback under the ownership lock.
@@ -70,16 +147,38 @@ final class WindowActionOwnership: @unchecked Sendable {
             cancel()
         }
         let accepted = Set(admitted)
-        return WindowActionRequest(token: token, admitted: admitted, rejected: targets.filter { !accepted.contains($0) }, owner: self)
+        return WindowActionRequest(token: token, admitted: admitted, rejected: targets.filter { !accepted.contains($0) }, owner: self,
+                                   completion: completion, predecessors: predecessors)
     }
 
     fileprivate func contains(_ identity: PreviewWindowIdentity, token: UUID) -> Bool {
-        lock.withLock { records[token]?.targets.contains(identity) == true }
+        lock.withLock { records[token].map { !$0.superseded && ($0.targets.contains(identity) || $0.apps.contains(identity.pid)) } == true }
+    }
+
+    fileprivate func containsApp(_ pid: pid_t, token: UUID) -> Bool {
+        lock.withLock { records[token].map { !$0.superseded && ($0.apps.contains(pid) || $0.targets.contains { $0.pid == pid }) } == true }
+    }
+
+    fileprivate func mayForeground(token: UUID) -> Bool {
+        lock.withLock { latestForegroundToken == token && records[token]?.superseded == false }
+    }
+
+    fileprivate func reserveApp(_ pid: pid_t, token: UUID) -> Bool {
+        lock.withLock {
+            guard var record = records[token], !record.superseded,
+                  record.apps.contains(pid) || record.targets.contains(where: { $0.pid == pid }) else { return false }
+            if record.apps.contains(pid) { return true }
+            guard !records.contains(where: { $0.key != token && ($0.value.apps.contains(pid) || $0.value.targets.contains { $0.pid == pid }) }) else { return false }
+            record.apps.insert(pid)
+            record.protected = true
+            records[token] = record
+            return true
+        }
     }
 
     fileprivate func onSuperseded(token: UUID, cancel: @escaping @Sendable () -> Void) {
         let inactive = lock.withLock {
-            guard records[token] != nil else { return true }
+            guard records[token]?.superseded == false else { return true }
             records[token]?.cancel = cancel
             return false
         }
@@ -112,7 +211,8 @@ struct WindowActionGroup: Identifiable {
 
 extension WindowAction {
     func usesConfirmedSingleWindowAction(on window: WindowInfo) -> Bool {
-        positionRect != nil || [.minimize, .hide, .toggleFullScreen, .closeAllWindows].contains(self) ||
+        positionRect != nil || [.minimize, .hide, .toggleFullScreen, .closeAllWindows, .minimizeAllWindows, .autoTileSelectedWindows,
+                                .quit, .forceQuit, .openNewWindow, .bringToCurrentSpace].contains(self) ||
             (!window.isWindowlessApp && [.openAppWindow, .close].contains(self))
     }
 

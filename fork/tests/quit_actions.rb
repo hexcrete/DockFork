@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Exercise production Quit dispatch with inert apps; never terminate a real process.
 require 'tmpdir'
+require_relative 'support/action_ownership'
 ROOT = File.expand_path('../..', __dir__)
 def block(source, signature)
   start = source.index(signature) or abort "Missing #{signature}"
@@ -21,7 +22,7 @@ abort 'Preview Quit/Close still inspects held modifiers' if perform.include?('mo
 abort 'Quit label still inspects held modifiers' if block(catalog, '    func menuTitle(').include?('modifierFlags')
 dock = File.read("#{ROOT}/DockDoor/Utilities/DockObserver.swift")
 gesture = block(dock, '    private func handleCmdRightClickQuit(')
-abort 'Documented Dock Quick Quit changed' unless gesture.include?('event.flags.contains(.maskAlternate)') && gesture.include?('app.forceTerminate()') && gesture.include?('app.terminate()')
+abort 'Documented Dock Quick Quit changed' unless gesture.include?('event.flags.contains(.maskAlternate)') && gesture.include?('? .forceQuit : .quit') && gesture.include?('WindowUtil.performPreviewBatchAction')
 builder = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreviewInteractionModifier.swift")
 abort 'Both Quit actions need shared destructive styling' unless builder.include?('if action.isQuitAction {')
 abort 'Collapsed Quit needs an explicit Force Quit alternative' unless builder.include?('.flatMap { $0 == .quit ? [.quit, .forceQuit] : [$0] }')
@@ -122,7 +123,8 @@ enum WindowUtil {
  static func shouldQuitAppOnWindowClose(processIdentifier pid: pid_t) -> Bool { quitOnClose }
  static func closeAllWindows(for app: App, preferredWindows: [WindowInfo]? = nil, feedback: ActionFeedbackHandle? = nil) -> Int { 0 }
  static func hasOnlyFullscreenWindows(for app: App) -> Bool { false }
- static func openNewWindow(app: App) {}
+ static func openNewWindow(app: App) -> Bool { true }
+ static func moveWindowToCurrentManagedSpace(_ window:WindowInfo)->Bool {true}
  static func canBringWindowToFrontWithoutSpaceSwitch(_ window: WindowInfo) -> Bool { true }
  static func setHiddenStateConfirmed(for app: App, isHidden: Bool, fullscreenCandidates: [AX] = [], beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { hiddenRequests.append((app.processIdentifier, isHidden)); return true }
  static func revealWindowConfirmed(_ window: WindowInfo) async -> Bool { true }
@@ -201,9 +203,10 @@ let pending=PendingAX();WindowUtil.pendingMinimize=pending
 let earlier=Task {await WindowUtil.performPreviewBatchAction(.minimize,on:[visible])}
 for _ in 0..<1000 where !pending.started {await Task.yield()}
 precondition(pending.started,"Standalone worker did not start")
-let newer=await WindowUtil.performPreviewBatchAction(.minimize,on:[visible])
+let newerTask=Task {await WindowUtil.performPreviewBatchAction(.minimize,on:[visible])}
+try? await Task.sleep(nanoseconds:10_000_000)
+pending.release();let superseded=await earlier.value;let newer=await newerTask.value
 precondition(newer.succeeded.map(\.id)==[100])
-pending.release();let superseded=await earlier.value
 precondition(superseded.succeeded.isEmpty,"Standalone superseded worker did not receive cancellation")
 let clean=WindowActionOwnership.shared.begin([PreviewWindowIdentity(visible)])
 precondition(clean.admitted.count==1);clean.finish()
@@ -213,7 +216,7 @@ print("PASS shared executor admission: atomic app rejection, partial failures, f
 }
 SWIFT
 Dir.mktmpdir('dockfork-quit-actions-') do |dir|
-  path = "#{dir}/checks.swift"; File.write(path, source)
+  path = "#{dir}/checks.swift"; File.write(path, with_action_ownership(source))
   abort 'Swift compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', '-suppress-warnings', path, '-o', "#{dir}/checks")
   abort 'Quit checks failed' unless system("#{dir}/checks")
 end

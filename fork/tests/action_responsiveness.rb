@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Compile the production visibility workers against inert AX targets. Never manipulate real apps.
 require 'tmpdir'
+require_relative 'support/action_ownership'
 ROOT = File.expand_path('../..', __dir__)
 def block(source, signature)
   start = source.index(signature) or abort "Missing #{signature}"
@@ -95,6 +96,7 @@ final class NSRunningApplication: @unchecked Sendable {
 enum NSWorkspace { static let shared = Workspace() }
 final class Workspace { var frontmostApplication: NSRunningApplication? }
 struct WindowInfo: Sendable {
+ static func windowlessEntry(for app:NSRunningApplication)->WindowInfo {WindowInfo(axElement:app.element,app:app)}
  let axElement: FakeAX, app: NSRunningApplication
  let id = 1
  var appAxElement: FakeAX { app.element }
@@ -117,12 +119,13 @@ enum ActivationEvents {
 }
 var apps: [Int32: NSRunningApplication] = [:]
 func AXUIElementCreateApplication(_ pid: Int32) -> FakeAX { apps[pid]!.element }
-enum WindowAction { case minimize, hide, toggleFullScreen, openAppWindow, close, closeAllWindows, quit
+enum WindowAction { case minimize, hide, toggleFullScreen, openAppWindow, close, closeAllWindows, quit, minimizeAllWindows, autoTileSelectedWindows, forceQuit, openNewWindow, bringToCurrentSpace
  var positionRect:Int? {nil}
  static let fullscreenConfirmationDelay: UInt64 = 180_000_000
 SWIFT
 source += block(catalog, '    func usesConfirmedSingleWindowAction(') + "\n}\n"
 source += <<~'SWIFT'
+struct PreviewWindowIdentity:Hashable {let pid:Int32;let windowID:Int;init(pid:Int32,windowID:Int){self.pid=pid;self.windowID=windowID};init(_ w:WindowInfo){pid=w.app.processIdentifier;windowID=w.id}}
 enum WindowUtil {
  static var states: [Bool] = [], hiddenStates: [Bool] = [], reconciled: [UInt64] = [], minimized = 0
  static let fullscreenExitMetadataReconciliationDelayNanos: UInt64 = 450_000_000
@@ -302,7 +305,7 @@ source += <<~'SWIFT'
 }
 SWIFT
 Dir.mktmpdir('dockfork-responsiveness-') do |dir|
-  File.write("#{dir}/checks.swift", source)
+  File.write("#{dir}/checks.swift", with_action_ownership(source))
   abort 'Swift compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', '-suppress-warnings', "#{dir}/checks.swift", '-o', "#{dir}/checks")
   abort 'Responsiveness checks failed' unless system("#{dir}/checks")
 end
@@ -348,7 +351,7 @@ SWIFT
 source += block(info, '    func readFullscreenState(') + "\n}\n"
 source += block(info, 'enum WindowFrameTransactions {') + "\n"
 source += <<~'SWIFT'
-struct PreviewWindowIdentity:Hashable {let id:Int;init(_ window:WindowInfo){id=window.id}}
+struct PreviewWindowIdentity:Hashable {let pid:Int32=1;let id:Int;init(_ window:WindowInfo){id=window.id}}
 enum Kind {case desktop,fullscreen}
 struct ManagedSpaceDescriptor {let id:UInt64;var kind:Kind? = .desktop}
 struct ManagedDisplayDescriptor {let identifier:String;var spaces:[ManagedSpaceDescriptor]}
@@ -379,11 +382,12 @@ enum Defaults {static subscript(_ key:Key)->Bool {false}}
  static var events:[String]=[]
  static var moveGate:Gate?
  static var refuseMove=false
+ static var refusalGate:Gate?
  static var currentSpaces:Set<UInt64>=[2]
  static func revealWindowConfirmed(_ window:WindowInfo) async -> Bool {events.append("reveal");return true}
  static func moveWindowConfirmed(_ window:WindowInfo,toManagedSpace destination:UInt64,feedback:ActionFeedbackHandle?,completion:@escaping @MainActor (Bool)->Void)->Task<Void,Never>? {
   events.append("move")
-  if refuseMove {Task {@MainActor in completion(false)};return nil}
+  if refuseMove {Task {@MainActor in if let gate=refusalGate {refusalGate=nil;gate.entered.signal();while gate.release.wait(timeout:.now()) != .success {await Task.yield()}}; completion(false)};return nil}
   return Task {@MainActor in
    if let gate=moveGate {moveGate=nil;gate.entered.signal();while gate.release.wait(timeout:.now()) != .success {await Task.yield()}}
    guard !Task.isCancelled else {return}
@@ -436,8 +440,9 @@ source += <<~'SWIFT'
   let inactive=WindowUtil.performConfirmedSpaceMove(normal,to:dest,dismissPreviews:nil,isRequestActive:{false}){_ in preconditionFailure("Inactive callback")}
   precondition(inactive == nil && WindowUtil.pendingManagedSpaceFollows.values.first?.token == pendingToken)
   _ = WindowUtil.performConfirmedSpaceMove(normal,to:dest,dismissPreviews:nil,switchToDestination:true){_ in replies+=1}
-  try await settle {replies==1}
-  move.release.signal();try await Task.sleep(nanoseconds:10_000_000)
+  try await Task.sleep(nanoseconds:10_000_000);precondition(replies==0)
+  move.release.signal();try await settle {replies==1}
+  try await Task.sleep(nanoseconds:10_000_000)
   precondition(replies==1 && WindowUtil.events==["move","move","reveal","focus"] && WindowUtil.pendingManagedSpaceFollows.isEmpty)
   cancelOld?();precondition(WindowUtil.pendingManagedSpaceFollows.isEmpty)
   var active=false
@@ -457,12 +462,21 @@ source += <<~'SWIFT'
   try await entered(timedOut);activeRequest=false;timedOut.release.signal()
   try await settle {WindowUtil.pendingManagedSpaceFollows.isEmpty}
   precondition(WindowUtil.events.count==5)
+let delayedRefusal=Gate();WindowUtil.refusalGate=delayedRefusal;WindowUtil.refuseMove=true
+let oldRefusal=WindowUtil.performConfirmedSpaceMove(normal,to:dest,dismissPreviews:nil){_ in preconditionFailure("Superseded refusal replied")}
+try await entered(delayedRefusal)
+WindowUtil.refuseMove=false;var replacementReplies=0
+_ = WindowUtil.performConfirmedSpaceMove(normal,to:dest,dismissPreviews:nil){_ in replacementReplies+=1}
+try await Task.sleep(nanoseconds:10_000_000);precondition(replacementReplies==0)
+delayedRefusal.release.signal();try await settle {replacementReplies==1}
+precondition(WindowUtil.pendingManagedSpaceFollows.isEmpty)
+oldRefusal?()
   print("PASS Space preflight: snapshot menus, background live fullscreen, invalid/current/multi-Space gates, held AX/main-actor progress, cancellation, inactive-request isolation, latest-wins callbacks, immediate native refusal, confirmed reveal/focus order and task cleanup")
  }
 }
 SWIFT
 Dir.mktmpdir('dockfork-space-preflight-') do |dir|
- File.write("#{dir}/checks.swift",source)
+ File.write("#{dir}/checks.swift", with_action_ownership(source))
  abort 'Space preflight compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library','-suppress-warnings',"#{dir}/checks.swift",'-o',"#{dir}/checks")
  abort 'Space preflight checks failed' unless system("#{dir}/checks")
 end
@@ -523,7 +537,7 @@ source += <<~'SWIFT'
 }
 SWIFT
 Dir.mktmpdir('dockfork-spring-activation-') do |dir|
- File.write("#{dir}/checks.swift",source)
+ File.write("#{dir}/checks.swift", with_action_ownership(source))
  abort 'Spring activation compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
  abort 'Spring activation checks failed' unless system("#{dir}/checks")
 end
@@ -561,7 +575,7 @@ SWIFT
 source += block(info, '    func readVisibilityState(') + "\n}\n"
 source += block(info, 'enum WindowFrameTransactions {') + "\n"
 source += <<~'SWIFT'
-struct PreviewWindowIdentity:Hashable {let id:Int;init(_ window:WindowInfo){id=window.id}}
+struct PreviewWindowIdentity:Hashable {let pid:Int32=1;let id:Int;init(_ window:WindowInfo){id=window.id}}
 @MainActor enum WindowUtil {
  static var updates:[Int]=[]
  static func updateCachedWindowState(_ window:WindowInfo,isMinimized:Bool,isHidden:Bool,isFullscreen:Bool?) {updates.append(window.id)}
@@ -613,7 +627,7 @@ source += <<~'SWIFT'
 }
 SWIFT
 Dir.mktmpdir('dockfork-visibility-sync-') do |dir|
- File.write("#{dir}/checks.swift",source)
+ File.write("#{dir}/checks.swift", with_action_ownership(source))
  abort 'Visibility sync compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
  abort 'Visibility sync checks failed' unless system("#{dir}/checks")
 end

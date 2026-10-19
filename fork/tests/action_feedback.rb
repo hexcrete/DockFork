@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 # Execute the production feedback state machine with inert panels/monitors; no live preferences or windows.
 require 'tmpdir'
+require_relative 'support/action_ownership'
 require 'open3'
 ROOT = File.expand_path('../..', __dir__)
 source = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowGestureHUD.swift")
@@ -370,7 +371,7 @@ print("PASS spinner/expiry boundary and layout refresh cannot resurrect cursor r
 SWIFT
 Dir.mktmpdir('action-feedback-') do |dir|
   path = "#{dir}/checks.swift"
-  File.write(path, stubs + timing + position + handle + controller + checks)
+  File.write(path, with_action_ownership(stubs + timing + position + handle + controller + checks))
   out, status = Open3.capture2e('xcrun', 'swiftc', '-parse-as-library', path, '-o', "#{dir}/checks")
   abort out unless status.success?
   out, status = Open3.capture2e("#{dir}/checks")
@@ -386,7 +387,7 @@ coordinator = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/S
 container = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift")
 menu = File.read("#{ROOT}/DockDoor/Utilities/WindowActionsMenuController.swift")
 abort 'Single preview minimize/Close must use async batch operation' unless coordinator.include?('performSingleWindowAction(action, on: window, preservePreviews: preservePreviews, keyboard: true)') && container.include?('coordinator.performSingleWindowAction(action, on: window)')
-abort 'Menu actions must use async batch operation' unless menu.include?('action.usesConfirmedSingleWindowAction(on: window)') && menu.include?('await WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback)')
+abort 'Menu actions must use async batch operation' unless menu.include?('action.usesConfirmedSingleWindowAction(on: window)') && menu.include?('await WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback, request: request)')
 abort 'Minimize All must not settle on queueing' unless util.include?('if self != .autoTileSelectedWindows, self != .minimizeAllWindows { feedback?.finishRemaining(.requested) }')
 abort 'Minimize All action must forward feedback' unless util.include?('WindowUtil.minimizeAllWindows(for: window.app, preferredWindows: preferredWindows, feedback: feedback)')
 abort 'Container must wait for Minimize All confirmation' unless container.include?('if !awaitingMinimizeConfirmation { feedback?.finishRemaining(.requested) }') && container.include?('WindowUtil.minimizeAllWindows(for: app, preferredWindows: preferredWindows, feedback: feedback)')
@@ -533,10 +534,15 @@ let available=owner.begin([PreviewWindowIdentity(a)])
 precondition(available.admitted.count==1)
 let late=owner.begin([PreviewWindowIdentity(a)])
 available.onSuperseded {let nested=owner.begin([PreviewWindowIdentity(f)]);nested.finish()}
-precondition(late.contains(PreviewWindowIdentity(a)));late.finish()
+precondition(late.contains(PreviewWindowIdentity(a)));late.finish();available.finish()
 let appSingle=owner.begin([PreviewWindowIdentity(a)])
 let appReplace=owner.begin([PreviewWindowIdentity(b)],apps:[1])
-precondition(!appSingle.contains(PreviewWindowIdentity(a)) && appReplace.admitted.count==1);appReplace.finish()
+precondition(!appSingle.contains(PreviewWindowIdentity(a)) && appReplace.admitted.count==1);appReplace.finish();appSingle.finish()
+let appParent=owner.begin([PreviewWindowIdentity(a)]),appSibling=owner.begin([PreviewWindowIdentity(b)],protect:true)
+precondition(!appParent.reserveApp(1),"Nested app mutation ignored protected sibling")
+appSibling.finish();precondition(appParent.reserveApp(1))
+precondition(owner.begin([PreviewWindowIdentity(b)]).admitted.isEmpty,"Nested app claim did not reserve siblings")
+appParent.finish()
 print("PASS shared ownership: protected batch/terminal/app scopes, disjoint targets, partial admission, per-target release, single replacement, in-flight write ordering, app atomicity, stale cleanup, deinit and reentrant cancellation")
   print("PASS delayed minimize confirmation, real refusal, fullscreen exclusion, confirmed-only cache and cancellation")
  }
@@ -555,7 +561,7 @@ final class ProgressLog: @unchecked Sendable {
 @main struct Checks {
 SWIFT
 Dir.mktmpdir('feedback-minimize-') do |dir|
-  File.write("#{dir}/checks.swift", minimize_fixture)
+  File.write("#{dir}/checks.swift", with_action_ownership(minimize_fixture))
   out, status = Open3.capture2e('xcrun', 'swiftc', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
   abort out unless status.success?
   out, status = Open3.capture2e("#{dir}/checks")
@@ -568,8 +574,11 @@ wrapper = util[util.index('    @discardableResult\n    static func minimizeAllWi
 wrapper_fixture = <<~'SWIFT'
 import Foundation
 struct NSRunningApplication { let processIdentifier: Int32 = 1 }
-struct WindowInfo { let app = NSRunningApplication(); var isWindowlessApp = false; var isFullscreen: Bool? = false }
+struct WindowInfo { let id:UInt32=1;let app = NSRunningApplication(); var isWindowlessApp = false; var isFullscreen: Bool? = false }
+struct PreviewWindowIdentity:Hashable {let pid:Int32,windowID:UInt32;init(_ w:WindowInfo){pid=w.app.processIdentifier;windowID=w.id}}
+enum WrapperOutcome {case failed}
 final class ActionFeedbackHandle: @unchecked Sendable {
+ func finishRemaining(_ outcome:WrapperOutcome) {completed=true}
  private let lock = NSLock()
  private var value = false
  var completed: Bool {
@@ -603,7 +612,7 @@ wrapper_fixture += <<~'SWIFT'
 }
 SWIFT
 Dir.mktmpdir('feedback-minimize-wrapper-') do |dir|
-  File.write("#{dir}/checks.swift", wrapper_fixture)
+  File.write("#{dir}/checks.swift", with_action_ownership(wrapper_fixture))
   out, status = Open3.capture2e('xcrun', 'swiftc', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
   abort out unless status.success?
   out, status = Open3.capture2e("#{dir}/checks")
@@ -692,7 +701,7 @@ native_fixture += <<~'SWIFT'
 }
 SWIFT
 Dir.mktmpdir('feedback-native-panel-') do |dir|
-  File.write("#{dir}/checks.swift", native_fixture)
+  File.write("#{dir}/checks.swift", with_action_ownership(native_fixture))
   out, status = Open3.capture2e('xcrun', 'swiftc', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
   abort out unless status.success?
   out, status = Open3.capture2e("#{dir}/checks")
@@ -763,7 +772,7 @@ warp_fixture += <<~'SWIFT'
 }
 SWIFT
 Dir.mktmpdir('feedback-mouse-warp-') do |dir|
-  File.write("#{dir}/checks.swift", warp_fixture)
+  File.write("#{dir}/checks.swift", with_action_ownership(warp_fixture))
   out, status = Open3.capture2e('xcrun', 'swiftc', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
   abort out unless status.success?
   out, status = Open3.capture2e("#{dir}/checks")

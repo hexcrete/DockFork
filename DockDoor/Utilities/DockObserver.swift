@@ -1283,7 +1283,6 @@ final class DockObserver {
         wasHiddenAtClickTime: Bool
     ) {
         let pid = app.processIdentifier
-        cancelDockClickAction(for: pid)
         previewCoordinator.cancelPendingShow()
         let feedbackTargets = Defaults[.enableActionFeedback] ? WindowUtil.readCachedWindows(for: pid) : []
         let feedback = ActionFeedbackController.begin(action == .hide ? .hide : .minimizeAllWindows, windows: feedbackTargets, usePreviews: false)
@@ -1299,38 +1298,42 @@ final class DockObserver {
                 }
             }
 
-            switch action {
-            case .hide:
-                let targetHiddenState = !wasHiddenAtClickTime
-                let confirmed = await WindowUtil.setHiddenStateConfirmed(for: app, isHidden: targetHiddenState)
-                feedback?.finishRemaining(confirmed ? .completed : .failed)
-                if confirmed {
-                    DebugLogger.log("DockClick", details: "\(appName): hidden=\(targetHiddenState)")
-                    if !targetHiddenState {
+            let identity = PreviewWindowIdentity(pid: pid, windowID: 0)
+            let admitted: Void? = await WindowActionRequest.run([identity], apps: [pid]) { _ in
+                switch action {
+                case .hide:
+                    let targetHiddenState = !wasHiddenAtClickTime
+                    let confirmed = await WindowUtil.setHiddenStateConfirmed(for: app, isHidden: targetHiddenState)
+                    feedback?.finishRemaining(confirmed ? .completed : .failed)
+                    if confirmed {
+                        DebugLogger.log("DockClick", details: "\(appName): hidden=\(targetHiddenState)")
+                        if !targetHiddenState, WindowActionRequest.current?.mayForeground != false {
+                            app.activate(options: [.activateIgnoringOtherApps])
+                        }
+                    } else {
+                        DebugLogger.log("DockClick", details: "\(appName): hidden=\(targetHiddenState) was not confirmed")
+                    }
+
+                case .minimize:
+                    let result = await WindowUtil.toggleAllMinimizableWindows(
+                        for: app,
+                        restoreHiddenAppIfNeeded: wasHiddenAtClickTime,
+                        feedback: feedback
+                    )
+                    guard !Task.isCancelled else { return }
+                    DebugLogger.log(
+                        "DockClick",
+                        details: "\(appName): minimize-all outcome=\(result.outcome), confirmed=\(result.confirmedCount)/\(result.eligibleCount)"
+                    )
+                    if result.shouldActivateApp, WindowActionRequest.current?.mayForeground != false {
                         app.activate(options: [.activateIgnoringOtherApps])
                     }
-                } else {
-                    DebugLogger.log("DockClick", details: "\(appName): hidden=\(targetHiddenState) was not confirmed")
-                }
 
-            case .minimize:
-                let result = await WindowUtil.toggleAllMinimizableWindows(
-                    for: app,
-                    restoreHiddenAppIfNeeded: wasHiddenAtClickTime,
-                    feedback: feedback
-                )
-                guard !Task.isCancelled else { return }
-                DebugLogger.log(
-                    "DockClick",
-                    details: "\(appName): minimize-all outcome=\(result.outcome), confirmed=\(result.confirmedCount)/\(result.eligibleCount)"
-                )
-                if result.shouldActivateApp {
-                    app.activate(options: [.activateIgnoringOtherApps])
+                case .cycleWindows:
+                    break
                 }
-
-            case .cycleWindows:
-                break
             }
+            if admitted == nil { feedback?.finishRemaining(.failed) }
         }
         dockClickActionTasks[pid] = PendingDockClickAction(token: token, task: task)
     }
@@ -1569,11 +1572,8 @@ final class DockObserver {
 
     private func handleCmdRightClickQuit(app: NSRunningApplication, event: CGEvent) {
         Task { @MainActor in
-            if event.flags.contains(.maskAlternate) {
-                app.forceTerminate()
-            } else {
-                app.terminate()
-            }
+            let action: WindowAction = event.flags.contains(.maskAlternate) ? .forceQuit : .quit
+            _ = await WindowUtil.performPreviewBatchAction(action, on: [WindowInfo.windowlessEntry(for: app)])
         }
     }
 
@@ -1767,6 +1767,12 @@ final class DockObserver {
 
     @MainActor
     private func handleTitleBarVerticalScroll(_ action: VerticalScrollAction, for window: WindowInfo, now: Date, token: UUID) async {
+        if WindowActionRequest.current == nil {
+            _ = await WindowActionRequest.run([PreviewWindowIdentity(window)]) { _ in
+                await self.handleTitleBarVerticalScroll(action, for: window, now: now, token: token)
+            }
+            return
+        }
         if let pendingTitleBarRestoreState,
            pendingTitleBarRestoreState.windowId == window.id,
            pendingTitleBarRestoreState.processIdentifier == window.app.processIdentifier,

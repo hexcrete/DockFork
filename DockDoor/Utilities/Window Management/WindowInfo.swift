@@ -637,6 +637,10 @@ extension WindowInfo {
     @MainActor
     @discardableResult
     func setWindowFrame(_ targetFrame: CGRect, on targetScreen: NSScreen? = nil) async -> Bool {
+        if WindowActionRequest.current == nil {
+            return await WindowActionRequest.run([PreviewWindowIdentity(self)]) { _ in await self.setWindowFrame(targetFrame, on: targetScreen) } ?? false
+        }
+        guard WindowActionRequest.current?.contains(PreviewWindowIdentity(self)) == true else { return false }
         let context = WindowFrameContext(), target = frameTarget
         guard let screenIdentifier = targetScreen?.uniqueIdentifier() ?? context.screen(containing: targetFrame)?.identifier else { return false }
         let result = await WindowFrameTransactions.run(for: target.ownerPID) { cancellation in
@@ -650,6 +654,10 @@ extension WindowInfo {
     func setWindowFrameResult(_ targetFrame: CGRect, on screen: NSScreen,
                               isRequestActive: @escaping @MainActor () -> Bool) async -> WindowFramePlacementResult
     {
+        if WindowActionRequest.current == nil {
+            return await WindowActionRequest.run([PreviewWindowIdentity(self)]) { _ in await self.setWindowFrameResult(targetFrame, on: screen, isRequestActive: isRequestActive) } ?? .failed
+        }
+        guard WindowActionRequest.current?.contains(PreviewWindowIdentity(self)) == true else { return .failed }
         guard !Task.isCancelled, isRequestActive() else { return .failed }
         let target = frameTarget, context = WindowFrameContext(), screenIdentifier = screen.uniqueIdentifier()
         let result = await WindowFrameTransactions.run(for: target.ownerPID) { cancellation in
@@ -686,6 +694,10 @@ extension WindowInfo {
     func positionWindow(_ rect: WindowPositionRect, size: CGSize? = nil,
                         widthScale: CGFloat? = nil, heightScale: CGFloat? = nil, lockAspectRatio: Bool = false) async -> Bool
     {
+        if WindowActionRequest.current == nil {
+            return await WindowActionRequest.run([PreviewWindowIdentity(self)]) { _ in await self.positionWindow(rect, size: size, widthScale: widthScale, heightScale: heightScale, lockAspectRatio: lockAspectRatio) } ?? false
+        }
+        guard WindowActionRequest.current?.contains(PreviewWindowIdentity(self)) == true else { return false }
         let target = frameTarget, context = WindowFrameContext()
         let placement = await WindowFrameTransactions.run(for: target.ownerPID) { cancellation -> (WindowFrameTarget.Result, String)? in
             guard !cancellation.isCancelled, (try? target.element.isFullscreen()) != true,
@@ -742,13 +754,15 @@ extension WindowInfo {
     }
 
     private func enqueueActivation(request: WindowActivationRequest) {
-        guard !request.isCancelled, !ownerApp.isTerminated else {
+        let ownership = WindowActionRequest.current
+        let isActive = { !request.isCancelled && ownership?.mayForeground != false }
+        guard isActive(), !ownerApp.isTerminated else {
             request.finish(false)
             return
         }
 
         WindowInfo.activationCoordinator.begin(request)
-        guard !request.isCancelled else { return }
+        guard isActive() else { request.finish(false); return }
 
         guard !isWindowlessApp else {
             WindowUtil.activateWindowlessApp(app: app)
@@ -765,7 +779,7 @@ extension WindowInfo {
         WindowInfo.axRaiseQueue.async {
             let maxRetries = 3
             for attempt in 0 ..< maxRetries {
-                guard !request.isCancelled, !window.ownerApp.isTerminated else {
+                guard isActive(), !window.ownerApp.isTerminated else {
                     request.finish(false)
                     return
                 }
@@ -778,12 +792,12 @@ extension WindowInfo {
                     }
 
                     try window.axElement.performAction(kAXRaiseAction)
-                    guard !request.isCancelled else {
+                    guard isActive() else {
                         request.finish(false)
                         return
                     }
                     try window.axElement.setAttribute(kAXMainAttribute, true)
-                    guard !request.isCancelled else {
+                    guard isActive() else {
                         request.finish(false)
                         return
                     }
@@ -791,13 +805,13 @@ extension WindowInfo {
                     request.finish(true)
                     return
                 } catch {
-                    guard !request.isCancelled else { return }
+                    guard isActive() else { request.finish(false); return }
                     print("Attempt \(attempt + 1) failed to bring window to front: \(error)")
                     DebugLogger.log("WindowActivation", details: "PID: \(window.app.processIdentifier), window: \(window.id), attempt: \(attempt + 1), failed: \(error)")
                     if error is AxError {
                         WindowUtil.removeWindowFromDesktopSpaceCache(with: window.id, in: window.app.processIdentifier)
                     }
-                    if attempt + 1 < maxRetries, !request.isCancelled {
+                    if attempt + 1 < maxRetries, isActive() {
                         usleep(50000)
                     }
                 }
@@ -836,6 +850,10 @@ extension WindowInfo {
 
     @discardableResult
     func close(progress: (@Sendable (Int, Int) -> Void)? = nil) -> Bool {
+        let parent = WindowActionRequest.current
+        let request = parent ?? WindowActionOwnership.shared.begin([PreviewWindowIdentity(self)], protect: true, replacingSingles: false)
+        defer { if parent == nil { request.finish() } }
+        guard request.contains(PreviewWindowIdentity(self)) else { return false }
         guard !isWindowlessApp, !Task.isCancelled else { return false }
         do {
             var finalCloseButton = closeButton
@@ -890,10 +908,10 @@ extension WindowInfo {
 
     @discardableResult
     func quit(force: Bool) -> Bool {
-        if force {
-            app.forceTerminate()
-        } else {
-            app.terminate()
-        }
+        let parent = WindowActionRequest.current
+        let request = parent ?? WindowActionOwnership.shared.begin([PreviewWindowIdentity(self)], apps: [app.processIdentifier], protect: true, replacingSingles: false)
+        defer { if parent == nil { request.finish() } }
+        guard request.reserveApp(app.processIdentifier) else { return false }
+        return force ? app.forceTerminate() : app.terminate()
     }
 }
