@@ -30,7 +30,7 @@ import AppKit
 struct Key<T> { let value: T }
 enum Defaults {
  protocol Serializable {}
- static var enabled = false, position = ActionFeedbackPosition.trigger, mouseFeedback = false
+ static var enabled = false, position = ActionFeedbackPosition.trigger, mouseFeedback = false, limitedTiling = false
  static var callbacks: [UUID: (Change) -> Void] = [:]
  struct Change { let newValue: Bool }
  final class Observation { let id: UUID; init(_ id: UUID) { self.id = id }; func invalidate() { Defaults.callbacks[id] = nil } }
@@ -43,7 +43,7 @@ enum Defaults {
 extension Key where T == Bool {
  static var enableActionFeedback: Self { Self(value: Defaults.enabled) }
  static var showMouseFollowsFocusFeedback: Self { Self(value: Defaults.mouseFeedback) }
- static var tileOnlyWhatFits: Self { Self(value: false) }
+ static var tileOnlyWhatFits: Self { Self(value: Defaults.limitedTiling) }
  static var fillActionsAutoTileSelection: Self { Self(value: false) }
 }
 extension Key where T == Int {
@@ -51,22 +51,23 @@ extension Key where T == Int {
  static var maximumTilingColumns: Self { Self(value: 3) }
 }
 extension Key where T == ActionFeedbackPosition { static var actionFeedbackPosition: Self { Self(value: Defaults.position) } }
-struct PreviewWindowIdentity: Hashable { let pid: Int32; let windowID: UInt32; init(pid: Int32, windowID: UInt32) { self.pid = pid; self.windowID = windowID }; init(_ w: WindowInfo) { self.init(pid: 1, windowID: w.id) } }
-struct TestApp { let processIdentifier: Int32 = 1; let isHidden: Bool }
-struct WindowInfo { enum WindowPositionRect: Equatable { case test }; let id: UInt32; var isFullscreen: Bool? = false; var isMinimized = false; var isHidden = false; var isWindowlessApp = false; var app: TestApp { TestApp(isHidden: isHidden) } }
-enum WindowAction { case quit, forceQuit, none, toggleWindowSelection, selectAllWindows, openAppWindow, close, closeAllWindows, minimize, minimizeAllWindows, hide, toggleFullScreen, autoTileSelectedWindows
- func appliesToSelectedWindow(_ w: WindowInfo) -> Bool { true }
+struct PreviewWindowIdentity: Hashable { let pid: Int32; let windowID: UInt32; init(pid: Int32, windowID: UInt32) { self.pid = pid; self.windowID = windowID }; init(_ w: WindowInfo) { self.init(pid: w.app.processIdentifier, windowID: w.id) } }
+struct TestApp { let processIdentifier: Int32; let isHidden: Bool }
+struct WindowInfo { enum WindowPositionRect: Equatable { case test }; let id: UInt32; var pid: Int32 = 1; var isFullscreen: Bool? = false; var isMinimized = false; var isHidden = false; var isWindowlessApp = false; var app: TestApp { TestApp(processIdentifier: pid, isHidden: isHidden) } }
+enum WindowAction { case openNewWindow, quit, forceQuit, none, toggleWindowSelection, selectAllWindows, openAppWindow, close, closeAllWindows, minimize, minimizeAllWindows, hide, toggleFullScreen, autoTileSelectedWindows
+ /* Shared target eligibility */
  func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> Int? { self == .autoTileSelectedWindows ? 0 : nil }
  func menuTitle(for w: WindowInfo, batchTargets: [WindowInfo]?) -> String {
   switch self { case .close: "Close Window"; case .closeAllWindows: "Close All Windows"; case .minimizeAllWindows: "Minimize All Windows"; default: "Other Action" }
  }
- func batchTargets(from windows: [WindowInfo]) -> [WindowInfo] { windows }
+ /* Shared batch targets */
  /* Batch target state */
  /* Feedback title */
  var iconName: String { self == .minimizeAllWindows ? "minus.circle.fill" : "xmark" }
  /* Menu icon */
 }
 enum WindowUtil {
+ /* Auto Tile eligibility */
  static var cachedWindows: [WindowInfo] = []
  static func readCachedWindows(for pid: Int32) -> [WindowInfo] { cachedWindows.filter { $0.app.processIdentifier == pid } }
  struct PreviewBatchResult { var succeeded: [WindowInfo] = []; var failed: [PreviewWindowIdentity] = [] }
@@ -116,6 +117,10 @@ enum TestEvent {
 SWIFT
 stubs.sub!('/* Popup content */', source[source.index('    struct Content: Equatable {')...source.index('    private var tooltipPanel:')])
 actions = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
+util_source = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowUtil.swift")
+stubs.sub!('/* Auto Tile eligibility */', util_source[util_source.index('    static func autoTileTargets(')...util_source.index("    @MainActor\n    static func tilePreviewWindows(")])
+stubs.sub!('/* Shared target eligibility */', actions[actions.index('    func appliesToSelectedWindow(')...actions.index('    func batchTargets(')])
+stubs.sub!('/* Shared batch targets */', actions[actions.index('    func batchTargets(')...actions.index('    func batchTargetState(')] + actions[actions.index('    var isAppWidePreviewAction:')...actions.index('    enum Group:')])
 stubs << actions[actions.index('enum PreviewBatchTogglePolicy {')...actions.index('struct WindowActionGroup:')]
 stubs.sub!('/* Batch target state */', actions[actions.index('    func batchTargetState(')...actions.index('    var isAppWidePreviewAction:')])
 stubs.sub!('/* Feedback title */', actions[actions.index('    func feedbackTitle(')...actions.index('    func menuTitle(')])
@@ -153,7 +158,8 @@ extension ActionFeedbackController {
   precondition(WindowAction.minimize.feedbackTitle(for: minimized[0], batchTargets: [minimized[0], windows[1]]) == "Minimize")
   var hidden = windows; hidden[0].isHidden = true; hidden[1].isHidden = true
   precondition(WindowAction.hide.feedbackTitle(for: hidden[0], batchTargets: hidden) == "Unhide App")
-  precondition(WindowAction.hide.feedbackTitle(for: hidden[0], batchTargets: [hidden[0], windows[1]]) == "Hide App")
+  var otherApp = windows[1]; otherApp.pid = 2
+  precondition(WindowAction.hide.feedbackTitle(for: hidden[0], batchTargets: [hidden[0], otherApp]) == "Hide App")
   var fullscreen = windows; fullscreen[0].isFullscreen = true
   precondition(WindowAction.toggleFullScreen.feedbackTitle(for: fullscreen[0], batchTargets: fullscreen) == "Exit Full Screen")
   precondition(WindowAction.autoTileSelectedWindows.feedbackTitle(for: windows[0], batchTargets: windows) == "Auto Tile")
@@ -203,6 +209,105 @@ extension ActionFeedbackController {
   headerClose.finish(first, .requested); headerClose.finish(second, .requested)
   await waitForCleanup()
   WindowUtil.cachedWindows = []
+let thirdWindow = WindowInfo(id: 3)
+let thirdID = PreviewWindowIdentity(thirdWindow)
+let counting = ActionFeedbackController.begin(.minimize, windows: windows + [thirdWindow], usePreviews: false)!
+let confirmed = counting.confirmedProgress
+DispatchQueue.global().sync {
+ confirmed(first, true); confirmed(first, true); confirmed(second, false)
+}
+// The main queue has not drained the background notification yet.
+counting.finish(first, .completed)
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "2/3")
+counting.finish(WindowUtil.PreviewBatchResult(succeeded: [windows[0]], failed: [second, thirdID]))
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "1/3" && ActionFeedbackController.existing!.snapshot.4!.isWarning)
+counting.finishRemaining(.cancelled)
+await waitForCleanup()
+print("PASS confirmed progress survives final-result delivery before main-queue drain; stable identities settle once")
+for action in [WindowAction.close, .closeAllWindows, .minimize, .autoTileSelectedWindows] {
+ let shared = ActionFeedbackController.begin(action,windows:windows,usePreviews:false)!
+ DispatchQueue.global().sync {shared.finish(first,.failed);shared.finish(second,.requested)}
+ shared.finishRemaining(.requested)
+ precondition(ActionFeedbackController.existing!.entries[first]?.outcome == .failed,"Final summary overtook a background failure")
+ precondition(ActionFeedbackController.existing!.entries[second]?.outcome == .requested)
+ await waitForCleanup()
+}
+print("PASS all action outcomes share delivery buffering; final summaries cannot overwrite background failures/acknowledgements")
+
+let appWindows = windows + [thirdWindow]
+let hiddenApp = ActionFeedbackController.begin(.hide, windows: appWindows, usePreviews: false)!
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == nil)
+hiddenApp.finish(first, .completed)
+precondition(ActionFeedbackController.existing!.snapshot.2 == 3 && ActionFeedbackController.existing!.snapshot.4!.counter == nil)
+await waitForCleanup()
+var sameIDOtherApp = windows[0]; sameIDOtherApp.pid = 2
+let otherID = PreviewWindowIdentity(sameIDOtherApp)
+let multipleApps = ActionFeedbackController.begin(.hide, windows: windows + [sameIDOtherApp], usePreviews: false)!
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "0/2")
+multipleApps.finish(first, .completed)
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "1/2" && ActionFeedbackController.existing!.snapshot.2 == 2)
+multipleApps.finish(otherID, .failed)
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "1/2" && ActionFeedbackController.existing!.snapshot.4!.isWarning)
+await waitForCleanup()
+print("PASS Hide counts apps once, fans results to same-app previews, and keeps equal window IDs in different apps distinct")
+Defaults.position = .preview
+let previewHide = ActionFeedbackController.begin(.hide, windows: windows + [sameIDOtherApp])!
+previewHide.finish(first,.completed)
+precondition(ActionFeedbackController.existing!.previewContents.filter(\.isSuccess).count == 2)
+SharedPreviewWindowCoordinator.activeInstance!.isVisible = false
+ActionFeedbackController.existing!.refreshAnchors()
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "1/2")
+previewHide.finish(otherID,.failed)
+await waitForCleanup()
+SharedPreviewWindowCoordinator.activeInstance!.isVisible = true
+Defaults.position = .cursor
+let distinctWindows = ActionFeedbackController.begin(.minimize,windows:[windows[0],sameIDOtherApp],usePreviews:false)!
+let distinctCallback = distinctWindows.confirmedProgress
+DispatchQueue.global().sync {distinctCallback(first,true);distinctCallback(otherID,true)}
+distinctWindows.finishRemaining(.failed)
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "2/2")
+await waitForCleanup()
+let superseded = ActionFeedbackController.begin(.minimize,windows:windows,usePreviews:false)!
+let staleCallback = superseded.confirmedProgress
+let current = ActionFeedbackController.begin(.minimize,windows:windows,usePreviews:false)!
+DispatchQueue.global().sync {staleCallback(first,true)}
+current.finish(second,.completed)
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "1/2")
+current.finish(first,.completed)
+await waitForCleanup()
+print("PASS per-preview Hide fanout/consolidation, equal IDs across apps, and stale progress rejection")
+
+
+WindowUtil.cachedWindows = windows + [thirdWindow]
+let expanded = ActionFeedbackController.begin(.minimizeAllWindows, windows: [windows[0]], usePreviews: false)!
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "0/3")
+let callback = expanded.confirmedProgress
+DispatchQueue.global().sync {
+ expanded.setTargets([windows[0],thirdWindow,thirdWindow]);callback(first,true);callback(thirdID,true)
+}
+expanded.finishRemaining(.failed)
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "2/2" && ActionFeedbackController.existing!.snapshot.4!.isSuccess)
+await waitForCleanup()
+WindowUtil.cachedWindows = []
+var windowless = thirdWindow;windowless.isWindowlessApp = true
+var full = thirdWindow;full.isFullscreen = true
+precondition(WindowAction.minimize.previewTargets(from: windows + [windowless,full,windows[0]]).map(\.id) == [1,2])
+WindowUtil.cachedWindows = [full]
+precondition(WindowAction.hide.previewTargets(from: [full]).isEmpty)
+WindowUtil.cachedWindows = []
+Defaults.limitedTiling = true
+let many = (1...8).map {WindowInfo(id: UInt32($0))}
+precondition(WindowAction.autoTileSelectedWindows.previewTargets(from: many).count == 6)
+var tiledFull=WindowInfo(id:99);tiledFull.isFullscreen=true
+precondition(WindowAction.autoTileSelectedWindows.previewTargets(from: [tiledFull,windowless] + many).map(\.id) == Array(1...6).map(UInt32.init))
+precondition(WindowAction.autoTileSelectedWindows.previewTargets(from: [full]).isEmpty)
+let tileFeedback = ActionFeedbackController.begin(.autoTileSelectedWindows,windows:[full] + windows,usePreviews:false)!
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "0/2")
+tileFeedback.finishRemaining(.completed)
+await waitForCleanup()
+Defaults.limitedTiling = false
+print("PASS shared eligibility: Minimize All expansion, actual-snapshot reconciliation, duplicates, windowless/fullscreen exclusions and tiling limits")
+
   ActionFeedbackController.mouseFollowedFocus()
   precondition(ActionFeedbackController.existing == nil)
   Defaults.mouseFeedback = true
@@ -387,7 +492,7 @@ coordinator = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/S
 container = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift")
 menu = File.read("#{ROOT}/DockDoor/Utilities/WindowActionsMenuController.swift")
 abort 'Single preview minimize/Close must use async batch operation' unless coordinator.include?('performSingleWindowAction(action, on: window, preservePreviews: preservePreviews, keyboard: true)') && container.include?('coordinator.performSingleWindowAction(action, on: window)')
-abort 'Menu actions must use async batch operation' unless menu.include?('action.usesConfirmedSingleWindowAction(on: window)') && menu.include?('await WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback, request: request)')
+abort 'Menu actions must use async batch operation' unless menu.include?('action.usesConfirmedSingleWindowAction(on: window)') && menu.include?('await WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback, request: request, targetState: targetState, resolvedTargets: resolvedTargets)')
 abort 'Minimize All must not settle on queueing' unless util.include?('if self != .autoTileSelectedWindows, self != .minimizeAllWindows { feedback?.finishRemaining(.requested) }')
 abort 'Minimize All action must forward feedback' unless util.include?('WindowUtil.minimizeAllWindows(for: window.app, preferredWindows: preferredWindows, feedback: feedback)')
 abort 'Container must wait for Minimize All confirmation' unless container.include?('if !awaitingMinimizeConfirmation { feedback?.finishRemaining(.requested) }') && container.include?('WindowUtil.minimizeAllWindows(for: app, preferredWindows: preferredWindows, feedback: feedback)')
@@ -398,9 +503,11 @@ struct App { let bundleIdentifier: String? = "test"; var processIdentifier: Int3
 final class AX: @unchecked Sendable {
  let lock = NSLock()
  var desired = false, fullscreen = false, refuses = false
- var changeAt: Date?, fullscreenGate: Gate?, writeGate: Gate?
+ var changeAt: Date?, fullscreenGate: Gate?, writeGate: Gate?, readGate: Gate?
  var settleDelay: TimeInterval = 0.07
  private var writes: [Bool] = []
+ private var reads = 0
+ var readCount: Int {lock.withLock {reads}}
  var writeValues: [Bool] { lock.withLock { writes } }
  func isFullscreen() throws -> Bool {
   precondition(!Thread.isMainThread)
@@ -409,7 +516,11 @@ final class AX: @unchecked Sendable {
   return lock.withLock {fullscreen}
  }
  func isMinimized() throws -> Bool {
+  precondition(!Thread.isMainThread)
+  let pending=lock.withLock {let value=readGate;readGate=nil;return value}
+  if let pending {pending.entered.signal();pending.release.wait()}
   lock.lock(); defer { lock.unlock() }
+  reads += 1
   return changeAt.map { Date() >= $0 && !refuses ? desired : !desired } ?? false
  }
  func setAttribute(_ key: String, _ value: Bool) throws {
@@ -464,6 +575,7 @@ minimize_fixture += <<~'SWIFT'
   precondition(progress.calls == 2)
   precondition(WindowUtil.cached == [1])
   precondition(fullscreen.axElement.changeAt == nil)
+  precondition(refusal.axElement.writeValues.count == 2 && refusal.axElement.readCount == 3, "Confirmation retry bound changed")
   let pending = WindowInfo(id: 4); pending.axElement.refuses = true
   let task = Task { await WindowUtil.setMinimizedWindowsConfirmed([pending], isMinimized: true) }
   try? await Task.sleep(nanoseconds: 20_000_000)
@@ -477,6 +589,51 @@ func entered(_ gate:Gate) async {
 func fast(_ id:UInt32, pid:Int32=1)->WindowInfo {
  var result=WindowInfo(id:id);result.app.processIdentifier=pid;result.axElement.settleDelay=0;return result
 }
+for minimize in [true,false] {
+ for hasProgress in [true,false] {
+  let first=fast(70),second=fast(71)
+  if !minimize {for window in [first,second] {window.axElement.desired=true;window.axElement.changeAt = .distantPast}}
+  let writing=Gate(),reading=Gate(),progress=ProgressLog()
+  second.axElement.writeGate=writing;second.axElement.readGate=reading
+  let callback:(@Sendable (PreviewWindowIdentity,Bool)->Void)?
+  if hasProgress {callback = {identity,success in progress.record(identity,success)}} else {callback=nil}
+  let pending=Task {await WindowUtil.setMinimizedWindowsConfirmed([first,second],isMinimized:minimize,progress:callback)}
+  await entered(writing)
+  precondition(first.axElement.readCount==0 && second.axElement.readCount==0 && progress.snapshot.isEmpty,"Feedback interleaved confirmation with initial writes")
+  writing.release.signal()
+  await entered(reading)
+  precondition(first.axElement.readCount==1 && progress.snapshot == (hasProgress ? [70:true] : [:]),"Existing confirmation did not publish before a later read finished")
+  reading.release.signal();let result=await pending.value
+  precondition(result.map(\.id)==[70,71] && progress.calls == (hasProgress ? 2 : 0))
+  for window in [first,second] {
+   precondition(window.axElement.writeValues==[minimize] && window.axElement.readCount==1,"Fast path added AX work")
+  }
+ }
+}
+print("PASS Minimize/Restore with/without progress: identical write-all-before-confirm scheduling, per-read outcomes before later confirmation completes, one fast-path write/read")
+let slowFirst=WindowInfo(id:72),fastLast=fast(73)
+let outOfOrder=await WindowUtil.setMinimizedWindowsConfirmed([slowFirst,fastLast],isMinimized:true)
+precondition(outOfOrder.map(\.id)==[72,73],"Progress timing changed the returned window order")
+let slowRead=fast(74,pid:11),independentRead=fast(75,pid:12)
+let readGate=Gate();slowRead.axElement.readGate=readGate
+let readProgress=ProgressLog()
+let readTask=Task {await WindowUtil.setMinimizedWindowsConfirmed([slowRead],isMinimized:true,progress:{readProgress.record($0,$1)})}
+await entered(readGate)
+let independentReadResult=await WindowUtil.setMinimizedWindowsConfirmed([independentRead],isMinimized:true)
+precondition(independentReadResult.map(\.id)==[75] && readProgress.snapshot.isEmpty,"Slow confirmation blocked the main actor or independent app")
+readGate.release.signal();let readResult=await readTask.value
+precondition(readResult.map(\.id)==[74] && readProgress.snapshot==[74:true])
+let supersededRead=fast(76,pid:13),supersededGate=Gate(),supersededProgress=ProgressLog()
+supersededRead.axElement.readGate=supersededGate
+let oldRead=Task {await WindowUtil.setMinimizedWindowsConfirmed([supersededRead],isMinimized:true,progress:{supersededProgress.record($0,$1)})}
+await entered(supersededGate)
+let newRead=Task {await WindowUtil.setMinimizedWindowsConfirmed([supersededRead],isMinimized:false)}
+try? await Task.sleep(nanoseconds:20_000_000)
+precondition(supersededRead.axElement.writeValues==[true],"Replacement overtook an in-flight confirmation")
+supersededGate.release.signal();let staleRead=await oldRead.value;let finalRead=await newRead.value
+precondition(staleRead.isEmpty && supersededProgress.snapshot.isEmpty && finalRead.map(\.id)==[76])
+precondition(WindowUtil.cachedStates[76]==false && supersededRead.axElement.writeValues==[true,false])
+print("PASS held confirmation: responsive main actor/independent app, no stale progress/cache on replacement, ordered successor writes")
 let owner=WindowActionOwnership()
 let a=fast(10),b=fast(11),c=fast(12)
 let independent=owner.begin([a,b].map(PreviewWindowIdentity.init))
@@ -553,6 +710,7 @@ final class ProgressLog: @unchecked Sendable {
  let lock = NSLock()
  var values: [UInt32: Bool] = [:]
  var calls = 0
+ var snapshot: [UInt32:Bool] {lock.withLock {values}}
  func record(_ identity: PreviewWindowIdentity, _ success: Bool) {
   lock.lock(); defer { lock.unlock() }
   calls += 1; values[identity.id] = success

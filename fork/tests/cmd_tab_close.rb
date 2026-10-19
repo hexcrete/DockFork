@@ -90,7 +90,8 @@ final class ActionFeedbackHandle: @unchecked Sendable {
 }
 @MainActor enum ActionFeedbackController {
  static var handles: [ActionFeedbackHandle] = [], enabled = true
- static func begin(_ action: WindowAction, windows: [WindowInfo], keyboard: Bool, usePreviews: Bool) -> ActionFeedbackHandle? {
+ static func begin(_ action: WindowAction, windows: [WindowInfo], keyboard: Bool, usePreviews: Bool, resolvedTargets: [WindowInfo]? = nil) -> ActionFeedbackHandle? {
+  if let resolvedTargets {precondition(resolvedTargets.map(PreviewWindowIdentity.init) == windows.map(PreviewWindowIdentity.init))}
   guard enabled else { return nil }
   let targets = windows.filter { !$0.isWindowlessApp || action.isQuitAction }
   guard !targets.isEmpty else { return nil }

@@ -329,10 +329,53 @@ enum ActionFeedbackOutcome: Equatable, Sendable {
 }
 
 struct ActionFeedbackHandle: Sendable {
+    private final class Progress: @unchecked Sendable {
+        private let lock = NSLock()
+        private var pending: [PreviewWindowIdentity: ActionFeedbackOutcome] = [:]
+        private var targets: [PreviewWindowIdentity]?
+        private var scheduled = false
+
+        func append(_ identity: PreviewWindowIdentity, _ outcome: ActionFeedbackOutcome) -> Bool {
+            lock.withLock {
+                if pending[identity] == nil { pending[identity] = outcome }
+                guard !scheduled else { return false }
+                scheduled = true
+                return true
+            }
+        }
+
+        func setTargets(_ identities: [PreviewWindowIdentity]) -> Bool {
+            lock.withLock {
+                targets = identities
+                guard !scheduled else { return false }
+                scheduled = true
+                return true
+            }
+        }
+
+        func take() -> (targets: [PreviewWindowIdentity]?, outcomes: [PreviewWindowIdentity: ActionFeedbackOutcome]) {
+            lock.withLock {
+                let values = (targets, pending)
+                targets = nil
+                pending.removeAll(keepingCapacity: true)
+                scheduled = false
+                return values
+            }
+        }
+    }
+
     let token: UUID
+    private let progress = Progress()
+
+    init(token: UUID) { self.token = token }
 
     var confirmedProgress: @Sendable (PreviewWindowIdentity, Bool) -> Void {
         { identity, success in finish(identity, success ? .completed : .failed) }
+    }
+
+    func setTargets(_ windows: [WindowInfo]) {
+        let identities = windows.map(PreviewWindowIdentity.init)
+        if progress.setTargets(identities) { report { _ in } }
     }
 
     func closeProgress(for identity: PreviewWindowIdentity) -> @Sendable (Int, Int) -> Void {
@@ -340,7 +383,8 @@ struct ActionFeedbackHandle: Sendable {
     }
 
     func finish(_ identity: PreviewWindowIdentity, _ outcome: ActionFeedbackOutcome) {
-        report { $0.finish(identity, outcome) }
+        let needsDelivery = progress.append(identity, outcome)
+        if needsDelivery || Thread.isMainThread { report { _ in } }
     }
 
     func finishRemaining(_ outcome: ActionFeedbackOutcome) {
@@ -364,6 +408,11 @@ struct ActionFeedbackHandle: Sendable {
     private func report(_ update: @escaping @MainActor (ActionFeedbackController) -> Void) {
         let run = { @MainActor in
             guard let controller = ActionFeedbackController.existing, controller.token == token else { return }
+            let pending = progress.take()
+            if let targets = pending.targets { controller.setTargets(targets) }
+            for (identity, outcome) in pending.outcomes {
+                controller.finish(identity, outcome)
+            }
             update(controller)
         }
         if Thread.isMainThread { MainActor.assumeIsolated { run() } }
@@ -497,8 +546,10 @@ final class ActionFeedbackController {
     }
 
     let token = UUID()
-    let order: [PreviewWindowIdentity]
+    private(set) var order: [PreviewWindowIdentity]
     fileprivate var entries: [PreviewWindowIdentity: Entry]
+    private let perApp: Bool
+    private var operationGroups: [[PreviewWindowIdentity]]
     private let title: String
     private let symbol: String
     private weak var previews: SharedPreviewWindowCoordinator?
@@ -516,19 +567,13 @@ final class ActionFeedbackController {
     private var settingsObservation: Defaults.Observation?
 
     static func begin(_ action: WindowAction, windows: [WindowInfo], keyboard: Bool = false,
-                      usePreviews: Bool = true, title: String? = nil) -> ActionFeedbackHandle?
+                      usePreviews: Bool = true, title: String? = nil, resolvedTargets: [WindowInfo]? = nil) -> ActionFeedbackHandle?
     {
         guard Defaults[.enableActionFeedback], origin != .activation, ![.none, .toggleWindowSelection, .selectAllWindows, .openAppWindow].contains(action) else { return nil }
-        var targets = windows.filter { action.appliesToSelectedWindow($0) }
-        if action == .minimize || action == .minimizeAllWindows || action == .toggleFullScreen {
-            targets = targets.filter { action == .toggleFullScreen ? (windows.count == 1 || $0.isFullscreen == true) : $0.isFullscreen != true }
-        }
-        if action.autoTilingDirection(windowCount: targets.count, fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection]) != nil, Defaults[.tileOnlyWhatFits] {
-            targets = Array(targets.prefix(min(6, max(1, Defaults[.maximumTilingRows])) * min(6, max(1, Defaults[.maximumTilingColumns]))))
-        }
+        let targets = resolvedTargets ?? action.previewTargets(from: windows)
         guard !targets.isEmpty else { return nil }
         return start(title: title ?? action.feedbackTitle(for: targets[0], batchTargets: windows.count > 1 ? windows : nil), symbol: action.menuIcon(for: targets[0], batchTargets: targets.count > 1 ? targets : nil),
-                     identities: targets.map(PreviewWindowIdentity.init), keyboard: keyboard || origin == .keyboard, usePreviews: usePreviews)
+                     identities: targets.map(PreviewWindowIdentity.init), keyboard: keyboard || origin == .keyboard, usePreviews: usePreviews, perApp: action == .hide)
     }
 
     static func space(_ number: Int, window: WindowInfo? = nil, keyboard: Bool, usePreviews: Bool = true) -> ActionFeedbackHandle? {
@@ -546,22 +591,24 @@ final class ActionFeedbackController {
     }
 
     private static func start(title: String, symbol: String, identities: [PreviewWindowIdentity], keyboard: Bool,
-                              usePreviews: Bool) -> ActionFeedbackHandle
+                              usePreviews: Bool, perApp: Bool = false) -> ActionFeedbackHandle
     {
         existing?.stop()
         let controller = ActionFeedbackController(title: title, symbol: symbol, identities: identities,
-                                                  keyboard: keyboard, usePreviews: usePreviews)
+                                                  keyboard: keyboard, usePreviews: usePreviews, perApp: perApp)
         existing = controller
         controller.start()
         return ActionFeedbackHandle(token: controller.token)
     }
 
-    private init(title: String, symbol: String, identities: [PreviewWindowIdentity], keyboard: Bool, usePreviews: Bool) {
+    private init(title: String, symbol: String, identities: [PreviewWindowIdentity], keyboard: Bool, usePreviews: Bool, perApp: Bool) {
         self.title = title
         self.symbol = symbol
         var seen = Set<PreviewWindowIdentity>()
         order = identities.filter { seen.insert($0).inserted }
         entries = Dictionary(order.map { ($0, Entry()) }, uniquingKeysWith: { first, _ in first })
+        self.perApp = perApp
+        operationGroups = perApp ? Array(Dictionary(grouping: order, by: \.pid).values) : order.map { [$0] }
         previews = usePreviews ? SharedPreviewWindowCoordinator.activeInstance : nil
         cursorMode = !usePreviews || !Defaults[.actionFeedbackPosition].usesPreviews(
             keyboardTrigger: keyboard, focus: previews?.windowSwitcherCoordinator.selectionInputSource ?? .programmatic
@@ -598,22 +645,43 @@ final class ActionFeedbackController {
         render()
     }
 
+    func setTargets(_ identities: [PreviewWindowIdentity]) {
+        guard entries.values.allSatisfy({ $0.outcome == nil }) else { return }
+        var seen = Set<PreviewWindowIdentity>()
+        let identities = identities.filter { seen.insert($0).inserted }
+        guard !identities.isEmpty else { stop(); return }
+        guard identities != order else { return }
+        let retained = Set(identities)
+        for identity in order where !retained.contains(identity) {
+            entries[identity]?.panel?.close()
+        }
+        entries = Dictionary(identities.map { ($0, entries[$0] ?? Entry()) }, uniquingKeysWith: { first, _ in first })
+        order = identities
+        operationGroups = perApp ? Array(Dictionary(grouping: order, by: \.pid).values) : order.map { [$0] }
+        render()
+    }
+
     func finish(_ identity: PreviewWindowIdentity, _ outcome: ActionFeedbackOutcome) {
         guard let entry = entries[identity], entry.outcome == nil else { return }
-        entries[identity]?.outcome = outcome
+        let affected = perApp ? order.filter { $0.pid == identity.pid && entries[$0]?.outcome == nil } : [identity]
+        for target in affected {
+            entries[target]?.outcome = outcome
+        }
         if entries.values.allSatisfy({ $0.outcome != nil }) { spinnerTask?.cancel(); spinnerTask = nil }
         render()
         if cursorMode { scheduleAggregateHide() }
         else {
-            let duration = ActionPopupTiming.resultDuration(failed: outcome == .failed)
-            resultTasks[identity] = Task { @MainActor [weak self] in
-                do { try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000)) } catch { return }
-                guard let self else { return }
-                entries[identity]?.expired = true
-                resultTasks.removeValue(forKey: identity)
-                entries[identity]?.panel?.hide(closeAfter: true) { [weak self] in
-                    guard let self, entries.values.allSatisfy(\.expired) else { return }
-                    stop()
+            for identity in affected {
+                let duration = ActionPopupTiming.resultDuration(failed: outcome == .failed)
+                resultTasks[identity] = Task { @MainActor [weak self] in
+                    do { try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000)) } catch { return }
+                    guard let self else { return }
+                    entries[identity]?.expired = true
+                    resultTasks.removeValue(forKey: identity)
+                    entries[identity]?.panel?.hide(closeAfter: true) { [weak self] in
+                        guard let self, entries.values.allSatisfy(\.expired) else { return }
+                        stop()
+                    }
                 }
             }
         }
@@ -673,12 +741,16 @@ final class ActionFeedbackController {
     private func render() {
         guard Self.existing === self else { return }
         if cursorMode {
-            let values = order.compactMap { entries[$0]?.outcome }
+            let values = operationGroups.compactMap { group -> ActionFeedbackOutcome? in
+                let outcomes = group.compactMap { entries[$0]?.outcome }
+                guard outcomes.count == group.count else { return nil }
+                return outcomes.contains(.failed) ? .failed : outcomes.contains(.cancelled) ? .cancelled : outcomes.contains(.requested) ? .requested : .completed
+            }
             let failures = values.filter { $0 == .failed }.count
-            let done = values.count == order.count
+            let done = values.count == operationGroups.count
             let outcome: ActionFeedbackOutcome? = done ? (failures > 0 ? .failed : values.contains(.cancelled) ? .cancelled : values.contains(.requested) ? .requested : .completed) : nil
             let count = done ? values.filter { $0 == .completed || $0 == .requested }.count : values.count
-            let counter = order.count > 1 ? "\(count)/\(order.count)" : order.first.flatMap { entries[$0]?.closeCounter }
+            let counter = operationGroups.count > 1 ? "\(count)/\(operationGroups.count)" : order.first.flatMap { entries[$0]?.closeCounter }
             let value = content(for: outcome, counter: counter)
             if aggregate == nil { aggregate = ActionPopupPanel() }
             aggregate?.present(value)

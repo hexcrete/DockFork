@@ -41,15 +41,15 @@ source = <<~'SWIFT'
 import Foundation
 typealias pid_t = Int32
 struct Key<T> { let value: T }
-enum Defaults { static subscript<T>(_ key: Key<T>) -> T { key.value } }
+enum Defaults { static var autoFill=false, limited=false, foreground=false, rows=2, columns=3; static subscript<T>(_ key: Key<T>) -> T { key.value } }
 extension Key where T == Bool {
- static var fillActionsAutoTileSelection: Self { Self(value: false) }
- static var moveResizeBringToForeground: Self { Self(value: false) }
- static var tileOnlyWhatFits: Self { Self(value: false) }
+ static var fillActionsAutoTileSelection: Self { Self(value: Defaults.autoFill) }
+ static var moveResizeBringToForeground: Self { Self(value: Defaults.foreground) }
+ static var tileOnlyWhatFits: Self { Self(value: Defaults.limited) }
 }
 extension Key where T == Int {
- static var maximumTilingRows: Self { Self(value: 2) }
- static var maximumTilingColumns: Self { Self(value: 3) }
+ static var maximumTilingRows: Self { Self(value: Defaults.rows) }
+ static var maximumTilingColumns: Self { Self(value: Defaults.columns) }
 }
 final class App {
  let processIdentifier: pid_t
@@ -72,23 +72,24 @@ struct WindowInfo {
  var axElement: AX { AX() }
  func close() -> Bool { true }
  func readFullscreenState() async -> Bool? {false}
- func positionWindow(_ rect:Int) async -> Bool {preconditionFailure("Quit entered frame worker")}
- func bringToFrontConfirmed() async -> Bool { true }
+ func positionWindow(_ rect:Int) async -> Bool {await WindowUtil.position(id)}
+ func bringToFrontConfirmed() async -> Bool {await WindowUtil.focus(id)}
 SWIFT
 source += block(info, '    func quit(force:') + "\n}\n"
 case_start = util.index('    // Existing actions')
 cases = util[case_start...util.index('    var localizedName:', case_start)].scan(/^    case (\w+)$/).flatten
-source += "enum WindowAction { case #{cases.join(', ')}\n var positionRect:Int? {nil}\n"
+source += "enum WindowAction { case #{cases.join(', ')}\n var positionRect:Int? {[.center,.maximize,.fillLeftHalf].contains(self) ? 0 : nil}\n"
 %w[localizedName iconName].each { |name| source += block(util[case_start..], "    var #{name}:") + "\n" }
 source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    var isAppWidePreviewAction:')]
 %w[isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }
-%w[appliesToSelectedWindow batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
+%w[appliesToSelectedWindow previewTargets batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
 source += <<~'SWIFT'
- var tilingDirection: Int? { nil }
- func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> Int? { nil }
+ var tilingDirection: Int? { self == .fillLeftHalf || self == .autoTileSelectedWindows ? 0 : nil }
+ /* Auto Tile policy */
 
  func isAvailable(for window: WindowInfo) -> Bool { true }
 SWIFT
+source.sub!('/* Auto Tile policy */', block(catalog, '    func autoTilingDirection(').sub('PreviewTilingLayout.Direction?', 'Int?'))
 source += block(catalog, '    func batchTargetState(') + "\n"
 source += block(catalog, '    func menuTitle(') + "\n" + block(catalog, '    func feedbackTitle(') + "\n"
 source += <<~'SWIFT'
@@ -116,27 +117,40 @@ final class ActionFeedbackHandle {
  func release() {completion?.resume();completion=nil}
 }
 enum WindowUtil {
+ @MainActor static var pendingPosition:[Int:PendingAX]=[:],pendingFocus:[Int:PendingAX]=[:]
+ @MainActor static var positionCalls:[Int]=[],focusCalls:[Int]=[],positionFailures=Set<Int>(),focusFailures=Set<Int>(),offSpace=Set<Int>()
+ @MainActor static func position(_ id:Int) async -> Bool {
+  positionCalls.append(id);if let gate=pendingPosition.removeValue(forKey:id) {await gate.wait()}
+  return !Task.isCancelled && !positionFailures.contains(id)
+ }
+ @MainActor static func focus(_ id:Int) async -> Bool {
+  focusCalls.append(id);if let gate=pendingFocus.removeValue(forKey:id) {await gate.wait()}
+  return !Task.isCancelled && !focusFailures.contains(id)
+ }
  @MainActor static var pendingMinimize:PendingAX?
  static var hiddenRequests: [(pid_t, Bool)] = [], minimizedRequests: [Bool] = []
  static var quitOnClose = false
+ static var spaceCalls:[Int]=[]
  static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { [] }
  static func shouldQuitAppOnWindowClose(processIdentifier pid: pid_t) -> Bool { quitOnClose }
  static func closeAllWindows(for app: App, preferredWindows: [WindowInfo]? = nil, feedback: ActionFeedbackHandle? = nil) -> Int { 0 }
  static func hasOnlyFullscreenWindows(for app: App) -> Bool { false }
  static func openNewWindow(app: App) -> Bool { true }
- static func moveWindowToCurrentManagedSpace(_ window:WindowInfo)->Bool {true}
- static func canBringWindowToFrontWithoutSpaceSwitch(_ window: WindowInfo) -> Bool { true }
+ static func moveWindowToCurrentManagedSpace(_ window:WindowInfo)->Bool {spaceCalls.append(window.id);return true}
+ @MainActor static func canBringWindowToFrontWithoutSpaceSwitch(_ window: WindowInfo) -> Bool { !offSpace.contains(window.id) }
  static func setHiddenStateConfirmed(for app: App, isHidden: Bool, fullscreenCandidates: [AX] = [], beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { hiddenRequests.append((app.processIdentifier, isHidden)); return true }
  static func revealWindowConfirmed(_ window: WindowInfo) async -> Bool { true }
  static func changeFullscreenConfirmed(_ window: WindowInfo, toggle: Bool, beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { true }
  static func setMinimizedWindowsConfirmed(_ windows: [WindowInfo], isMinimized: Bool, isTargetActive: @escaping @Sendable (PreviewWindowIdentity) -> Bool = { _ in true }, progress: ((WindowInfo, Bool) -> Void)?) async -> [WindowInfo] { minimizedRequests.append(isMinimized); if let pending=await pendingMinimize { await MainActor.run {pendingMinimize=nil}; await pending.wait() }; return Task.isCancelled ? [] : windows }
- static func tilePreviewWindows(_ windows: [WindowInfo], direction: Int, feedback: ActionFeedbackHandle?) async -> PreviewBatchResult { PreviewBatchResult() }
+ static var tileCalls:[[Int]]=[]
+ static func tilePreviewWindows(_ windows: [WindowInfo], direction: Int, feedback: ActionFeedbackHandle?) async -> PreviewBatchResult { tileCalls.append(windows.map(\.id)); return PreviewBatchResult(succeeded:windows) }
  static func closeWindows(_ windows: [WindowInfo], feedback: ActionFeedbackHandle?) async -> PreviewBatchResult { PreviewBatchResult(succeeded: windows) }
 SWIFT
 source += block(util, '    static func beginPreviewActionRequest(') + "\n"
+source += block(util, '    static func autoTileTargets(') + "\n"
 source += block(util, '    struct PreviewBatchResult') + "\n"
 source = block(catalog, 'enum PreviewBatchTogglePolicy {') + "\n" + catalog[catalog.index('final class WindowActionRequest:')...catalog.index('enum PreviewBatchTogglePolicy {')] + "\n" + source
-source += block(util, '    static func performPreviewBatchAction(') + "\n" + block(util, '    private static func executePreviewAction(') + "\n}\n"
+source += "@MainActor\n" + block(util, '    static func performPreviewBatchAction(') + "\n@MainActor\n" + block(util, '    private static func executePreviewAction(') + "\n}\n"
 source += <<~'SWIFT'
 @main struct Checks {
  @MainActor static func main() async {
@@ -210,6 +224,63 @@ precondition(newer.succeeded.map(\.id)==[100])
 precondition(superseded.succeeded.isEmpty,"Standalone superseded worker did not receive cancellation")
 let clean=WindowActionOwnership.shared.begin([PreviewWindowIdentity(visible)])
 precondition(clean.admitted.count==1);clean.finish()
+let unsupported=WindowInfo(id:200,app:visibleApp,isFullscreen:true)
+let invalid=await WindowUtil.performPreviewBatchAction(.minimize,on:[unsupported])
+precondition(invalid.failed == [PreviewWindowIdentity(unsupported)],"Unsupported explicit attempt falsely succeeded")
+Defaults.autoFill=true;Defaults.limited=true;Defaults.rows=1;Defaults.columns=1
+let capOne=WindowInfo(id:201,app:visibleApp),capTwo=WindowInfo(id:202,app:visibleApp)
+let capped=await WindowUtil.performPreviewBatchAction(.fillLeftHalf,on:[capOne,capTwo])
+precondition(WindowUtil.tileCalls.last == [201] && capped.succeeded.map(\.id)==[201] && capped.failed.isEmpty,"Tiling exclusion changed original group intent")
+let mixed=await WindowUtil.performPreviewBatchAction(.fillLeftHalf,on:[unsupported,capTwo])
+precondition(WindowUtil.tileCalls.last == [202] && mixed.succeeded.map(\.id)==[202] && mixed.failed.isEmpty,"Fullscreen exclusion must precede capacity without changing Fill-to-Auto-Tile intent")
+let beforeEmpty=WindowUtil.tileCalls.count
+let allFullscreen=await WindowUtil.performPreviewBatchAction(.autoTileSelectedWindows,on:[unsupported])
+precondition(allFullscreen.failed.isEmpty && allFullscreen.succeeded.isEmpty && WindowUtil.tileCalls.count==beforeEmpty)
+let available=WindowActionOwnership.shared.begin([PreviewWindowIdentity(unsupported)])
+precondition(available.admitted.count==1);available.finish()
+let protectedTile=WindowActionOwnership.shared.begin([PreviewWindowIdentity(capOne)],protect:true)
+let tileRefusal=ActionFeedbackHandle()
+let busyTile=await WindowUtil.performPreviewBatchAction(.autoTileSelectedWindows,on:[unsupported,capOne,capTwo],feedback:tileRefusal)
+precondition(busyTile.succeeded.isEmpty && busyTile.failed==[PreviewWindowIdentity(capOne)],"Busy eligible targets must fail without refilling intentional capacity exclusions")
+protectedTile.finish()
+Defaults.autoFill=false;Defaults.limited=false;Defaults.rows=2;Defaults.columns=3
+precondition(WindowAction.fillLeftHalf.previewTargets(from:[unsupported,capOne]).map(\.id)==[200,201],"Independent Fill eligibility changed")
+let geometry=[WindowInfo(id:300,app:visibleApp),WindowInfo(id:301,app:visibleApp)]
+func started(_ gate:PendingAX) async {
+ for _ in 0..<2000 {if gate.started {return};try? await Task.sleep(nanoseconds:1_000_000)}
+ preconditionFailure("Geometry worker did not reach gate")
+}
+let placementGate=PendingAX(),placingFeedback=ActionFeedbackHandle()
+WindowUtil.pendingPosition[301]=placementGate
+let placing=Task {await WindowUtil.performPreviewBatchAction(.center,on:geometry,feedback:placingFeedback)}
+await started(placementGate)
+precondition(placingFeedback.states[PreviewWindowIdentity(geometry[0])] == .completed && placingFeedback.states[PreviewWindowIdentity(geometry[1])] == nil,"Completed geometry waited for the entire group")
+precondition(WindowUtil.positionCalls==[300,301] && WindowUtil.focusCalls.isEmpty)
+let stillOwned=WindowUtil.beginPreviewActionRequest(.center,windows:[geometry[0]])
+precondition(stillOwned.admitted.isEmpty,"Feedback completion released active batch ownership")
+stillOwned.finish()
+Defaults.foreground=true
+placementGate.release();let placed=await placing.value
+precondition(placed.succeeded.map(\.id)==[300,301] && placed.failed.isEmpty && WindowUtil.focusCalls.isEmpty,"Preference changes altered in-flight geometry intent")
+Defaults.foreground=true;WindowUtil.positionCalls=[]
+let focusGate=PendingAX(),focusingFeedback=ActionFeedbackHandle()
+WindowUtil.pendingFocus[300]=focusGate;WindowUtil.focusFailures=[301]
+let focusing=Task {await WindowUtil.performPreviewBatchAction(.center,on:geometry,feedback:focusingFeedback)}
+await started(focusGate)
+precondition(focusingFeedback.states[PreviewWindowIdentity(geometry[1])] == .failed && focusingFeedback.states[PreviewWindowIdentity(geometry[0])] == nil,"Geometry settled before required foregrounding or lost a failure")
+precondition(WindowUtil.positionCalls==[300,301] && WindowUtil.focusCalls==[301,300],"Progress reordered or duplicated geometry/focus work")
+focusGate.release();let focused=await focusing.value
+precondition(focused.failed==[PreviewWindowIdentity(geometry[1])] && focusingFeedback.states[PreviewWindowIdentity(geometry[0])] == .completed)
+WindowUtil.offSpace=[300,301];WindowUtil.focusCalls=[];WindowUtil.focusFailures=[]
+let offFeedback=ActionFeedbackHandle()
+_ = await WindowUtil.performPreviewBatchAction(.center,on:geometry,feedback:offFeedback)
+precondition(WindowUtil.focusCalls.isEmpty && offFeedback.states.values.allSatisfy {$0 == .completed} && offFeedback.states.count==2,"Off-Space geometry was activated or left unsettled")
+Defaults.foreground=false;WindowUtil.offSpace=[]
+let acceptedSpace=ActionFeedbackHandle()
+_ = await WindowUtil.performPreviewBatchAction(.bringToCurrentSpace,on:geometry,feedback:acceptedSpace)
+precondition(WindowUtil.spaceCalls==[300,301] && acceptedSpace.states.count==2 && acceptedSpace.states.values.allSatisfy {$0 == .requested},"Legacy Space request acceptance was reported as verified completion")
+print("PASS geometry progress: per-target settlement, confirmed reverse foreground order, failures, off-Space preservation and no added operation calls")
+print("PASS shared target accounting: explicit invalid failure and frozen group Fill with 1x1 capacity")
 print("PASS shared executor admission: atomic app rejection, partial failures, frozen Hide/Minimize intent and cleanup")
   print("PASS normal/force dispatch, PID deduplication, windowless targets, acknowledgements, refusal, terminated targets, Close-to-Quit and cancellation")
  }

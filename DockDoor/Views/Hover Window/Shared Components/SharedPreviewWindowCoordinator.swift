@@ -1887,16 +1887,19 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                                            preservePreviews: Bool = false, keyboard: Bool = false, usePreviews: Bool = true,
                                            allowFullscreenEntry: Bool = false) -> Bool
     {
-        let targetState = action.batchTargetState(for: targets)
-        let request = WindowUtil.beginPreviewActionRequest(action, windows: targets)
-        let feedback = ActionFeedbackController.begin(action, windows: targets, keyboard: keyboard || NSApp.currentEvent?.type == .keyDown, usePreviews: usePreviews)
+        let resolvedTargets = action.previewTargets(from: targets, allowFullscreenEntry: allowFullscreenEntry)
+        let targetState = action.batchTargetState(for: resolvedTargets)
+        let request = WindowUtil.beginPreviewActionRequest(action, windows: targets, resolvedTargets: resolvedTargets)
+        let feedback = ActionFeedbackController.begin(action, windows: targets, keyboard: keyboard || NSApp.currentEvent?.type == .keyDown, usePreviews: usePreviews, resolvedTargets: resolvedTargets)
         guard !request.admitted.isEmpty else {
-            let failed = WindowUtil.PreviewBatchResult(failed: request.rejected)
+            let applicable = targets.filter { action.appliesToSelectedWindow($0) }
+            let autoTile = action.autoTilingDirection(windowCount: applicable.count, fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection]) != nil
+            let failed = WindowUtil.PreviewBatchResult(failed: resolvedTargets.isEmpty && !autoTile ? applicable.map(PreviewWindowIdentity.init) : request.rejected)
             feedback?.finish(failed)
             reportBatchFailures(failed.failed, action: action.rawValue)
             return false
         }
-        let admittedTargets = targets.filter { request.contains(PreviewWindowIdentity($0)) }
+        let admittedTargets = resolvedTargets.filter { request.contains(PreviewWindowIdentity($0)) }
         previewBatchTask?.cancel()
         previewBatchTask = nil
         let token = UUID()
@@ -1933,7 +1936,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 if self?.previewBatchToken == token { self?.previewBatchTask = nil; self?.previewBatchToken = nil }
             }
             let result = await WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: allowFullscreenEntry, feedback: feedback,
-                                                                    request: request, targetState: targetState,
+                                                                    request: request, targetState: targetState, resolvedTargets: resolvedTargets,
                                                                     beforeActionChange: beforeChange)
             guard !Task.isCancelled, let self, previewBatchToken == token else { return }
             let succeededIdentities = Set(result.succeeded.map(PreviewWindowIdentity.init))
@@ -2169,7 +2172,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             let windows = appRows.isEmpty ? WindowUtil.readCachedWindows(for: app.processIdentifier).filter { !$0.isWindowlessApp } : appRows
             return (app: app, entry: WindowInfo.windowlessEntry(for: app), windows: windows)
         }
-        let feedback = ActionFeedbackController.begin(.closeAllWindows, windows: requests.flatMap(\.windows), keyboard: true, usePreviews: false)
+        let feedbackTargets = requests.flatMap(\.windows)
+        let feedback = ActionFeedbackController.begin(.closeAllWindows, windows: feedbackTargets, keyboard: true, usePreviews: false, resolvedTargets: feedbackTargets)
         let ownership = WindowActionOwnership.shared.begin(requests.map { PreviewWindowIdentity($0.entry) }, apps: Set(apps.map(\.processIdentifier)), protect: true)
         guard !ownership.admitted.isEmpty else { feedback?.finishRemaining(.failed); return false }
         let keepOpen = preservePreviews || WindowAction.PostActionCategory.closing.keepPreviewsOpen

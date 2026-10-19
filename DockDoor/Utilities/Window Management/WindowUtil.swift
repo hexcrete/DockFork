@@ -677,18 +677,8 @@ extension WindowUtil {
         var failed: [PreviewWindowIdentity] = []
     }
 
-    static func beginPreviewActionRequest(_ action: WindowAction, windows: [WindowInfo]) -> WindowActionRequest {
-        var targets = windows.filter { action.appliesToSelectedWindow($0) }
-        if action == .minimizeAllWindows || action == .closeAllWindows {
-            let cached = Set(targets.map(\.app.processIdentifier)).flatMap { readCachedWindows(for: $0) }
-                .filter { !$0.isWindowlessApp }
-            if !cached.isEmpty { targets = cached }
-        }
-        if action.autoTilingDirection(windowCount: targets.count, fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection]) != nil,
-           Defaults[.tileOnlyWhatFits]
-        {
-            targets = Array(targets.prefix(min(6, max(1, Defaults[.maximumTilingRows])) * min(6, max(1, Defaults[.maximumTilingColumns]))))
-        }
+    static func beginPreviewActionRequest(_ action: WindowAction, windows: [WindowInfo], resolvedTargets: [WindowInfo]? = nil) -> WindowActionRequest {
+        let targets = resolvedTargets ?? action.previewTargets(from: windows)
         let apps = Set(targets.filter {
             action.isAppWidePreviewAction || (action == .close && shouldQuitAppOnWindowClose(processIdentifier: $0.app.processIdentifier))
         }.map(\.app.processIdentifier))
@@ -699,15 +689,24 @@ extension WindowUtil {
     @MainActor
     static func performPreviewBatchAction(_ action: WindowAction, on windows: [WindowInfo],
                                           allowFullscreenEntry: Bool = false, feedback: ActionFeedbackHandle? = nil,
-                                          request: WindowActionRequest? = nil, targetState: Bool? = nil,
+                                          request: WindowActionRequest? = nil, targetState: Bool? = nil, resolvedTargets: [WindowInfo]? = nil,
                                           beforeActionChange: (@MainActor (Bool) -> Bool)? = nil) async -> PreviewBatchResult
     {
         defer { feedback?.finishRemaining(.cancelled) }
         guard !Task.isCancelled else { return PreviewBatchResult() }
+        let requested = windows
+        let autoTile = action.autoTilingDirection(windowCount: requested.filter { action.appliesToSelectedWindow($0) }.count,
+                                                  fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection]) != nil
+        let windows = resolvedTargets ?? action.previewTargets(from: requested, allowFullscreenEntry: allowFullscreenEntry)
+        guard !windows.isEmpty else {
+            let result = PreviewBatchResult(failed: autoTile ? [] : requested.filter { action.appliesToSelectedWindow($0) }.map(PreviewWindowIdentity.init))
+            feedback?.finish(result)
+            return result
+        }
         let resolvedState = targetState ?? action.batchTargetState(for: windows)
         let suppliedRequest = request ?? WindowActionRequest.current
         let ownsRequest = suppliedRequest == nil
-        let request = suppliedRequest ?? beginPreviewActionRequest(action, windows: windows)
+        let request = suppliedRequest ?? beginPreviewActionRequest(action, windows: windows, resolvedTargets: windows)
         defer { if ownsRequest { request.finish() } }
         guard !request.admitted.isEmpty else {
             let result = PreviewBatchResult(failed: request.rejected)
@@ -718,11 +717,11 @@ extension WindowUtil {
             await request.waitForPredecessors()
             guard !Task.isCancelled else { return PreviewBatchResult() }
             return await executePreviewAction(action, windows: windows, allowFullscreenEntry: allowFullscreenEntry,
-                                              feedback: feedback, request: request, targetState: resolvedState, beforeActionChange: beforeActionChange)
+                                              feedback: feedback, request: request, targetState: resolvedState, autoTile: autoTile, beforeActionChange: beforeActionChange)
         }
         let task = Task { @MainActor in
             await executePreviewAction(action, windows: windows, allowFullscreenEntry: allowFullscreenEntry,
-                                       feedback: feedback, request: request, targetState: resolvedState, beforeActionChange: beforeActionChange)
+                                       feedback: feedback, request: request, targetState: resolvedState, autoTile: autoTile, beforeActionChange: beforeActionChange)
         }
         request.onSuperseded { task.cancel() }
         var result = await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
@@ -735,7 +734,7 @@ extension WindowUtil {
 
     @MainActor
     private static func executePreviewAction(_ action: WindowAction, windows: [WindowInfo], allowFullscreenEntry: Bool,
-                                             feedback: ActionFeedbackHandle?, request: WindowActionRequest, targetState: Bool?,
+                                             feedback: ActionFeedbackHandle?, request: WindowActionRequest, targetState: Bool?, autoTile: Bool,
                                              beforeActionChange: (@MainActor (Bool) -> Bool)?) async -> PreviewBatchResult
     {
         if WindowActionRequest.current?.token != request.token {
@@ -743,16 +742,19 @@ extension WindowUtil {
             guard !Task.isCancelled else { return PreviewBatchResult() }
             return await WindowActionRequest.$current.withValue(request) {
                 await executePreviewAction(action, windows: windows, allowFullscreenEntry: allowFullscreenEntry,
-                                           feedback: feedback, request: request, targetState: targetState, beforeActionChange: beforeActionChange)
+                                           feedback: feedback, request: request, targetState: targetState, autoTile: autoTile, beforeActionChange: beforeActionChange)
             }
         }
         guard !Task.isCancelled else { return PreviewBatchResult() }
-        let direction = action.autoTilingDirection(windowCount: windows.count, fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection])
         var result = PreviewBatchResult(failed: request.rejected)
-        let windows = windows.filter { action.appliesToSelectedWindow($0) }
-            .filter { request.contains(PreviewWindowIdentity($0)) }
+        if let feedback {
+            for identity in request.rejected {
+                feedback.finish(identity, .failed)
+            }
+        }
+        let windows = windows.filter { request.contains(PreviewWindowIdentity($0)) }
         guard !windows.isEmpty else { feedback?.finish(result); return result }
-        if let direction {
+        if autoTile, let direction = action.tilingDirection {
             let tiled = await tilePreviewWindows(windows, direction: direction, feedback: feedback)
             result.succeeded = tiled.succeeded
             result.failed += tiled.failed
@@ -778,9 +780,7 @@ extension WindowUtil {
 
         if action == .minimize || action == .minimizeAllWindows {
             let minimizedTarget = targetState ?? false
-            let candidates = (action == .minimizeAllWindows
-                ? targets.flatMap { readCachedWindows(for: $0.app.processIdentifier) }
-                : targets).filter { $0.isFullscreen != true && request.contains(PreviewWindowIdentity($0)) }
+            let candidates = windows
             guard !candidates.isEmpty else {
                 result.failed += targets.map(PreviewWindowIdentity.init)
                 feedback?.finish(result)
@@ -803,6 +803,9 @@ extension WindowUtil {
             return result
         }
 
+        let isGeometryAction = action.tilingDirection != nil || action == .maximize || action == .center || action == .bringToCurrentSpace
+        let foregroundGeometry = isGeometryAction && Defaults[.moveResizeBringToForeground]
+        let requestOnly = feedback != nil && [WindowAction.close, .closeAllWindows, .quit, .forceQuit, .openNewWindow, .bringToCurrentSpace].contains(action)
         var quitApps = Set<pid_t>()
         for window in targets {
             guard !Task.isCancelled else { return result }
@@ -825,7 +828,7 @@ extension WindowUtil {
                 case .close:
                     succeeded = await !closeWindows([window], feedback: feedback).succeeded.isEmpty
                 case .closeAllWindows:
-                    let appWindows = readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
+                    let appWindows = windows.filter { $0.app.processIdentifier == pid }
                     succeeded = await !closeWindows(appWindows, feedback: feedback).succeeded.isEmpty
                 case .openNewWindow:
                     succeeded = openNewWindow(app: window.app)
@@ -844,24 +847,32 @@ extension WindowUtil {
             guard !Task.isCancelled else { return result }
             if succeeded { result.succeeded.append(window) }
             else { result.failed.append(PreviewWindowIdentity(window)) }
-            if let feedback, action.tilingDirection == nil, ![.maximize, .center, .bringToCurrentSpace].contains(action) {
-                let affected = windows.filter { $0.app.processIdentifier == pid }
-                for target in affected where action.isAppWidePreviewAction || target.id == window.id {
-                    feedback.finish(PreviewWindowIdentity(target), succeeded ? ([WindowAction.close, .closeAllWindows, .quit, .forceQuit, .openNewWindow].contains(action) ? .requested : .completed) : .failed)
+            if let feedback {
+                if isGeometryAction {
+                    if !succeeded || !foregroundGeometry {
+                        feedback.finish(PreviewWindowIdentity(window), succeeded ? (requestOnly ? .requested : .completed) : .failed)
+                    }
+                } else {
+                    let affected = windows.filter { $0.app.processIdentifier == pid }
+                    for target in affected where action.isAppWidePreviewAction || target.id == window.id {
+                        feedback.finish(PreviewWindowIdentity(target), succeeded ? (requestOnly ? .requested : .completed) : .failed)
+                    }
                 }
             }
             await Task.yield()
         }
-        if action.tilingDirection != nil || action == .maximize || action == .center || action == .bringToCurrentSpace,
-           Defaults[.moveResizeBringToForeground]
-        {
-            for window in result.succeeded.reversed() where canBringWindowToFrontWithoutSpaceSwitch(window) && request.mayForeground {
+        if foregroundGeometry {
+            for window in result.succeeded.reversed() {
                 guard !Task.isCancelled else { return result }
                 guard request.contains(PreviewWindowIdentity(window)) else { continue }
-                if await !window.bringToFrontConfirmed() { result.failed.append(PreviewWindowIdentity(window)) }
+                if canBringWindowToFrontWithoutSpaceSwitch(window), request.mayForeground,
+                   await !window.bringToFrontConfirmed() { result.failed.append(PreviewWindowIdentity(window)) }
+                guard !Task.isCancelled else { return result }
+                let identity = PreviewWindowIdentity(window)
+                feedback?.finish(identity, result.failed.contains(identity) ? .failed : (requestOnly ? .requested : .completed))
             }
         }
-        feedback?.finish(result, requested: [.close, .closeAllWindows, .quit, .forceQuit, .openNewWindow].contains(action))
+        feedback?.finish(result, requested: requestOnly)
         return result
     }
 
@@ -1122,6 +1133,13 @@ extension WindowUtil {
         }
     }
 
+    static func autoTileTargets(from windows: [WindowInfo]) -> [WindowInfo] {
+        let eligible = windows.filter { !$0.isWindowlessApp && $0.isFullscreen != true }
+        guard Defaults[.tileOnlyWhatFits] else { return eligible }
+        let capacity = min(6, max(1, Defaults[.maximumTilingRows])) * min(6, max(1, Defaults[.maximumTilingColumns]))
+        return Array(eligible.prefix(capacity))
+    }
+
     @MainActor
     static func tilePreviewWindows(_ windows: [WindowInfo], direction: PreviewTilingLayout.Direction,
                                    bringToFront: Bool? = nil, destination requestedDestination: ManagedSpaceDestination? = nil,
@@ -1129,21 +1147,26 @@ extension WindowUtil {
                                    isRequestActive: @escaping @MainActor () -> Bool = { true }, feedback: ActionFeedbackHandle? = nil) async -> PreviewBatchResult
     {
         guard !Task.isCancelled else { return PreviewBatchResult() }
+        let windows = autoTileTargets(from: windows)
         if WindowActionRequest.current == nil {
-            let capacity = min(6, max(1, Defaults[.maximumTilingRows])) * min(6, max(1, Defaults[.maximumTilingColumns]))
-            let real = windows.filter { !$0.isWindowlessApp }
-            let requested = Defaults[.tileOnlyWhatFits] ? Array(real.prefix(capacity)) : real
-            return await WindowActionRequest.run(requested.map(PreviewWindowIdentity.init)) { request in
+            let requested = windows
+            let result = await WindowActionRequest.run(requested.map(PreviewWindowIdentity.init)) { request in
+                if let feedback {
+                    for identity in request.rejected {
+                        feedback.finish(identity, .failed)
+                    }
+                }
                 let accepted = requested.filter { request.contains(PreviewWindowIdentity($0)) }
                 var result = await tilePreviewWindows(accepted, direction: direction, bringToFront: bringToFront,
                                                       destination: requestedDestination, on: requestedScreen, isRequestActive: isRequestActive, feedback: feedback)
                 result.failed += request.rejected
                 return result
             } ?? PreviewBatchResult(failed: requested.map(PreviewWindowIdentity.init))
+            feedback?.finish(result)
+            return result
         }
         defer { feedback?.finishRemaining(.cancelled) }
         guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult() }
-        let windows = windows.filter { !$0.isWindowlessApp }
         guard !windows.isEmpty else { return PreviewBatchResult() }
         let pointer = NSEvent.mouseLocation
         let topology = WindowSpaces.managedDisplays()
@@ -1156,7 +1179,7 @@ extension WindowUtil {
         let maximumColumns = Defaults[.maximumTilingColumns]
         let tilingBounds = screen.snappingFrame
         let capacity = min(6, max(1, maximumRows)) * min(6, max(1, maximumColumns))
-        let targets = Defaults[.tileOnlyWhatFits] ? Array(windows.prefix(capacity)) : windows
+        let targets = windows
         let linksEnabled = Defaults[.linkTiledWindowsWhenResizing] && capacity > 1
         var restoreFrames: [PreviewWindowIdentity: CGRect] = [:]
         if linksEnabled {
@@ -3928,6 +3951,7 @@ extension WindowUtil {
         guard !Task.isCancelled, !snapshot.isEmpty else {
             return MinimizeAllWindowsResult(outcome: .noEligibleWindows, confirmedCount: 0, eligibleCount: 0)
         }
+        feedback?.setTargets(snapshot.map(\.window))
 
         let allWindowsMinimized = snapshot.allSatisfy(\.isMinimized)
         if restoreHiddenAppIfNeeded, app.isHidden, !allWindowsMinimized {
@@ -3954,11 +3978,16 @@ extension WindowUtil {
             return MinimizeAllWindowsResult(outcome: .noEligibleWindows, confirmedCount: 0, eligibleCount: snapshot.count)
         }
 
-        let confirmedCount = await setMinimizedWindowsConfirmed(
+        let confirmed = await setMinimizedWindowsConfirmed(
             snapshot.map(\.window),
             isMinimized: targetMinimizedState,
             progress: feedback?.confirmedProgress
-        ).count
+        )
+        if let feedback {
+            let confirmedIDs = Set(confirmed.map(PreviewWindowIdentity.init))
+            feedback.finish(PreviewBatchResult(succeeded: confirmed, failed: snapshot.map { PreviewWindowIdentity($0.window) }.filter { !confirmedIDs.contains($0) }))
+        }
+        let confirmedCount = confirmed.count
         let outcome: MinimizeAllWindowsOutcome = targetMinimizedState ? .minimized : .restored
         DebugLogger.log(
             "MinimizeAll",
@@ -4507,10 +4536,10 @@ extension WindowUtil {
 
             var unresolved = attempted
             var confirmed: [WindowInfo] = []
+            // Progress observes the existing checks; it never changes mutation scheduling.
             for (pass, delay) in [UInt64(0), 90_000_000, 220_000_000].enumerated() {
-                if delay > 0 {
-                    try? await Task.sleep(nanoseconds: delay)
-                }
+                guard !unresolved.isEmpty else { break }
+                if delay > 0 { try? await Task.sleep(nanoseconds: delay) }
                 guard !Task.isCancelled else { break }
 
                 var stillUnresolved: [WindowInfo] = []
@@ -4519,7 +4548,7 @@ extension WindowUtil {
                     guard !Task.isCancelled else { break }
                     guard targetIsActive(identity) else { continue }
                     let matches = (try? window.axElement.isMinimized()) == isMinimized
-                    guard targetIsActive(identity), !Task.isCancelled else { continue }
+                    guard !Task.isCancelled, targetIsActive(identity) else { continue }
                     if matches {
                         confirmed.append(window)
                         progress?(identity, true)
@@ -4528,8 +4557,6 @@ extension WindowUtil {
                     }
                 }
                 unresolved = stillUnresolved
-                guard !unresolved.isEmpty else { break }
-
                 if pass == 0 {
                     for window in unresolved {
                         guard !Task.isCancelled else { break }
@@ -4550,7 +4577,8 @@ extension WindowUtil {
 
         let cancelled = Task.isCancelled
         return await MainActor.run {
-            let confirmed = result.confirmed.filter { targetIsActive(PreviewWindowIdentity($0)) }
+            let confirmedIDs = Set(result.confirmed.map(PreviewWindowIdentity.init).filter { targetIsActive($0) })
+            let confirmed = candidates.filter { confirmedIDs.contains(PreviewWindowIdentity($0)) }
             for (pid, appWindows) in Dictionary(grouping: confirmed, by: { $0.app.processIdentifier }) {
                 updateCachedWindowStates(
                     for: pid,
@@ -4559,7 +4587,6 @@ extension WindowUtil {
                     isMinimized: isMinimized
                 )
             }
-            let confirmedIDs = Set(confirmed.map(PreviewWindowIdentity.init))
             for window in result.attempted where !confirmedIDs.contains(PreviewWindowIdentity(window)) &&
                 (cancelled || !targetIsActive(PreviewWindowIdentity(window)))
             {

@@ -140,9 +140,16 @@ enum DebugLogger { static func log(_ label: String, details: String) {} }
  static func reset() { dragPlacements=[];placements = 0; moves = 0; focus = []; afterPlacement = nil; active = true }
 }
 enum ActionFeedbackOutcome { case completed, requested, failed, cancelled }
-struct ActionFeedbackHandle {
- func finish(_ identity: PreviewWindowIdentity, _ outcome: ActionFeedbackOutcome) {}
- func finishRemaining(_ outcome: ActionFeedbackOutcome) {}
+final class ActionFeedbackHandle {
+ let targets: [PreviewWindowIdentity]
+ var outcomes: [PreviewWindowIdentity:ActionFeedbackOutcome] = [:]
+ init(_ targets:[PreviewWindowIdentity]=[]) {self.targets=targets}
+ func finish(_ identity: PreviewWindowIdentity, _ outcome: ActionFeedbackOutcome) {if outcomes[identity]==nil {outcomes[identity]=outcome}}
+ func finishRemaining(_ outcome: ActionFeedbackOutcome) {for id in targets where outcomes[id]==nil {finish(id,outcome)}}
+ func finish(_ result:WindowUtil.PreviewBatchResult) {
+  let successes=Set(result.succeeded.map(PreviewWindowIdentity.init)),failures=Set(result.failed)
+  for id in targets {finish(id,failures.contains(id) ? .failed : successes.contains(id) ? .completed : .cancelled)}
+ }
 }
 enum WindowUtil {
  static func refreshCachedPreviewAfterProgrammaticResize(_ window:WindowInfo,targetScreenIdentifier:String) {}
@@ -212,7 +219,7 @@ struct WindowFrameTarget {
  }
 }
 SWIFT
-source = block(info, 'enum WindowFrameTransactions {') + "\n" + stubs + block(util, '    struct PreviewBatchResult') + "\n" + block(util, '    @MainActor\n    static func tilePreviewWindows('.gsub('\\n', "\n")) + "\n" + block(util, '    @MainActor\n    private static func performWindowGroupPlacement('.gsub('\\n', "\n")) + "\n}\n" + registry + "\n" + block(info, 'enum PreviewTilingLayout {') + "\n" + block(info, 'enum WindowFramePlacementResult {')
+source = block(info, 'enum WindowFrameTransactions {') + "\n" + stubs + block(util, '    static func autoTileTargets(') + "\n" + block(util, '    struct PreviewBatchResult') + "\n" + block(util, '    @MainActor\n    static func tilePreviewWindows('.gsub('\\n', "\n")) + "\n" + block(util, '    @MainActor\n    private static func performWindowGroupPlacement('.gsub('\\n', "\n")) + "\n}\n" + registry + "\n" + block(info, 'enum PreviewTilingLayout {') + "\n" + block(info, 'enum WindowFramePlacementResult {')
 drag = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/DragPreviewCoordinator.swift")
 source += "\n"+block(drag,'struct PreviewDragTarget {')+"\n"+block(drag,'enum PreviewDragLayout {')+"\nextension WindowUtil {\n@MainActor\n"+block(util,'    static func placeDraggedWindows(')+"\n}\n"
 abort 'A new drag must cancel the prior released drop' unless block(drag, '    func startDragging(').include?('cancelPendingDrop()')
@@ -251,7 +258,8 @@ source += "}\n"
 source += catalog[catalog.index('final class WindowActionRequest:')...catalog.index('enum PreviewBatchTogglePolicy {')] + "\n"
 source += "\nextension WindowUtil {\n" + block(util, '    static func canBringWindowToFrontWithoutSpaceSwitch(')
 source += "\n@MainActor static func finishIndependentFill(_ action: WindowAction, windows: [WindowInfo]) async -> PreviewBatchResult {\nvar result = PreviewBatchResult(succeeded: windows)\nlet request = WindowActionOwnership.shared.begin(windows.map(PreviewWindowIdentity.init)); defer { request.finish() }\n"
-source += block(util, '        if action.tilingDirection != nil || action == .maximize') + "\nreturn result\n}\n}\n"
+source += "let feedback:ActionFeedbackHandle? = nil\n" + util[util.index('        let isGeometryAction =')...util.index('        var quitApps =')]
+source += block(util, '        if foregroundGeometry {') + "\nreturn result\n}\n}\n"
 
 checks = <<~'SWIFT'
 @main struct Checks {
@@ -482,6 +490,34 @@ checks = <<~'SWIFT'
   }
   Defaults.rows = 2; Defaults.columns = 3; Defaults.onlyFits = false
   print("PASS capacity limits: overflow receives no frame reads/writes, Space moves, reveals, focus or linked records, including 1x1 move-only")
+  for onlyFits in [false,true] {
+   Model.reset();Defaults.onlyFits=onlyFits;Defaults.rows=1;Defaults.columns=2
+   let mixed=windows(3);mixed[0].axElement.full=true
+   let untouched=mixed[0].axElement.frame
+   let result=await WindowUtil.tilePreviewWindows(mixed,direction:.neutral)
+   precondition(result.succeeded.map(\.id)==[mixed[1].id,mixed[2].id] && result.failed.isEmpty)
+   let frames=PreviewTilingLayout.frames(count:2,in:NSScreen().snappingFrame,direction:.neutral,maximumRows:1,maximumColumns:2)
+   precondition(mixed[1].axElement.frame==frames[0] && mixed[2].axElement.frame==frames[1],"Fullscreen window consumed a layout cell")
+   precondition(mixed[0].axElement.writes==0 && mixed[0].axElement.reads==0 && mixed[0].axElement.stateReads==0 && mixed[0].axElement.frame==untouched)
+   precondition(registry.record(for:mixed[0])==nil && !Model.focus.contains(mixed[0].id))
+   let empty=await WindowUtil.tilePreviewWindows([mixed[0]],direction:.neutral)
+   precondition(empty.succeeded.isEmpty && empty.failed.isEmpty)
+   clear(mixed)
+  }
+  Defaults.rows=2;Defaults.columns=3;Defaults.onlyFits=false
+  print("PASS direct Auto Tile skips fullscreen before ownership/capacity/layout without AX reads, writes, focus or failure")
+  Model.reset();let busyMixed=windows(3);busyMixed[0].axElement.full=true
+  let tileIDs=busyMixed.dropFirst().map(PreviewWindowIdentity.init)
+  let protection=WindowActionOwnership.shared.begin([tileIDs[0]],protect:true)
+  let feedback=ActionFeedbackHandle(tileIDs)
+  let partialBusy=await WindowUtil.tilePreviewWindows(busyMixed,direction:.neutral,feedback:feedback)
+  precondition(partialBusy.failed==[tileIDs[0]] && partialBusy.succeeded.map(\.id)==[busyMixed[2].id])
+  precondition(feedback.outcomes[tileIDs[0]] == .failed && feedback.outcomes[tileIDs[1]] == .completed,"Nested cleanup replaced a busy-target failure with cancellation")
+  let refused=ActionFeedbackHandle([tileIDs[0]])
+  let noAdmission=await WindowUtil.tilePreviewWindows([busyMixed[1]],direction:.neutral,feedback:refused)
+  precondition(noAdmission.failed==[tileIDs[0]] && refused.outcomes[tileIDs[0]] == .failed)
+  protection.finish();clear(busyMixed)
+  print("PASS tiling refusal feedback: partial and fully busy requests settle as failure before nested cancellation cleanup")
   Model.reset(); let constrained = windows(2); constrained[0].axElement.minimumWidth = 1000
   let constrainedResult = await WindowUtil.tilePreviewWindows(constrained, direction: .neutral)
   precondition(constrainedResult.failed == [PreviewWindowIdentity(constrained[0])])

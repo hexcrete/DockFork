@@ -240,6 +240,30 @@ extension WindowAction {
         !window.isWindowlessApp || isQuitAction || self == .openNewWindow
     }
 
+    func previewTargets(from windows: [WindowInfo], allowFullscreenEntry: Bool = true) -> [WindowInfo] {
+        var targets = windows.filter { appliesToSelectedWindow($0) }
+        if self == .minimizeAllWindows || self == .closeAllWindows {
+            var apps = Set<pid_t>()
+            targets = targets.flatMap { window -> [WindowInfo] in
+                guard apps.insert(window.app.processIdentifier).inserted else { return [] }
+                let cached = WindowUtil.readCachedWindows(for: window.app.processIdentifier).filter { !$0.isWindowlessApp }
+                return cached.isEmpty ? windows.filter { $0.app.processIdentifier == window.app.processIdentifier && !$0.isWindowlessApp } : cached
+            }
+        }
+        var seen = Set<PreviewWindowIdentity>()
+        targets = targets.filter { seen.insert(PreviewWindowIdentity($0)).inserted }
+        if self == .minimize || self == .minimizeAllWindows { targets.removeAll { $0.isFullscreen == true } }
+        if self == .toggleFullScreen, !allowFullscreenEntry || targets.count > 1 { targets.removeAll { $0.isFullscreen != true } }
+        if self == .hide {
+            let eligibleApps = Set(batchTargets(from: targets).map(\.app.processIdentifier))
+            targets.removeAll { !eligibleApps.contains($0.app.processIdentifier) }
+        }
+        if autoTilingDirection(windowCount: targets.count, fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection]) != nil {
+            targets = WindowUtil.autoTileTargets(from: targets)
+        }
+        return targets
+    }
+
     func batchTargets(from windows: [WindowInfo]) -> [WindowInfo] {
         var seenApps = Set<pid_t>()
         return windows.filter { window in
