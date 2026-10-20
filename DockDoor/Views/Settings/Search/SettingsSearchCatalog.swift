@@ -2189,8 +2189,8 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.enableMultiWindowSelection",
             title: String(localized: "Enable multi-window selection"),
-            description: String(localized: "Select windows using checkboxes or the Toggle Window Selection action."),
-            keywords: ["selection", "multiple", "check", "batch", "escape"],
+            description: String(localized: "Select a range by Shift-clicking another checkbox, dragging from a checkbox across previews, or holding the Toggle Window Selection shortcut while using arrow keys."),
+            keywords: ["selection", "multiple", "check", "batch", "escape", "range", "shift", "drag", "hold", "arrows"],
             tab: "Keybinds",
             section: String(localized: "Window Selection"),
             icon: "checkmark.circle"

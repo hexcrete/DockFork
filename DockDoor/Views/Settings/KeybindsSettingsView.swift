@@ -31,11 +31,11 @@ private struct WindowSelectionSettingsSection: View {
             VStack(alignment: .leading, spacing: 10) {
                 Toggle("Enable multi-window selection", isOn: $enabled)
                     .settingsSearchTarget("gestures.enableMultiWindowSelection")
-                Text("Select windows using checkboxes or the Toggle Window Selection action.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.leading, 20)
                 if enabled {
+                    Text(String(localized: "Select a range by Shift-clicking another checkbox, dragging from a checkbox across previews, or holding the Toggle Window Selection shortcut while using arrow keys."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 20)
                     Toggle("Enable selection of windowless apps in Window Switcher", isOn: $enableWindowlessAppSelection)
                         .settingsSearchTarget("gestures.enableWindowlessAppSelection")
                     Text("Only \"Quit\", \"Force Quit\" and \"Open New Window\" apply to windowless apps.")

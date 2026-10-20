@@ -10,6 +10,8 @@ end
 
 view = read('DockDoor/Views/Settings/KeybindsSettingsView.swift')
 controls = view[view.index('private struct WindowSelectionSettingsSection:')...view.index('private struct SpacesSettingsSection:')]
+range_helper = 'Select a range by Shift-clicking another checkbox, dragging from a checkbox across previews, or holding the Toggle Window Selection shortcut while using arrow keys.'
+check(controls.match?(/if enabled \{\s+Text\(String\(localized: "#{Regexp.escape(range_helper)}"\)\)/), 'Range-selection explainer must appear only when selection is enabled')
 catalog = read('DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift')
 keys = read('DockDoor/consts.swift')
 bindings = controls.scan(/@Default\(\.(\w+)\) private var (\w+)/).to_h.invert
