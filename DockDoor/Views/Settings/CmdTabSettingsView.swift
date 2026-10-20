@@ -174,7 +174,7 @@ struct CmdTabSettingsView: View {
                     .padding(.leading, 20)
 
                 if showWindowlessAppsInCmdTab {
-                    Toggle("Show full size previews", isOn: $showFullSizeWindowlessCmdTabPreviews)
+                    Toggle("Show full size placeholders", isOn: $showFullSizeWindowlessCmdTabPreviews)
                         .settingsSearchTarget("cmdTab.fullSizeWindowless")
                         .padding(.leading, 20)
                 }

@@ -104,7 +104,7 @@ struct DockPreviewsSettingsView: View {
                     .padding(.leading, 20)
 
                 if showWindowlessAppsInDockPreview {
-                    Toggle("Show full size previews", isOn: $showFullSizeWindowlessDockPreviews)
+                    Toggle("Show full size placeholders", isOn: $showFullSizeWindowlessDockPreviews)
                         .settingsSearchTarget("dockPreviews.fullSizeWindowless")
                         .padding(.leading, 20)
                 }

@@ -198,7 +198,7 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "dockPreviews.fullSizeWindowless",
-            title: String(localized: "Show full size previews"),
+            title: String(localized: "Show full size placeholders"),
             keywords: ["windowless", "placeholder", "full", "size", "compact"],
             tab: "DockPreviews",
             section: String(localized: "Window Display"),
@@ -780,7 +780,7 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "cmdTab.fullSizeWindowless",
-            title: String(localized: "Show full size previews"),
+            title: String(localized: "Show full size placeholders"),
             keywords: ["windowless", "placeholder", "full", "size", "compact"],
             tab: "CmdTab",
             section: String(localized: "Window Display"),
