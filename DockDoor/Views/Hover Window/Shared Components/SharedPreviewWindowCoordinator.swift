@@ -1912,7 +1912,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var needsTransition = !preservePreviews && ((action == .toggleFullScreen && !allowFullscreenEntry) ||
             (revealsWindows && admittedTargets.contains { WindowUtil.activationMaySwitchSpaces(for: $0) }))
         var suppressionToken: UUID?
-        if needsTransition { hideWindow() }
+        if needsTransition {
+            feedback?.prepareForSpaceTransition()
+            hideWindow()
+        }
         windowSwitcherCoordinator.consumeWindowlessSelection(in: admittedTargets)
         let beforeChange: (@MainActor (Bool) -> Bool)? = if allowFullscreenEntry || action == .hide {
             { [weak self] switchesSpaces in
@@ -1924,6 +1927,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 }
                 if switchesSpaces, !preservePreviews {
                     needsTransition = true
+                    feedback?.prepareForSpaceTransition()
                     hideWindow()
                 }
                 return true
