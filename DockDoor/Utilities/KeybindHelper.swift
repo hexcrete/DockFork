@@ -629,6 +629,34 @@ private class WindowSwitchingCoordinator {
     }
 }
 
+private final class PreviewActionKeyPressState {
+    private let lock = NSLock()
+    private var heldKeys: Set<Int64> = []
+
+    func consumeRepeat(keyCode: Int64, isRepeat: Bool) -> Bool {
+        lock.withLock {
+            if !isRepeat {
+                heldKeys.remove(keyCode)
+                return false
+            }
+            return heldKeys.contains(keyCode)
+        }
+    }
+
+    func begin(keyCode: Int64, isRepeat: Bool) -> Bool {
+        lock.withLock { _ = heldKeys.insert(keyCode) }
+        return !isRepeat
+    }
+
+    func release(keyCode: Int64) {
+        lock.withLock { _ = heldKeys.remove(keyCode) }
+    }
+
+    func reset() {
+        lock.withLock { heldKeys.removeAll(keepingCapacity: true) }
+    }
+}
+
 class KeybindHelper {
     private enum ModifierDoubleTapAction {
         case openPersistentSwitcher(SwitcherInvocationMode)
@@ -658,6 +686,7 @@ class KeybindHelper {
     private var heldKeyRepeatTask: Task<Void, Never>?
     private var modifierDoubleTapState = ModifierDoubleTapState()
     private var pressedModifierKeyCodes: Set<UInt16> = []
+    private let actionKeyPressState = PreviewActionKeyPressState()
 
     /// Track the invocation mode for alternate keybinds
     private var currentInvocationMode: SwitcherInvocationMode = .allWindows
@@ -894,11 +923,25 @@ class KeybindHelper {
         unmanagedEventTapUserInfo = nil
         eventTap = nil
         runLoopSource = nil
+        actionKeyPressState.reset()
     }
 
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if let passthrough = reEnableIfNeeded(tap: eventTap, type: type, event: event) {
+            actionKeyPressState.reset()
             return passthrough
+        }
+
+        // Keep consumed action keys suppressed through preview dismissal until physical release.
+        if type == .keyUp {
+            actionKeyPressState.release(keyCode: event.getIntegerValueField(.keyboardEventKeycode))
+        } else if type == .keyDown,
+                  actionKeyPressState.consumeRepeat(
+                      keyCode: event.getIntegerValueField(.keyboardEventKeycode),
+                      isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0
+                  )
+        {
+            return nil
         }
 
         if previewCoordinator.tapSnapshot.isPresentationSuspended {
@@ -993,8 +1036,9 @@ class KeybindHelper {
                WindowSwitcherShortcutResolver.normalizedModifiers(Int(flags.rawValue)) ==
                WindowSwitcherShortcutResolver.normalizedModifiers(routing.keybind.modifierFlags)
             {
-                guard modifierSideMatches(routing.keybind) else { return nil }
-                guard event.getIntegerValueField(.keyboardEventAutorepeat) == 0 else { return nil }
+                guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0),
+                      modifierSideMatches(routing.keybind)
+                else { return nil }
                 Task { @MainActor in
                     self.windowSwitchingCoordinator.takeKeyboardOwnership()
                     PreviewContextMenuController.shared.performShortcut(action, token: routing.token)
@@ -1005,6 +1049,7 @@ class KeybindHelper {
             if let spaceNumber = numberedSpaceShortcut(event: event),
                tapSnapshot.isVisible
             {
+                guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0) else { return nil }
                 Task { @MainActor [weak self] in
                     self?.handleNumberedSpaceShortcut(spaceNumber)
                 }
@@ -1148,6 +1193,7 @@ class KeybindHelper {
                             let canTileCheckedWindows = action == .autoTileSelectedWindows && tapSnapshot.hasCheckedWindows
 
                             if hasSelection || action == .selectAllWindows || canTileCheckedWindows || (supportsHighlightedAppAction && !highlightedApps.isEmpty) {
+                                guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0) else { return nil }
                                 cmdTabActionPerformed = true
                                 Task { @MainActor in
                                     if hasSelection || action == .selectAllWindows || canTileCheckedWindows {
@@ -1804,6 +1850,7 @@ class KeybindHelper {
                 if let action = getActionForPreviewShortcut(keyCode: keyCode),
                    snapshot.hasSelection || action == .selectAllWindows || (action == .autoTileSelectedWindows && snapshot.hasCheckedWindows)
                 {
+                    guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0) else { return (true, nil) }
                     preventSwitcherHideOnRelease = true
                     return (true, { @MainActor in
                         if ![.toggleWindowSelection, .selectAllWindows].contains(action) || Defaults[.keepWindowSwitcherOpenWhenSelected] {
@@ -2095,7 +2142,6 @@ class KeybindHelper {
 
     private func numberedSpaceShortcut(event: CGEvent) -> Int? {
         guard Defaults[.enableSpacesShortcuts],
-              event.getIntegerValueField(.keyboardEventAutorepeat) == 0,
               let spaceNumber = WindowSwitcherShortcutResolver.spaceNumber(
                   forPhysicalKeyCode: event.getIntegerValueField(.keyboardEventKeycode)
               )
