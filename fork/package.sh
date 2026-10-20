@@ -7,13 +7,14 @@ version=""
 prepare_only=false
 include_working_tree=false
 development=false
+clean_old_builds=false
 signing_identity="-"
 configuration=Release
 
 usage() {
     cat <<'EOF'
-Usage: ./fork/package.sh [--output DIRECTORY] [--version X.Y.Z] [--prepare-only] [--include-working-tree]
-       ./fork/package.sh --dev [--signing-identity CERTIFICATE_SHA1]
+Usage: ./fork/package.sh [--output DIRECTORY] [--version X.Y.Z] [--prepare-only] [--include-working-tree] [--clean-old-builds]
+       ./fork/package.sh --dev [--signing-identity CERTIFICATE_SHA1] [--clean-old-builds]
 
 Build committed HEAD as an Apple Silicon, ad-hoc-signed DockFork release.
 Release mode performs no account, provisioning, installation, launch or publication operations.
@@ -22,9 +23,58 @@ Release mode performs no account, provisioning, installation, launch or publicat
 --dev builds Debug with tracked source changes, certificate-signs, replaces and
       launches the fixed local app at fork/dist/dev/DockFork.app. No release ZIP.
 --signing-identity selects a local Apple Development certificate for --dev.
+--clean-old-builds removes older recognized local-test/development build folders
+      from the output directory after success. Keeps the current build, installed
+      development app, Release packages, unrelated folders and symlinks.
 Version and upstream ancestry are recorded in fork/version.json; --version overrides
 only the DockFork version for this build.
 EOF
+}
+
+prune_old_builds() {
+    /usr/bin/ruby - "$output" "$destination" <<'RUBY'
+require 'fileutils'
+require 'json'
+output, current = ARGV.map { |path| File.realpath(path) }
+abort 'Current build must be inside the output directory.' unless File.dirname(current) == output
+Dir.children(output).sort.each do |name|
+    match = /\ADockFork-([0-9a-f]{7})-working-[A-Za-z0-9]{6}\z/.match(name)
+    next unless match
+    path = File.join(output, name)
+    next if path == current || File.symlink?(path) || !File.directory?(path)
+    next if File.exist?(File.join(path, 'SHA256SUMS.txt')) || File.symlink?(File.join(path, 'SHA256SUMS.txt')) || !Dir.glob(File.join(path, '*.zip')).empty?
+    pid_file = File.join(path, '.build-pid')
+    if File.exist?(pid_file) || File.symlink?(pid_file)
+        next if File.symlink?(pid_file) || !File.file?(pid_file)
+        begin
+            pid = File.read(pid_file).strip
+            next unless /\A[1-9][0-9]*\z/.match?(pid)
+            Process.kill(0, Integer(pid))
+            next
+        rescue Errno::ESRCH
+            # A stopped build can be pruned; live or inaccessible processes cannot.
+        rescue Errno::EPERM, Errno::ENOENT, RangeError
+            next
+        end
+    end
+    record = File.join(path, 'SOURCE-COMMIT.txt')
+    metadata = File.join(path, 'BUILD-METADATA.json')
+    next unless [record, metadata].all? { |file| File.file?(file) && !File.symlink?(file) }
+    begin
+        commit = File.read(record).strip
+        info = JSON.parse(File.read(metadata))
+    rescue JSON::ParserError, Errno::ENOENT
+        next
+    end
+    next unless /\A[0-9a-f]{40}\z/.match?(commit) && commit.start_with?(match[1]) && info.is_a?(Hash) && info['sourceCommit'] == commit
+    begin
+        FileUtils.remove_entry_secure(path)
+    rescue Errno::ENOENT
+        next
+    end
+    puts "Removed old local build: #{path}"
+end
+RUBY
 }
 
 while [[ $# -gt 0 ]]; do
@@ -41,6 +91,7 @@ while [[ $# -gt 0 ]]; do
         --prepare-only) prepare_only=true; shift ;;
         --include-working-tree) include_working_tree=true; shift ;;
         --dev) development=true; shift ;;
+        --clean-old-builds) clean_old_builds=true; shift ;;
         --help|-h) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
     esac
@@ -89,8 +140,10 @@ cleanup() {
         rm -rf "$installation"
     fi
     rm -rf "$work"
+    rm -f "$destination/.build-pid"
 }
 trap cleanup EXIT
+printf '%s\n' "$$" > "$destination/.build-pid"
 source_dir="$work/source"
 mkdir -p "$source_dir"
 
@@ -174,6 +227,7 @@ shasum -a 256 "$root/fork/packaging/DockFork.patch" | awk '{print $1}' > "$desti
 
 if $prepare_only; then
     mv "$source_dir" "$destination/source"
+    if $clean_old_builds; then prune_old_builds; fi
     printf 'Prepared source only: %s\n' "$destination/source"
     exit 0
 fi
@@ -281,6 +335,7 @@ JXA
     if [[ -e "$dev_app" ]]; then mv "$dev_app" "$installation/previous.app"; fi
     mv "$installation/DockFork.app" "$dev_app"
     open "$dev_app"
+    if $clean_old_builds; then prune_old_builds; fi
     printf 'Local certificate-signed development app launched: %s\n' "$dev_app"
     exit 0
 fi
@@ -298,4 +353,5 @@ cp "$root/fork/packaging/INSTALL.md" "$destination/INSTALL.md"
         PACKAGING-PATCH-SHA256.txt BUILD-METADATA.json > SHA256SUMS.txt
     if $include_working_tree; then shasum -a 256 WORKING-TREE.patch >> SHA256SUMS.txt; fi
 )
+if $clean_old_builds; then prune_old_builds; fi
 printf 'Package ready (ad-hoc signed, not notarized): %s\n' "$destination"
