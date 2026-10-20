@@ -32,6 +32,8 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.excludeWindowlessAppsFromCurrentMonitorSwitcherScopes) var excludeWindowlessAppsFromCurrentMonitorSwitcherScopes
     @Default(.excludeWindowlessAppsFromCurrentSpaceSwitcherScopes) var excludeWindowlessAppsFromCurrentSpaceSwitcherScopes
     @Default(.mouseFollowsFocusMode) var mouseFollowsFocusMode
+    @Default(.enableActionFeedback) private var enableActionFeedback
+    @Default(.showMouseFollowsFocusFeedback) private var mouseFollowsFocusFeedback
 
     @State private var showGroupedAppsSheet: Bool = false
 
@@ -116,6 +118,17 @@ struct WindowSwitcherBehaviorSettingsView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.leading, 20)
+
+                if mouseFollowsFocusMode != .never, enableActionFeedback {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Show feedback popup", isOn: $mouseFollowsFocusFeedback)
+                            .settingsSearchTarget("windowSwitcher.showMouseFollowsFocusFeedback")
+                        Text("Show a popup at the cursor's new location. Requires action feedback to be enabled.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.leading, 20)
+                }
             }
         }
     }

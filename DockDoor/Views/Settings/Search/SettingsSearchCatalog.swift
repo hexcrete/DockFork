@@ -440,6 +440,15 @@ enum SettingsSearchCatalog {
             icon: "computermouse"
         ),
         SettingsSearchItem(
+            id: "windowSwitcher.showMouseFollowsFocusFeedback",
+            title: String(localized: "Show feedback popup"),
+            description: String(localized: "Show a popup at the cursor's new location. Requires action feedback to be enabled."),
+            keywords: ["feedback", "popup", "mouse", "cursor", "follow", "focus", "jump"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Behavior"),
+            icon: "pointer.arrow.motionlines"
+        ),
+        SettingsSearchItem(
             id: "windowSwitcher.currentSpaceOnly",
             title: String(localized: "Show windows from current Space only"),
             description: String(localized: "Only display windows that are in the current virtual desktop/Space."),
@@ -2071,15 +2080,6 @@ enum SettingsSearchCatalog {
             tab: "Keybinds",
             section: String(localized: "Action Feedback"),
             icon: "bubble.left"
-        ),
-        SettingsSearchItem(
-            id: "gestures.showMouseFollowsFocusFeedback",
-            title: String(localized: "Show feedback when Mouse Follows Focus"),
-            description: String(localized: "Mark the cursor's new location when Mouse Follows Focus moves it. Always shown at the cursor."),
-            keywords: ["feedback", "popup", "mouse", "cursor", "follow", "focus", "jump"],
-            tab: "Keybinds",
-            section: String(localized: "Action Feedback"),
-            icon: "pointer.arrow.motionlines"
         ),
         SettingsSearchItem(
             id: "gestures.postActionMovingResizing",

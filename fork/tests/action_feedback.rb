@@ -7,12 +7,18 @@ ROOT = File.expand_path('../..', __dir__)
 source = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowGestureHUD.swift")
 keys = File.read("#{ROOT}/DockDoor/consts.swift")
 view = File.read("#{ROOT}/DockDoor/Views/Settings/KeybindsSettingsView.swift")
+behavior_view = File.read("#{ROOT}/DockDoor/Views/Settings/WindowSwitcherBehaviorSettingsView.swift")
 catalog = File.read("#{ROOT}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
 %w[enableActionFeedback actionFeedbackPosition showMouseFollowsFocusFeedback].each do |key|
+  target_view, prefix = key == 'showMouseFollowsFocusFeedback' ? [behavior_view, 'windowSwitcher'] : [view, 'gestures']
   abort "Missing reset: #{key}" unless File.read("#{ROOT}/DockDoor/Views/Settings/MainSettingsView.swift").include?(".#{key}")
-  abort "Missing search target: #{key}" unless view.include?("settingsSearchTarget(\"gestures.#{key}\")")
-  abort "Missing/duplicate search entry: #{key}" unless catalog.scan("id: \"gestures.#{key}\"").size == 1
+  abort "Missing search target: #{key}" unless target_view.include?("settingsSearchTarget(\"#{prefix}.#{key}\")")
+  abort "Missing/duplicate search entry: #{key}" unless catalog.scan("id: \"#{prefix}.#{key}\"").size == 1
 end
+abort 'Cursor hint must live below Mouse follows focus, not in Action Feedback' unless behavior_view.index('windowSwitcher.mouseFollowsFocus') < behavior_view.index('windowSwitcher.showMouseFollowsFocusFeedback') && !view.include?('showMouseFollowsFocusFeedback') && !catalog.include?('gestures.showMouseFollowsFocusFeedback')
+abort 'Cursor hint must hide when unavailable, not disable' unless behavior_view.include?('Toggle("Show feedback popup",') && behavior_view.include?('if mouseFollowsFocusMode != .never, enableActionFeedback {') && !behavior_view.include?('.disabled(mouseFollowsFocusMode == .never || !enableActionFeedback)')
+helper = "Show a popup at the cursor's new location. Requires action feedback to be enabled."
+abort 'Cursor hint search text must match its control' unless behavior_view.include?("Text(\"#{helper}\")") && catalog.include?("description: String(localized: \"#{helper}\")")
 abort 'Removed consolidation setting remains wired' if [source, keys, view, catalog, File.read("#{ROOT}/DockDoor/Views/Settings/MainSettingsView.swift")].any? { |text| text.include?('animateActionFeedbackConsolidation') }
 abort 'Consolidation must only fade' if source.include?('towards destination:')
 abort 'Feedback default must remain off' unless keys.include?('Key<Bool>("enableActionFeedback", default: false)')
