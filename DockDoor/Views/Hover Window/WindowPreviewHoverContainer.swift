@@ -1527,7 +1527,6 @@ struct WindowPreviewHoverContainer: View {
             on: actionStateWindow,
             keepPreviewOnQuit: false,
             preferredWindows: previewStateCoordinator.windows,
-            hiddenStateBeforeAction: hiddenStateBeforeAction,
             feedback: feedback
         )
         if case .noChange = result {

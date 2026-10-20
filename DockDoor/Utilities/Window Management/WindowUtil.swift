@@ -411,13 +411,11 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
     ///   - window: The window to perform the action on
     ///   - keepPreviewOnQuit: Whether to keep the preview open after quitting
     ///   - preferredWindows: Optional in-context windows for app-wide actions to avoid stale cache reads
-    ///   - hiddenStateBeforeAction: Optional resolved app hidden state for consistent hide/unhide handling
     /// - Returns: The result indicating what happened
     func perform(
         on window: WindowInfo,
         keepPreviewOnQuit: Bool = false,
         preferredWindows: [WindowInfo]? = nil,
-        hiddenStateBeforeAction: Bool? = nil,
         feedback: ActionFeedbackHandle? = nil
     ) -> ActionResult {
         defer { if self != .autoTileSelectedWindows, self != .minimizeAllWindows { feedback?.finishRemaining(.requested) } }

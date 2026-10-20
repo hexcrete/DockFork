@@ -1,5 +1,11 @@
 # DockFork: Changes and Showcase
 
+## Post-0.3.0 Maintenance
+
+Remove the unused `hiddenStateBeforeAction` argument from `WindowAction.perform`, its stale parameter comment and its two call sites. Preserve the callers' hidden-state snapshots and presentation checks. This is a four-line deletion with no behavior, setting, resource-lifetime or visual change; no new showcase capture is needed. The released 0.3.0 assets remain unchanged.
+
+The three focused action-responsiveness, Quit and feedback regression suites, formatting and diff checks pass. The certificate-signed Debug build and strict installed signature pass. The initial launch returned macOS error -600; retrying the fixed development path succeeds, and the running path, executable/debug-library and reviewed source patch match the rebuild. Existing old-build cleanup preserves Release packages and the installed app. No live settings import, preference reset, new manual interaction test or Release rebuild is claimed. The ledger covers through `b504e944`; record this cleanup commit's exact hash in the next update.
+
 ## 0.3.0 Prerelease
 
 [0.3.0 is published as a prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) from unchanged audited source `6d3eb470`. All ten uploaded assets and anonymous public downloads match the reviewed package. The [public release body](RELEASE_BODY_0.3.0.md) contains the concise highlights. The preparation record below retains detailed audit results and testing gaps; it is not the GitHub release description.

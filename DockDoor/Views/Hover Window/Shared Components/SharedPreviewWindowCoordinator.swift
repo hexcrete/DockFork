@@ -1724,7 +1724,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             on: actionStateWindow,
             keepPreviewOnQuit: false,
             preferredWindows: coordinator.windows,
-            hiddenStateBeforeAction: hiddenStateBeforeAction,
             feedback: feedback
         )
         if case .noChange = result {
