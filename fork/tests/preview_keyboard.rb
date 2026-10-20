@@ -31,7 +31,7 @@ routes = {
   'regular preview' => block(keybinds, '                if let action = getActionForPreviewShortcut(keyCode: keyCode),')
 }
 routes.each do |label, route|
-  abort "#{label} does not consume recognized repeats" unless route.include?('guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0)')
+  abort "#{label} does not consume recognized repeats" unless route.include?('guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0')
   dispatch = [route.index('Task {'), route.index('preventSwitcherHideOnRelease ='), route.index('cmdTabActionPerformed =')].compact.min
   abort "#{label} starts work before repeat admission" unless dispatch && route.index('actionKeyPressState.begin(') < dispatch
 end
@@ -63,7 +63,7 @@ private final class Harness {
  func forward(_ event: CGEvent) -> CGEvent? {
   let type = event.type
 SWIFT
-source += early_gate + "return event\n}\n" + matcher + "\n}\n"
+source += early_gate + "_ = releasedActionPress\nreturn event\n}\n" + matcher + "\n}\n"
 source += <<~'SWIFT'
 func event(_ code: Int, repeat repeated: Bool = false, up: Bool = false, flags: CGEventFlags = .maskAlternate) -> CGEvent {
  let event = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(code), keyDown: !up)!
@@ -96,6 +96,12 @@ func event(_ code: Int, repeat repeated: Bool = false, up: Bool = false, flags: 
   precondition(h.forward(event(kVK_ANSI_M, repeat: true)) == nil, "Another key release cleared the held action")
   state.reset()
   precondition(h.forward(event(kVK_ANSI_M, repeat: true)) != nil)
+  precondition(state.begin(keyCode: 14, isRepeat: false, timestamp: 100))
+  precondition(state.isHeld(keyCode: 14, timestamp: 100))
+  precondition(state.release(keyCode: 14) == 100)
+  precondition(state.begin(keyCode: 14, isRepeat: false, timestamp: 200))
+  precondition(!state.isHeld(keyCode: 14, timestamp: 100) && state.isHeld(keyCode: 14, timestamp: 200))
+  state.reset()
   let numbers = [kVK_ANSI_1, kVK_ANSI_2, kVK_ANSI_3, kVK_ANSI_4, kVK_ANSI_5, kVK_ANSI_6, kVK_ANSI_7, kVK_ANSI_8, kVK_ANSI_9, kVK_ANSI_0]
   for (index, code) in numbers.enumerated() {
    for repeated in [false, true] { precondition(h.match(event(code, repeat: repeated)) == index + 1) }

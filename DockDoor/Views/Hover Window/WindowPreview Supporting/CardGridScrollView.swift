@@ -5,6 +5,7 @@ import SwiftUI
 
 /// AppKit-backed scroll container for preview cards. Each card keeps its SwiftUI view in its own hosting view, and scrolling moves the content view's origin instead of an NSClipView so the hosting views are never asked to re-render per frame.
 struct CardGridScrollView: NSViewRepresentable {
+    static let edgeScrollZoneSize: CGFloat = 50
     enum EdgeScrollRequest: Equatable {
         case backward
         case forward
@@ -34,20 +35,29 @@ struct CardGridScrollView: NSViewRepresentable {
     var isInteractive = true
     let edgeScrollRequest: EdgeScrollRequest?
     let edgeScrollSpeed: CGFloat
+    var selectionEdgeAutoScrollEnabled = false
     let makeCard: (FlowItem) -> AnyView
 
     func makeNSView(context: Context) -> ContainerView {
         let container = ContainerView(scrollsVertically: layout.scrollsVertically)
         container.isInteractive = isInteractive
         context.coordinator.attach(container: container, representable: self)
-        container.updateEdgeScroll(request: edgeScrollRequest, speed: edgeScrollSpeed)
+        if context.coordinator.isSelecting {
+            context.coordinator.updateSelectionScroll()
+        } else {
+            container.updateEdgeScroll(request: edgeScrollRequest, speed: edgeScrollSpeed)
+        }
         return container
     }
 
     func updateNSView(_ container: ContainerView, context: Context) {
         container.isInteractive = isInteractive
         context.coordinator.update(representable: self)
-        container.updateEdgeScroll(request: edgeScrollRequest, speed: edgeScrollSpeed)
+        if context.coordinator.isSelecting {
+            context.coordinator.updateSelectionScroll()
+        } else {
+            container.updateEdgeScroll(request: edgeScrollRequest, speed: edgeScrollSpeed)
+        }
     }
 
     static func dismantleNSView(_ nsView: ContainerView, coordinator: Coordinator) {
@@ -257,6 +267,37 @@ struct CardGridScrollView: NSViewRepresentable {
         private var pendingItems: [FlowItem] = []
         private var cancellables: Set<AnyCancellable> = []
         private(set) var contentSize: CGSize = .zero
+        private var selectionEdgeAutoScrollEnabled = false
+        private var edgeScrollSpeed: CGFloat = 0
+
+        var isSelecting: Bool {
+            previewCoordinator?.isPointerSelecting == true && previewCoordinator?.hasSelectionRange == true
+        }
+
+        func updateSelectionScroll() {
+            if let point = previewCoordinator?.selectionPointerLocation { updateSelectionScroll(at: point) }
+        }
+
+        func updateSelectionScroll(at screenPoint: CGPoint) {
+            guard let container else { return }
+            guard selectionEdgeAutoScrollEnabled, isSelecting, let window = container.window else { stopSelectionScroll(); return }
+            let point = container.convert(window.convertPoint(fromScreen: screenPoint), from: nil)
+            let zone = CardGridScrollView.edgeScrollZoneSize
+            let position = container.scrollsVertically ? point.y : point.x
+            let length = container.scrollsVertically ? container.bounds.height : container.bounds.width
+            let request: EdgeScrollRequest? = if !container.bounds.contains(point) {
+                nil
+            } else if position <= zone, container.offset > 1 {
+                .backward
+            } else if position >= length - zone, container.offset < container.maxOffset - 1 {
+                .forward
+            } else { nil }
+            container.updateEdgeScroll(request: request, speed: edgeScrollSpeed)
+        }
+
+        func stopSelectionScroll() {
+            container?.updateEdgeScroll(request: nil, speed: edgeScrollSpeed)
+        }
 
         func attach(container: ContainerView, representable: CardGridScrollView) {
             self.container = container
@@ -280,6 +321,11 @@ struct CardGridScrollView: NSViewRepresentable {
 
         func detach(from detachedContainer: ContainerView) {
             guard container === detachedContainer else { return }
+            if previewCoordinator?.selectionGrid === self {
+                previewCoordinator?.endSelectionRange()
+                previewCoordinator?.endPointerSelectionRange()
+                previewCoordinator?.selectionGrid = nil
+            }
             if previewCoordinator?.dragTargetGrid === self {
                 previewCoordinator?.dragTargetGrid = nil
                 previewCoordinator?.setPreviewDragTarget(nil)
@@ -292,6 +338,15 @@ struct CardGridScrollView: NSViewRepresentable {
 
         func update(representable: CardGridScrollView) {
             guard let container else { return }
+            selectionEdgeAutoScrollEnabled = representable.selectionEdgeAutoScrollEnabled
+            edgeScrollSpeed = representable.edgeScrollSpeed
+            if representable.isInteractive, representable.layout.appearance.enableMultiWindowSelection {
+                previewCoordinator?.selectionGrid = self
+            } else if previewCoordinator?.selectionGrid === self {
+                previewCoordinator?.endSelectionRange()
+                previewCoordinator?.endPointerSelectionRange()
+                previewCoordinator?.selectionGrid = nil
+            }
             if representable.isInteractive, Defaults[.enableActionFeedback] { previewCoordinator?.actionFeedbackGrid = self }
             if representable.isInteractive, representable.layout.appearance.enableWindowDragTiling {
                 previewCoordinator?.dragTargetGrid = self
@@ -342,6 +397,7 @@ struct CardGridScrollView: NSViewRepresentable {
                     }
                 }
             }
+            previewCoordinator?.reconcileSelectionRange()
             ActionFeedbackController.existing?.refreshAnchors()
         }
 
@@ -505,6 +561,7 @@ struct CardGridScrollView: NSViewRepresentable {
         private func offsetChanged(_: CGFloat) {
             ActionFeedbackController.existing?.refreshAnchors()
             materializePending(onlyVisible: true)
+            previewCoordinator?.updatePointerSelectionRange()
         }
 
         private func scrollStateChanged(fromStart: Bool, toEnd: Bool) {

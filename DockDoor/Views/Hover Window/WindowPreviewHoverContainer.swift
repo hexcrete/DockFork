@@ -362,7 +362,7 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func performHighlightActionIfNeeded() {
-        guard usesHighlightAction, dragSession == nil else {
+        guard usesHighlightAction, dragSession == nil, !previewStateCoordinator.hasSelectionRange, !previewStateCoordinator.isPointerSelecting else {
             cancelDockHighlightAction()
             return
         }
@@ -390,7 +390,7 @@ struct WindowPreviewHoverContainer: View {
         dockHighlightActionID = actionID
 
         let performAction: () -> Void = {
-            guard dockHighlightActionID == actionID else { return }
+            guard dockHighlightActionID == actionID, !previewStateCoordinator.hasSelectionRange, !previewStateCoordinator.isPointerSelecting else { return }
             guard let resolvedIndex = previewStateCoordinator.windows.firstIndex(where: { $0.id == selectedWindowID }) else {
                 cancelDockHighlightAction()
                 return
@@ -448,6 +448,7 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func handleHoverIndexChange(_ hoveredIndex: Int?, _ location: CGPoint?) -> Bool {
+        guard !previewStateCoordinator.isPointerSelecting else { return false }
         let isWindowSwitcher = previewStateCoordinator.windowSwitcherActive
         let isCmdTabPreview = !isWindowSwitcher && dockPosition == .cmdTab
         let isDockPreview = !isWindowSwitcher && !isCmdTabPreview
@@ -554,6 +555,8 @@ struct WindowPreviewHoverContainer: View {
         }
         .onDisappear {
             hasAppeared = false
+            previewStateCoordinator.endSelectionRange()
+            previewStateCoordinator.endPointerSelectionRange()
             cancelPreviewDrag()
             if Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
                 Task { await LiveCaptureManager.shared.panelClosed() }
@@ -734,6 +737,7 @@ struct WindowPreviewHoverContainer: View {
 
     private func beginPreviewDrag(for window: WindowInfo, at location: CGPoint) {
         guard dragSession == nil, !mockPreviewActive, !window.isWindowlessApp else { return }
+        previewStateCoordinator.endSelectionRange()
         let checked = previewStateCoordinator.checkedActionTargets(for: window) ?? []
         let windows = checked.count > 1 ? checked : [window]
         let session = PreviewDragSession(
@@ -907,6 +911,36 @@ struct WindowPreviewHoverContainer: View {
             .onEnded { _ in
                 finishPreviewDrag(for: window, at: NSEvent.mouseLocation)
             })
+    }
+
+    private func selectionInteraction(for window: WindowInfo) -> PreviewSelectionInteraction? {
+        guard !mockPreviewActive, previewStateCoordinator.canSelectWindow(window) else { return nil }
+        let identity = PreviewWindowIdentity(window)
+        let session = previewStateCoordinator.pointerInteractionSessionID
+        let end: () -> Void = {
+            guard previewStateCoordinator.pointerInteractionSessionID == session,
+                  previewStateCoordinator.pointerSelectionOrigin == identity else { return }
+            previewStateCoordinator.endPointerSelectionRange(origin: identity)
+            edgeScrollRequest = nil
+        }
+        return PreviewSelectionInteraction(
+            isDragOrigin: previewStateCoordinator.pointerSelectionOrigin == identity,
+            toggle: {
+                guard previewStateCoordinator.pointerInteractionSessionID == session else { return }
+                previewStateCoordinator.toggleSelectionCheckbox(window, extending: NSEvent.modifierFlags.contains(.shift))
+            },
+            drag: AnyGesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
+                .onChanged { _ in
+                    guard previewStateCoordinator.pointerInteractionSessionID == session else { return }
+                    if !previewStateCoordinator.isPointerSelecting {
+                        cancelDockHighlightAction()
+                        edgeScrollRequest = nil
+                    }
+                    previewStateCoordinator.updatePointerSelectionRange(from: window, at: NSEvent.mouseLocation)
+                }
+                .onEnded { _ in end() }),
+            end: end
+        )
     }
 
     private func cancelPreviewDrag(token: UUID? = nil) {
@@ -1189,6 +1223,7 @@ struct WindowPreviewHoverContainer: View {
                 isInteractive: !mockPreviewActive,
                 edgeScrollRequest: edgeScrollRequest,
                 edgeScrollSpeed: edgeAutoScrollSpeed,
+                selectionEdgeAutoScrollEnabled: edgeAutoScrollEnabled,
                 makeCard: { item in
                     AnyView(buildFlowItem(
                         item: item,
@@ -1206,12 +1241,13 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func handleEdgeScrollHover(at location: CGPoint, isHorizontal: Bool) {
+        guard !previewStateCoordinator.isPointerSelecting else { return }
         guard previewStateCoordinator.registerMouseMovementSinceOpen() else {
             edgeScrollRequest = nil
             return
         }
 
-        let edgeSize: CGFloat = 50
+        let edgeSize = CardGridScrollView.edgeScrollZoneSize
         let width = edgeScrollHoverSize.width
         let summaryHeight = showsSelectionSummary && previewStateCoordinator.selectionSummaryStyle == .default
             ? PreviewHeaderLayout.contentReservation(for: .default) : 0
@@ -2225,7 +2261,8 @@ struct WindowPreviewHoverContainer: View {
                     spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo),
                     isChecked: previewStateCoordinator.selection.checkedWindows.membership.contains(PreviewWindowIdentity(windowInfo)),
                     dragSelection: appearance.enableWindowDragTiling && !mockPreviewActive ? previewStateCoordinator.selection : nil,
-                    previewBodyDrag: mockPreviewActive || windowInfo.isWindowlessApp ? nil : previewDragGesture(for: windowInfo)
+                    previewBodyDrag: mockPreviewActive || windowInfo.isWindowlessApp ? nil : previewDragGesture(for: windowInfo),
+                    selectionInteraction: selectionInteraction(for: windowInfo)
                 )
                 .equatable()
             case .regular:
@@ -2252,7 +2289,8 @@ struct WindowPreviewHoverContainer: View {
                     spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo),
                     isChecked: previewStateCoordinator.selection.checkedWindows.membership.contains(PreviewWindowIdentity(windowInfo)),
                     dragSelection: appearance.enableWindowDragTiling && !mockPreviewActive ? previewStateCoordinator.selection : nil,
-                    previewBodyDrag: mockPreviewActive || windowInfo.isWindowlessApp ? nil : previewDragGesture(for: windowInfo)
+                    previewBodyDrag: mockPreviewActive || windowInfo.isWindowlessApp ? nil : previewDragGesture(for: windowInfo),
+                    selectionInteraction: selectionInteraction(for: windowInfo)
                 )
                 .equatable()
             }

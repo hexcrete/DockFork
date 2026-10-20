@@ -46,6 +46,36 @@ struct OrderedPreviewSelection: Equatable {
     }
 }
 
+struct PreviewSelectionKeyPress: Equatable {
+    let keyCode: Int64
+    let timestamp: UInt64
+}
+
+struct PreviewSelectionRange {
+    let order: [PreviewWindowIdentity]
+    private let base: OrderedPreviewSelection
+    private let anchorIndex: Int
+    private let selecting: Bool
+    private var endpoint: PreviewWindowIdentity?
+
+    init?(order: [PreviewWindowIdentity], base: OrderedPreviewSelection, anchor: PreviewWindowIdentity, selecting: Bool) {
+        guard let anchorIndex = order.firstIndex(of: anchor) else { return nil }
+        self.order = order
+        self.base = base
+        self.anchorIndex = anchorIndex
+        self.selecting = selecting
+    }
+
+    mutating func selection(through identity: PreviewWindowIdentity) -> OrderedPreviewSelection? {
+        guard endpoint != identity, let index = order.firstIndex(of: identity) else { return nil }
+        endpoint = identity
+        let range = order[min(anchorIndex, index) ... max(anchorIndex, index)]
+        var updated = base
+        if selecting { updated.select(Array(range)) } else { updated.remove(Set(range)) }
+        return updated
+    }
+}
+
 /// Keeps highlight and checked membership separate from window metadata updates.
 final class SwitcherSelectionState: ObservableObject {
     @Published var currIndex: Int = -1
@@ -76,6 +106,138 @@ class PreviewStateCoordinator: ObservableObject {
     var tapStateDidChange: (() -> Void)?
     weak var actionFeedbackGrid: CardGridScrollView.Coordinator?
     weak var dragTargetGrid: CardGridScrollView.Coordinator?
+    weak var selectionGrid: CardGridScrollView.Coordinator?
+
+    private enum SelectionRangeInput: Equatable {
+        case pointer
+        case keyboard(PreviewSelectionKeyPress)
+    }
+
+    private var selectionAnchor: PreviewWindowIdentity?
+    private var selectionRange: PreviewSelectionRange?
+    private var selectionRangeInput: SelectionRangeInput?
+    private var selectionRangeGeneration: UInt = 0
+    private var selectionAllowsWindowless = false
+    private(set) var selectionPointerLocation: CGPoint?
+    @Published private(set) var pointerSelectionOrigin: PreviewWindowIdentity?
+
+    var hasSelectionRange: Bool { selectionRange != nil }
+    var isPointerSelecting: Bool { pointerSelectionOrigin != nil }
+    var keyboardSelectionPress: PreviewSelectionKeyPress? {
+        if case let .keyboard(press) = selectionRangeInput { return press }
+        return nil
+    }
+
+    @MainActor
+    private func displayedSelectionIdentities() -> [PreviewWindowIdentity] {
+        filteredWindowIndices().compactMap {
+            canSelectWindow(windows[$0]) ? PreviewWindowIdentity(windows[$0]) : nil
+        }
+    }
+
+    @MainActor
+    func endSelectionRange() {
+        guard selectionRangeInput != nil else { return }
+        selectionRange = nil
+        selectionRangeInput = nil
+        selectionPointerLocation = nil
+        selectionGrid?.stopSelectionScroll()
+    }
+
+    @MainActor
+    func endKeyboardSelectionRange(keyCode: Int64? = nil, releasedBefore timestamp: UInt64? = nil) {
+        guard let press = keyboardSelectionPress,
+              keyCode == nil || press.keyCode == keyCode
+        else { return }
+        if let timestamp, press.timestamp > timestamp { return }
+        endSelectionRange()
+    }
+
+    @MainActor
+    func endPointerSelectionRange(origin: PreviewWindowIdentity? = nil) {
+        guard origin == nil || pointerSelectionOrigin == origin else { return }
+        pointerSelectionOrigin = nil
+        if selectionRangeInput == .pointer { endSelectionRange() }
+    }
+
+    @MainActor
+    func reconcileSelectionRange() {
+        guard let range = selectionRange else { return }
+        guard Defaults[.enableMultiWindowSelection] else { endSelectionRange(); return }
+        let allowsWindowless = windowSwitcherActive && Defaults[.enableWindowlessAppSelection]
+        guard selectionRangeGeneration != filterGeneration || selectionAllowsWindowless != allowsWindowless else { return }
+        guard displayedSelectionIdentities() == range.order else { endSelectionRange(); return }
+        selectionRangeGeneration = filterGeneration
+        selectionAllowsWindowless = allowsWindowless
+    }
+
+    @MainActor
+    private func beginSelectionRange(at identity: PreviewWindowIdentity, input: SelectionRangeInput) -> Bool {
+        guard let range = PreviewSelectionRange(
+            order: displayedSelectionIdentities(), base: selection.checkedWindows, anchor: identity,
+            selecting: !selection.checkedWindows.membership.contains(identity)
+        ) else { return false }
+        endSelectionRange()
+        if input == .pointer { pointerSelectionOrigin = identity }
+        selectionAnchor = identity
+        selectionRange = range
+        selectionRangeInput = input
+        selectionRangeGeneration = filterGeneration
+        selectionAllowsWindowless = windowSwitcherActive && Defaults[.enableWindowlessAppSelection]
+        extendSelectionRange(through: identity)
+        return true
+    }
+
+    @MainActor
+    private func extendSelectionRange(through identity: PreviewWindowIdentity) {
+        if selectionRangeGeneration != filterGeneration { reconcileSelectionRange() }
+        guard let updated = selectionRange?.selection(through: identity), updated != selection.checkedWindows else { return }
+        selection.checkedWindows = updated
+        publishCheckedSelection()
+    }
+
+    @MainActor
+    func toggleSelectionCheckbox(_ window: WindowInfo, extending: Bool) {
+        guard canSelectWindow(window) else { return }
+        let identity = PreviewWindowIdentity(window)
+        let order = displayedSelectionIdentities()
+        guard order.contains(identity) else { return }
+        if extending {
+            endSelectionRange()
+            let anchor = selectionAnchor.flatMap { order.contains($0) ? $0 : nil } ?? identity
+            selectionAnchor = anchor
+            var range = PreviewSelectionRange(order: order, base: selection.checkedWindows, anchor: anchor, selecting: true)
+            if let updated = range?.selection(through: identity), updated != selection.checkedWindows {
+                selection.checkedWindows = updated
+                publishCheckedSelection()
+            }
+        } else { toggleCheckedWindow(window) }
+    }
+
+    @MainActor
+    func updatePointerSelectionRange(from window: WindowInfo, at location: CGPoint) {
+        let identity = PreviewWindowIdentity(window)
+        if pointerSelectionOrigin == nil {
+            guard canSelectWindow(window), beginSelectionRange(at: identity, input: .pointer) else { return }
+        }
+        guard pointerSelectionOrigin == identity, selectionRangeInput == .pointer else { return }
+        selectionPointerLocation = location
+        updatePointerSelectionRange()
+        selectionGrid?.updateSelectionScroll(at: location)
+    }
+
+    @MainActor
+    func updatePointerSelectionRange() {
+        guard selectionRangeInput == .pointer, let location = selectionPointerLocation,
+              let window = selectionGrid?.windowForDrop(at: location), canSelectWindow(window)
+        else { return }
+        let identity = PreviewWindowIdentity(window)
+        extendSelectionRange(through: identity)
+        if windows.indices.contains(currIndex), PreviewWindowIdentity(windows[currIndex]) == identity { return }
+        if selectionRange != nil, let index = windows.firstIndex(where: { PreviewWindowIdentity($0) == identity }) {
+            setIndex(to: index, shouldScroll: false, source: .mouse, extendingSelection: true)
+        }
+    }
 
     @MainActor
     func setPreviewDragTarget(_ target: PreviewWindowIdentity?) {
@@ -98,16 +260,20 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    func toggleCheckedWindow(_ window: WindowInfo) {
+    func toggleCheckedWindow(_ window: WindowInfo, keyboardPress: PreviewSelectionKeyPress? = nil) {
         guard canSelectWindow(window) else { return }
         let identity = PreviewWindowIdentity(window)
         guard windows.contains(where: { PreviewWindowIdentity($0) == identity }) else { return }
+        if let keyboardPress, beginSelectionRange(at: identity, input: .keyboard(keyboardPress)) { return }
+        endSelectionRange()
+        selectionAnchor = identity
         selection.checkedWindows.toggle(identity)
         publishCheckedSelection()
     }
 
     @MainActor
     func selectAllDisplayedWindows() {
+        endSelectionRange()
         guard Defaults[.enableMultiWindowSelection] else { return }
         let identities = filteredWindowIndices().compactMap { index -> PreviewWindowIdentity? in
             let window = windows[index]
@@ -132,6 +298,9 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func clearCheckedWindows(resetOwnership: Bool = false) {
+        endSelectionRange()
+        pointerSelectionOrigin = nil
+        selectionAnchor = nil
         if resetOwnership { selectionPinned = false }
         guard checkedWindowCount > 0 else {
             tapStateDidChange?()
@@ -158,6 +327,7 @@ class PreviewStateCoordinator: ObservableObject {
         guard checkedWindowCount > 0 else { return }
         let removed = Set(targets.filter(\.isWindowlessApp).map(PreviewWindowIdentity.init))
         guard !selection.checkedWindows.membership.isDisjoint(with: removed) else { return }
+        endSelectionRange()
         selection.checkedWindows.remove(removed)
         publishCheckedSelection()
     }
@@ -165,6 +335,7 @@ class PreviewStateCoordinator: ObservableObject {
     @MainActor
     func removeCheckedWindows(forProcessIdentifier pid: pid_t) {
         let removed = Set(selection.checkedWindows.identities.filter { $0.pid == pid })
+        if !removed.isEmpty || selectionRange?.order.contains(where: { $0.pid == pid }) == true { endSelectionRange() }
         guard !removed.isEmpty else { return }
         selection.checkedWindows.remove(removed)
         publishCheckedSelection()
@@ -182,6 +353,7 @@ class PreviewStateCoordinator: ObservableObject {
         }
         let removed = selection.checkedWindows.membership.subtracting(live)
         guard !removed.isEmpty else { return }
+        endSelectionRange()
         selection.checkedWindows.remove(removed)
         publishCheckedSelection()
     }
@@ -295,8 +467,10 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     private var cachedFilteredIndices: [Int]?
+    private var filterGeneration: UInt = 0
     private func invalidateFilterCache() {
         cachedFilteredIndices = nil
+        filterGeneration &+= 1
     }
 
     @MainActor
@@ -429,8 +603,10 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    func setIndex(to: Int, shouldScroll: Bool = true, source: SelectionInputSource = .programmatic) {
+    func setIndex(to: Int, shouldScroll: Bool = true, source: SelectionInputSource = .programmatic, extendingSelection: Bool = false) {
+        if !extendingSelection { endSelectionRange() }
         updateSelectionIndex(to, source: source, shouldScroll: shouldScroll)
+        if extendingSelection, windows.indices.contains(to) { extendSelectionRange(through: PreviewWindowIdentity(windows[to])) }
     }
 
     @MainActor
@@ -454,6 +630,8 @@ class PreviewStateCoordinator: ObservableObject {
     @MainActor
     @discardableResult
     func beginPointerInteractionSession(at location: CGPoint = NSEvent.mouseLocation) -> UInt {
+        endSelectionRange()
+        endPointerSelectionRange()
         pointerInteractionSessionID &+= 1
         pointerInteractionReady = false
         hasMovedSinceOpen = false
@@ -1421,7 +1599,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     /// Navigate within filtered results using arrow direction
     @MainActor
-    func navigateFiltered(direction: ArrowDirection) {
+    func navigateFiltered(direction: ArrowDirection, extendingSelection: Bool = false) {
         let filtered = filteredWindowIndices()
         guard !filtered.isEmpty else { return }
 
@@ -1435,10 +1613,11 @@ class PreviewStateCoordinator: ObservableObject {
             direction: direction,
             totalItems: filtered.count,
             dockPosition: .bottom,
-            isWindowSwitcherActive: true
+            isWindowSwitcherActive: true,
+            wraps: !extendingSelection
         )
 
-        setIndex(to: filtered[newFilteredPos], source: .keyboard)
+        setIndex(to: filtered[newFilteredPos], source: .keyboard, extendingSelection: extendingSelection)
     }
 
     // MARK: - Window Switcher Initialization

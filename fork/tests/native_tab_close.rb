@@ -32,7 +32,7 @@ routes = {
   'Cmd+Tab highlighted apps' => block(coordinator, '    func performActionOnCmdTabHighlightedApps(').include?('return closeCmdTabHighlightedApps(') && block(coordinator, '    private func closeCmdTabHighlightedApps(').include?('await WindowUtil.closeWindows('),
   'native menu clicks and shortcuts' => menus.scan('request.handler(request.action)').length == 2,
   'menu-bar actions' => File.read("#{root}/DockDoor/Utilities/WindowActionsMenuController.swift").include?('action.perform(on: window, feedback: feedback)'),
-  'keyboard routing' => File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift").include?('performActionOnCurrentWindow(action: action)'),
+  'keyboard routing' => File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift").include?('performActionOnCurrentWindow(action: action, preservePreviews:'),
   'script routing' => File.read("#{root}/DockDoor/Utilities/ScriptCommands.swift").include?('WindowUtil.performPreviewBatchAction(action, on: windows'),
   'native window gestures' => File.read("#{root}/DockDoor/Utilities/Window Gestures/WindowGestureExecutor.swift").include?('await WindowUtil.performPreviewBatchAction(action, on: [window], allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback)')
 }

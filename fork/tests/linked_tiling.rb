@@ -249,8 +249,11 @@ termination = block(File.read("#{ROOT}/DockDoor/Utilities/Window Management/Wind
 cleanup = termination.index('coordinator.removeCheckedWindows(forProcessIdentifier: pid)')
 abort 'Termination must uncheck apps before mode-specific row dismissal' unless cleanup && cleanup < termination.index('if coordinator.isKeybindSessionActive')
 source += block(selection, 'struct OrderedPreviewSelection:') + "\n"
+source += block(selection, 'struct PreviewSelectionKeyPress:') + "\n"
+source += block(selection, 'struct PreviewSelectionRange {') + "\n"
 source += "struct SelectionState { var checkedWindows = OrderedPreviewSelection() }\n"
 source += "@MainActor final class SelectionHarness { var selection = SelectionState(); var windows: [WindowInfo] = []; var windowSwitcherActive = true; var checkedWindowCount = 0; var visibleIndices: [Int]?\nfunc filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }\nfunc publishCheckedSelection() { checkedWindowCount = selection.checkedWindows.identities.count }\n"
+source += "var selectionAnchor: PreviewWindowIdentity?; var selectionRange: PreviewSelectionRange?\nenum RangeInput {case keyboard(PreviewSelectionKeyPress)}\nfunc endSelectionRange() {selectionRange = nil}\nfunc beginSelectionRange(at:PreviewWindowIdentity,input:RangeInput)->Bool {preconditionFailure(\"Range execution is tested in selection_ranges.rb\")}\n"
 %w[canSelectWindow toggleCheckedWindow selectAllDisplayedWindows consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows checkedActionTargets].each do |name|
   source += block(selection, "    func #{name}(") + "\n"
 end

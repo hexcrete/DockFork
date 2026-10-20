@@ -35,6 +35,7 @@ struct WindowPreviewCompact: View, Equatable {
     var isChecked = false
     var dragSelection: SwitcherSelectionState? = nil
     var previewBodyDrag: AnyGesture<DragGesture.Value>? = nil
+    var selectionInteraction: PreviewSelectionInteraction? = nil
 
     @State private var isHovering = false
     @State private var isHoveringIcon = false
@@ -46,6 +47,7 @@ struct WindowPreviewCompact: View, Equatable {
     static func == (l: Self, r: Self) -> Bool {
         l.index == r.index && l.isSelected == r.isSelected && l.isChecked == r.isChecked
             && l.dragSelection === r.dragSelection
+            && l.selectionInteraction?.isDragOrigin == r.selectionInteraction?.isDragOrigin
             && l.windowSwitcherActive == r.windowSwitcherActive
             && l.uniformCardRadius == r.uniformCardRadius
             && l.widthOverride == r.widthOverride
@@ -301,11 +303,11 @@ struct WindowPreviewCompact: View, Equatable {
                 if stage == .combined {
                     overflowButton(stage, circular: true)
                 } else if appearance.enableMultiWindowSelection, !mockPreviewActive, !windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection,
-                          appearance.showUncheckedSelectionCheckboxes || isChecked
+                          appearance.showUncheckedSelectionCheckboxes || isChecked || selectionInteraction?.isDragOrigin == true
                 {
                     PreviewSelectionCheckbox(
                         isChecked: isChecked,
-                        isVisible: appearance.selectionCheckboxVisibility.showsCheckbox(
+                        isVisible: selectionInteraction?.isDragOrigin == true || appearance.selectionCheckboxVisibility.showsCheckbox(
                             checked: isChecked,
                             previewHovered: isSelected || isHovering,
                             titleHovered: isHoveringIcon,
@@ -316,6 +318,7 @@ struct WindowPreviewCompact: View, Equatable {
                         diameter: PreviewSelectionCheckbox.iconDiameter(for: appearance.compactModeItemSize.iconSize),
                         backgroundAppearance: backgroundAppearance,
                         animationsEnabled: appearance.showAnimations,
+                        interaction: isMeasuring ? nil : selectionInteraction,
                         toggle: { handleWindowAction(.toggleWindowSelection) }
                     )
                 }

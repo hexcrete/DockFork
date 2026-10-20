@@ -508,11 +508,12 @@ extension WindowPreviewHoverContainer {
         direction: ArrowDirection,
         totalItems: Int,
         dockPosition: DockPosition,
-        isWindowSwitcherActive: Bool
+        isWindowSwitcherActive: Bool,
+        wraps: Bool = true
     ) -> Int {
         guard let coordinator = SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator else {
             let delta = (direction == .right || direction == .down) ? 1 : -1
-            return (currentIndex + delta + totalItems) % totalItems
+            return wraps ? (currentIndex + delta + totalItems) % totalItems : max(0, min(totalItems - 1, currentIndex + delta))
         }
 
         let gridFlow = GridFlow.resolve(
@@ -534,7 +535,8 @@ extension WindowPreviewHoverContainer {
             maxColumns: maxColumns,
             maxRows: maxRows,
             reverse: shouldReverse,
-            fillToLimit: gridFlow.fillsLinesToLimit
+            fillToLimit: gridFlow.fillsLinesToLimit,
+            wraps: wraps
         )
     }
 
@@ -548,7 +550,8 @@ extension WindowPreviewHoverContainer {
         maxColumns: Int,
         maxRows: Int,
         reverse: Bool = false,
-        fillToLimit: Bool = false
+        fillToLimit: Bool = false,
+        wraps: Bool = true
     ) -> Int {
         guard totalItems > 0, currentIndex >= 0, currentIndex < totalItems else {
             return currentIndex
@@ -570,6 +573,19 @@ extension WindowPreviewHoverContainer {
 
         var targetChunkIndex = currentChunkIndex
         var targetPositionInChunk = currentPositionInChunk
+
+        if !wraps {
+            switch (isHorizontal, direction) {
+            case (true, .left), (false, .up):
+                if currentChunkIndex == 0, currentPositionInChunk == 0 { return currentIndex }
+            case (true, .right), (false, .down):
+                if currentChunkIndex == chunks.count - 1, currentPositionInChunk == chunks[currentChunkIndex].count - 1 { return currentIndex }
+            case (true, .up), (false, .left):
+                if currentChunkIndex == 0 { return currentIndex }
+            case (true, .down), (false, .right):
+                if currentChunkIndex == chunks.count - 1 { return currentIndex }
+            }
+        }
 
         if isHorizontal {
             switch direction {

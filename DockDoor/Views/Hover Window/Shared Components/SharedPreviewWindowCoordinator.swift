@@ -1562,9 +1562,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @MainActor
-    func navigateWithArrowKey(direction: ArrowDirection) {
+    func navigateWithArrowKey(direction: ArrowDirection, extendingSelection: Bool = false) {
         let coordinator = windowSwitcherCoordinator
         guard !coordinator.windows.isEmpty else { return }
+        coordinator.reconcileSelectionRange()
+        let extendsRange = extendingSelection && coordinator.keyboardSelectionPress != nil
+        if !extendsRange { coordinator.endSelectionRange() }
 
         coordinator.hasMovedSinceOpen = false
         coordinator.initialHoverLocation = nil
@@ -1588,17 +1591,17 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             let currentPos = indicesToUse.firstIndex(of: coordinator.currIndex) ?? 0
             let newPos: Int = switch direction {
             case .up, .left:
-                currentPos > 0 ? currentPos - 1 : indicesToUse.count - 1
+                currentPos > 0 ? currentPos - 1 : (extendsRange ? 0 : indicesToUse.count - 1)
             case .down, .right:
-                (currentPos + 1) % indicesToUse.count
+                extendsRange ? min(currentPos + 1, indicesToUse.count - 1) : (currentPos + 1) % indicesToUse.count
             }
-            coordinator.setIndex(to: indicesToUse[newPos], source: .keyboard)
+            coordinator.setIndex(to: indicesToUse[newPos], source: .keyboard, extendingSelection: extendsRange)
             return
         }
 
         // Handle filtered navigation when search is active
         if coordinator.windowSwitcherActive, coordinator.hasActiveSearch {
-            coordinator.navigateFiltered(direction: direction)
+            coordinator.navigateFiltered(direction: direction, extendingSelection: extendsRange)
             return
         }
 
@@ -1613,9 +1616,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             direction: direction,
             totalItems: coordinator.windows.count,
             dockPosition: dockPosition,
-            isWindowSwitcherActive: coordinator.windowSwitcherActive
+            isWindowSwitcherActive: coordinator.windowSwitcherActive,
+            wraps: !extendsRange
         )
-        coordinator.setIndex(to: newIndex, source: .keyboard)
+        coordinator.setIndex(to: newIndex, source: .keyboard, extendingSelection: extendsRange)
     }
 
     @MainActor

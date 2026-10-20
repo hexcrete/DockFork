@@ -631,25 +631,30 @@ private class WindowSwitchingCoordinator {
 
 private final class PreviewActionKeyPressState {
     private let lock = NSLock()
-    private var heldKeys: Set<Int64> = []
+    private var heldKeys: [Int64: UInt64] = [:]
 
     func consumeRepeat(keyCode: Int64, isRepeat: Bool) -> Bool {
         lock.withLock {
             if !isRepeat {
-                heldKeys.remove(keyCode)
+                heldKeys.removeValue(forKey: keyCode)
                 return false
             }
-            return heldKeys.contains(keyCode)
+            return heldKeys[keyCode] != nil
         }
     }
 
-    func begin(keyCode: Int64, isRepeat: Bool) -> Bool {
-        lock.withLock { _ = heldKeys.insert(keyCode) }
+    func begin(keyCode: Int64, isRepeat: Bool, timestamp: UInt64 = 0) -> Bool {
+        lock.withLock { heldKeys[keyCode] = timestamp }
         return !isRepeat
     }
 
-    func release(keyCode: Int64) {
-        lock.withLock { _ = heldKeys.remove(keyCode) }
+    @discardableResult
+    func release(keyCode: Int64) -> UInt64? {
+        lock.withLock { heldKeys.removeValue(forKey: keyCode) }
+    }
+
+    func isHeld(keyCode: Int64, timestamp: UInt64) -> Bool {
+        lock.withLock { heldKeys[keyCode] == timestamp }
     }
 
     func reset() {
@@ -924,17 +929,24 @@ class KeybindHelper {
         eventTap = nil
         runLoopSource = nil
         actionKeyPressState.reset()
+        if Defaults[.enableMultiWindowSelection] {
+            Task { @MainActor [weak self] in self?.previewCoordinator.windowSwitcherCoordinator.endKeyboardSelectionRange() }
+        }
     }
 
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if let passthrough = reEnableIfNeeded(tap: eventTap, type: type, event: event) {
             actionKeyPressState.reset()
+            if Defaults[.enableMultiWindowSelection] {
+                Task { @MainActor [weak self] in self?.previewCoordinator.windowSwitcherCoordinator.endKeyboardSelectionRange() }
+            }
             return passthrough
         }
 
         // Keep consumed action keys suppressed through preview dismissal until physical release.
+        var releasedActionPress: UInt64?
         if type == .keyUp {
-            actionKeyPressState.release(keyCode: event.getIntegerValueField(.keyboardEventKeycode))
+            releasedActionPress = actionKeyPressState.release(keyCode: event.getIntegerValueField(.keyboardEventKeycode))
         } else if type == .keyDown,
                   actionKeyPressState.consumeRepeat(
                       keyCode: event.getIntegerValueField(.keyboardEventKeycode),
@@ -1015,7 +1027,10 @@ class KeybindHelper {
                 modifierFlagsMatch($0, flags: event.flags)
             }
             let isModifierPress = pressedModifierKeyCodes.contains(UInt16(event.getIntegerValueField(.keyboardEventKeycode)))
+            let selectionModifiersHeld = !Defaults[.enableMultiWindowSelection] || modifierFlagsMatch(effectivePreviewShortcutKeybind(), flags: event.flags)
+            let modifierTimestamp = event.timestamp
             Task { @MainActor [weak self] in
+                if !selectionModifiersHeld { self?.previewCoordinator.windowSwitcherCoordinator.endKeyboardSelectionRange(releasedBefore: modifierTimestamp) }
                 self?.handleModifierEvent(
                     currentSwitcherModifierIsPressed: effectiveSwitcherModifierIsPressed,
                     currentBackwardState: currentBackwardState,
@@ -1119,7 +1134,7 @@ class KeybindHelper {
                             default: .down
                             }
                             Task { @MainActor in
-                                self.previewCoordinator.navigateWithArrowKey(direction: direction)
+                                self.navigatePreviewSelectionArrow(direction)
                             }
                             // Consume arrows only while a DockDoor preview is focused.
                             return nil
@@ -1193,12 +1208,13 @@ class KeybindHelper {
                             let canTileCheckedWindows = action == .autoTileSelectedWindows && tapSnapshot.hasCheckedWindows
 
                             if hasSelection || action == .selectAllWindows || canTileCheckedWindows || (supportsHighlightedAppAction && !highlightedApps.isEmpty) {
-                                guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0) else { return nil }
+                                let pressTimestamp = event.timestamp
+                                guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0, timestamp: pressTimestamp) else { return nil }
                                 cmdTabActionPerformed = true
                                 Task { @MainActor in
                                     if hasSelection || action == .selectAllWindows || canTileCheckedWindows {
-                                        self.previewCoordinator.performActionOnCurrentWindow(
-                                            action: action,
+                                        _ = self.performPreviewShortcut(
+                                            action, keyCode: keyCode, timestamp: pressTimestamp,
                                             preservePreviews: true
                                         )
                                     } else {
@@ -1274,6 +1290,13 @@ class KeybindHelper {
             }
 
         case .keyUp:
+            if releasedActionPress != nil, Defaults[.enableMultiWindowSelection] {
+                let code = event.getIntegerValueField(.keyboardEventKeycode)
+                let timestamp = event.timestamp
+                Task { @MainActor [weak self] in
+                    self?.previewCoordinator.windowSwitcherCoordinator.endKeyboardSelectionRange(keyCode: code, releasedBefore: timestamp)
+                }
+            }
             let backwardKeyCode = Defaults[.switcherBackwardKeyCode]
             if Self.eventFlagForKeyCode(backwardKeyCode) == nil,
                event.getIntegerValueField(.keyboardEventKeycode) == Int64(backwardKeyCode)
@@ -1850,13 +1873,14 @@ class KeybindHelper {
                 if let action = getActionForPreviewShortcut(keyCode: keyCode),
                    snapshot.hasSelection || action == .selectAllWindows || (action == .autoTileSelectedWindows && snapshot.hasCheckedWindows)
                 {
-                    guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0) else { return (true, nil) }
+                    let pressTimestamp = event.timestamp
+                    guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0, timestamp: pressTimestamp) else { return (true, nil) }
                     preventSwitcherHideOnRelease = true
                     return (true, { @MainActor in
                         if ![.toggleWindowSelection, .selectAllWindows].contains(action) || Defaults[.keepWindowSwitcherOpenWhenSelected] {
                             self.windowSwitchingCoordinator.takeKeyboardOwnership()
                         }
-                        let didClosePreviews = self.previewCoordinator.performActionOnCurrentWindow(action: action)
+                        let didClosePreviews = self.performPreviewShortcut(action, keyCode: keyCode, timestamp: pressTimestamp)
                         if didClosePreviews || self.previewCoordinator.windowSwitcherCoordinator.windows.isEmpty {
                             self.switcherSessionActive = false
                             self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
@@ -1922,7 +1946,7 @@ class KeybindHelper {
                     .down
                 }
                 return (true, { @MainActor in
-                    self.previewCoordinator.navigateWithArrowKey(direction: dir)
+                    self.navigatePreviewSelectionArrow(dir)
                 })
             case Int64(kVK_ANSI_H), Int64(kVK_ANSI_J), Int64(kVK_ANSI_K), Int64(kVK_ANSI_L):
                 if Defaults[.enableVimMotions],
@@ -2138,6 +2162,28 @@ class KeybindHelper {
                 switcherSessionActive = rollbackSessionActive
             }
         }
+    }
+
+    @MainActor
+    private func performPreviewShortcut(_ action: WindowAction, keyCode: Int64, timestamp: UInt64, preservePreviews: Bool = false) -> Bool {
+        let coordinator = previewCoordinator.windowSwitcherCoordinator
+        if action == .toggleWindowSelection, let window = coordinator.getCurrentWindow() {
+            let press = actionKeyPressState.isHeld(keyCode: keyCode, timestamp: timestamp)
+                ? PreviewSelectionKeyPress(keyCode: keyCode, timestamp: timestamp) : nil
+            coordinator.toggleCheckedWindow(window, keyboardPress: press)
+            return false
+        }
+        coordinator.endSelectionRange()
+        return previewCoordinator.performActionOnCurrentWindow(action: action, preservePreviews: preservePreviews)
+    }
+
+    @MainActor
+    private func navigatePreviewSelectionArrow(_ direction: ArrowDirection) {
+        let coordinator = previewCoordinator.windowSwitcherCoordinator
+        if let press = coordinator.keyboardSelectionPress,
+           !actionKeyPressState.isHeld(keyCode: press.keyCode, timestamp: press.timestamp)
+        { coordinator.endKeyboardSelectionRange() }
+        previewCoordinator.navigateWithArrowKey(direction: direction, extendingSelection: coordinator.keyboardSelectionPress != nil)
     }
 
     private func numberedSpaceShortcut(event: CGEvent) -> Int? {

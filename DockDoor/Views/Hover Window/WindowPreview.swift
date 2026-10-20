@@ -843,6 +843,13 @@ struct WindowStateIndicator: View {
     }
 }
 
+struct PreviewSelectionInteraction {
+    let isDragOrigin: Bool
+    let toggle: () -> Void
+    let drag: AnyGesture<DragGesture.Value>
+    let end: () -> Void
+}
+
 struct PreviewSelectionCheckbox: View {
     let isChecked: Bool
     let isVisible: Bool
@@ -851,7 +858,9 @@ struct PreviewSelectionCheckbox: View {
     var drawingScale: CGFloat = 1
     var backgroundAppearance: BackgroundAppearance? = nil
     var animationsEnabled: Bool = false
+    var interaction: PreviewSelectionInteraction? = nil
     let toggle: () -> Void
+    @GestureState private var isSelecting = false
 
     static func iconDiameter(for iconSize: CGFloat) -> CGFloat {
         20 + max(0, iconSize - 16) / 4
@@ -860,7 +869,7 @@ struct PreviewSelectionCheckbox: View {
     var body: some View {
         ZStack {
             if isVisible {
-                Button(action: toggle) {
+                Button(action: { if !isSelecting { (interaction?.toggle ?? toggle)() } }) {
                     Circle()
                         .fill(isChecked ? color : Color.clear)
                         .overlay {
@@ -883,12 +892,15 @@ struct PreviewSelectionCheckbox: View {
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
+                .highPriorityGesture(interaction?.drag.updating($isSelecting) { _, selecting, _ in selecting = true })
                 .scaleEffect(drawingScale)
                 .accessibilityLabel(isChecked ? String(localized: "Remove window from selection") : String(localized: "Add window to selection"))
                 .accessibilityAddTraits(isChecked ? .isSelected : [])
                 .transition(.opacity)
             }
         }
+        .onChange(of: isSelecting) { selecting in if !selecting { interaction?.end() } }
+        .onDisappear { if isSelecting { interaction?.end() } }
         .previewControlVisibilityAnimation(isVisible: isVisible, duration: 0.15, animationsEnabled: animationsEnabled)
     }
 }
@@ -1290,6 +1302,7 @@ struct WindowPreview: View, Equatable {
     var isChecked = false
     var dragSelection: SwitcherSelectionState? = nil
     var previewBodyDrag: AnyGesture<DragGesture.Value>? = nil
+    var selectionInteraction: PreviewSelectionInteraction? = nil
 
     @State private var isHoveringOverDockPeekPreview = false
     @State private var isHoveringOverWindowSwitcherPreview = false
@@ -1297,10 +1310,11 @@ struct WindowPreview: View, Equatable {
 
     private var hasSelectionControl: Bool {
         appearance.enableMultiWindowSelection && !mockPreviewActive && (!windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection) &&
-            (appearance.showUncheckedSelectionCheckboxes || isChecked)
+            (appearance.showUncheckedSelectionCheckboxes || isChecked || selectionInteraction?.isDragOrigin == true)
     }
 
     private func selectionCheckboxIsVisible(titleAvailable: Bool) -> Bool {
+        if selectionInteraction?.isDragOrigin == true { return true }
         let pointerHovered = isHoveringOverDockPeekPreview || isHoveringOverWindowSwitcherPreview
         let previewHovered = isSelected || pointerHovered
         return appearance.selectionCheckboxVisibility.showsCheckbox(
@@ -1332,6 +1346,7 @@ struct WindowPreview: View, Equatable {
             drawingScale: iconSize == nil ? 1.2 : 1,
             backgroundAppearance: iconSize == nil ? nil : backgroundAppearance,
             animationsEnabled: appearance.showAnimations,
+            interaction: selectionInteraction,
             toggle: { handleWindowAction(.toggleWindowSelection) }
         )
         .transition(.opacity)
@@ -1594,6 +1609,7 @@ struct WindowPreview: View, Equatable {
     static func == (l: Self, r: Self) -> Bool {
         l.index == r.index && l.isSelected == r.isSelected && l.isChecked == r.isChecked && l.useLivePreview == r.useLivePreview
             && l.dragSelection === r.dragSelection
+            && l.selectionInteraction?.isDragOrigin == r.selectionInteraction?.isDragOrigin
             && l.skeletonMode == r.skeletonMode && l.dimensions == r.dimensions
             && l.uniformCardRadius == r.uniformCardRadius && l.showAppIconOnly == r.showAppIconOnly
             && l.windowSwitcherActive == r.windowSwitcherActive
