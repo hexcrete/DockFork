@@ -273,6 +273,10 @@ class PreviewStateCoordinator: ObservableObject {
         didSet { invalidateFilterCache() }
     }
 
+    var hasRealWindows: Bool {
+        windows.contains { !$0.isWindowlessApp }
+    }
+
     @Published private(set) var focusedWindowID: CGWindowID?
     @Published private(set) var desktopNumbers: [Int: Int] = [:]
 
@@ -473,6 +477,8 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func setWindows(_ newWindows: [WindowInfo], dockPosition: DockPosition, bestGuessMonitor: NSScreen, isMockPreviewActive: Bool = false) {
+        let changesWindowlessPresentation = !windows.isEmpty && !newWindows.isEmpty &&
+            hasRealWindows != newWindows.contains { !$0.isWindowlessApp }
         windows = newWindows
         reconcileCheckedWindows()
         refreshFocusedWindowID(from: newWindows)
@@ -484,6 +490,9 @@ class PreviewStateCoordinator: ObservableObject {
         }
 
         recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: isMockPreviewActive)
+        if changesWindowlessPresentation {
+            onFrameRefreshNeeded?()
+        }
         scheduleActiveFocusedWindowRefresh()
     }
 
@@ -575,6 +584,7 @@ class PreviewStateCoordinator: ObservableObject {
         }
 
         let previousWindowCount = windows.count
+        let hadRealWindows = hasRealWindows
         let previousSelectionSource = selectionInputSource
         let selectedWindowIdentity: String? = if currIndex >= 0, currIndex < windows.count {
             mergeIdentity(for: windows[currIndex])
@@ -624,7 +634,7 @@ class PreviewStateCoordinator: ObservableObject {
         refreshDesktopNumbers()
         recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
 
-        if windows.count != previousWindowCount {
+        if windows.count != previousWindowCount || hadRealWindows != hasRealWindows {
             onFrameRefreshNeeded?()
         }
         scheduleActiveFocusedWindowRefresh()

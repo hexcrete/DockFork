@@ -113,6 +113,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     private var anchoredDockItem: (element: AXUIElement, iconRect: CGRect)?
     private var panelAnchor: (screen: NSScreen, origin: (CGSize) -> CGPoint)?
+    private var frameRefreshScheduled = false
 
     private(set) var hasScreenRecordingPermission: Bool = PermissionsChecker.hasScreenRecordingPermission()
 
@@ -472,7 +473,18 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     private func setupFrameRefreshObserver() {
         windowSwitcherCoordinator.onFrameRefreshNeeded = { [weak self] in
-            self?.refreshPanelFrameToFitContent()
+            self?.schedulePanelFrameRefresh()
+        }
+    }
+
+    private func schedulePanelFrameRefresh() {
+        guard !frameRefreshScheduled else { return }
+        frameRefreshScheduled = true
+        // Let SwiftUI consume the new rows before measuring their intrinsic size.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            frameRefreshScheduled = false
+            refreshPanelFrameToFitContent()
         }
     }
 
@@ -745,10 +757,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         return true
     }
 
-    /// Refreshes the panel frame to match SwiftUI content's intrinsic size after window count changes.
+    /// Refreshes the panel frame after content layout changes.
     @MainActor
     private func refreshPanelFrameToFitContent() {
-        guard let hostingView = contentView else { return }
+        guard isVisible, let hostingView = contentView else { return }
 
         hostingView.layoutSubtreeIfNeeded()
 

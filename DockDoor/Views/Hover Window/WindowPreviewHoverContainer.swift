@@ -257,7 +257,8 @@ struct WindowPreviewHoverContainer: View {
         if previewStateCoordinator.windowSwitcherActive {
             return false
         }
-        return effectiveShowAppName
+        return effectiveShowAppName && (previewStateCoordinator.hasRealWindows ||
+            (!usesCompactRows && resolvedAppearance.showFullSizeWindowlessPreviews))
     }
 
     var appHeaderStyleForPlacement: AppNameStyle? {
@@ -517,7 +518,7 @@ struct WindowPreviewHoverContainer: View {
         .onTapGesture {
             activateApp()
         }
-        .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .popover && effectiveShowAppName) ? PreviewHeaderLayout.contentReservation(for: .popover) : 0)
+        .padding(.top, (effectiveShouldShowHeader && effectiveAppNameStyle == .popover) ? PreviewHeaderLayout.contentReservation(for: .popover) : 0)
         .overlay {
             if !mockPreviewActive, !isDragging {
                 WindowDismissalContainer(appName: appName,
@@ -677,7 +678,7 @@ struct WindowPreviewHoverContainer: View {
             disableLeading: dynamicFadeEnabled && !scrolledFromStart,
             disableTrailing: scrolledToEnd
         )
-        .padding(.top, (!previewStateCoordinator.windowSwitcherActive && effectiveAppNameStyle == .default && effectiveShowAppName) ? PreviewHeaderLayout.contentReservation(for: .default) : 0)
+        .padding(.top, (effectiveShouldShowHeader && effectiveAppNameStyle == .default) ? PreviewHeaderLayout.contentReservation(for: .default) : 0)
         .padding(.bottom, showsSelectionSummary && previewStateCoordinator.selectionSummaryStyle == .default ? PreviewHeaderLayout.contentReservation(for: .default) : 0)
         .clipShape(RoundedRectangle(cornerRadius: radii.container, style: .continuous).inset(by: 1))
         .overlay(alignment: PreviewHeaderLayout.alignment(for: effectiveAppNameStyle, edge: .top)) {
@@ -954,6 +955,7 @@ struct WindowPreviewHoverContainer: View {
             .if(effectiveAppNameStyle == .popover) {
                 $0.frame(maxWidth: .infinity, alignment: .center)
             }
+            .transition(.opacity)
         }
     }
 
