@@ -1,8 +1,10 @@
 # DockFork 0.3.0 Prerelease
 
-Status: Release candidate built and audited October 20, 2026, not published. Exact candidate source: `6d3eb4707c7db4446c78786e8df6ceec279be7b2`. The user authorized the upstream merge, sanitized preset refresh and committed-source Release build. Candidate testing and explicit publication approval are still required. Screenshots and recordings are deferred, not a release gate.
+Status: Publication explicitly authorized October 20, 2026; upload and publication verification pending. Exact candidate source: `6d3eb4707c7db4446c78786e8df6ceec279be7b2`. Publish the existing audited assets without rebuilding. Manual candidate installation/import and browser-quarantine testing remain unreported; authorization is not evidence that those tests passed. Screenshots and recordings are deferred, not a release gate.
 
-## Release Notes
+Use [the approved public release body](RELEASE_BODY_0.3.0.md) for the GitHub release description. This file retains detailed change, audit and handoff records; do not paste it wholesale into the release description.
+
+## Detailed Change Record
 
 DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). This prerelease adds optional action feedback and range selection, improves action responsiveness and coordination, and fixes native-tab and Wine/CrossOver preview handling.
 
@@ -104,3 +106,13 @@ Built from committed source `6d3eb4707c7db4446c78786e8df6ceec279be7b2` on macOS 
 5. Browser-downloaded/quarantined installation on another Mac remains a separate Gatekeeper test after publication or an explicitly approved transfer workflow. Older OSes, exhaustive displays/apps/faults and screenshots remain unverified.
 
 Keep the exact audited assets after approval. This handoff documentation is a later documentation-only commit; the app and corresponding source archive are not rebuilt to include their own future audit record. Publication requires separate explicit approval.
+
+## Final Review
+
+October 20 final review checked the public body against the changes since published 0.2.0 source `c863e62`. The body excludes older fork features, the website-only upstream merge, internal audit counts and local build paths. The public body and this detailed record are separate files.
+
+All sixteen regression suites and both packaging suites pass again. The first sandboxed run could not launch Swift's macro helper; the unrestricted rerun passes without source changes. The artifact audit passes all 257 assertions again. Application, project, packaging, version and preset inputs remain identical to candidate source `6d3eb470`. No Release rebuild, launch, settings import or publication was performed.
+
+No tracked temporary logs, coverage files, rejected patches, scratch worksheets or generated build outputs were found. Removed feedback consolidation/Space-transition experiments have no runtime hooks or preferences. Added declaration-reference checks found no unreferenced named functions or types; this is not a whole-program dead-code proof. Regression fixtures, historical release records and the ignored installed development app/current Release package are intentional, not cleanup candidates.
+
+One non-blocking source leftover remains: the synchronous `WindowAction.perform` signature still accepts the unused `hiddenStateBeforeAction` argument after Hide moved to the confirmed executor. Its two callers also use that local snapshot for other presentation logic, so those locals must not be removed wholesale. Defer the unused-argument cleanup rather than change the audited candidate for a no-behavior refactor. Manual candidate upgrade/import tests, browser quarantine and broader display/OS coverage remain pending.

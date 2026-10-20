@@ -16,6 +16,8 @@ Follow the [required documentation maintenance instructions](../AGENTS.md#fork-d
 
 ## Preparing 0.3.0 Prerelease
 
+The [public release body](docs/RELEASE_BODY_0.3.0.md) is separate from the detailed preparation/audit record below. Use only the public body as the release description after publication approval.
+
 The [0.3.0 release notes and gate](docs/RELEASE_NOTES_0.3.0.md) cover changes since the published 0.2.0 package: optional action/cursor feedback, range selection, explicit Quit/Force Quit, off-main action work, shared batch ownership, native-tab and Wine/CrossOver handling, and input/windowless-preview fixes. The latest upstream merge is website-only; DockDoor 1.41.0 remains the included stable release, with history through `77e4771`. Publication is not authorized. The Release candidate from `6d3eb470` is built and audited; see the handoff below. Screenshots are deferred, not required.
 
 The current optional preset is the sanitized October 20 export for 0.3.0: 249 preferences and 15 generic-ID shortcut rows. It enables action feedback and Mouse Follows Focus feedback using trigger-based placement. It is not imported automatically and does not change application defaults. Published 0.1.0 and 0.2.0 assets retain their original presets.

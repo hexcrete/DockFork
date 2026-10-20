@@ -2,6 +2,8 @@
 
 ## 0.3.0 Prerelease Preparation
 
+The [public release body](RELEASE_BODY_0.3.0.md) contains the concise highlights. The preparation record below retains detailed audit results and testing gaps; it is not the GitHub release description.
+
 The [0.3.0 notes and gate](RELEASE_NOTES_0.3.0.md) summarize changes since the published 0.2.0 source `c863e62`: optional action/cursor feedback, range selection, explicit Force Quit, background action work and shared ownership, native-tab and Wine handling, Cmd+Tab app-level Minimize, and input/windowless-preview fixes. Existing dated entries below remain the detailed implementation/validation history, not additional release features.
 
 October 20 upstream merge `d50d6882` incorporates `77e4771`, a website-only compatibility entry. Latest included stable release remains 1.41.0 at `3d6a3cba`. The newly supplied showcase export is reduced from 253 to 249 recognized preferences by removing four system/private-state keys; all 15 shortcut IDs are generic and debug logging is Off. Only the three action/cursor-feedback preferences are added relative to the older preset. No live import, settings reset or published-asset replacement is performed. All sixteen regression suites, 19 version cases and cleanup checks pass; the unchanged native Compact Mode hit test needed one retry. The Release candidate from `6d3eb470` passes the recorded 257 artifact assertions and 477-file privacy-marker scan; the [handoff](RELEASE_NOTES_0.3.0.md#candidate-handoff) lists exact assets/checksums and pending manual Release tests. No app launch/import occurred; no publication is authorized, and screenshots remain deferred.
