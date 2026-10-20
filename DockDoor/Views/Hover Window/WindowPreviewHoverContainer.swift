@@ -1060,7 +1060,10 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private var hasAppHeaderWindowTargets: Bool {
-        previewStateCoordinator.windows.contains { !$0.isWindowlessApp && !$0.app.isTerminated }
+        previewStateCoordinator.windows.contains {
+            !$0.isWindowlessApp && !$0.app.isTerminated &&
+                (WindowAction.closeAllWindows.isSupported(for: $0) || WindowAction.minimizeAllWindows.isSupported(for: $0))
+        }
     }
 
     @ViewBuilder

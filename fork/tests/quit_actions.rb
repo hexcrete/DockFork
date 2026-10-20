@@ -43,6 +43,8 @@ typealias pid_t = Int32
 struct Key<T> { let value: T }
 enum Defaults { static var autoFill=false, limited=false, foreground=false, rows=2, columns=3; static subscript<T>(_ key: Key<T>) -> T { key.value } }
 extension Key where T == Bool {
+ static var enableMultiWindowSelection: Self { Self(value: true) }
+ static var enableWindowlessAppSelection: Self { Self(value: true) }
  static var fillActionsAutoTileSelection: Self { Self(value: Defaults.autoFill) }
  static var moveResizeBringToForeground: Self { Self(value: Defaults.foreground) }
  static var tileOnlyWhatFits: Self { Self(value: Defaults.limited) }
@@ -66,8 +68,11 @@ struct PreviewWindowIdentity: Hashable {
 }
 struct WindowInfo {
  let id: Int, app: App
- var isWindowlessApp = false, isFullscreen: Bool? = false
+ var isWindowlessApp = false, isFullscreen: Bool? = false, isWineWindow = false
  var isMinimized = false
+ var closeButton: Int? = 1
+ var hasLimitedWindowControls = false
+ var isEffectivelyHiddenForUI: Bool { isHidden && isFullscreen != true }
  var isHidden: Bool { app.isHidden }
  var axElement: AX { AX() }
  func close() -> Bool { true }
@@ -82,13 +87,14 @@ source += "enum WindowAction { case #{cases.join(', ')}\n var positionRect:Int? 
 %w[localizedName iconName].each { |name| source += block(util[case_start..], "    var #{name}:") + "\n" }
 source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    var isAppWidePreviewAction:')]
 %w[isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }
-%w[appliesToSelectedWindow previewTargets batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
+%w[isSupported appliesToSelectedWindow previewTargets batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
 source += <<~'SWIFT'
  var tilingDirection: Int? { self == .fillLeftHalf || self == .autoTileSelectedWindows ? 0 : nil }
  /* Auto Tile policy */
 
- func isAvailable(for window: WindowInfo) -> Bool { true }
+ /* Action availability */
 SWIFT
+source.sub!('/* Action availability */', block(catalog, '    func isAvailable('))
 source.sub!('/* Auto Tile policy */', block(catalog, '    func autoTilingDirection(').sub('PreviewTilingLayout.Direction?', 'Int?'))
 source += block(catalog, '    func batchTargetState(') + "\n"
 source += block(catalog, '    func menuTitle(') + "\n" + block(catalog, '    func feedbackTitle(') + "\n"
@@ -108,7 +114,8 @@ final class ActionFeedbackHandle {
  var confirmedProgress: ((WindowInfo, Bool) -> Void)? { nil }
  func finishRemaining(_ outcome: Outcome) {}
  func finish(_ id: PreviewWindowIdentity, _ outcome: Outcome) { if states[id] == nil { states[id] = outcome } }
- func finish(_ result: WindowUtil.PreviewBatchResult, requested: Bool = false) {}
+ var result: WindowUtil.PreviewBatchResult?
+ func finish(_ result: WindowUtil.PreviewBatchResult, requested: Bool = false) { self.result = result }
 }
 @MainActor final class PendingAX {
  var started=false
@@ -152,9 +159,43 @@ source += block(util, '    static func autoTileTargets(') + "\n"
 source += block(util, '    struct PreviewBatchResult') + "\n"
 source = block(catalog, 'enum PreviewBatchTogglePolicy {') + "\n" + catalog[catalog.index('final class WindowActionRequest:')...catalog.index('enum PreviewBatchTogglePolicy {')] + "\n" + source
 source += "@MainActor\n" + block(util, '    static func performPreviewBatchAction(') + "\n@MainActor\n" + block(util, '    private static func executePreviewAction(') + "\n}\n"
+source += block(File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreview.swift"), 'func resolvedTrafficLightButtons(') + "\n"
 source += <<~'SWIFT'
 @main struct Checks {
  @MainActor static func main() async {
+  let wineApp = App(77), nativeApp = App(78)
+  let wine = WindowInfo(id: 77, app: wineApp, isWineWindow: true)
+  var native = WindowInfo(id: 78, app: nativeApp); native.isMinimized = true
+  let unsupportedWineActions: [WindowAction] = [.close, .closeAllWindows, .minimize, .minimizeAllWindows, .toggleFullScreen, .openNewWindow]
+  for action in unsupportedWineActions {
+   precondition(!action.isSupported(for: wine) && action.isSupported(for: native))
+   precondition(!action.isAvailable(for: wine))
+   let feedback = ActionFeedbackHandle()
+   let result = await WindowUtil.performPreviewBatchAction(action, on: [wine], allowFullscreenEntry: true, feedback: feedback)
+   precondition(result.succeeded.isEmpty && result.failed == [PreviewWindowIdentity(wine)], "Invalid Wine action did not fail: \(action), \(result)")
+   precondition(feedback.result?.failed == [PreviewWindowIdentity(wine)], "Invalid Wine feedback: \(action)")
+   precondition(action.previewTargets(from: [wine, wine]).isEmpty)
+   let ignored = await WindowUtil.performPreviewBatchAction(action, on: [wine, wine])
+   precondition(ignored.failed.isEmpty && ignored.succeeded.isEmpty)
+  }
+  for action: WindowAction in [.quit, .forceQuit, .hide, .bringToCurrentSpace, .openAppWindow, .maximize, .center, .fillLeftHalf, .autoTileSelectedWindows, .toggleWindowSelection, .selectAllWindows] {
+   precondition(action.isSupported(for: wine))
+  }
+  for action: WindowAction in [.minimize, .close] {
+   precondition(action.previewTargets(from: [wine, native]).map(\.id) == [native.id])
+  }
+  WindowUtil.cached[77] = [wine]; WindowUtil.cached[78] = [native]
+  precondition(WindowAction.minimizeAllWindows.previewTargets(from: [wine, native]).map(\.id) == [native.id])
+  precondition(WindowAction.closeAllWindows.previewTargets(from: [wine, native]).map(\.id) == [native.id])
+  precondition(WindowAction.minimize.batchTargetState(for: [wine, native]) == false)
+  let configured = Set([WindowAction.quit, .close, .hide, .minimize, .toggleFullScreen, .maximize, .bringToCurrentSpace])
+  for hidden in [false, true] {
+   wineApp.isHidden = hidden
+   for action in unsupportedWineActions { precondition(!action.isAvailable(for: wine)) }
+   precondition(resolvedTrafficLightButtons(for: wine, configuredButtons: configured, showWindowlessQuitButton: true) == configured.filter { $0.isSupported(for: wine) })
+  }
+  wineApp.isHidden = false; WindowUtil.cached = [:]
+  print("PASS Wine action policy: supported operations, invalid single failures, ignored batch targets, frozen minimize intent, hidden/visible controls")
   for force in [false, true] {
    let app = App(1), other = App(2)
    let action = force ? WindowAction.forceQuit : .quit

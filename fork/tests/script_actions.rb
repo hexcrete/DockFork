@@ -43,6 +43,7 @@ class AsyncWindowCommand: NSScriptCommand {
  func execute(_ operation: @escaping @MainActor () async throws -> String) -> Any? { self.operation = operation; return "suspended" }
 }
 enum WindowAction { case maximize, center, fill, toggleFullScreen, minimize, close, hide, quit, forceQuit
+ func isSupported(for window: WindowInfo) -> Bool { true }
  static let fullscreenConfirmationDelay: UInt64 = 180_000_000
 }
 struct PreviewWindowIdentity:Hashable {let pid:Int32;let windowID:Int;init(_ w:WindowInfo){pid=w.app.processIdentifier;windowID=w.id}}

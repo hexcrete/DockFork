@@ -120,6 +120,7 @@ enum ActivationEvents {
 var apps: [Int32: NSRunningApplication] = [:]
 func AXUIElementCreateApplication(_ pid: Int32) -> FakeAX { apps[pid]!.element }
 enum WindowAction { case minimize, hide, toggleFullScreen, openAppWindow, close, closeAllWindows, quit, minimizeAllWindows, autoTileSelectedWindows, forceQuit, openNewWindow, bringToCurrentSpace
+ func isSupported(for window: WindowInfo) -> Bool { true }
  var positionRect:Int? {nil}
  static let fullscreenConfirmationDelay: UInt64 = 180_000_000
 SWIFT

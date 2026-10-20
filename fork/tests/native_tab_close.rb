@@ -80,6 +80,7 @@ source += block(ax, '    func nativeBackgroundTabs()') + "\n}\n"
 source += "struct WindowInfo { let id = 900; let axElement: AXUIElement; let closeButton: AXUIElement?; var isWindowlessApp = false\n"
 source += block(window, '    func close(progress:') + "\n}\n"
 source += <<~'SWIFT'
+enum WindowAction { case close; func isSupported(for window: WindowInfo) -> Bool { true } }
 struct PreviewWindowIdentity:Hashable {let pid:Int32=1;let windowID:Int;init(_ window:WindowInfo){windowID=window.id}}
 enum ActionFeedbackOutcome { case requested, failed }
 final class CloseMetrics: @unchecked Sendable {

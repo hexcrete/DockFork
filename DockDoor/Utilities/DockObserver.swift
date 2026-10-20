@@ -1240,7 +1240,7 @@ final class DockObserver {
         }
 
         let cachedWindows = cachedDockClickWindows(of: app)
-        let cachedMinimizableWindows = cachedWindows.filter { $0.isFullscreen != true }
+        let cachedMinimizableWindows = cachedWindows.filter { $0.isFullscreen != true && WindowAction.minimize.isSupported(for: $0) }
         let allCachedWindowsMinimized = !cachedMinimizableWindows.isEmpty &&
             cachedMinimizableWindows.allSatisfy(\.isMinimized)
         guard DockClickOverridePolicy.shouldOverride(

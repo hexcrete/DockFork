@@ -156,7 +156,7 @@ final class WindowGestureExecutor {
     private func minimizeAll(on screen: NSScreen, feedback: ActionFeedbackHandle?) async {
         let screenIdentifier = screen.uniqueIdentifier()
         let windows = WindowUtil.filterWindowsByCurrentSpace(WindowUtil.getAllWindowsIgnoringSwitcherFilters())
-            .filter { !$0.isHidden && !$0.isWindowlessApp && $0.isFullscreen != true && $0.screenIdentifier == screenIdentifier }
+            .filter { !$0.isHidden && !$0.isWindowlessApp && $0.isFullscreen != true && $0.screenIdentifier == screenIdentifier && WindowAction.minimize.isSupported(for: $0) }
         guard !windows.isEmpty else { return }
         feedback?.setTargets(windows)
         _ = await WindowActionRequest.run(windows.map(PreviewWindowIdentity.init)) { _ in
@@ -180,6 +180,7 @@ final class WindowGestureExecutor {
 
     private func restore(_ windows: [WindowInfo], feedback: ActionFeedbackHandle?) async {
         defer { feedback?.finishRemaining(Task.isCancelled ? .cancelled : .failed) }
+        let windows = windows.filter { WindowAction.minimize.isSupported(for: $0) }
         guard !windows.isEmpty else { return }
         feedback?.setTargets(windows)
         if WindowActionRequest.current == nil {

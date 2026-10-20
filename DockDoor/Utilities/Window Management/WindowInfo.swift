@@ -351,6 +351,7 @@ struct WindowInfo: Identifiable, Hashable {
     let windowProvider: WindowPropertiesProviding
     let app: NSRunningApplication
     let ownerApp: NSRunningApplication
+    let isWineWindow: Bool
     var windowName: String?
     var frame: CGRect
     var image: CGImage?
@@ -376,6 +377,7 @@ struct WindowInfo: Identifiable, Hashable {
         self.windowProvider = windowProvider
         self.app = app
         self.ownerApp = ownerApp ?? app
+        isWineWindow = WindowCandidateDiscriminator.isWineApplication(ownerApp ?? app)
         if readsAXTitle, !AXResponsiveness.isUnresponsive(app.processIdentifier) {
             windowName = (try? axElement.title()) ?? windowProvider.title
         } else {
@@ -850,6 +852,7 @@ extension WindowInfo {
 
     @discardableResult
     func close(progress: (@Sendable (Int, Int) -> Void)? = nil) -> Bool {
+        guard WindowAction.close.isSupported(for: self) else { return false }
         let parent = WindowActionRequest.current
         let request = parent ?? WindowActionOwnership.shared.begin([PreviewWindowIdentity(self)], protect: true, replacingSingles: false)
         defer { if parent == nil { request.finish() } }

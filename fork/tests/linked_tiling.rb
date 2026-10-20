@@ -84,7 +84,7 @@ struct WindowInfo {
  var frameTarget: WindowFrameTarget {WindowFrameTarget(element:axElement,application:axElement,ownerPID:ownerApp.processIdentifier,identity:PreviewWindowIdentity(self))}
  @MainActor func readWindowFrame() async -> CGRect? {let target=frameTarget;return await WindowFrameTransactions.run(for:target.ownerPID) { _ in target.frame(primaryMaxY:1200)} ?? nil}
  var ownerApp: App { App.instances[axElement.pid] ?? app }
- var isWindowlessApp = false
+ var isWindowlessApp = false, isWineWindow = false
  var isMinimized: Bool { get { axElement.minimized } set { axElement.minimized = newValue } }
  func readMinimizedState() async -> Bool? {let element=axElement;return await WindowFrameTransactions.run(for:ownerApp.processIdentifier) { _ in try? element.isMinimized()} ?? nil}
  var isHidden: Bool { app.isHidden }
@@ -228,10 +228,10 @@ source += "\n@MainActor final class DragPreviewCoordinator {\nprivate var dropTo
 %w[isCompletingDrop completeDrop].each { |name| source += block(drag, "    func #{name}(") + "\n" }
 source += block(drag, '    private func cancelPendingDrop(') + "\n}\n"
 catalog = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
-source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize, quit, forceQuit, openNewWindow, hide, close, closeAllWindows, minimizeAllWindows, toggleFullScreen, toggleWindowSelection, selectAllWindows, maximize, center, bringToCurrentSpace, none\n"
+source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize, quit, forceQuit, openAppWindow, openNewWindow, hide, close, closeAllWindows, minimizeAllWindows, toggleFullScreen, toggleWindowSelection, selectAllWindows, maximize, center, bringToCurrentSpace, none\n"
 source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    var isAppWidePreviewAction:')]
 %w[tilingDirection isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }
-%w[autoTilingDirection appliesToSelectedWindow batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
+%w[isSupported autoTilingDirection appliesToSelectedWindow batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
 source += "}\n"
 coordinator = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
 dispatch = block(coordinator, '    private func performPreviewBatchAction(')

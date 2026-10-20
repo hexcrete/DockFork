@@ -69,8 +69,8 @@ extension Key where T == Int {
 extension Key where T == ActionFeedbackPosition { static var actionFeedbackPosition: Self { Self(value: Defaults.position) } }
 struct PreviewWindowIdentity: Hashable { let pid: Int32; let windowID: UInt32; init(pid: Int32, windowID: UInt32) { self.pid = pid; self.windowID = windowID }; init(_ w: WindowInfo) { self.init(pid: w.app.processIdentifier, windowID: w.id) } }
 struct TestApp { let processIdentifier: Int32; let isHidden: Bool }
-struct WindowInfo { enum WindowPositionRect: Equatable { case test }; let id: UInt32; var pid: Int32 = 1; var isFullscreen: Bool? = false; var isMinimized = false; var isHidden = false; var isWindowlessApp = false; var app: TestApp { TestApp(processIdentifier: pid, isHidden: isHidden) } }
-enum WindowAction { case openNewWindow, quit, forceQuit, none, toggleWindowSelection, selectAllWindows, openAppWindow, close, closeAllWindows, minimize, minimizeAllWindows, hide, toggleFullScreen, autoTileSelectedWindows
+struct WindowInfo { enum WindowPositionRect: Equatable { case test }; let id: UInt32; var pid: Int32 = 1; var isFullscreen: Bool? = false; var isMinimized = false; var isHidden = false; var isWindowlessApp = false; var isWineWindow = false; var app: TestApp { TestApp(processIdentifier: pid, isHidden: isHidden) } }
+enum WindowAction { case bringToCurrentSpace, maximize, center, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, openNewWindow, quit, forceQuit, none, toggleWindowSelection, selectAllWindows, openAppWindow, close, closeAllWindows, minimize, minimizeAllWindows, hide, toggleFullScreen, autoTileSelectedWindows
  /* Shared target eligibility */
  func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> Int? { self == .autoTileSelectedWindows ? 0 : nil }
  func menuTitle(for w: WindowInfo, batchTargets: [WindowInfo]?) -> String {
@@ -136,7 +136,7 @@ stubs.sub!('/* Popup content */', source[source.index('    struct Content: Equat
 actions = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
 util_source = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowUtil.swift")
 stubs.sub!('/* Auto Tile eligibility */', util_source[util_source.index('    static func autoTileTargets(')...util_source.index("    @MainActor\n    static func tilePreviewWindows(")])
-stubs.sub!('/* Shared target eligibility */', actions[actions.index('    func appliesToSelectedWindow(')...actions.index('    func batchTargets(')])
+stubs.sub!('/* Shared target eligibility */', actions[actions.index('    func isSupported(')...actions.index('    func usesConfirmedSingleWindowAction(')] + actions[actions.index('    func appliesToSelectedWindow(')...actions.index('    func batchTargets(')])
 stubs.sub!('/* Shared batch targets */', actions[actions.index('    func batchTargets(')...actions.index('    func batchTargetState(')] + actions[actions.index('    var isAppWidePreviewAction:')...actions.index('    enum Group:')])
 stubs << actions[actions.index('enum PreviewBatchTogglePolicy {')...actions.index('struct WindowActionGroup:')]
 stubs.sub!('/* Batch target state */', actions[actions.index('    func batchTargetState(')...actions.index('    var isAppWidePreviewAction:')])
@@ -669,6 +669,7 @@ abort 'Minimize All action must forward feedback' unless util.include?('WindowUt
 abort 'Container must wait for Minimize All confirmation' unless container.include?('if !awaitingMinimizeConfirmation { feedback?.finishRemaining(.requested) }') && container.include?('WindowUtil.minimizeAllWindows(for: app, preferredWindows: preferredWindows, feedback: feedback)')
 minimize_fixture = <<~'SWIFT'
 import Foundation
+enum WindowAction { case minimize; func isSupported(for window: WindowInfo) -> Bool { true } }
 let kAXMinimizedAttribute = "minimized"
 struct App { let bundleIdentifier: String? = "test"; var processIdentifier: Int32 = 1 }
 final class AX: @unchecked Sendable {
@@ -902,6 +903,7 @@ end
 wrapper = util[util.index('    @discardableResult\n    static func minimizeAllWindows(for'.gsub('\\n', "\n"))...util.index('    enum MinimizeAllWindowsOutcome:')]
 wrapper_fixture = <<~'SWIFT'
 import Foundation
+enum WindowAction { case minimize; func isSupported(for window: WindowInfo) -> Bool { true } }
 struct NSRunningApplication { let processIdentifier: Int32 = 1 }
 struct WindowInfo { let id:UInt32=1;let app = NSRunningApplication(); var isWindowlessApp = false; var isFullscreen: Bool? = false }
 struct PreviewWindowIdentity:Hashable {let pid:Int32,windowID:UInt32;init(_ w:WindowInfo){pid=w.app.processIdentifier;windowID=w.id}}
@@ -1180,6 +1182,7 @@ final class WindowSnapRegistry {
 }
 extension Int {static let center=0}
 enum WindowAction {case minimize,hide,toggleFullScreen,openAppWindow,close,quit,center,fillLeftHalf
+ func isSupported(for window: WindowInfo) -> Bool { true }
  var isAppWidePreviewAction:Bool {self == .hide || self == .quit}
  var isQuitAction:Bool {self == .quit}
  var positionRect:Int? {self == .center ? 0 : self == .fillLeftHalf ? 1 : nil}

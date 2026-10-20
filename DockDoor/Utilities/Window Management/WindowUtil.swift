@@ -421,6 +421,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         feedback: ActionFeedbackHandle? = nil
     ) -> ActionResult {
         defer { if self != .autoTileSelectedWindows, self != .minimizeAllWindows { feedback?.finishRemaining(.requested) } }
+        guard isSupported(for: window) else { feedback?.finishRemaining(.failed); return .noChange }
         func accepted(_ success: Bool) -> Bool {
             if !success { feedback?.finishRemaining(.failed) }
             return success
@@ -699,7 +700,9 @@ extension WindowUtil {
                                                   fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection]) != nil
         let windows = resolvedTargets ?? action.previewTargets(from: requested, allowFullscreenEntry: allowFullscreenEntry)
         guard !windows.isEmpty else {
-            let result = PreviewBatchResult(failed: autoTile ? [] : requested.filter { action.appliesToSelectedWindow($0) }.map(PreviewWindowIdentity.init))
+            let result = PreviewBatchResult(failed: autoTile ? [] : requested.filter {
+                action.appliesToSelectedWindow($0) && (requested.count == 1 || action.isSupported(for: $0))
+            }.map(PreviewWindowIdentity.init))
             feedback?.finish(result)
             return result
         }
@@ -880,6 +883,7 @@ extension WindowUtil {
                                                   reconciliationDelayNanos: UInt64 = WindowAction.fullscreenConfirmationDelay,
                                                   beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool
     {
+        guard WindowAction.toggleFullScreen.isSupported(for: window) else { return false }
         if WindowActionRequest.current == nil {
             return await WindowActionRequest.run([PreviewWindowIdentity(window)]) { _ in
                 await changeFullscreenConfirmed(window, toggle: toggle, reconciliationDelayNanos: reconciliationDelayNanos, beforeChange: beforeChange)
@@ -3802,7 +3806,7 @@ extension WindowUtil {
     static func closeAllWindows(for app: NSRunningApplication, preferredWindows: [WindowInfo]? = nil, feedback: ActionFeedbackHandle? = nil) -> Int {
         if WindowActionRequest.current == nil {
             let windows = preferredWindows ?? readCachedWindows(for: app.processIdentifier)
-            let targets = windows.filter { $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp }
+            let targets = windows.filter { $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp && WindowAction.close.isSupported(for: $0) }
             let request = WindowActionOwnership.shared.begin(targets.map(PreviewWindowIdentity.init), apps: [app.processIdentifier], protect: true, replacingSingles: false)
             defer { request.finish() }
             guard !request.admitted.isEmpty else { feedback?.finishRemaining(.failed); return 0 }
@@ -3817,7 +3821,7 @@ extension WindowUtil {
             readCachedWindows(for: pid)
         }
 
-        let windowsToClose = sourceWindows.filter { !$0.isWindowlessApp }
+        let windowsToClose = sourceWindows.filter { !$0.isWindowlessApp && WindowAction.close.isSupported(for: $0) }
         guard !windowsToClose.isEmpty else { return 0 }
 
         return requestWindowClosures(windowsToClose, feedback: feedback).succeeded.count
@@ -3833,6 +3837,17 @@ extension WindowUtil {
 
     static func closeWindows(_ windows: [WindowInfo], feedback: ActionFeedbackHandle? = nil, settleFailures: Bool = true) async -> PreviewBatchResult {
         guard !Task.isCancelled else { return PreviewBatchResult() }
+        let eligible = windows.filter { WindowAction.close.isSupported(for: $0) }
+        guard !eligible.isEmpty else {
+            let result = PreviewBatchResult(failed: windows.count == 1 ? windows.map(PreviewWindowIdentity.init) : [])
+            if settleFailures {
+                for identity in result.failed {
+                    feedback?.finish(identity, .failed)
+                }
+            }
+            return result
+        }
+        let windows = eligible
         if WindowActionRequest.current == nil {
             return await WindowActionRequest.run(windows.filter { !$0.isWindowlessApp }.map(PreviewWindowIdentity.init), protect: true) { request in
                 var result = await closeWindows(windows.filter { request.contains(PreviewWindowIdentity($0)) }, feedback: feedback, settleFailures: settleFailures)
@@ -3866,10 +3881,10 @@ extension WindowUtil {
     static func minimizeAllWindows(for app: NSRunningApplication, preferredWindows: [WindowInfo]? = nil, feedback: ActionFeedbackHandle? = nil) -> Int {
         let pid = app.processIdentifier
         let preferredAppWindows = preferredWindows?.filter {
-            $0.app.processIdentifier == pid && !$0.isWindowlessApp && $0.isFullscreen != true
+            $0.app.processIdentifier == pid && !$0.isWindowlessApp && $0.isFullscreen != true && WindowAction.minimize.isSupported(for: $0)
         } ?? []
         let cachedAppWindows = readCachedWindows(for: pid).filter {
-            !$0.isWindowlessApp && $0.isFullscreen != true
+            !$0.isWindowlessApp && $0.isFullscreen != true && WindowAction.minimize.isSupported(for: $0)
         }
         let estimatedCount = max(preferredAppWindows.count, cachedAppWindows.count)
         guard estimatedCount > 0 else { return 0 }
@@ -4078,6 +4093,7 @@ extension WindowUtil {
     private static func appEligibleForGlobalMinimize(_ app: NSRunningApplication, ownBundleId: String?) -> Bool {
         app.activationPolicy == .regular &&
             app.bundleIdentifier != ownBundleId &&
+            !WindowCandidateDiscriminator.isWineApplication(app) &&
             !isAppFiltered(app)
     }
 
@@ -4423,7 +4439,7 @@ extension WindowUtil {
     static func minimizableWindowSnapshot(_ windows: [WindowInfo]) async -> [(window: WindowInfo, isMinimized: Bool)] {
         let ownBundleId = Bundle.main.bundleIdentifier
         let candidates = windows.filter {
-            !$0.isWindowlessApp && $0.app.bundleIdentifier != ownBundleId
+            !$0.isWindowlessApp && $0.app.bundleIdentifier != ownBundleId && WindowAction.minimize.isSupported(for: $0)
         }
         guard !candidates.isEmpty else { return [] }
 
@@ -4450,7 +4466,8 @@ extension WindowUtil {
         if WindowActionRequest.current == nil {
             return await WindowActionRequest.run([PreviewWindowIdentity(window)]) { _ in await minimizeWindowExitingFullscreen(window) } ?? false
         }
-        guard !window.isWindowlessApp, !window.app.isTerminated, !Task.isCancelled else { return false }
+        guard !window.isWindowlessApp, !window.app.isTerminated, !Task.isCancelled,
+              WindowAction.minimize.isSupported(for: window) else { return false }
         if await window.readFullscreenState() == true {
             if await !changeFullscreenConfirmed(window) { return false }
         }
@@ -4509,7 +4526,7 @@ extension WindowUtil {
         let ownBundleId = Bundle.main.bundleIdentifier
         let candidates = windows.filter {
             !$0.isWindowlessApp &&
-                $0.app.bundleIdentifier != ownBundleId
+                $0.app.bundleIdentifier != ownBundleId && WindowAction.minimize.isSupported(for: $0)
         }
         guard !candidates.isEmpty else { return [] }
 

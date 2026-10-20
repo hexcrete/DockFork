@@ -103,6 +103,7 @@ final class ActionFeedbackHandle: @unchecked Sendable {
 }
 enum WindowAction {
  case close, closeAllWindows, minimize, minimizeAllWindows, quit, forceQuit, none
+ func isSupported(for window: WindowInfo) -> Bool { true }
  var isQuitAction: Bool { self == .quit || self == .forceQuit }
  var shouldScheduleAppRefresh: Bool { true }
  enum PostActionCategory {

@@ -1908,7 +1908,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let request = WindowUtil.beginPreviewActionRequest(action, windows: targets, resolvedTargets: resolvedTargets)
         let feedback = ActionFeedbackController.begin(action, windows: targets, keyboard: keyboard || NSApp.currentEvent?.type == .keyDown, usePreviews: usePreviews, resolvedTargets: resolvedTargets)
         guard !request.admitted.isEmpty else {
-            let applicable = targets.filter { action.appliesToSelectedWindow($0) }
+            let applicable = targets.filter {
+                action.appliesToSelectedWindow($0) && (targets.count == 1 || action.isSupported(for: $0))
+            }
             let autoTile = action.autoTilingDirection(windowCount: applicable.count, fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection]) != nil
             let failed = WindowUtil.PreviewBatchResult(failed: resolvedTargets.isEmpty && !autoTile ? applicable.map(PreviewWindowIdentity.init) : request.rejected)
             feedback?.finish(failed)
@@ -2196,12 +2198,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     private func closeCmdTabHighlightedApps(_ apps: [NSRunningApplication], preservePreviews: Bool) -> Bool {
-        let requests = apps.map { app in
+        let candidates = apps.map { app in
             (app: app, entry: WindowInfo.windowlessEntry(for: app), windows: cmdTabActionWindows(for: app))
         }
-        let feedbackTargets = requests.flatMap(\.windows)
-        let feedback = ActionFeedbackController.begin(.closeAllWindows, windows: feedbackTargets, keyboard: true, usePreviews: false, resolvedTargets: feedbackTargets)
-        let ownership = WindowActionOwnership.shared.begin(requests.map { PreviewWindowIdentity($0.entry) }, apps: Set(apps.map(\.processIdentifier)), protect: true)
+        let requests = candidates.filter { WindowAction.close.isSupported(for: $0.entry) }
+        let feedbackTargets = candidates.flatMap(\.windows)
+        let feedback = ActionFeedbackController.begin(.closeAllWindows, windows: feedbackTargets, keyboard: true, usePreviews: false, resolvedTargets: requests.flatMap(\.windows))
+        guard !requests.isEmpty else { feedback?.finishRemaining(.failed); return false }
+        let ownership = WindowActionOwnership.shared.begin(requests.map { PreviewWindowIdentity($0.entry) }, apps: Set(requests.map(\.app.processIdentifier)), protect: true)
         guard !ownership.admitted.isEmpty else { feedback?.finishRemaining(.failed); return false }
         let keepOpen = preservePreviews || WindowAction.PostActionCategory.closing.keepPreviewsOpen
         let sessionID = windowSwitcherCoordinator.pointerInteractionSessionID

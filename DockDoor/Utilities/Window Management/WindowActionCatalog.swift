@@ -210,6 +210,19 @@ struct WindowActionGroup: Identifiable {
 }
 
 extension WindowAction {
+    func isSupported(for window: WindowInfo) -> Bool {
+        guard window.isWineWindow else { return true }
+        switch self {
+        case .quit, .forceQuit, .hide, .bringToCurrentSpace, .openAppWindow,
+             .maximize, .center, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+             .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
+             .autoTileSelectedWindows, .toggleWindowSelection, .selectAllWindows:
+            return true
+        case .close, .closeAllWindows, .minimize, .minimizeAllWindows, .toggleFullScreen, .openNewWindow, .none:
+            return false
+        }
+    }
+
     func usesConfirmedSingleWindowAction(on window: WindowInfo) -> Bool {
         positionRect != nil || [.minimize, .hide, .toggleFullScreen, .closeAllWindows, .minimizeAllWindows, .autoTileSelectedWindows,
                                 .quit, .forceQuit, .openNewWindow, .bringToCurrentSpace].contains(self) ||
@@ -251,7 +264,7 @@ extension WindowAction {
             }
         }
         var seen = Set<PreviewWindowIdentity>()
-        targets = targets.filter { seen.insert(PreviewWindowIdentity($0)).inserted }
+        targets = targets.filter { isSupported(for: $0) && seen.insert(PreviewWindowIdentity($0)).inserted }
         if self == .minimize || self == .minimizeAllWindows { targets.removeAll { $0.isFullscreen == true } }
         if self == .toggleFullScreen, !allowFullscreenEntry || targets.count > 1 { targets.removeAll { $0.isFullscreen != true } }
         if self == .hide {
@@ -267,7 +280,7 @@ extension WindowAction {
     func batchTargets(from windows: [WindowInfo]) -> [WindowInfo] {
         var seenApps = Set<pid_t>()
         return windows.filter { window in
-            guard appliesToSelectedWindow(window) else { return false }
+            guard appliesToSelectedWindow(window), isSupported(for: window) else { return false }
             guard !isAppWidePreviewAction || seenApps.insert(window.app.processIdentifier).inserted else { return false }
             if self == .toggleFullScreen { return window.isFullscreen == true }
             if self == .hide, !window.app.isHidden {
@@ -284,7 +297,7 @@ extension WindowAction {
             let candidates = self == .minimizeAllWindows
                 ? Set(windows.map(\.app.processIdentifier)).flatMap { WindowUtil.readCachedWindows(for: $0) }
                 : windows
-            let eligible = candidates.filter { !$0.isWindowlessApp && $0.isFullscreen != true }
+            let eligible = candidates.filter { !$0.isWindowlessApp && $0.isFullscreen != true && isSupported(for: $0) }
             return PreviewBatchTogglePolicy.targetState(eligible.map(\.isMinimized))
         case .hide:
             return PreviewBatchTogglePolicy.targetState(batchTargets(from: windows).map(\.app.isHidden))
@@ -336,7 +349,8 @@ extension WindowAction {
     {
         Group.allCases.compactMap { group in
             let actions = group.actions.filter {
-                (![.toggleWindowSelection, .selectAllWindows].contains($0) || includeSelectionActions) &&
+                $0.isSupported(for: window) &&
+                    (![.toggleWindowSelection, .selectAllWindows].contains($0) || includeSelectionActions) &&
                     (($0 == .toggleFullScreen && batchTargets?.contains(where: { $0.isFullscreen == true }) == true) || $0.isAvailable(for: window))
             }
             return actions.isEmpty ? nil : WindowActionGroup(id: group, actions: actions)
@@ -344,7 +358,7 @@ extension WindowAction {
     }
 
     func isAvailable(for window: WindowInfo) -> Bool {
-        if self == .none { return false }
+        if self == .none || !isSupported(for: window) { return false }
 
         if window.isWindowlessApp {
             if self == .toggleWindowSelection || self == .selectAllWindows {

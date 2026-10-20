@@ -142,7 +142,7 @@ enum WindowCandidateDiscriminator {
     private static let unknownSubrole = "AXUnknown"
     private static let documentWindowSubrole = "AXDocumentWindow"
 
-    private static func isWineApplication(_ app: NSRunningApplication) -> Bool {
+    static func isWineApplication(_ app: NSRunningApplication) -> Bool {
         if app.bundleIdentifier?.hasPrefix("com.codeweavers.CrossOverHelper.") == true { return true }
         guard app.bundleIdentifier == nil else { return false }
         return app.executableURL?.lastPathComponent == "wine64-preloader" ||

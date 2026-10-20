@@ -10,6 +10,7 @@ source=File.read(File.expand_path('../../DockDoor/Utilities/Window Management/Wi
 s=<<~'SWIFT'
 import Foundation
 import CoreGraphics
+enum WindowAction { case minimize; func isSupported(for window: WindowInfo) -> Bool { true } }
 final class Gate: @unchecked Sendable {let entered=DispatchSemaphore(value:0),release=DispatchSemaphore(value:0)}
 @MainActor func waitEntered(_ gate:Gate) async throws {
  for _ in 0..<2000 {if gate.entered.wait(timeout:.now()) == .success {return};try await Task.sleep(nanoseconds:1_000_000)}
