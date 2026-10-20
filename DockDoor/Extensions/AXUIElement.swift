@@ -272,7 +272,7 @@ extension AXUIElement {
 
             let candidates = cgCandidates ?? getCGWindowCandidates(for: pid)
             var knownIDs = Set(set.compactMap { try? $0.cgWindowId() }).union(excludingWindowIDs)
-            var unreachedWindowIDs = unreachedCGWindowIDs(in: candidates, excluding: knownIDs)
+            var unreachedWindowIDs = unreachedCGWindowIDs(in: candidates, excluding: knownIDs, app: app)
 
             if !unreachedWindowIDs.isEmpty {
                 if let focusedWindow = try? appElement.focusedWindow(), shouldInclude(focusedWindow) {
@@ -282,7 +282,7 @@ extension AXUIElement {
                     set.insert(mainWindow)
                 }
                 knownIDs = Set(set.compactMap { try? $0.cgWindowId() }).union(excludingWindowIDs)
-                unreachedWindowIDs = unreachedCGWindowIDs(in: candidates, excluding: knownIDs)
+                unreachedWindowIDs = unreachedCGWindowIDs(in: candidates, excluding: knownIDs, app: app)
             }
 
             if unreachedWindowIDs.isEmpty {

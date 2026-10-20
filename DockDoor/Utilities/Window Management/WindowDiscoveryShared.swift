@@ -142,6 +142,34 @@ enum WindowCandidateDiscriminator {
     private static let unknownSubrole = "AXUnknown"
     private static let documentWindowSubrole = "AXDocumentWindow"
 
+    private static func isWineApplication(_ app: NSRunningApplication) -> Bool {
+        if app.bundleIdentifier?.hasPrefix("com.codeweavers.CrossOverHelper.") == true { return true }
+        guard app.bundleIdentifier == nil else { return false }
+        return app.executableURL?.lastPathComponent == "wine64-preloader" ||
+            (app.executableURL?.path.contains("/winetemp-") ?? false)
+    }
+
+    static func acceptsWindowLayer(app: NSRunningApplication?, level: Int32, frame: CGRect) -> Bool {
+        if level == normalLevel { return true }
+        guard let app, isWineApplication(app) else { return false }
+        // Wine fullscreen uses status/shielding + 1, plus another level for topmost windows.
+        let statusLevel = CGWindowLevelForKey(.statusWindow) + 1
+        let shieldingLevel = CGShieldingWindowLevel() + 1
+        guard level == statusLevel || level == statusLevel + 1 || level == shieldingLevel || level == shieldingLevel + 1,
+              frame.origin.x.isFinite, frame.origin.y.isFinite,
+              frame.width.isFinite, frame.height.isFinite, frame.width > 0, frame.height > 0
+        else { return false }
+
+        var display: CGDirectDisplayID = 0
+        var count: UInt32 = 0
+        guard CGGetDisplaysWithPoint(CGPoint(x: frame.midX, y: frame.midY), 1, &display, &count) == .success,
+              count == 1
+        else { return false }
+        let bounds = CGDisplayBounds(display)
+        return abs(frame.minX - bounds.minX) <= 1 && abs(frame.minY - bounds.minY) <= 1 &&
+            abs(frame.maxX - bounds.maxX) <= 1 && abs(frame.maxY - bounds.maxY) <= 1
+    }
+
     static func hasUsableSize(_ size: CGSize?) -> Bool {
         guard let size, size.width > 0, size.height > 0 else { return false }
         if Defaults[.disableMinWindowSizeFilter] { return true }
@@ -205,7 +233,7 @@ enum WindowCandidateDiscriminator {
             preview(app, attributes.subrole) ||
             openFLStudio(app, attributes.title) ||
             (level.map { actionableFloatingWindow(attributes.role, attributes.subrole, attributes.hasCloseButton, $0) } ?? false) ||
-            (level.map { crossoverWindow(app, attributes.role, attributes.subrole, $0) } ?? false) ||
+            (level.map { crossoverWindow(app, attributes, $0) } ?? false) ||
             (level.map { alwaysOnTopScrcpy(app, $0, attributes.role, attributes.subrole) } ?? false)
 
         // Floating panels pass the subrole check but are not switchable app windows
@@ -226,7 +254,6 @@ enum WindowCandidateDiscriminator {
             dvdFab(app) ||
             drBetotte(app) ||
             androidEmulator(app, attributes.title, attributes.role, level) ||
-            crossoverHelperWindow(app, attributes.title, attributes.role, attributes.subrole, level) ||
             autocad(app, attributes.subrole)
 
         guard specialApp || standardSubrole || appSpecificSubrole else {
@@ -345,20 +372,13 @@ enum WindowCandidateDiscriminator {
         return app.executableURL?.lastPathComponent.range(of: "qemu-system[^/]*$", options: .regularExpression) != nil
     }
 
-    private static func crossoverWindow(_ app: NSRunningApplication, _ role: String?, _ subrole: String?, _ level: Int32) -> Bool {
-        app.bundleIdentifier == nil &&
-            role == kAXWindowRole &&
-            subrole == unknownSubrole &&
-            level == normalLevel &&
-            (app.executableURL?.lastPathComponent == "wine64-preloader" || (app.executableURL?.absoluteString.contains("/winetemp-") ?? false))
-    }
-
-    private static func crossoverHelperWindow(_ app: NSRunningApplication, _ title: String?, _ role: String?, _ subrole: String?, _ level: Int32?) -> Bool {
-        (app.bundleIdentifier?.hasPrefix("com.codeweavers.CrossOverHelper.") ?? false) &&
-            role == kAXWindowRole &&
-            subrole == unknownSubrole &&
-            level == normalLevel &&
-            hasNonEmptyTitle(title)
+    private static func crossoverWindow(_ app: NSRunningApplication, _ attributes: WindowCandidateAttributes, _ level: Int32) -> Bool {
+        guard attributes.role == kAXWindowRole, attributes.subrole == unknownSubrole,
+              isWineApplication(app), app.bundleIdentifier == nil || hasNonEmptyTitle(attributes.title)
+        else { return false }
+        if level == normalLevel { return true }
+        guard hasNonEmptyTitle(attributes.title), let position = attributes.position, let size = attributes.size else { return false }
+        return acceptsWindowLayer(app: app, level: level, frame: CGRect(origin: position, size: size))
     }
 
     private static func actionableFloatingWindow(_ role: String?, _ subrole: String?, _ hasCloseButton: Bool, _ level: Int32) -> Bool {
@@ -466,7 +486,8 @@ func findCGEntry(for windowID: CGWindowID, ownerPID: pid_t) -> [String: AnyObjec
 
 func unreachedCGWindowIDs(
     in candidates: [[String: AnyObject]],
-    excluding knownIDs: Set<CGWindowID>
+    excluding knownIDs: Set<CGWindowID>,
+    app: NSRunningApplication? = nil
 ) -> Set<CGWindowID> {
     let activeSpaceIDs = currentActiveSpaceIDs()
     lazy var managedSpaceIDs = WindowSpaces.allManagedSpaceIDs()
@@ -476,9 +497,15 @@ func unreachedCGWindowIDs(
         guard windowID != 0,
               !WindowUtil.isInternalWindow(windowID),
               !knownIDs.contains(windowID),
-              (entry[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+              let level = (entry[kCGWindowLayer as String] as? NSNumber)?.int32Value,
               isValidCGWindowEntry(entry)
         else { return nil }
+        if level != 0 {
+            guard let bounds = entry[kCGWindowBounds as String] as? [String: AnyObject],
+                  let frame = CGRect(dictionaryRepresentation: bounds as CFDictionary),
+                  WindowCandidateDiscriminator.acceptsWindowLayer(app: app, level: level, frame: frame)
+            else { return nil }
+        }
 
         let isOnScreen = (entry[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue ?? false
         let spaceIDs = Set(windowID.cgsSpaces().map { Int($0) })

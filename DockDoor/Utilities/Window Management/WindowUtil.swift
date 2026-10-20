@@ -2811,7 +2811,7 @@ extension WindowUtil {
         let cachedIDs = Set(desktopSpaceWindowCacheManager.readCache(pid: pid).map(\.id))
         let cgCandidates = getCGWindowCandidates(for: pid)
         let ignoredIDs = unspacedGeometryAliasWindowIDs(in: cgCandidates)
-        return !unreachedCGWindowIDs(in: cgCandidates, excluding: cachedIDs.union(ignoredIDs)).isEmpty
+        return !unreachedCGWindowIDs(in: cgCandidates, excluding: cachedIDs.union(ignoredIDs), app: app).isEmpty
     }
 
     static func updateNewWindowsForApp(_ app: NSRunningApplication, restorePersistedOrder: Bool = true) async {
@@ -3006,7 +3006,7 @@ extension WindowUtil {
         guard window.isOnScreen else {
             return
         }
-        guard window.windowLayer == 0 else {
+        guard WindowCandidateDiscriminator.acceptsWindowLayer(app: ownerApp, level: Int32(window.windowLayer), frame: window.frame) else {
             return
         }
         guard Defaults[.disableMinWindowSizeFilter] || (window.frame.size.width >= AXMinWindowSize.width && window.frame.size.height >= AXMinWindowSize.height) else {
@@ -3075,8 +3075,7 @@ extension WindowUtil {
         let hiddenState = displayApp.isHidden
         let fullscreenState = try? windowRef.isFullscreen()
         let attributes = WindowCandidateAttributes(axWindow: windowRef, hasCloseButton: closeButton != nil)
-        let shouldWindowBeCaptured = (closeButton != nil) ||
-            (minimizeButton != nil) ||
+        let shouldWindowBeCaptured = (window.windowLayer == 0 && (closeButton != nil || minimizeButton != nil)) ||
             WindowCandidateDiscriminator.isActualWindow(
                 app: displayApp,
                 windowID: windowID,
