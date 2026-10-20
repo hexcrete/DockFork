@@ -1,5 +1,7 @@
 # DockFork Showcase Capture Checklist
 
+October 20 windowless-transition follow-up: in regular and Compact Dock/Cmd+Tab previews, start with a windowless app and open its first window without dismissing the previews, then close the last window. Check panel growth/shrinkage without clipping and header disappearance/reappearance for compact-style placeholders in Default, Popover and Shadowed styles. Full-size placeholders keep enabled headers using independent Dock/Cmd+Tab preferences. Include full-size windowless placeholders On/Off, missing screenshots, bottom/side Dock placement and animations Off. Header-disabled configurations must still resize. Initial transition testing passed user verification; production fixtures cover the refined full-size-header rule. Exhaustive native tests/media remain pending. Existing capture IDs are unchanged.
+
 October 20 packaging cleanup, committed as `715421b3` after final review and user authorization: routine commands now include `--clean-old-builds`, preserving Release packages. This is storage housekeeping with no new app UI or capture ID. Existing media remains pending; build cleanup does not imply visual verification or publication.
 
 This is a menu of possible captures, not a requirement to record everything. Select rows, then attach the chosen media to [Changes and Showcase](CHANGES_AND_SHOWCASE.md). The commit ledger groups the complete implementation history for each topic.
