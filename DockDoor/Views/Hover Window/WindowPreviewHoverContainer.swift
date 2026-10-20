@@ -895,8 +895,8 @@ struct WindowPreviewHoverContainer: View {
         })
     }
 
-    private func previewDragGesture(for window: WindowInfo) -> some Gesture {
-        DragGesture(minimumDistance: 3, coordinateSpace: .global)
+    private func previewDragGesture(for window: WindowInfo) -> AnyGesture<DragGesture.Value> {
+        AnyGesture(DragGesture(minimumDistance: 3, coordinateSpace: .global)
             .onChanged { value in
                 updatePreviewDrag(
                     for: window,
@@ -906,7 +906,7 @@ struct WindowPreviewHoverContainer: View {
             }
             .onEnded { _ in
                 finishPreviewDrag(for: window, at: NSEvent.mouseLocation)
-            }
+            })
     }
 
     private func cancelPreviewDrag(token: UUID? = nil) {
@@ -2224,10 +2224,10 @@ struct WindowPreviewHoverContainer: View {
                     currentSpaceNumbers: currentSpaceNumbers,
                     spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo),
                     isChecked: previewStateCoordinator.selection.checkedWindows.membership.contains(PreviewWindowIdentity(windowInfo)),
-                    dragSelection: appearance.enableWindowDragTiling && !mockPreviewActive ? previewStateCoordinator.selection : nil
+                    dragSelection: appearance.enableWindowDragTiling && !mockPreviewActive ? previewStateCoordinator.selection : nil,
+                    previewBodyDrag: mockPreviewActive || windowInfo.isWindowlessApp ? nil : previewDragGesture(for: windowInfo)
                 )
                 .equatable()
-                .gesture(previewDragGesture(for: windowInfo))
             case .regular:
                 WindowPreview(
                     windowInfo: windowInfo,
@@ -2251,10 +2251,10 @@ struct WindowPreviewHoverContainer: View {
                     currentSpaceNumbers: currentSpaceNumbers,
                     spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo),
                     isChecked: previewStateCoordinator.selection.checkedWindows.membership.contains(PreviewWindowIdentity(windowInfo)),
-                    dragSelection: appearance.enableWindowDragTiling && !mockPreviewActive ? previewStateCoordinator.selection : nil
+                    dragSelection: appearance.enableWindowDragTiling && !mockPreviewActive ? previewStateCoordinator.selection : nil,
+                    previewBodyDrag: mockPreviewActive || windowInfo.isWindowlessApp ? nil : previewDragGesture(for: windowInfo)
                 )
                 .equatable()
-                .gesture(previewDragGesture(for: windowInfo))
             }
         } else {
             EmptyView()

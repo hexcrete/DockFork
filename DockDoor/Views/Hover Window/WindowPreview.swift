@@ -1289,6 +1289,7 @@ struct WindowPreview: View, Equatable {
     var spaceNumber: Int? = nil
     var isChecked = false
     var dragSelection: SwitcherSelectionState? = nil
+    var previewBodyDrag: AnyGesture<DragGesture.Value>? = nil
 
     @State private var isHoveringOverDockPeekPreview = false
     @State private var isHoveringOverWindowSwitcherPreview = false
@@ -1714,6 +1715,8 @@ struct WindowPreview: View, Equatable {
             windowSwitcherActive: windowSwitcherActive
         )
         .opacity(isSelected || isChecked ? 1.0 : appearance.unselectedContentOpacity)
+        .contentShape(Rectangle())
+        .gesture(skeletonMode ? nil : previewBodyDrag)
     }
 
     private var spaceBadgeAlignment: Alignment {

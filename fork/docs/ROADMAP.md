@@ -1,5 +1,15 @@
 # DockFork Roadmap
 
+## Preview Input and Range Selection
+
+October 20 approved sequence, with manual verification before reviewing/committing each stage or proceeding:
+
+1. Body-only window dragging, excluding interactive controls in regular/Compact Dock, Cmd+Tab and Window Switcher cards. Initial user testing found Compact Mode's empty body was not draggable; replace per-content gestures with one background surface above the chrome and beneath controls. All thirteen regression suites pass; a native SwiftUI helper verifies material layering, empty body/padding, control exclusion and normal clicks. Corrected signed Debug, installed signature/binaries/source and running-path checks pass after an exact-path launch retry. The user reports the corrected behavior working; final review found no blocking issue and commit is authorized. Existing drag execution and layout are retained.
+2. One action execution per physical key press for preview actions and Space commands, preserving navigation/search repeat. Not started.
+3. Additive Shift-checkbox ranges, reversible checkbox sweeps across previews and held-selection-key arrow ranges. Reuse ordered selection, stable identities and current grid/scroll geometry; preserve session ownership and existing selection settings. Not started.
+
+No new settings, event taps, dependencies or action-execution pipeline. Spaces Bar stays deferred.
+
 October 20 windowless-transition polish, committed as `1b6cd4b3` after final review and user authorization, passed initial user verification: same-count placeholder/real-window swaps resize the panel; Dock/Cmd+Tab headers hide for compact-style placeholder-only lists, full-size placeholders retain enabled headers. Both styles use shared header visibility/reservations and the selection-summary opacity transition. Frame requests coalesce after row publication. Verify both transition directions, all header styles, regular/Compact layouts and full-size placeholders On/Off for broader visual coverage. No release build/publication is included.
 
 All thirteen regression suites, SwiftFormat/diff checks and the signed development build/relaunch pass. Installed signature/debug-library, built-source correspondence and exact running path are verified. The final full-size-header refinement has production-predicate coverage and user authorization to commit; exhaustive native visual tests remain pending. No settings or application identity were changed.

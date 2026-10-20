@@ -34,6 +34,7 @@ struct WindowPreviewCompact: View, Equatable {
     var spaceNumber: Int? = nil
     var isChecked = false
     var dragSelection: SwitcherSelectionState? = nil
+    var previewBodyDrag: AnyGesture<DragGesture.Value>? = nil
 
     @State private var isHovering = false
     @State private var isHoveringIcon = false
@@ -196,6 +197,13 @@ struct WindowPreviewCompact: View, Equatable {
             .padding(.vertical, 8)
             .frame(width: rowWidth, height: appearance.compactRowHeight(hasWindowStateIndicator: hasWindowStateIndicator), alignment: .leading)
             .clipShape(CompactRowContentClip(trailingOverflow: max(0, -controlsTrailingInset)))
+            // Keep body hits behind controls but in front of the decorative chrome.
+            .background {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .gesture(previewBodyDrag)
+                    .padding(.horizontal, -CardRadius.innerPadding)
+            }
             .previewCardChrome(
                 uniformCardRadius: uniformCardRadius,
                 paddingMultiplier: appearance.globalPaddingMultiplier,
@@ -288,6 +296,7 @@ struct WindowPreviewCompact: View, Equatable {
                 badgeScale: appearance.appIconBadgeScale,
                 mockPreviewActive: mockPreviewActive
             )
+            .allowsHitTesting(false)
             .overlay {
                 if stage == .combined {
                     overflowButton(stage, circular: true)
@@ -364,10 +373,12 @@ struct WindowPreviewCompact: View, Equatable {
                             }
                         }
                     }
+                    .allowsHitTesting(false)
                 }
 
                 if showsStateLabel, let state = secondaryStateIndicator {
                     stateText(state).fixedSize()
+                        .allowsHitTesting(false)
                 }
 
                 Spacer(minLength: (hasTitle || showsStateLabel) && hasControls ? controlElementSpacing : 0)
