@@ -1913,7 +1913,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             (revealsWindows && admittedTargets.contains { WindowUtil.activationMaySwitchSpaces(for: $0) }))
         var suppressionToken: UUID?
         if needsTransition {
-            feedback?.prepareForSpaceTransition()
             hideWindow()
         }
         windowSwitcherCoordinator.consumeWindowlessSelection(in: admittedTargets)
@@ -1927,7 +1926,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 }
                 if switchesSpaces, !preservePreviews {
                     needsTransition = true
-                    feedback?.prepareForSpaceTransition()
                     hideWindow()
                 }
                 return true

@@ -58,7 +58,6 @@ final class WindowGestureExecutor {
             if action == .minimize { await minimize(window, feedback: feedback) }
             else if action.positionRect != nil { await perform(action, on: window, feedback: feedback) }
             else if action.usesConfirmedSingleWindowAction(on: window) {
-                if action == .toggleFullScreen { feedback?.prepareForSpaceTransition() }
                 let result = await WindowUtil.performPreviewBatchAction(action, on: [window], allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback)
                 if !Task.isCancelled, !result.succeeded.isEmpty,
                    action == .openAppWindow || (action == .hide && window.isHidden)
@@ -127,7 +126,7 @@ final class WindowGestureExecutor {
     }
 
     private func minimize(_ window: WindowInfo, feedback: ActionFeedbackHandle?) async {
-        let succeeded = await WindowUtil.minimizeWindowExitingFullscreen(window, feedback: feedback)
+        let succeeded = await WindowUtil.minimizeWindowExitingFullscreen(window)
         feedback?.finish(PreviewWindowIdentity(window), Task.isCancelled ? .cancelled : (succeeded ? .completed : .failed))
         if !succeeded {
             DebugLogger.log("WindowGestures", details: "Minimize failed for PID \(window.app.processIdentifier), window \(window.id)")

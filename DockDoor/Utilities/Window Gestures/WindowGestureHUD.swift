@@ -386,11 +386,6 @@ struct ActionFeedbackHandle: Sendable {
         { completed, total in report { $0.updateCloseProgress(identity, completed: completed, total: total) } }
     }
 
-    func prepareForSpaceTransition() {
-        // AX can confirm before the Space change; missing notifications must not strand feedback.
-        report { $0.deferResultDismissal(for: ActionPopupTiming.initiated * 2) }
-    }
-
     func finish(_ identity: PreviewWindowIdentity, _ outcome: ActionFeedbackOutcome) {
         let needsDelivery = progress.append(identity, outcome)
         if needsDelivery || Thread.isMainThread { report { _ in } }
@@ -567,19 +562,15 @@ final class ActionFeedbackController {
     private var spinnerVisible = false
     private var aggregateHasShownSpinner = false
     private var handingOff = false
-    private var spaceTransitionPending = false
-    private var aggregateExpired = false
     private var aggregate: ActionPopupPanel?
     private var outgoing: [ActionPopupPanel] = []
     private var spinnerTask: Task<Void, Never>?
     private var resultTasks: [PreviewWindowIdentity: Task<Void, Never>] = [:]
     private var aggregateTask: Task<Void, Never>?
-    private var spaceTransitionTask: Task<Void, Never>?
     private var localMonitor: Any?
     private var globalMonitor: Any?
     private var observations: [NSObjectProtocol] = []
     private var settingsObservation: Defaults.Observation?
-    private var workspaceObservation: NSObjectProtocol?
 
     static func gesture(_ content: WindowGestureHUD.Content, identities: [PreviewWindowIdentity], cursor: CGPoint) -> ActionFeedbackHandle? {
         guard Defaults[.enableWindowGestures] else { return nil }
@@ -602,18 +593,15 @@ final class ActionFeedbackController {
         let feedbackTargets = invalidAttempt ? windows : targets
         let feedback = start(title: title ?? action.feedbackTitle(for: feedbackTargets[0], batchTargets: windows.count > 1 ? windows : nil), symbol: action.menuIcon(for: feedbackTargets[0], batchTargets: feedbackTargets.count > 1 ? feedbackTargets : nil),
                              identities: feedbackTargets.map(PreviewWindowIdentity.init), keyboard: keyboard || origin == .keyboard, usePreviews: usePreviews, perApp: action == .hide)
-        if action == .toggleFullScreen, !invalidAttempt { feedback.prepareForSpaceTransition() }
         if invalidAttempt { feedback.finishRemaining(.failed) }
         return feedback
     }
 
     static func space(_ number: Int, window: WindowInfo? = nil, keyboard: Bool, usePreviews: Bool = true) -> ActionFeedbackHandle? {
         guard Defaults[.enableActionFeedback], origin != .activation else { return nil }
-        let feedback = start(title: window == nil ? String(localized: "Switch to Space \(number)") : String(localized: "Move to Space \(number)"),
-                             symbol: "square.grid.2x2", identities: [window.map(PreviewWindowIdentity.init) ?? PreviewWindowIdentity(pid: 0, windowID: 0)],
-                             keyboard: keyboard || origin == .keyboard, usePreviews: usePreviews && window != nil)
-        if window == nil { feedback.prepareForSpaceTransition() }
-        return feedback
+        return start(title: window == nil ? String(localized: "Switch to Space \(number)") : String(localized: "Move to Space \(number)"),
+                     symbol: "square.grid.2x2", identities: [window.map(PreviewWindowIdentity.init) ?? PreviewWindowIdentity(pid: 0, windowID: 0)],
+                     keyboard: keyboard || origin == .keyboard, usePreviews: usePreviews && window != nil)
     }
 
     static func mouseFollowedFocus() {
@@ -653,12 +641,6 @@ final class ActionFeedbackController {
     }
 
     private func start() {
-        workspaceObservation = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated {
-                self?.deferResultDismissal(for: ActionPopupTiming.result)
-                if self?.spaceTransitionPending == true { self?.consolidate() }
-            }
-        }
         settingsObservation = Defaults.observe(gestureCursor == nil ? .enableActionFeedback : .enableWindowGestures, options: []) { [weak self] change in
             guard !change.newValue else { return }
             DispatchQueue.main.async { self?.stop() }
@@ -715,11 +697,10 @@ final class ActionFeedbackController {
         scheduleResultDismissal(affected)
     }
 
-    private func scheduleResultDismissal(_ identities: [PreviewWindowIdentity]? = nil) {
-        guard !spaceTransitionPending else { return }
+    private func scheduleResultDismissal(_ identities: [PreviewWindowIdentity]) {
         if cursorMode { scheduleAggregateHide() }
         else {
-            for identity in identities ?? order where entries[identity]?.expired == false && resultTasks[identity] == nil {
+            for identity in identities where entries[identity]?.expired == false && resultTasks[identity] == nil {
                 guard let outcome = entries[identity]?.outcome else { continue }
                 let duration = ActionPopupTiming.resultDuration(failed: outcome == .failed)
                 resultTasks[identity] = Task { @MainActor [weak self] in
@@ -734,27 +715,6 @@ final class ActionFeedbackController {
                 }
             }
         }
-    }
-
-    fileprivate func deferResultDismissal(for duration: TimeInterval) {
-        guard Self.existing === self, !aggregateExpired, entries.values.contains(where: { !$0.expired }) else { return }
-        spaceTransitionPending = true
-        aggregateTask?.cancel()
-        aggregateTask = nil
-        for task in resultTasks.values {
-            task.cancel()
-        }
-        resultTasks.removeAll()
-        spaceTransitionTask?.cancel()
-        spaceTransitionTask = Task { @MainActor [weak self] in
-            do { try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000)) } catch { return }
-            guard let self, Self.existing === self else { return }
-            spaceTransitionTask = nil
-            spaceTransitionPending = false
-            render()
-            scheduleResultDismissal()
-        }
-        render()
     }
 
     func refreshAnchors() {
@@ -842,12 +802,11 @@ final class ActionFeedbackController {
     }
 
     private func scheduleAggregateHide() {
-        guard cursorMode, !handingOff, !spaceTransitionPending, entries.values.allSatisfy({ $0.outcome != nil }), aggregateTask == nil else { return }
+        guard cursorMode, !handingOff, entries.values.allSatisfy({ $0.outcome != nil }), aggregateTask == nil else { return }
         let duration = ActionPopupTiming.resultDuration(failed: entries.values.contains { $0.outcome == .failed })
         aggregateTask = Task { @MainActor [weak self] in
             do { try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000)) } catch { return }
             guard let self else { return }
-            aggregateExpired = true
             aggregate?.hide(closeAfter: true) { [weak self] in self?.stop() }
         }
     }
@@ -867,7 +826,6 @@ final class ActionFeedbackController {
         Self.existing = nil
         spinnerTask?.cancel()
         aggregateTask?.cancel()
-        spaceTransitionTask?.cancel()
         for task in resultTasks.values {
             task.cancel()
         }
@@ -880,8 +838,6 @@ final class ActionFeedbackController {
             NotificationCenter.default.removeObserver(observer)
         }
         observations.removeAll()
-        if let workspaceObservation { NSWorkspace.shared.notificationCenter.removeObserver(workspaceObservation) }
-        workspaceObservation = nil
         settingsObservation?.invalidate()
         settingsObservation = nil
         aggregate?.close()

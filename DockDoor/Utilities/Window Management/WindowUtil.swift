@@ -4447,13 +4447,12 @@ extension WindowUtil {
         }
     }
 
-    static func minimizeWindowExitingFullscreen(_ window: WindowInfo, feedback: ActionFeedbackHandle? = nil) async -> Bool {
+    static func minimizeWindowExitingFullscreen(_ window: WindowInfo) async -> Bool {
         if WindowActionRequest.current == nil {
-            return await WindowActionRequest.run([PreviewWindowIdentity(window)]) { _ in await minimizeWindowExitingFullscreen(window, feedback: feedback) } ?? false
+            return await WindowActionRequest.run([PreviewWindowIdentity(window)]) { _ in await minimizeWindowExitingFullscreen(window) } ?? false
         }
         guard !window.isWindowlessApp, !window.app.isTerminated, !Task.isCancelled else { return false }
         if await window.readFullscreenState() == true {
-            feedback?.prepareForSpaceTransition()
             if await !changeFullscreenConfirmed(window) { return false }
         }
         guard !Task.isCancelled else { return false }

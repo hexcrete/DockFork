@@ -23,6 +23,11 @@ abort 'Removed consolidation setting remains wired' if [source, keys, view, cata
 abort 'Consolidation must only fade' if source.include?('towards destination:')
 abort 'Feedback default must remain off' unless keys.include?('Key<Bool>("enableActionFeedback", default: false)')
 abort 'Mouse follows focus feedback must default off' unless keys.include?('Key<Bool>("showMouseFollowsFocusFeedback", default: false)')
+abort 'Space-transition timing workaround must stay removed' if %w[prepareForSpaceTransition deferResultDismissal spaceTransitionTask spaceTransitionPending workspaceObservation activeSpaceDidChangeNotification].any? { |name| source.include?(name) }
+%w[Utilities/Window\ Gestures/WindowGestureExecutor.swift Utilities/Window\ Management/WindowUtil.swift Views/Hover\ Window/Shared\ Components/SharedPreviewWindowCoordinator.swift].each do |path|
+  abort "Leftover feedback transition hook in #{path}" if File.read("#{ROOT}/DockDoor/#{path}").include?('prepareForSpaceTransition')
+end
+abort 'Native all-Spaces popup behavior must remain' unless source.include?('.canJoinAllSpaces, .fullScreenAuxiliary')
 abort 'Unexpected timing change' unless source.include?('initiated: TimeInterval = 0.7') && source.include?('result: TimeInterval = 0.35')
 abort 'Cursor motion must not measure popup contents' if source[source.index('    func followCursor()')...source.index('    private func targetFrame')].include?('fittingSize')
 abort 'Popup must not slide or animate its frame' unless source.include?('animationBehavior = .none') && !source[source.index('final class ActionPopupPanel:')...source.index('final class ActionFeedbackController')].include?('animator().setFrame')
@@ -92,21 +97,6 @@ final class Grid {
  var missing = Set<PreviewWindowIdentity>()
  func feedbackFrame(for id: PreviewWindowIdentity) -> CGRect? { missing.contains(id) ? nil : CGRect(x: 100, y: 100, width: 200, height: 150) }
 }
-final class TestWorkspace {
- static let shared = TestWorkspace()
- static let activeSpaceDidChangeNotification = Notification.Name("TestSpaceChanged")
- let notificationCenter = TestWorkspaceCenter()
-}
-final class TestWorkspaceCenter {
- private let center = NotificationCenter()
- var count = 0
- func addObserver(forName name: Notification.Name?, object: Any?, queue: OperationQueue?, using block: @escaping (Notification) -> Void) -> NSObjectProtocol {
-  count += 1
-  return center.addObserver(forName: name, object: object, queue: queue, using: block)
- }
- func removeObserver(_ observer: NSObjectProtocol) { count -= 1; center.removeObserver(observer) }
- func changeSpace() { center.post(name: TestWorkspace.activeSpaceDidChangeNotification, object: nil) }
-}
 final class SharedPreviewWindowCoordinator: NSObject {
  static var activeInstance: SharedPreviewWindowCoordinator? = SharedPreviewWindowCoordinator()
  var isVisible = true
@@ -154,7 +144,7 @@ stubs.sub!('/* Feedback title */', actions[actions.index('    func feedbackTitle
 stubs.sub!('/* Menu icon */', actions[actions.index('    func menuIcon(')...actions.rindex("\n}")])
 position = source[source.index('enum ActionFeedbackPosition:')...source.index('enum ActionFeedbackOutcome:')]
 handle = source[source.index('enum ActionFeedbackOutcome:')...source.index('@MainActor\nfinal class ActionPopupPanel'.gsub('\\n', "\n"))]
-controller = source[source.index('@MainActor\nfinal class ActionFeedbackController'.gsub('\\n', "\n"))..].gsub('NSEvent.', 'TestEvent.').gsub('NSWorkspace.', 'TestWorkspace.')
+controller = source[source.index('@MainActor\nfinal class ActionFeedbackController'.gsub('\\n', "\n"))..].gsub('NSEvent.', 'TestEvent.')
 timing = source[source.index('enum ActionPopupTiming {')...source.index('enum ActionFeedbackPosition:')]
 # Faster presentation-only clock in the fixture. The production numeric constants are checked above.
 timing = timing.gsub('= 0.7', '= 0.07').gsub('= 0.35', '= 0.035').gsub('= 0.16', '= 0.016').gsub('= 0.14', '= 0.014')
@@ -163,7 +153,7 @@ extension ActionFeedbackController {
  var snapshot: (Bool, Bool, Int, Int, WindowGestureHUD.Content?) { (cursorMode, handingOff, entries.values.filter { $0.outcome != nil }.count, order.count, aggregate?.value) }
  var busyCount: Int { entries.values.filter { $0.panel?.value?.isBusy == true }.count }
  var previewContents: [WindowGestureHUD.Content] { entries.values.compactMap { $0.panel?.value } }
- var isWaitingForSpace: Bool { spaceTransitionPending }
+ var hasResultDeadline: Bool { aggregateTask != nil || !resultTasks.isEmpty }
  var cursorAnchor: CGPoint? { aggregate?.cursor }
 }
 @main struct Checks {
@@ -177,7 +167,6 @@ extension ActionFeedbackController {
  }
  @MainActor static func waitForCleanup() async {
   await waitUntil { ActionFeedbackController.existing == nil && ActionPopupPanel.live == 0 }
-  precondition(TestWorkspace.shared.notificationCenter.count == 0)
  }
  @MainActor static func main() async {
   let windows = [WindowInfo(id: 1), WindowInfo(id: 2)]
@@ -419,70 +408,41 @@ precondition(ActionPopupPanel.creates == createsBeforeInvalid && TestEvent.monit
 Defaults.enabled = true
 print("PASS invalid single-attempt failures without enabling controls, fullscreen/windowless batch exclusions and disabled zero resources")
 
-// Fullscreen AX confirmation may arrive before the native Space-change notification.
+// Fullscreen and Space feedback use ordinary result timing, not transition guesses.
 for position in [ActionFeedbackPosition.cursor, .preview] {
  Defaults.position = position
  for window in [windows[0], full] {
   let fullscreenFeedback = ActionFeedbackController.begin(.toggleFullScreen, windows: [window])!
   fullscreenFeedback.finishRemaining(.completed)
-  await pause(50) // Longer than the ordinary 35ms fixture result hold.
-  precondition(ActionFeedbackController.existing!.isWaitingForSpace)
-  TestWorkspace.shared.notificationCenter.changeSpace()
-  precondition(ActionFeedbackController.existing!.snapshot.0)
-  await waitUntil { ActionFeedbackController.existing?.isWaitingForSpace == false }
-  precondition(ActionFeedbackController.existing!.snapshot.4!.isSuccess && !ActionFeedbackController.existing!.snapshot.4!.showsSuccessSymbol)
-  await pause(15)
-  precondition(ActionFeedbackController.existing != nil, "Result hold did not restart after Space settling")
+  precondition(ActionFeedbackController.existing!.hasResultDeadline, "Fullscreen result waits on a guessed transition")
   await waitForCleanup()
  }
 }
-// Missing notifications have a bounded fallback; neither pending operations nor their spinner deadline wait on it.
 Defaults.position = .cursor
-let fallback = ActionFeedbackController.begin(.toggleFullScreen, windows: [windows[0]])!
-await waitUntil { ActionFeedbackController.existing?.snapshot.4?.isBusy == true }
-fallback.finishRemaining(.completed)
-await waitForCleanup()
 let navigation = ActionFeedbackController.space(2, keyboard: true)!
-TestWorkspace.shared.notificationCenter.changeSpace()
-await pause(20)
-TestWorkspace.shared.notificationCenter.changeSpace()
-await pause(20)
-precondition(ActionFeedbackController.existing!.isWaitingForSpace)
+await waitUntil { ActionFeedbackController.existing?.snapshot.4?.isBusy == true }
 navigation.finishRemaining(.completed)
-await waitUntil { ActionFeedbackController.existing?.isWaitingForSpace == false }
+precondition(ActionFeedbackController.existing!.hasResultDeadline && ActionFeedbackController.existing!.snapshot.4!.showsSuccessSymbol)
 await waitForCleanup()
-// Observe actual transitions for other actions without delaying their ordinary fast path.
+// Actual preview removal still consolidates pending feedback without changing operation lifetime.
 Defaults.position = .preview
-let changingSpace = ActionFeedbackController.begin(.minimize, windows: windows)!
-changingSpace.finish(first, .completed)
-await pause(45)
-precondition(ActionFeedbackController.existing!.entries[first]!.expired)
-TestWorkspace.shared.notificationCenter.changeSpace()
-precondition(ActionFeedbackController.existing!.snapshot.0 && ActionFeedbackController.existing!.isWaitingForSpace)
-changingSpace.finish(second, .failed)
-await waitUntil { ActionFeedbackController.existing?.isWaitingForSpace == false }
-precondition(ActionFeedbackController.existing!.snapshot.4!.isWarning)
-await waitForCleanup()
-// Expired cursor results must not be resurrected during their outgoing fade.
-Defaults.position = .cursor
-let expiring = ActionFeedbackController.begin(.minimize, windows: [windows[0]])!
-expiring.finishRemaining(.completed)
-await pause(40)
-TestWorkspace.shared.notificationCenter.changeSpace()
+let disappearing = ActionFeedbackController.begin(.toggleFullScreen, windows: [windows[0]])!
+ActionFeedbackController.existing!.previewWillDisappear(SharedPreviewWindowCoordinator.activeInstance!)
+precondition(ActionFeedbackController.existing!.snapshot.0)
+disappearing.finishRemaining(.completed)
 await waitForCleanup()
 let abandoned = ActionFeedbackController.begin(.toggleFullScreen, windows: [windows[0]])!
 let newAction = ActionFeedbackController.begin(.minimize, windows: [windows[0]])!
 abandoned.finishRemaining(.completed)
-precondition(!ActionFeedbackController.existing!.isWaitingForSpace)
+precondition(ActionFeedbackController.existing!.entries[first]!.outcome == nil)
 newAction.finishRemaining(.completed)
 await waitForCleanup()
 let disabling = ActionFeedbackController.begin(.toggleFullScreen, windows: [windows[0]])!
 Defaults.disable(); await pause(10)
-TestWorkspace.shared.notificationCenter.changeSpace()
 disabling.finishRemaining(.completed)
-precondition(ActionFeedbackController.existing == nil && TestWorkspace.shared.notificationCenter.count == 0)
+precondition(ActionFeedbackController.existing == nil)
 Defaults.enabled = true
-print("PASS Space-transition result survival/restart, fullscreen entry/exit, bounded fallback, pending spinner, repeated notifications, expiry/replacement and observer cleanup")
+print("PASS ordinary fullscreen/Space result deadlines, pending spinner, actual preview-removal consolidation, replacement and disabled cleanup without transition resources")
 
 // Committed native gestures use the shared presenter, independently of general action feedback.
 Defaults.enabled = false
@@ -1177,7 +1137,6 @@ final class ActionFeedbackHandle: @unchecked Sendable {
  let lock=NSLock();var targets:[PreviewWindowIdentity]=[];var states:[PreviewWindowIdentity:State]=[:]
  var snapshot:[PreviewWindowIdentity:State] {lock.withLock {states}}
  func setTargets(_ windows:[WindowInfo]) {lock.withLock {targets=windows.map(PreviewWindowIdentity.init)}}
- func prepareForSpaceTransition() {}
  var confirmedProgress: @Sendable (PreviewWindowIdentity,Bool)->Void {{id,success in self.finish(id,success ? .completed : .failed)}}
  func finish(_ id:PreviewWindowIdentity,_ state:State) {lock.withLock {if states[id]==nil {states[id]=state}}}
  func finishRemaining(_ state:State) {lock.withLock {for id in targets where states[id]==nil {states[id]=state}}}
@@ -1236,8 +1195,8 @@ enum WindowUtil {
  static func filterWindowsByCurrentSpace(_ windows:[WindowInfo])->[WindowInfo] {windows}
  static func postCommandShortcut(_ code:CGKeyCode,to pid:Int32) {}
  static func setHiddenStateConfirmed(for app:TestApp,isHidden:Bool) async->Bool {true}
- static func minimizeWindowExitingFullscreen(_ window:WindowInfo,feedback:ActionFeedbackHandle?) async->Bool {
-  if WindowActionRequest.current==nil {return await WindowActionRequest.run([PreviewWindowIdentity(window)]) {_ in await minimizeWindowExitingFullscreen(window,feedback:feedback)} ?? false}
+ static func minimizeWindowExitingFullscreen(_ window:WindowInfo) async->Bool {
+  if WindowActionRequest.current==nil {return await WindowActionRequest.run([PreviewWindowIdentity(window)]) {_ in await minimizeWindowExitingFullscreen(window)} ?? false}
   if let gate=Test.minimizeGate {await gate.wait()};return !Task.isCancelled && !Test.failures.contains(window.id)
  }
  static func setMinimizedWindowsConfirmed(_ windows:[WindowInfo],isMinimized:Bool,progress:(@Sendable (PreviewWindowIdentity,Bool)->Void)?) async->[WindowInfo] {
