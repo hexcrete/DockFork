@@ -1,6 +1,6 @@
 # DockFork 0.3.0 Prerelease
 
-Status: Publication explicitly authorized October 20, 2026; upload and publication verification pending. Exact candidate source: `6d3eb4707c7db4446c78786e8df6ceec279be7b2`. Publish the existing audited assets without rebuilding. Manual candidate installation/import and browser-quarantine testing remain unreported; authorization is not evidence that those tests passed. Screenshots and recordings are deferred, not a release gate.
+Status: [published as a prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) October 20, 2026, from exact audited source `6d3eb4707c7db4446c78786e8df6ceec279be7b2`. Published at 2026-10-20T20:15:17Z with explicit user authorization and no rebuild. Ten uploaded assets, the remote tag, approved notes, prerelease state and anonymous public downloads are verified. Manual candidate installation/import and browser-quarantine testing remain unreported. Screenshots and recordings are deferred.
 
 Use [the approved public release body](RELEASE_BODY_0.3.0.md) for the GitHub release description. This file retains detailed change, audit and handoff records; do not paste it wholesale into the release description.
 
@@ -76,6 +76,8 @@ Report problems through [the fork's Issues page](https://github.com/hexcrete/Doc
 
 ## Preparation and Publication Gate
 
+Historical preparation requirements follow. The Publication Record below supersedes earlier authorization/status statements, not the remaining testing gaps.
+
 - Upstream website-only merge `d50d6882` is committed. Stable 1.41.0 and its exact included release tag were rechecked against GitHub and fetched Git history.
 - The supplied export is sanitized without modifying its source file or importing it into live preferences. The three new feedback preferences are enabled/configured as supplied. Shortcut actions, keys and order are preserved.
 - All sixteen regression suites, 19 version-metadata cases and production build-cleanup checks pass. The unchanged native Compact Mode title hit test failed once and passed on retry; no assertion was weakened. Diff and packaging-script syntax checks pass. Existing feature-specific user reports do not replace Release-candidate testing.
@@ -116,3 +118,14 @@ All sixteen regression suites and both packaging suites pass again. The first sa
 No tracked temporary logs, coverage files, rejected patches, scratch worksheets or generated build outputs were found. Removed feedback consolidation/Space-transition experiments have no runtime hooks or preferences. Added declaration-reference checks found no unreferenced named functions or types; this is not a whole-program dead-code proof. Regression fixtures, historical release records and the ignored installed development app/current Release package are intentional, not cleanup candidates.
 
 One non-blocking source leftover remains: the synchronous `WindowAction.perform` signature still accepts the unused `hiddenStateBeforeAction` argument after Hide moved to the confirmed executor. Its two callers also use that local snapshot for other presentation logic, so those locals must not be removed wholesale. Defer the unused-argument cleanup rather than change the audited candidate for a no-behavior refactor. Manual candidate upgrade/import tests, browser quarantine and broader display/OS coverage remain pending.
+
+## Publication Record
+
+- Release: [DockFork 0.3.0](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0), ID `418828106`, published at `2026-10-20T20:15:17Z`. GitHub reports `draft: false` and `prerelease: true`; it was not marked as a stable latest release.
+- Tag: `v0.3.0`, resolving to `6d3eb4707c7db4446c78786e8df6ceec279be7b2`. Later documentation commits are intentionally not the app/source-archive target.
+- The approved [public release body](RELEASE_BODY_0.3.0.md), not this internal record, is the published description.
+- The 257-assertion artifact audit and 477-file privacy-marker scan pass again before upload, with zero configured private markers. All ten uploaded asset names, sizes and GitHub SHA-256 digests match the reviewed package.
+- All ten assets downloaded from the draft match byte-for-byte. After publication, all ten assets downloaded anonymously through their public URLs also match, including the checksum list. The public release page is reachable. This is command-line download verification, not a browser-quarantine/Gatekeeper installation test.
+- ZIP SHA-256 remains `c4d3a78a0a12a5de6854f9afd574ceb1032eed6ab0e6a3ad1b8d5583fb1fbe11`; optional preset SHA-256 remains `df2d59b96290764f6ae19cfc38af134aeca56243307f70e041081e900ed1e1e2`.
+- Only the ten allowlisted assets were uploaded. No build logs, development app, signing material, private audit files or unlisted outputs were attached. Previous releases and upstream are unchanged.
+- No application rebuild, installation, launch, live settings import or media capture accompanied publication. Manual candidate upgrade/import, browser quarantine, older OSes and broader display/app coverage remain unverified. User authorization is not treated as a report of testing.

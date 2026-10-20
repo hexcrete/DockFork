@@ -1,8 +1,8 @@
 # DockFork Roadmap
 
-## 0.3.0 Prerelease Preparation
+## 0.3.0 Post-release Testing
 
-The user authorized the website-only upstream merge, refreshed sanitized preset and Release-candidate preparation October 20. Incorporate upstream through `77e4771`, keeping stable base 1.41.0. Action feedback/ownership/responsiveness, explicit Quit, range selection, native-tab and Wine changes are completed development work, not new prerequisites to implement. Candidate source `6d3eb470` is built and audited: sixteen suites, version/cleanup checks, 257 artifact assertions and the 477-file privacy-marker scan pass, with one retry of the unchanged native hit test. Follow the [0.3.0 gate](RELEASE_NOTES_0.3.0.md#preparation-and-publication-gate) for manual candidate testing and separate publication approval. No Release installation/import or media capture occurred. Screenshots and recordings remain deferred. Published 0.2.0 assets remain unchanged.
+[0.3.0 is published as a prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) from unchanged audited source `6d3eb470`, with explicit user authorization. Action feedback/ownership/responsiveness, explicit Quit, range selection, native-tab and Wine work are shipped development changes, not new prerequisites to implement. The release retains stable base 1.41.0 plus upstream history through `77e4771`. All ten uploaded assets and anonymous public downloads match the audited package. No Release installation, settings import or media capture accompanied publication. Next work is manual upgrade/import and browser-quarantine/Gatekeeper testing, broader OS/display/app coverage and optional screenshots/recordings. See the [publication record](RELEASE_NOTES_0.3.0.md#publication-record). Previous releases remain unchanged.
 
 ## Wine and CrossOver Action Support
 
