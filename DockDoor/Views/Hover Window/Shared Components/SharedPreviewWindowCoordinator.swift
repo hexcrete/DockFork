@@ -2097,7 +2097,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         apps: [NSRunningApplication],
         preservePreviews: Bool = false, feedback: ActionFeedbackHandle? = nil
     ) -> Bool {
-        guard action == .close || action.isQuitAction else { return false }
+        guard action == .close || action == .minimize || action.isQuitAction else { return false }
 
         var seenPIDs = Set<pid_t>()
         let targetApps = apps.filter {
@@ -2106,6 +2106,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         guard !targetApps.isEmpty else { return false }
 
         if action == .close { return closeCmdTabHighlightedApps(targetApps, preservePreviews: preservePreviews) }
+        if action == .minimize {
+            let targets = targetApps.flatMap { cmdTabActionWindows(for: $0) }
+            guard let initiator = targets.first else { return false }
+            return performPreviewBatchAction(.minimizeAllWindows, on: targets, initiator: initiator,
+                                             preservePreviews: preservePreviews, keyboard: true, usePreviews: false)
+        }
 
         let targets = targetApps.map { ($0, WindowInfo.windowlessEntry(for: $0)) }
         let keepPreviewsOpen = preservePreviews || WindowAction.PostActionCategory.closing.keepPreviewsOpen
@@ -2169,12 +2175,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @MainActor
+    private func cmdTabActionWindows(for app: NSRunningApplication) -> [WindowInfo] {
+        let rows = windowSwitcherCoordinator.windows.filter { $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp }
+        return rows.isEmpty ? WindowUtil.readCachedWindows(for: app.processIdentifier).filter { !$0.isWindowlessApp } : rows
+    }
+
+    @MainActor
     private func closeCmdTabHighlightedApps(_ apps: [NSRunningApplication], preservePreviews: Bool) -> Bool {
-        let preferredWindows = windowSwitcherCoordinator.windows
         let requests = apps.map { app in
-            let appRows = preferredWindows.filter { $0.app.processIdentifier == app.processIdentifier && !$0.isWindowlessApp }
-            let windows = appRows.isEmpty ? WindowUtil.readCachedWindows(for: app.processIdentifier).filter { !$0.isWindowlessApp } : appRows
-            return (app: app, entry: WindowInfo.windowlessEntry(for: app), windows: windows)
+            (app: app, entry: WindowInfo.windowlessEntry(for: app), windows: cmdTabActionWindows(for: app))
         }
         let feedbackTargets = requests.flatMap(\.windows)
         let feedback = ActionFeedbackController.begin(.closeAllWindows, windows: feedbackTargets, keyboard: true, usePreviews: false, resolvedTargets: feedbackTargets)

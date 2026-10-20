@@ -131,7 +131,8 @@ enum WindowUtil {
  static var hiddenRequests: [(pid_t, Bool)] = [], minimizedRequests: [Bool] = []
  static var quitOnClose = false
  static var spaceCalls:[Int]=[]
- static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { [] }
+ static var cached: [pid_t: [WindowInfo]] = [:]
+ static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { cached[pid] ?? [] }
  static func shouldQuitAppOnWindowClose(processIdentifier pid: pid_t) -> Bool { quitOnClose }
  static func closeAllWindows(for app: App, preferredWindows: [WindowInfo]? = nil, feedback: ActionFeedbackHandle? = nil) -> Int { 0 }
  static func hasOnlyFullscreenWindows(for app: App) -> Bool { false }
@@ -225,6 +226,18 @@ precondition(superseded.succeeded.isEmpty,"Standalone superseded worker did not 
 let clean=WindowActionOwnership.shared.begin([PreviewWindowIdentity(visible)])
 precondition(clean.admitted.count==1);clean.finish()
 let unsupported=WindowInfo(id:200,app:visibleApp,isFullscreen:true)
+let appMinimize=App(40)
+let restoredMember=WindowInfo(id:400,app:appMinimize), minimizedMember=WindowInfo(id:401,app:appMinimize,isMinimized:true)
+let fullMember=WindowInfo(id:402,app:appMinimize,isFullscreen:true), windowlessMember=WindowInfo(id:0,app:appMinimize,isWindowlessApp:true)
+WindowUtil.cached[40]=[restoredMember,minimizedMember,fullMember,windowlessMember]
+let appGroup=await WindowUtil.performPreviewBatchAction(.minimizeAllWindows,on:[restoredMember])
+precondition(appGroup.succeeded.map(\.id)==[400,401] && appGroup.failed.isEmpty && WindowUtil.minimizedRequests.last==true)
+var nowMinimized=restoredMember;nowMinimized.isMinimized=true
+WindowUtil.cached[40]=[nowMinimized,minimizedMember,fullMember,windowlessMember]
+let restoreAppGroup=await WindowUtil.performPreviewBatchAction(.minimizeAllWindows,on:[nowMinimized])
+precondition(restoreAppGroup.succeeded.map(\.id)==[400,401] && restoreAppGroup.failed.isEmpty && WindowUtil.minimizedRequests.last==false)
+WindowUtil.cached.removeAll()
+print("PASS shared app-level Minimize toggle: cached app expansion, mixed-state minimize, all-minimized restore and fullscreen/windowless exclusions")
 let invalid=await WindowUtil.performPreviewBatchAction(.minimize,on:[unsupported])
 precondition(invalid.failed == [PreviewWindowIdentity(unsupported)],"Unsupported explicit attempt falsely succeeded")
 Defaults.autoFill=true;Defaults.limited=true;Defaults.rows=1;Defaults.columns=1

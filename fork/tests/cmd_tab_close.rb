@@ -1,5 +1,5 @@
 #!/usr/bin/env ruby
-# Exercise the production Cmd+Tab Close dispatcher and executor with inert app/window targets.
+# Exercise the production Cmd+Tab app dispatcher and Close executor with inert targets.
 require 'tmpdir'
 require_relative 'support/action_ownership'
 ROOT = File.expand_path('../..', __dir__)
@@ -16,6 +16,8 @@ def block(source, signature)
 end
 util = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowUtil.swift")
 coordinator = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
+keybinds = File.read("#{ROOT}/DockDoor/Utilities/KeybindHelper.swift")
+abort 'Cmd+Tab Minimize must retain Command routing and focused-preview priority' unless keybinds.include?('let supportsHighlightedAppAction = action == .close || action == .minimize || action.isQuitAction') && keybinds.include?('let highlightedApps = hasSelection ? [] :') && keybinds.include?('if flags.contains(.maskCommand),')
 dispatch = block(coordinator, '    private func closeCmdTabHighlightedApps(')
 abort 'Cmd+Tab Close bypasses async executor' unless dispatch.include?('await WindowUtil.closeWindows(') && !dispatch.include?('action.perform(')
 abort 'Close must snapshot targets and start feedback before dispatch' unless dispatch.index('let requests =') < dispatch.index('let task = WindowActionRequest.$current.withValue') && dispatch.index('ActionFeedbackController.begin') < dispatch.index('let task = WindowActionRequest.$current.withValue')
@@ -100,7 +102,7 @@ final class ActionFeedbackHandle: @unchecked Sendable {
  }
 }
 enum WindowAction {
- case close, closeAllWindows, quit, forceQuit, none
+ case close, closeAllWindows, minimize, minimizeAllWindows, quit, forceQuit, none
  var isQuitAction: Bool { self == .quit || self == .forceQuit }
  var shouldScheduleAppRefresh: Bool { true }
  enum PostActionCategory {
@@ -134,11 +136,18 @@ source += <<~'SWIFT'
  var previewActionTasks: [UUID:(request:WindowActionRequest, task:Task<Void,Never>)] = [:]
  var pendingAction:Task<Void,Never>? {previewBatchToken.flatMap {previewActionTasks[$0]?.task}}
  var isVisible = true, hides = 0, refreshes: [pid_t] = []
+ var minimizeTargets: [WindowInfo] = [], minimizePreserves: Bool?
+ func performPreviewBatchAction(_ action: WindowAction, on targets: [WindowInfo], initiator: WindowInfo, preservePreviews: Bool, keyboard: Bool, usePreviews: Bool) -> Bool {
+  precondition(action == .minimizeAllWindows && keyboard && !usePreviews && targets.first?.id == initiator.id)
+  minimizeTargets = targets; minimizePreserves = preservePreviews
+  return false
+ }
  func hideWindow() { hides += 1; isVisible = false; windowSwitcherCoordinator.windows = [] }
  func scheduleInPlaceActionRefresh(for app: NSRunningApplication) { refreshes.append(app.processIdentifier) }
  func scheduleFailedClosingFocusNotification(action: WindowAction, window: WindowInfo, willQuitOnClose: Bool) {}
 SWIFT
 source += block(coordinator, '    func performActionOnCmdTabHighlightedApps(') + "\n"
+source += block(coordinator, '    private func cmdTabActionWindows(').sub('private func', 'func') + "\n"
 source += dispatch.sub('private func', 'func') + "\n}\n"
 source += <<~'SWIFT'
 @main struct Checks {
@@ -157,6 +166,17 @@ source += <<~'SWIFT'
   terminated.isTerminated = true
   let a1 = window(a, 1), a2 = window(a, 2), hiddenByFilter = window(a, 3), b1 = window(b, 4)
   WindowUtil.cache = [1: [a1, a2, hiddenByFilter], 2: [b1]]
+  for preserve in [false, true] {
+   let owner = Coordinator(); owner.windowSwitcherCoordinator.windows = [a1, a2, .windowlessEntry(for: b)]
+   let handled = owner.performActionOnCmdTabHighlightedApps(action: .minimize, apps: [a, a, b, terminated], preservePreviews: preserve)
+   precondition(!handled && owner.minimizeTargets.map(PreviewWindowIdentity.init) == [a1, a2, b1].map(PreviewWindowIdentity.init))
+   precondition(owner.minimizePreserves == preserve && owner.isVisible && owner.hides == 0 && a.normalQuits == 0)
+  }
+  let windowlessApp = NSRunningApplication(99), windowless = Coordinator()
+  windowless.windowSwitcherCoordinator.windows = [.windowlessEntry(for: windowlessApp)]
+  precondition(!windowless.performActionOnCmdTabHighlightedApps(action: .minimize, apps: [windowlessApp]))
+  precondition(windowless.minimizePreserves == nil && windowless.minimizeTargets.isEmpty)
+  print("PASS Cmd+Tab Minimize routes to shared app-header toggle: Command/focused-preview priority, real target snapshot/cache fallback, PID deduplication, terminated/windowless exclusions and preserved presentation")
   let baseline = Coordinator(); baseline.windowSwitcherCoordinator.windows = [a1, a2, .windowlessEntry(for: b)]
   let dismissed = baseline.performActionOnCmdTabHighlightedApps(action: .close, apps: [a, a, b, terminated])
   precondition(!dismissed && baseline.isVisible)

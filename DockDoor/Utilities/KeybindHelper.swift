@@ -1143,7 +1143,7 @@ class KeybindHelper {
                         if flags.contains(.maskCommand),
                            let action = getActionForPreviewShortcut(keyCode: keyCode)
                         {
-                            let supportsHighlightedAppAction = action == .close || action.isQuitAction
+                            let supportsHighlightedAppAction = action == .close || action == .minimize || action.isQuitAction
                             let highlightedApps = hasSelection ? [] : DockObserver.activeInstance?.selectedCmdTabApplications() ?? []
                             let canTileCheckedWindows = action == .autoTileSelectedWindows && tapSnapshot.hasCheckedWindows
 
