@@ -7,11 +7,11 @@ final class WindowGestureExecutor {
     private let registry = WindowSnapRegistry.shared
     private var pending: [(WindowGestureCommand, WindowGestureZone, CGPoint)] = []
 
-    func perform(_ command: WindowGestureCommand, zone: WindowGestureZone, cursor: CGPoint) {
+    func perform(_ command: WindowGestureCommand, zone: WindowGestureZone, cursor: CGPoint, feedback: ActionFeedbackHandle? = nil) {
         switch command {
         case .switchApp, .openSwitcher: break
         default:
-            Task.detached(priority: .userInitiated) { [self] in await run(command, zone: zone, cursor: cursor) }
+            Task.detached(priority: .userInitiated) { [self] in await run(command, zone: zone, cursor: cursor, feedback: feedback) }
             return
         }
         queue.async { [self] in
@@ -31,7 +31,8 @@ final class WindowGestureExecutor {
         }
     }
 
-    private func run(_ command: WindowGestureCommand, zone: WindowGestureZone, cursor: CGPoint) async {
+    private func run(_ command: WindowGestureCommand, zone: WindowGestureZone, cursor: CGPoint, feedback: ActionFeedbackHandle? = nil) async {
+        defer { feedback?.finishRemaining(Task.isCancelled ? .cancelled : .failed) }
         let reservesWindow = switch command {
         case .switchApp, .openSwitcher: false
         default: true
@@ -47,68 +48,88 @@ final class WindowGestureExecutor {
             default: apps = []; terminal = false
             }
             _ = await WindowActionRequest.run([PreviewWindowIdentity(window)], apps: apps, protect: terminal) { _ in
-                await self.run(command, zone: zone, cursor: cursor)
+                await self.run(command, zone: zone, cursor: cursor, feedback: feedback)
             }
             return
         }
         switch command {
         case let .window(action):
             guard let window = zone.window else { return }
-            if action == .minimize { await minimize(window) }
-            else if action.positionRect != nil { await perform(action, on: window) }
+            if action == .minimize { await minimize(window, feedback: feedback) }
+            else if action.positionRect != nil { await perform(action, on: window, feedback: feedback) }
             else if action.usesConfirmedSingleWindowAction(on: window) {
-                let result = await WindowUtil.performPreviewBatchAction(action, on: [window], allowFullscreenEntry: action == .toggleFullScreen)
+                if action == .toggleFullScreen { feedback?.prepareForSpaceTransition() }
+                let result = await WindowUtil.performPreviewBatchAction(action, on: [window], allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback)
                 if !Task.isCancelled, !result.succeeded.isEmpty,
                    action == .openAppWindow || (action == .hide && window.isHidden)
                 { _ = await window.bringToFrontConfirmed() }
-            } else { await perform(action, on: window) }
+            } else { await perform(action, on: window, feedback: feedback) }
         case .closeTab:
-            closeTab(in: zone)
+            let accepted = await closeTab(in: zone)
+            feedback?.finishRemaining(Task.isCancelled ? .cancelled : (accepted ? .requested : .failed))
         case .minimizeFrontWindow:
             guard let app = zone.app, let window = frontWindow(of: app) else { return }
-            await minimize(window)
+            feedback?.setTargets([window])
+            await minimize(window, feedback: feedback)
         case .restoreLastMinimized:
             guard let app = zone.app else { return }
-            await restoreLastMinimized(of: app)
+            await restoreLastMinimized(of: app, feedback: feedback)
         case .quitApp:
-            if let app = zone.app { _ = WindowInfo.windowlessEntry(for: app).quit(force: false) }
+            if let app = zone.app {
+                let window = WindowInfo.windowlessEntry(for: app)
+                feedback?.setTargets([window])
+                _ = await WindowUtil.performPreviewBatchAction(.quit, on: [window], feedback: feedback)
+            }
         case let .switchApp(forward):
             await switchApp(forward: forward)
         case .openSwitcher:
             break
         case .minimizeAllOnDisplay:
-            await minimizeAll(on: NSScreen.screenFromQuartzPoint(cursor))
+            await minimizeAll(on: NSScreen.screenFromQuartzPoint(cursor), feedback: feedback)
         case .restoreAllOnDisplay:
-            await restoreAll(on: NSScreen.screenFromQuartzPoint(cursor))
+            await restoreAll(on: NSScreen.screenFromQuartzPoint(cursor), feedback: feedback)
         }
     }
 
     // MARK: - Windows
 
     @MainActor
-    private func perform(_ action: WindowAction, on window: WindowInfo) async {
+    private func perform(_ action: WindowAction, on window: WindowInfo, feedback: ActionFeedbackHandle?) async {
+        let identity = PreviewWindowIdentity(window)
+        guard !Task.isCancelled, WindowActionRequest.current?.contains(identity) == true else { return }
         if action == .center {
             let restoreSize = await registry.liveRecord(for: window)?.restoreFrame.size
+            guard !Task.isCancelled, WindowActionRequest.current?.contains(identity) == true else { return }
             registry.remove(PreviewWindowIdentity(window))
-            if await window.positionWindow(.center, size: restoreSize) {
-                window.bringToFront()
+            let placed = await window.positionWindow(.center, size: restoreSize)
+            var focused = placed
+            if placed, !Task.isCancelled, WindowActionRequest.current?.mayForeground != false {
+                focused = await window.bringToFrontConfirmed()
             }
+            feedback?.finish(identity, Task.isCancelled ? .cancelled : (focused ? .completed : .failed))
             return
         }
         guard let rect = action.positionRect, let current = await window.readWindowFrame() else {
-            _ = action.perform(on: window)
+            if action.positionRect == nil { _ = action.perform(on: window, feedback: feedback) }
             return
         }
         let restoreFrame = await registry.liveRecord(for: window)?.restoreFrame ?? current
+        guard !Task.isCancelled, WindowActionRequest.current?.contains(identity) == true else { return }
         registry.remove(PreviewWindowIdentity(window))
-        if await window.positionWindow(rect) {
-            window.bringToFront()
+        let placed = await window.positionWindow(rect)
+        var focused = placed
+        if placed, !Task.isCancelled {
+            if WindowActionRequest.current?.mayForeground != false { focused = await window.bringToFrontConfirmed() }
+            guard !Task.isCancelled, WindowActionRequest.current?.contains(identity) == true else { return }
             await registry.snapped(window, restoreFrame: restoreFrame)
         }
+        feedback?.finish(identity, Task.isCancelled ? .cancelled : (placed && focused ? .completed : .failed))
     }
 
-    private func minimize(_ window: WindowInfo) async {
-        if await !WindowUtil.minimizeWindowExitingFullscreen(window) {
+    private func minimize(_ window: WindowInfo, feedback: ActionFeedbackHandle?) async {
+        let succeeded = await WindowUtil.minimizeWindowExitingFullscreen(window, feedback: feedback)
+        feedback?.finish(PreviewWindowIdentity(window), Task.isCancelled ? .cancelled : (succeeded ? .completed : .failed))
+        if !succeeded {
             DebugLogger.log("WindowGestures", details: "Minimize failed for PID \(window.app.processIdentifier), window \(window.id)")
         }
     }
@@ -121,69 +142,93 @@ final class WindowGestureExecutor {
         return WindowUtil.windowInfo(for: element, app: app)
     }
 
-    private func restoreLastMinimized(of app: NSRunningApplication) async {
+    private func restoreLastMinimized(of app: NSRunningApplication, feedback: ActionFeedbackHandle?) async {
         let minimized = WindowUtil.readCachedWindows(for: app.processIdentifier)
             .filter { $0.isMinimized && !$0.isWindowlessApp }
             .max { $0.lastAccessedTime < $1.lastAccessedTime }
         guard let window = minimized else {
             await bringForward(app)
+            feedback?.finishRemaining(Task.isCancelled ? .cancelled : .requested)
             return
         }
-        await restore([window])
+        await restore([window], feedback: feedback)
     }
 
-    private func minimizeAll(on screen: NSScreen) async {
+    private func minimizeAll(on screen: NSScreen, feedback: ActionFeedbackHandle?) async {
         let screenIdentifier = screen.uniqueIdentifier()
         let windows = WindowUtil.filterWindowsByCurrentSpace(WindowUtil.getAllWindowsIgnoringSwitcherFilters())
-            .filter { !$0.isHidden && !$0.isWindowlessApp && $0.screenIdentifier == screenIdentifier }
-        let changed = await WindowUtil.setMinimizedStateConfirmed(windows, isMinimized: true)
-        if changed != windows.count {
-            DebugLogger.log("WindowGestures", details: "Display minimization confirmed \(changed)/\(windows.count) windows")
+            .filter { !$0.isHidden && !$0.isWindowlessApp && $0.isFullscreen != true && $0.screenIdentifier == screenIdentifier }
+        guard !windows.isEmpty else { return }
+        feedback?.setTargets(windows)
+        _ = await WindowActionRequest.run(windows.map(PreviewWindowIdentity.init)) { _ in
+            defer { feedback?.finishRemaining(Task.isCancelled ? .cancelled : .failed) }
+            let changed = await WindowUtil.setMinimizedWindowsConfirmed(windows, isMinimized: true, progress: feedback?.confirmedProgress)
+            guard !Task.isCancelled else { return }
+            let confirmed = Set(changed.map(PreviewWindowIdentity.init))
+            feedback?.finish(WindowUtil.PreviewBatchResult(succeeded: changed, failed: windows.map(PreviewWindowIdentity.init).filter { !confirmed.contains($0) }))
+            if changed.count != windows.count {
+                DebugLogger.log("WindowGestures", details: "Display minimization confirmed \(changed.count)/\(windows.count) windows")
+            }
         }
     }
 
-    private func restoreAll(on screen: NSScreen) async {
+    private func restoreAll(on screen: NSScreen, feedback: ActionFeedbackHandle?) async {
         let screenIdentifier = screen.uniqueIdentifier()
         let windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters()
-            .filter { $0.isMinimized && !$0.isWindowlessApp && $0.screenIdentifier == screenIdentifier }
-        await restore(windows)
+            .filter { $0.isMinimized && !$0.isWindowlessApp && $0.isFullscreen != true && $0.screenIdentifier == screenIdentifier }
+        await restore(windows, feedback: feedback)
     }
 
-    private func restore(_ windows: [WindowInfo]) async {
+    private func restore(_ windows: [WindowInfo], feedback: ActionFeedbackHandle?) async {
+        defer { feedback?.finishRemaining(Task.isCancelled ? .cancelled : .failed) }
+        guard !windows.isEmpty else { return }
+        feedback?.setTargets(windows)
         if WindowActionRequest.current == nil {
-            _ = await WindowActionRequest.run(windows.map(PreviewWindowIdentity.init)) { _ in await self.restore(windows) }
+            _ = await WindowActionRequest.run(windows.map(PreviewWindowIdentity.init)) { _ in await self.restore(windows, feedback: feedback) }
             return
         }
-        let restored = await WindowUtil.restoreWindowsConfirmed(windows)
+        let restored = await WindowUtil.restoreWindowsConfirmed(windows, progress: { identity, success in
+            if !success { feedback?.finish(identity, .failed) }
+        })
+        guard !Task.isCancelled else { return }
+        let confirmed = Set(restored.map(PreviewWindowIdentity.init))
+        var failures = windows.map(PreviewWindowIdentity.init).filter { !confirmed.contains($0) }
         if restored.count != windows.count {
             DebugLogger.log("WindowGestures", details: "Restoration confirmed \(restored.count)/\(windows.count) windows")
         }
-        if let target = restored.max(by: { $0.lastAccessedTime < $1.lastAccessedTime }), await !target.bringToFrontConfirmed() {
+        if let target = restored.max(by: { $0.lastAccessedTime < $1.lastAccessedTime }), WindowActionRequest.current?.mayForeground != false,
+           await !target.bringToFrontConfirmed()
+        {
+            failures.append(PreviewWindowIdentity(target))
             DebugLogger.log("WindowGestures", details: "Restored window activation failed: \(target.id)")
         }
+        feedback?.finish(WindowUtil.PreviewBatchResult(succeeded: restored, failed: failures))
     }
 
     // MARK: - Tabs
 
-    private func closeTab(in zone: WindowGestureZone) {
-        guard case let .tab(window, tab, _, _) = zone else { return }
+    private func closeTab(in zone: WindowGestureZone) async -> Bool {
+        guard !Task.isCancelled, case let .tab(window, tab, _, _) = zone else { return false }
         if let closeButton = Self.closeButton(in: tab) {
-            try? closeButton.performAction(kAXPressAction)
-            return
+            guard !Task.isCancelled else { return false }
+            do { try closeButton.performAction(kAXPressAction); return true }
+            catch { return false }
         }
-        guard select(tab, in: window) else { return }
+        guard await select(tab, in: window), !Task.isCancelled else { return false }
         WindowUtil.postCommandShortcut(CGKeyCode(kVK_ANSI_W), to: window.ownerApp.processIdentifier)
+        return true
     }
 
-    private func select(_ tab: AXUIElement, in window: WindowInfo) -> Bool {
-        window.bringToFront()
+    private func select(_ tab: AXUIElement, in window: WindowInfo) async -> Bool {
+        guard !Task.isCancelled, await window.bringToFrontConfirmed(), !Task.isCancelled else { return false }
         try? tab.performAction(kAXPressAction)
         for _ in 0 ..< 15 {
+            guard !Task.isCancelled else { return false }
             let focused = (try? window.appAxElement.focusedWindow()) ?? nil
             if Self.isSelected(tab), let focused, CFEqual(focused, window.axElement) {
                 return true
             }
-            Thread.sleep(forTimeInterval: 0.03)
+            do { try await Task.sleep(nanoseconds: 30_000_000) } catch { return false }
         }
         return false
     }

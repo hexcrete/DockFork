@@ -306,11 +306,9 @@ final class WindowGestureController {
         DebugLogger.log("WindowGestures", details: "double tap \(resolution.command)")
 
         execute(resolution.command, zone: zone, cursor: point)
-        let content = hudContent(for: resolution.command, app: zone.app)
-        DispatchQueue.main.async { [hud] in
+        DispatchQueue.main.async {
             MainActor.assumeIsolated {
                 WindowGestureHUD.haptic(.levelChange)
-                hud.finish(content, cursor: point)
             }
         }
         return nil
@@ -499,20 +497,20 @@ final class WindowGestureController {
             return
         }
 
-        var content: WindowGestureHUD.Content?
         if let progress,
            let resolution = WindowGestureResolver.resolve(context(for: current, progress: progress)),
            !resolution.command.isImmediate
         {
             DebugLogger.log("WindowGestures", details: "finish \(resolution.command)")
             execute(resolution.command, zone: current.zone, cursor: current.cursor)
-            content = hudContent(for: resolution.command, app: current.zone.app)
-        } else if let progress {
-            DebugLogger.log("WindowGestures", details: "finish without action steps=\(progress.steps) held=\(progress.held)")
-        }
-        DispatchQueue.main.async { [hud] in
-            MainActor.assumeIsolated {
-                hud.finish(content, cursor: current.cursor)
+        } else {
+            if let progress {
+                DebugLogger.log("WindowGestures", details: "finish without action steps=\(progress.steps) held=\(progress.held)")
+            }
+            DispatchQueue.main.async { [hud] in
+                MainActor.assumeIsolated {
+                    hud.finish(nil, cursor: current.cursor)
+                }
             }
         }
     }
@@ -575,6 +573,20 @@ final class WindowGestureController {
 
     private func execute(_ command: WindowGestureCommand, zone: WindowGestureZone, cursor: CGPoint) {
         recentZone = nil
+        if !command.isImmediate {
+            let content = hudContent(for: command, app: zone.app)
+            let identity = zone.window.map(PreviewWindowIdentity.init) ?? PreviewWindowIdentity(pid: zone.app?.processIdentifier ?? 0, windowID: 0)
+            DispatchQueue.main.async { [hud, executor, previewCoordinator] in
+                MainActor.assumeIsolated {
+                    hud.hide()
+                    let point = DockObserver.nsPointFromCGPoint(cursor, forScreen: NSScreen.screenFromQuartzPoint(cursor))
+                    let feedback = ActionFeedbackController.gesture(content, identities: [identity], cursor: point)
+                    executor.perform(command, zone: zone, cursor: cursor, feedback: feedback)
+                    if case .app = zone { previewCoordinator.hideWindow() }
+                }
+            }
+            return
+        }
         executor.perform(command, zone: zone, cursor: cursor)
         guard case .app = zone else { return }
         let previewCoordinator = previewCoordinator

@@ -34,7 +34,7 @@ routes = {
   'menu-bar actions' => File.read("#{root}/DockDoor/Utilities/WindowActionsMenuController.swift").include?('action.perform(on: window, feedback: feedback)'),
   'keyboard routing' => File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift").include?('performActionOnCurrentWindow(action: action)'),
   'script routing' => File.read("#{root}/DockDoor/Utilities/ScriptCommands.swift").include?('WindowUtil.performPreviewBatchAction(action, on: windows'),
-  'native window gestures' => File.read("#{root}/DockDoor/Utilities/Window Gestures/WindowGestureExecutor.swift").include?('action.perform(on: window)')
+  'native window gestures' => File.read("#{root}/DockDoor/Utilities/Window Gestures/WindowGestureExecutor.swift").include?('await WindowUtil.performPreviewBatchAction(action, on: [window], allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback)')
 }
 routes.each { |name, passes| abort "Close route bypassed shared operation: #{name}" unless passes }
 puts "Passed #{routes.size} shared Close route checks"

@@ -29,21 +29,24 @@ abort 'Shared popup must retain gesture-overlay exclusion' unless source.include
 
 stubs = <<~'SWIFT'
 import AppKit
-struct Key<T> { let value: T }
+struct Key<T> { let value: T; var name: String = "" }
 enum Defaults {
  protocol Serializable {}
  static var enabled = false, position = ActionFeedbackPosition.trigger, mouseFeedback = false, limitedTiling = false
  static var callbacks: [UUID: (Change) -> Void] = [:]
+ static var gestures = true, observationKeys: [UUID: String] = [:]
  struct Change { let newValue: Bool }
- final class Observation { let id: UUID; init(_ id: UUID) { self.id = id }; func invalidate() { Defaults.callbacks[id] = nil } }
+ final class Observation { let id: UUID; init(_ id: UUID) { self.id = id }; func invalidate() { Defaults.callbacks[id] = nil; Defaults.observationKeys[id] = nil } }
  static subscript<T>(_ key: Key<T>) -> T { key.value }
  static func observe(_ key: Key<Bool>, options: [Int], handler: @escaping (Change) -> Void) -> Observation {
-  let id = UUID(); callbacks[id] = handler; return Observation(id)
+  let id = UUID(); callbacks[id] = handler; observationKeys[id] = key.name; return Observation(id)
  }
- static func disable() { enabled = false; for f in callbacks.values { f(Change(newValue: false)) } }
+ static func disable() { enabled = false; for (id, f) in callbacks where observationKeys[id] != "gestures" { f(Change(newValue: false)) } }
+ static func disableGestures() { gestures = false; for (id, f) in callbacks where observationKeys[id] == "gestures" { f(Change(newValue: false)) } }
 }
 extension Key where T == Bool {
  static var enableActionFeedback: Self { Self(value: Defaults.enabled) }
+ static var enableWindowGestures: Self { Self(value: Defaults.gestures, name: "gestures") }
  static var showMouseFollowsFocusFeedback: Self { Self(value: Defaults.mouseFeedback) }
  static var tileOnlyWhatFits: Self { Self(value: Defaults.limitedTiling) }
  static var fillActionsAutoTileSelection: Self { Self(value: false) }
@@ -112,7 +115,8 @@ enum WindowGestureHUD {
  var value: WindowGestureHUD.Content?
  private var closed = false
  init() { Self.creates += 1; Self.live += 1 }
- func present(_ content: WindowGestureHUD.Content, center: CGPoint? = nil) { value = content }
+ var cursor: CGPoint?
+ func present(_ content: WindowGestureHUD.Content, center: CGPoint? = nil, cursor: CGPoint? = nil) { value = content; self.cursor = cursor }
  func followCursor() { Self.cursorUpdates += 1 }
  func hide(closeAfter: Bool = false, completion: (() -> Void)? = nil) {
  Task { @MainActor in
@@ -154,6 +158,7 @@ extension ActionFeedbackController {
  var busyCount: Int { entries.values.filter { $0.panel?.value?.isBusy == true }.count }
  var previewContents: [WindowGestureHUD.Content] { entries.values.compactMap { $0.panel?.value } }
  var isWaitingForSpace: Bool { spaceTransitionPending }
+ var cursorAnchor: CGPoint? { aggregate?.cursor }
 }
 @main struct Checks {
  @MainActor static func pause(_ milliseconds: UInt64) async { try? await Task.sleep(nanoseconds: milliseconds * 1_000_000) }
@@ -472,6 +477,41 @@ disabling.finishRemaining(.completed)
 precondition(ActionFeedbackController.existing == nil && TestWorkspace.shared.notificationCenter.count == 0)
 Defaults.enabled = true
 print("PASS Space-transition result survival/restart, fullscreen entry/exit, bounded fallback, pending spinner, repeated notifications, expiry/replacement and observer cleanup")
+
+// Committed native gestures use the shared presenter, independently of general action feedback.
+Defaults.enabled = false
+let gesturePoint = CGPoint(x: 120, y: 180)
+var gestureContent = WindowGestureHUD.Content(title: "Fill Left", symbolName: "rectangle.lefthalf.filled")
+gestureContent.region = .test
+let gestureFeedback = ActionFeedbackController.gesture(gestureContent, identities: [first], cursor: gesturePoint)!
+precondition(TestEvent.monitors.isEmpty && ActionFeedbackController.existing!.snapshot.4!.region == .test)
+precondition(ActionFeedbackController.existing!.cursorAnchor == gesturePoint)
+Defaults.disable(); await pause(10)
+precondition(ActionFeedbackController.existing != nil, "General feedback toggle disabled the gesture HUD")
+await waitUntil { ActionFeedbackController.existing?.snapshot.4?.isBusy == true }
+gestureFeedback.setTargets(windows)
+gestureFeedback.finish(first, .completed)
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "1/2")
+gestureFeedback.finish(second, .failed)
+precondition(ActionFeedbackController.existing!.snapshot.4!.counter == "1/2" && ActionFeedbackController.existing!.snapshot.4!.isWarning)
+await waitForCleanup()
+let cancelledGesture = ActionFeedbackController.gesture(gestureContent, identities: [first], cursor: gesturePoint)!
+Defaults.disableGestures(); await pause(10)
+cancelledGesture.finishRemaining(.completed)
+precondition(ActionFeedbackController.existing == nil && TestEvent.monitors.isEmpty)
+precondition(ActionFeedbackController.gesture(gestureContent, identities: [first], cursor: gesturePoint) == nil)
+Defaults.gestures = true
+let oldGesture = ActionFeedbackController.gesture(gestureContent, identities: [first], cursor: gesturePoint)!
+ActionFeedbackController.stopGestureFeedback()
+oldGesture.finishRemaining(.completed)
+precondition(ActionFeedbackController.existing == nil)
+Defaults.enabled = true
+let ordinary = ActionFeedbackController.begin(.minimize, windows: [windows[0]])!
+ActionFeedbackController.stopGestureFeedback()
+precondition(ActionFeedbackController.existing != nil, "A gesture candidate stopped unrelated action feedback")
+ordinary.finishRemaining(.completed)
+await waitForCleanup()
+print("PASS independent gesture enablement, fixed placement, candidate/app-flash handoff, shared group counters/results and cleanup")
 
   ActionFeedbackController.mouseFollowedFocus()
   precondition(ActionFeedbackController.existing == nil)
@@ -1101,4 +1141,192 @@ Dir.mktmpdir('feedback-mouse-warp-') do |dir|
   out, status = Open3.capture2e("#{dir}/checks")
   puts out
   abort 'Mouse Follows Focus feedback hook tests failed' unless status.success?
+end
+
+# Execute the production gesture adapter with inert OS operations and real action ownership.
+gesture_controller = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowGestureController.swift")
+gesture_executor = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowGestureExecutor.swift")
+finished_gesture = gesture_controller[gesture_controller.index('    private func finished(')...gesture_controller.index('    private func context(')]
+abort 'Committed gestures still finish the HUD at dispatch' if gesture_controller.include?('hud.finish(content, cursor: point)') || finished_gesture.include?('hud.finish(content,')
+abort 'Immediate gesture flash changed' unless gesture_controller.include?('hud.flash(content, cursor: current.cursor)')
+abort 'Committed gestures must start feedback before dispatch' unless gesture_controller.index('ActionFeedbackController.gesture(') < gesture_controller.index('executor.perform(command, zone: zone, cursor: cursor, feedback: feedback)')
+abort 'Gesture Close must use the confirmed shared route' unless gesture_executor.include?('allowFullscreenEntry: action == .toggleFullScreen, feedback: feedback)')
+gesture_fixture = <<~'SWIFT'
+import AppKit
+import ApplicationServices
+import Carbon.HIToolbox.Events
+final class TestApp {
+ let processIdentifier: Int32
+ var isHidden=false,isTerminated=false
+ var activationPolicy: NSApplication.ActivationPolicy = .regular
+ let localizedName: String? = "Test"
+ init(_ pid: Int32) {processIdentifier=pid}
+}
+final class Gate: @unchecked Sendable {
+ var open=false,entered=false
+ func wait() async {entered=true;while !open && !Task.isCancelled {try? await Task.sleep(nanoseconds:1_000_000)}}
+}
+enum State: Equatable {case completed,requested,failed,cancelled}
+final class ActionFeedbackHandle: @unchecked Sendable {
+ let lock=NSLock();var targets:[PreviewWindowIdentity]=[];var states:[PreviewWindowIdentity:State]=[:]
+ var snapshot:[PreviewWindowIdentity:State] {lock.withLock {states}}
+ func setTargets(_ windows:[WindowInfo]) {lock.withLock {targets=windows.map(PreviewWindowIdentity.init)}}
+ func prepareForSpaceTransition() {}
+ var confirmedProgress: @Sendable (PreviewWindowIdentity,Bool)->Void {{id,success in self.finish(id,success ? .completed : .failed)}}
+ func finish(_ id:PreviewWindowIdentity,_ state:State) {lock.withLock {if states[id]==nil {states[id]=state}}}
+ func finishRemaining(_ state:State) {lock.withLock {for id in targets where states[id]==nil {states[id]=state}}}
+ func finish(_ result:WindowUtil.PreviewBatchResult) {let failed=Set(result.failed);for w in result.succeeded {finish(PreviewWindowIdentity(w),failed.contains(PreviewWindowIdentity(w)) ? .failed:.completed)};for id in failed {finish(id,.failed)}}
+}
+struct PreviewWindowIdentity: Hashable {let pid:Int32,windowID:Int;init(_ w:WindowInfo){pid=w.app.processIdentifier;windowID=w.id}}
+struct WindowInfo {
+ let id:Int,app:TestApp
+ var isMinimized=false,isHidden=false,isWindowlessApp=false,isFullscreen:Bool?=false
+ var screenIdentifier="screen",lastAccessedTime=Date()
+ var ownerApp:TestApp {app}
+ var axElement:FakeAX {FakeAX.shared};var appAxElement:FakeAX {FakeAX.shared}
+ static func windowlessEntry(for app:TestApp)->Self {Self(id:0,app:app,isWindowlessApp:true)}
+ @MainActor func readWindowFrame() async -> CGRect? {CGRect(x:0,y:0,width:100,height:100)}
+ @MainActor func positionWindow(_ rect:Int,size:CGSize?=nil) async->Bool {Test.calls.append("place\(id)");if let gate=Test.placeGate {await gate.wait()};return !Task.isCancelled && !Test.failures.contains(id)}
+ @MainActor func bringToFrontConfirmed() async->Bool {Test.calls.append("focus\(id)");if let gate=Test.focusGate {await gate.wait()};return !Task.isCancelled && !Test.focusFailures.contains(id)}
+ func bringToFront() {Test.calls.append("dispatchFocus\(id)")}
+}
+final class FakeAX {
+ static let shared=FakeAX();var refuses=false,hasCloseControl=false
+ func focusedWindow()throws->FakeAX? {self}
+ func attribute<T>(_ key:String,_ type:T.Type)throws->T? {nil}
+ func performAction(_ action:String)throws {if refuses {throw NSError(domain:"AX",code:1)}}
+ func children()throws->[FakeAX] {hasCloseControl ? [self]:[]}
+ func role()throws->String {"AXButton"}
+ func subrole()throws->String {"AXCloseButton"}
+}
+func FakeAXCreateApplication(_ pid:Int32)->FakeAX {FakeAX.shared}
+final class TestScreen {static let shared=TestScreen();static func screenFromQuartzPoint(_ p:CGPoint)->TestScreen {shared};func uniqueIdentifier()->String {"screen"}}
+enum TestWorkspace {static let shared=TestWorkspaceValue()}
+final class TestWorkspaceValue {var runningApplications:[TestApp]=[];var frontmostApplication:TestApp?}
+enum DockObserver {static let activeInstance:DockObserverValue?=nil}
+struct DockObserverValue {func runningApplicationsInDockOrder()->[TestApp] {[]}}
+enum DebugLogger {static func log(_ category:String,details:String){}}
+struct Record {var restoreFrame=CGRect(x:1,y:2,width:80,height:90)}
+final class WindowSnapRegistry {
+ static let shared=WindowSnapRegistry()
+ func liveRecord(for window:WindowInfo) async->Record? {Record()}
+ func remove(_ id:PreviewWindowIdentity) {Test.calls.append("remove\(id.windowID)")}
+ func snapped(_ w:WindowInfo,restoreFrame:CGRect) async {Test.calls.append("enroll\(w.id)")}
+}
+extension Int {static let center=0}
+enum WindowAction {case minimize,hide,toggleFullScreen,openAppWindow,close,quit,center,fillLeftHalf
+ var isAppWidePreviewAction:Bool {self == .hide || self == .quit}
+ var isQuitAction:Bool {self == .quit}
+ var positionRect:Int? {self == .center ? 0 : self == .fillLeftHalf ? 1 : nil}
+ func usesConfirmedSingleWindowAction(on window:WindowInfo)->Bool {positionRect==nil}
+ func perform(on window:WindowInfo,feedback:ActionFeedbackHandle?)->Bool {false}
+}
+enum Test {static var windows:[WindowInfo]=[],failures=Set<Int>(),focusFailures=Set<Int>(),calls:[String]=[];static var placeGate:Gate?,focusGate:Gate?,minimizeGate:Gate?}
+enum WindowUtil {
+ struct PreviewBatchResult {var succeeded:[WindowInfo]=[];var failed:[PreviewWindowIdentity]=[]}
+ static func windowInfo(for element:FakeAX,app:TestApp)->WindowInfo? {Test.windows.first {$0.app.processIdentifier==app.processIdentifier}}
+ static func readCachedWindows(for pid:Int32)->[WindowInfo] {Test.windows.filter {$0.app.processIdentifier==pid}}
+ static func getAllWindowsIgnoringSwitcherFilters()->[WindowInfo] {Test.windows}
+ static func filterWindowsByCurrentSpace(_ windows:[WindowInfo])->[WindowInfo] {windows}
+ static func postCommandShortcut(_ code:CGKeyCode,to pid:Int32) {}
+ static func setHiddenStateConfirmed(for app:TestApp,isHidden:Bool) async->Bool {true}
+ static func minimizeWindowExitingFullscreen(_ window:WindowInfo,feedback:ActionFeedbackHandle?) async->Bool {
+  if WindowActionRequest.current==nil {return await WindowActionRequest.run([PreviewWindowIdentity(window)]) {_ in await minimizeWindowExitingFullscreen(window,feedback:feedback)} ?? false}
+  if let gate=Test.minimizeGate {await gate.wait()};return !Task.isCancelled && !Test.failures.contains(window.id)
+ }
+ static func setMinimizedWindowsConfirmed(_ windows:[WindowInfo],isMinimized:Bool,progress:(@Sendable (PreviewWindowIdentity,Bool)->Void)?) async->[WindowInfo] {
+  var changed:[WindowInfo]=[]
+  for window in windows {
+   if let gate=Test.minimizeGate {await gate.wait()}
+   guard !Task.isCancelled else {return changed}
+   guard WindowActionRequest.current?.contains(PreviewWindowIdentity(window))==true else {continue}
+   let success = !Test.failures.contains(window.id);Test.calls.append("minimize\(window.id)");progress?(PreviewWindowIdentity(window),success)
+   if success {changed.append(window)}
+  };return changed
+ }
+ static func restoreWindowsConfirmed(_ windows:[WindowInfo],progress:(@Sendable (PreviewWindowIdentity,Bool)->Void)?) async->[WindowInfo] {await setMinimizedWindowsConfirmed(windows,isMinimized:false,progress:progress)}
+ static func performPreviewBatchAction(_ action:WindowAction,on windows:[WindowInfo],allowFullscreenEntry:Bool=false,feedback:ActionFeedbackHandle?) async->PreviewBatchResult {
+  if WindowActionRequest.current==nil {return await WindowActionRequest.run(windows.map(PreviewWindowIdentity.init),apps:action.isAppWidePreviewAction ? Set(windows.map(\.app.processIdentifier)):[],protect:action == .close || action.isQuitAction) {_ in await performPreviewBatchAction(action,on:windows,allowFullscreenEntry:allowFullscreenEntry,feedback:feedback)} ?? PreviewBatchResult(failed:windows.map(PreviewWindowIdentity.init))}
+  var result=PreviewBatchResult()
+  for w in windows {guard WindowActionRequest.current?.contains(PreviewWindowIdentity(w))==true else {result.failed.append(PreviewWindowIdentity(w));continue};Test.calls.append("batch\(w.id)");if Test.failures.contains(w.id) {result.failed.append(PreviewWindowIdentity(w));feedback?.finish(PreviewWindowIdentity(w),.failed)} else {result.succeeded.append(w);feedback?.finish(PreviewWindowIdentity(w),action == .close || action.isQuitAction ? .requested:.completed)}}
+  return result
+ }
+}
+SWIFT
+zone = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowGestureZone.swift")
+zone = zone[zone.index('enum WindowGestureZone {')...zone.index('enum WindowGestureZoneResolver {')]
+# Remove kind, which belongs to the recognizer and is not used by the executor.
+zone.sub!(/    var kind: WindowGestureZoneKind \{.*?\n    \}\n/m, '')
+resolver = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowGestureResolver.swift")
+command = resolver[resolver.index('enum WindowGestureCommand:')...resolver.index('struct WindowGestureResolution:')]
+command.sub!(/    func title\(.*?\n    \}\n/m, '')
+command.sub!(/    var symbolName:.*?\n    \}\n/m, '')
+executor = gesture_executor[gesture_executor.index('final class WindowGestureExecutor')..].gsub('private ', '')
+gesture_fixture += zone + command + executor
+{ 'NSRunningApplication'=>'TestApp','NSWorkspace'=>'TestWorkspace','NSScreen'=>'TestScreen','AXUIElement'=>'FakeAX' }.each {|from,to| gesture_fixture.gsub!(from,to)}
+gesture_fixture += <<~'SWIFT'
+@main struct Checks {
+ @MainActor static func waitUntil(_ check:()->Bool) async {for _ in 0..<500 {if check(){return};try? await Task.sleep(nanoseconds:1_000_000)};preconditionFailure("Gesture fixture timed out")}
+ @MainActor static func main() async {
+  let app=TestApp(100),otherApp=TestApp(200)
+  let a=WindowInfo(id:1,app:app),b=WindowInfo(id:2,app:app),other=WindowInfo(id:3,app:otherApp)
+  let executor=WindowGestureExecutor()
+  let feedback=ActionFeedbackHandle();feedback.setTargets([a]);let gate=Gate();Test.focusGate=gate
+  let placing=Task {await executor.run(.window(.fillLeftHalf),zone:.window(a,isFullscreen:false),cursor:.zero,feedback:feedback)}
+  await waitUntil {gate.entered}
+  precondition(feedback.snapshot.isEmpty && Test.calls.contains("place1"),"Gesture result finished before foreground confirmation")
+  gate.open=true;await placing.value
+  precondition(feedback.snapshot[PreviewWindowIdentity(a)] == .completed && Test.calls.last == "enroll1")
+  Test.focusGate=nil;Test.focusFailures=[1]
+  let refusedFocus=ActionFeedbackHandle();refusedFocus.setTargets([a])
+  await executor.run(.window(.center),zone:.window(a,isFullscreen:false),cursor:.zero,feedback:refusedFocus)
+  precondition(refusedFocus.snapshot[PreviewWindowIdentity(a)] == .failed)
+  Test.focusFailures=[]
+  var full=a;full=WindowInfo(id:99,app:app,isFullscreen:true);Test.windows=[a,b,full];Test.failures=[2];Test.calls=[]
+  let group=ActionFeedbackHandle();group.setTargets([a,b]);let held=Gate();Test.minimizeGate=held
+  let batch=Task {await executor.run(.minimizeAllOnDisplay,zone:.menuBar,cursor:.zero,feedback:group)}
+  await waitUntil {held.entered}
+  let busy=ActionFeedbackHandle();busy.setTargets([a]);await executor.run(.window(.close),zone:.window(a,isFullscreen:false),cursor:.zero,feedback:busy)
+  precondition(busy.snapshot[PreviewWindowIdentity(a)] == .failed && !Test.calls.contains("batch1"))
+  let refusedQuit=ActionFeedbackHandle();refusedQuit.setTargets([WindowInfo.windowlessEntry(for:app)]);await executor.run(.quitApp,zone:.app(app),cursor:.zero,feedback:refusedQuit);precondition(refusedQuit.snapshot.values.allSatisfy {$0 == .failed} && !Test.calls.contains("batch0"))
+  let independent=ActionFeedbackHandle();independent.setTargets([other]);await executor.run(.window(.close),zone:.window(other,isFullscreen:false),cursor:.zero,feedback:independent)
+  precondition(independent.snapshot[PreviewWindowIdentity(other)] == .requested)
+  held.open=true;await batch.value;Test.minimizeGate=nil
+  precondition(group.snapshot[PreviewWindowIdentity(a)] == .completed && group.snapshot[PreviewWindowIdentity(b)] == .failed && group.targets.count==2)
+  Test.failures=[];Test.calls=[];var restoredA=a;restoredA.isMinimized=true;var restoredB=b;restoredB.isMinimized=true;restoredB.lastAccessedTime=restoredA.lastAccessedTime.addingTimeInterval(1)
+  Test.windows=[restoredA,restoredB];let restoreFeedback=ActionFeedbackHandle();restoreFeedback.setTargets(Test.windows)
+  let focus=Gate();Test.focusGate=focus
+  let restore=Task {await executor.run(.restoreAllOnDisplay,zone:.menuBar,cursor:.zero,feedback:restoreFeedback)}
+  await waitUntil {focus.entered}
+  precondition(restoreFeedback.snapshot.isEmpty,"Restore success preceded required activation")
+  let stillOwned=WindowActionOwnership.shared.begin([PreviewWindowIdentity(a)]);precondition(stillOwned.admitted.isEmpty);stillOwned.finish()
+  focus.open=true;await restore.value;Test.focusGate=nil
+  precondition(restoreFeedback.snapshot.count==2 && restoreFeedback.snapshot.values.allSatisfy {$0 == .completed} && Test.calls.last == "focus2")
+  Test.calls=[];let placement=Gate();Test.placeGate=placement
+let olderFeedback=ActionFeedbackHandle();olderFeedback.setTargets([a])
+let older=Task {await executor.run(.window(.fillLeftHalf),zone:.window(a,isFullscreen:false),cursor:.zero,feedback:olderFeedback)}
+await waitUntil {placement.entered}
+let newest=ActionFeedbackHandle();newest.setTargets([other]);await executor.run(.window(.close),zone:.window(other,isFullscreen:false),cursor:.zero,feedback:newest)
+placement.open=true;await older.value;Test.placeGate=nil
+precondition(olderFeedback.snapshot[PreviewWindowIdentity(a)] == .completed && !Test.calls.contains("focus1"),"Unrelated newer action caused false foreground failure")
+
+  Test.calls=[];let slow=Gate();Test.placeGate=slow
+  let cancelled=ActionFeedbackHandle();cancelled.setTargets([a]);let old=Task {await executor.run(.window(.center),zone:.window(a,isFullscreen:false),cursor:.zero,feedback:cancelled)}
+  await waitUntil {slow.entered}
+  let newer=WindowActionOwnership.shared.begin([PreviewWindowIdentity(a)])
+  slow.open=true;await old.value;newer.finish();Test.placeGate=nil
+  precondition(cancelled.snapshot[PreviewWindowIdentity(a)] == .cancelled && !Test.calls.contains("focus1"))
+  FakeAX.shared.hasCloseControl=true
+  for refused in [false,true] {FakeAX.shared.refuses=refused;let close=ActionFeedbackHandle();close.setTargets([a]);await executor.run(.closeTab,zone:.tab(a,tab:FakeAX.shared,isFullscreen:false,scrollable:false),cursor:.zero,feedback:close);precondition(close.snapshot[PreviewWindowIdentity(a)] == (refused ? .failed:.requested))}
+  let nowFree=WindowActionOwnership.shared.begin([PreviewWindowIdentity(a),PreviewWindowIdentity(b)]);precondition(nowFree.admitted.count==2);nowFree.finish()
+  print("PASS production gesture executor: settlement after placement/focus/enrollment, failures, request-only Close, protected display batches, unrelated work, restore lifetime and cancellation cleanup")
+ }
+}
+SWIFT
+Dir.mktmpdir('gesture-results-') do |dir|
+  File.write("#{dir}/checks.swift", with_action_ownership(gesture_fixture))
+  out,status=Open3.capture2e('xcrun','swiftc','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+  abort out unless status.success?
+  out,status=Open3.capture2e("#{dir}/checks");puts out
+  abort 'Gesture executor integration failed' unless status.success?
 end

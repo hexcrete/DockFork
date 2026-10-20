@@ -55,6 +55,7 @@ final class WindowGestureHUD {
     private var hideWorkItem: DispatchWorkItem?
 
     func show(_ content: Content, cursor: CGPoint, preview: CGRect?) {
+        ActionFeedbackController.stopGestureFeedback()
         hideWorkItem?.cancel()
         hideWorkItem = nil
         showTooltip(content, cursor: cursor)
@@ -67,6 +68,7 @@ final class WindowGestureHUD {
     }
 
     func hide() {
+        ActionFeedbackController.stopGestureFeedback()
         hideWorkItem?.cancel()
         hideWorkItem = nil
         tooltipPanel?.hide()
@@ -74,6 +76,7 @@ final class WindowGestureHUD {
     }
 
     func finish(_ content: Content?, cursor: CGPoint) {
+        ActionFeedbackController.stopGestureFeedback()
         guard let content else {
             hide()
             return
@@ -557,8 +560,8 @@ final class ActionFeedbackController {
     fileprivate var entries: [PreviewWindowIdentity: Entry]
     private let perApp: Bool
     private var operationGroups: [[PreviewWindowIdentity]]
-    private let title: String
-    private let symbol: String
+    private let baseContent: WindowGestureHUD.Content
+    private let gestureCursor: CGPoint?
     private weak var previews: SharedPreviewWindowCoordinator?
     private var cursorMode: Bool
     private var spinnerVisible = false
@@ -577,6 +580,16 @@ final class ActionFeedbackController {
     private var observations: [NSObjectProtocol] = []
     private var settingsObservation: Defaults.Observation?
     private var workspaceObservation: NSObjectProtocol?
+
+    static func gesture(_ content: WindowGestureHUD.Content, identities: [PreviewWindowIdentity], cursor: CGPoint) -> ActionFeedbackHandle? {
+        guard Defaults[.enableWindowGestures] else { return nil }
+        return start(title: content.title, symbol: content.symbolName, identities: identities, keyboard: false,
+                     usePreviews: false, gestureContent: content, gestureCursor: cursor)
+    }
+
+    static func stopGestureFeedback() {
+        if existing?.gestureCursor != nil { existing?.stop() }
+    }
 
     static func begin(_ action: WindowAction, windows: [WindowInfo], keyboard: Bool = false,
                       usePreviews: Bool = true, title: String? = nil, resolvedTargets: [WindowInfo]? = nil) -> ActionFeedbackHandle?
@@ -611,19 +624,23 @@ final class ActionFeedbackController {
     }
 
     private static func start(title: String, symbol: String, identities: [PreviewWindowIdentity], keyboard: Bool,
-                              usePreviews: Bool, perApp: Bool = false) -> ActionFeedbackHandle
+                              usePreviews: Bool, perApp: Bool = false, gestureContent: WindowGestureHUD.Content? = nil,
+                              gestureCursor: CGPoint? = nil) -> ActionFeedbackHandle
     {
         existing?.stop()
         let controller = ActionFeedbackController(title: title, symbol: symbol, identities: identities,
-                                                  keyboard: keyboard, usePreviews: usePreviews, perApp: perApp)
+                                                  keyboard: keyboard, usePreviews: usePreviews, perApp: perApp,
+                                                  gestureContent: gestureContent, gestureCursor: gestureCursor)
         existing = controller
         controller.start()
         return ActionFeedbackHandle(token: controller.token)
     }
 
-    private init(title: String, symbol: String, identities: [PreviewWindowIdentity], keyboard: Bool, usePreviews: Bool, perApp: Bool) {
-        self.title = title
-        self.symbol = symbol
+    private init(title: String, symbol: String, identities: [PreviewWindowIdentity], keyboard: Bool, usePreviews: Bool, perApp: Bool,
+                 gestureContent: WindowGestureHUD.Content?, gestureCursor: CGPoint?)
+    {
+        baseContent = gestureContent ?? WindowGestureHUD.Content(title: title, symbolName: symbol)
+        self.gestureCursor = gestureCursor
         var seen = Set<PreviewWindowIdentity>()
         order = identities.filter { seen.insert($0).inserted }
         entries = Dictionary(order.map { ($0, Entry()) }, uniquingKeysWith: { first, _ in first })
@@ -642,7 +659,7 @@ final class ActionFeedbackController {
                 if self?.spaceTransitionPending == true { self?.consolidate() }
             }
         }
-        settingsObservation = Defaults.observe(.enableActionFeedback, options: []) { [weak self] change in
+        settingsObservation = Defaults.observe(gestureCursor == nil ? .enableActionFeedback : .enableWindowGestures, options: []) { [weak self] change in
             guard !change.newValue else { return }
             DispatchQueue.main.async { self?.stop() }
         }
@@ -782,7 +799,7 @@ final class ActionFeedbackController {
     }
 
     private func content(for outcome: ActionFeedbackOutcome?, counter: String? = nil, hasShownSpinner: Bool) -> WindowGestureHUD.Content {
-        var result = WindowGestureHUD.Content(title: title, symbolName: symbol)
+        var result = baseContent
         result.isBusy = outcome == nil && spinnerVisible
         result.isWarning = outcome == .failed
         result.isSuccess = outcome == .completed
@@ -808,7 +825,7 @@ final class ActionFeedbackController {
             let counter = operationGroups.count > 1 ? "\(count)/\(operationGroups.count)" : order.first.flatMap { entries[$0]?.closeCounter }
             let value = content(for: outcome, counter: counter, hasShownSpinner: aggregateHasShownSpinner)
             if aggregate == nil { aggregate = ActionPopupPanel() }
-            aggregate?.present(value)
+            aggregate?.present(value, cursor: gestureCursor)
             if value.isBusy { aggregateHasShownSpinner = true }
             installCursorTracking()
         } else {
@@ -836,7 +853,7 @@ final class ActionFeedbackController {
     }
 
     private func installCursorTracking() {
-        guard localMonitor == nil else { return }
+        guard gestureCursor == nil, localMonitor == nil else { return }
         let events: NSEvent.EventTypeMask = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: events) { [weak self] event in
             self?.aggregate?.followCursor()

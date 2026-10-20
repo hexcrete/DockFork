@@ -4447,19 +4447,22 @@ extension WindowUtil {
         }
     }
 
-    static func minimizeWindowExitingFullscreen(_ window: WindowInfo) async -> Bool {
+    static func minimizeWindowExitingFullscreen(_ window: WindowInfo, feedback: ActionFeedbackHandle? = nil) async -> Bool {
         if WindowActionRequest.current == nil {
-            return await WindowActionRequest.run([PreviewWindowIdentity(window)]) { _ in await minimizeWindowExitingFullscreen(window) } ?? false
+            return await WindowActionRequest.run([PreviewWindowIdentity(window)]) { _ in await minimizeWindowExitingFullscreen(window, feedback: feedback) } ?? false
         }
         guard !window.isWindowlessApp, !window.app.isTerminated, !Task.isCancelled else { return false }
-        if await window.readFullscreenState() == true, await !changeFullscreenConfirmed(window) { return false }
+        if await window.readFullscreenState() == true {
+            feedback?.prepareForSpaceTransition()
+            if await !changeFullscreenConfirmed(window) { return false }
+        }
         guard !Task.isCancelled else { return false }
         return await setMinimizedStateConfirmed([window], isMinimized: true) == 1
     }
 
-    static func restoreWindowsConfirmed(_ windows: [WindowInfo]) async -> [WindowInfo] {
+    static func restoreWindowsConfirmed(_ windows: [WindowInfo], progress: (@Sendable (PreviewWindowIdentity, Bool) -> Void)? = nil) async -> [WindowInfo] {
         if WindowActionRequest.current == nil {
-            return await WindowActionRequest.run(windows.map(PreviewWindowIdentity.init)) { _ in await restoreWindowsConfirmed(windows) } ?? []
+            return await WindowActionRequest.run(windows.map(PreviewWindowIdentity.init)) { _ in await restoreWindowsConfirmed(windows, progress: progress) } ?? []
         }
         let candidates = windows.filter { !$0.isWindowlessApp && !$0.app.isTerminated }
         var failedApps = Set<pid_t>()
@@ -4471,7 +4474,10 @@ extension WindowUtil {
             }
         }
         guard !Task.isCancelled else { return [] }
-        return await setMinimizedWindowsConfirmed(candidates.filter { !failedApps.contains($0.app.processIdentifier) }, isMinimized: false)
+        for window in candidates where failedApps.contains(window.app.processIdentifier) {
+            progress?(PreviewWindowIdentity(window), false)
+        }
+        return await setMinimizedWindowsConfirmed(candidates.filter { !failedApps.contains($0.app.processIdentifier) }, isMinimized: false, progress: progress)
     }
 
     static func revealWindowConfirmed(_ window: WindowInfo, checkingLiveState: Bool = false) async -> Bool {
