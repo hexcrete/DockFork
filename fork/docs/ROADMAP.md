@@ -2,7 +2,7 @@
 
 ## 0.3.0 Prerelease Preparation
 
-The user authorized the website-only upstream merge, refreshed sanitized preset and Release-candidate preparation October 20. Incorporate upstream through `77e4771`, keeping stable base 1.41.0. Action feedback/ownership/responsiveness, explicit Quit, range selection, native-tab and Wine changes are completed development work, not new prerequisites to implement. Follow the [0.3.0 gate](RELEASE_NOTES_0.3.0.md#preparation-and-publication-gate): verify committed-source package/privacy/signatures/checksums, then obtain manual candidate testing and separate publication approval. Screenshots and recordings remain deferred. Published 0.2.0 assets remain unchanged.
+The user authorized the website-only upstream merge, refreshed sanitized preset and Release-candidate preparation October 20. Incorporate upstream through `77e4771`, keeping stable base 1.41.0. Action feedback/ownership/responsiveness, explicit Quit, range selection, native-tab and Wine changes are completed development work, not new prerequisites to implement. Candidate source `6d3eb470` is built and audited: sixteen suites, version/cleanup checks, 257 artifact assertions and the 477-file privacy-marker scan pass, with one retry of the unchanged native hit test. Follow the [0.3.0 gate](RELEASE_NOTES_0.3.0.md#preparation-and-publication-gate) for manual candidate testing and separate publication approval. No Release installation/import or media capture occurred. Screenshots and recordings remain deferred. Published 0.2.0 assets remain unchanged.
 
 ## Wine and CrossOver Action Support
 

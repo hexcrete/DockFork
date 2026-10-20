@@ -1,6 +1,6 @@
 # DockFork 0.3.0 Prerelease
 
-Status: Release-candidate preparation, not published. The user authorized the upstream merge, sanitized preset refresh and committed-source Release build. Candidate testing and explicit publication approval are still required. Screenshots and recordings are deferred, not a release gate.
+Status: Release candidate built and audited October 20, 2026, not published. Exact candidate source: `6d3eb4707c7db4446c78786e8df6ceec279be7b2`. The user authorized the upstream merge, sanitized preset refresh and committed-source Release build. Candidate testing and explicit publication approval are still required. Screenshots and recordings are deferred, not a release gate.
 
 ## Release Notes
 
@@ -84,4 +84,23 @@ Report problems through [the fork's Issues page](https://github.com/hexcrete/Doc
 
 ## Candidate Handoff
 
-Pending build and artifact audit. The final candidate source, paths, checksums, audit results and remaining manual tests will be recorded here after verification. No Release installation, preference import, browser-download test or media capture has been performed during preparation.
+Built from committed source `6d3eb4707c7db4446c78786e8df6ceec279be7b2` on macOS 27.0.1 with Xcode 27.0, using the existing Release/ad-hoc workflow. The package is arm64, not notarized, and retains the established DockFork identity. Swift 6 compatibility warnings remain in Swift 5 mode; this is not a warning-free build.
+
+- Package folder: `fork/dist/DockFork-6d3eb47-uH0xrM`.
+- App ZIP: `DockFork-0.3.0-6d3eb47-arm64.zip`.
+- ZIP SHA-256: `c4d3a78a0a12a5de6854f9afd574ceb1032eed6ab0e6a3ad1b8d5583fb1fbe11`.
+- Optional preset SHA-256: `df2d59b96290764f6ae19cfc38af134aeca56243307f70e041081e900ed1e1e2`.
+- All 257 artifact assertions pass: nine payload checksums, ten-asset inventory, exact source/sidecar correspondence, metadata and disabled upstream updater, arm64/ad-hoc signatures, absence of app development/signing/coverage payloads, ZIP integrity and all 219 extracted bundle entries' content/modes/links, clean packaging-overlay application, and packaged-preset checks.
+- The privacy-marker scan covered 477 unpacked app/source/sidecar files, including binary and UTF-16 private-path/identity checks. No configured private-home, development-certificate identity, credential, private-key or temporary-build-path marker was found. Intentional public upstream attribution is retained. This is not comprehensive secret/malware certification.
+- The Release app was not installed or launched; the preset was not imported. The running development app's executable checksum is unchanged. Cleanup removed the previous recognized local build output while preserving the installed app and this Release package.
+- Only the ten allowlisted files in Preparation and Publication Gate may be uploaded later. Exclude `build.log`, the unpacked app directory, temporary audit scripts/results and every unlisted file. No tag, push, upload, draft or publication was performed.
+
+### Manual Handoff Tests
+
+1. Test this exact ZIP as an upgrade, including permissions and settings import after exporting a backup. Do not infer those results from the Debug build or privacy scan.
+2. Check Dock, Window Switcher and Cmd+Tab in regular/Compact layouts: feedback, range selection with search, action-key repeat suppression, body/control drag separation and windowless transitions.
+3. Test collapsed differently named Finder tabs through Close and Minimize/Restore, mixed selection actions and Cmd+Tab app-level Minimize. Use disposable targets for destructive actions.
+4. Check Wine/CrossOver controls while visible/hidden, unsupported single failure, mixed-group exclusions and supported best-effort placement if applicable.
+5. Browser-downloaded/quarantined installation on another Mac remains a separate Gatekeeper test after publication or an explicitly approved transfer workflow. Older OSes, exhaustive displays/apps/faults and screenshots remain unverified.
+
+Keep the exact audited assets after approval. This handoff documentation is a later documentation-only commit; the app and corresponding source archive are not rebuilt to include their own future audit record. Publication requires separate explicit approval.
