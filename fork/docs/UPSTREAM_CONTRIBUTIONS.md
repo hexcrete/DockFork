@@ -1,5 +1,7 @@
 # Preparing Upstream Contributions
 
+October 20 reviewed, user-verified Wine action-support commit `7fab4ad7` depends on the shared Wine/CrossOver identity classifier in `b1ad1436`. A focused contribution must carry the cached WindowInfo classification, common action-support policy, UI/target filtering and direct worker guards together; do not submit only the hidden-toolbar symptom fix. Keep normal apps unchanged and distinguish game fullscreen from native fullscreen. Port relevant inert regression cases into the agreed upstream test location; exclude fork documentation/build configuration. No icon-file fallback, new setting or preference migration is included. The user reports the behavior working; exhaustive native action/mode coverage remains unverified.
+
 October 20 packaging cleanup `715421b3` is committed and fork-only: exclude `fork/package.sh`, its cleanup tests/documentation and root agent-command changes from upstream app PRs. No app behavior, dependency or project registration is changed.
 
 Checked October 8, 2026 against the live [upstream contribution rules](https://github.com/ejbills/DockDoor/blob/main/CONTRIBUTING.md) and [PR template](https://github.com/ejbills/DockDoor/blob/main/.github/pull_request_template.md). Both matched the current checkout. Re-read them before each submission: this checklist is not a substitute for the maintainer's rules.

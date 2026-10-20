@@ -1,5 +1,13 @@
 # DockFork: Changes and Showcase
 
+## In Development: Wine and CrossOver Action Support
+
+Committed as `7fab4ad7` after user verification and final review October 20: known Wine/CrossOver windows retain Quit, Force Quit, Hide/Unhide, Space moves including Bring to Current Space, geometry/tiling actions, ordinary activation and selection. Close, Minimize/Restore, native Full Screen and Open New Window are unsupported. Unsupported targets are omitted from groups and minimize-toggle intent; a direct single-target attempt reports failure through existing feedback. Context/More menus, traffic lights, app-header actions, Dock minimize overrides, native Cmd+Tab Close and confirmed workers use the same support rule. Hiding a Wine app no longer brings unsupported controls back.
+
+Classification reuses discovery's process identity and is stored with each window record. No icon-file fallback, extra AX checks, polling, settings or retry are added. Geometry remains best-effort: some Wine windows accept repositioning without resizing. The isolated production-source action fixture covers support/availability, mixed/all-unsupported groups, direct failures, toggle intent and hidden-state toolbar controls. The user reports the behavior working; exhaustive native/mode coverage remains unverified. No agent-operated destructive/app-wide tests were run against the game. This is not a guarantee for every Wine distribution or window mode.
+
+All sixteen regression suites, SwiftFormat and diff checks pass. Signed Debug build and strict installed signature pass; the exact-path launch retry succeeds after macOS error -600. The running development path, installed executable/debug-library and all ten changed application files match the reviewed build. Existing old-build cleanup preserves Release packages. The ledger covers committed history through `7fab4ad7`; the following documentation commit receives its exact hash in the next update. No Release build or publication.
+
 ## In Development: Wine and CrossOver Fullscreen Discovery
 
 Committed as `b1ad1436` after user verification and final review October 20: extend the existing Wine/CrossOver identity rules to recover screen-sized game windows exposed at Wine's status/shielding fullscreen levels, including its topmost variants. Require an established Wine preloader/temporary executable or CrossOver helper identity, full-display Quartz geometry within one point, a named AXWindow and AXUnknown subrole. Keep normal-level Wine/helper behavior and unrelated app filters unchanged. Consolidate the two existing Wine/helper rules rather than adding a Fallout-specific exception.
