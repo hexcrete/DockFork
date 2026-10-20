@@ -1,5 +1,11 @@
 # DockFork: Changes and Showcase
 
+## In Development: Cmd+Tab App-Level Minimize
+
+Committed as `4038decf` after user verification and final review October 19. The user reports the behavior working. With no individual preview focused, Command plus the configured Minimize key toggles the highlighted app's eligible windows through the shared App Header Minimize All executor. If any eligible window is restored, minimize; otherwise restore. Fullscreen and windowless entries are excluded by existing policy. Target lookup is shared with app-level Close, with cached app-wide expansion for Minimize. Focused previews retain their normal single/checked-selection route. Command mapping, persistent-session ownership, keep-preview behavior, confirmations, counters, busy-target refusal and refresh scheduling use existing paths. No new setting, AX preflight, polling or retry is added.
+
+Focused dispatcher and production shared-executor fixtures pass for app/PID targeting, mixed/all-minimized states, fullscreen/windowless exclusions and presentation flags. All twelve regression suites, SwiftFormat and diff checks pass. The signed Debug build and script-driven relaunch pass; installed signature, executable/debug-library, built-source correspondence and exact running development path are verified. Final review found no blocking issue. Exhaustive native session/display/fault coverage remains unverified. No release or publication.
+
 ## In Development: Gesture Action Outcomes, Stage 5
 
 Committed as `b2cb01e9` after user verification and final review October 19. The user reports the behavior working. Committed title-bar, Dock-icon and menu-bar mutations now use shared action-feedback presentation and report executor outcomes instead of starting the result timer at dispatch. Gesture recognition, candidate previews, release behavior, haptics, cancellation hints and immediate app-switch flashes remain on their existing paths. Gesture feedback follows Enable Window Gestures, independently of Enable action feedback, and stays at the original gesture location with its existing app icon or snap glyph. A new candidate or flash replaces old gesture feedback without cancelling accepted operations or stopping unrelated ordinary-action feedback.
