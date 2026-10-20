@@ -1,5 +1,9 @@
 # DockFork Roadmap
 
+## Wine and CrossOver Window Discovery
+
+Committed as `b1ad1436` after user verification and final review October 20: recover known Wine/CrossOver game windows at Wine's fullscreen status/shielding levels using display-matched geometry and named AXWindow/AXUnknown validation. Reuse AX focused/main fallback, bounded startup retries and the capture classifier; do not introduce a game-name rule, polling or fake native-fullscreen state. Production fixtures and the read-only Fallout 76 classifier check pass. All sixteen suites pass in final review, including the unchanged native Compact Mode hit test that needed a retry in an earlier run. Signed Debug build, exact-path launch retry and installed signature/binary/source/running-path checks pass; existing old-build cleanup preserves releases. The running app caches one real Fallout window on its existing Desktop. Test actual Dock/Window Switcher/Cmd+Tab presentation, helper duplicates, preview image availability and return to windowed mode. Keep actions, physical multi-display/exclusive-capture and other Wine distributions as explicit gaps until tested.
+
 ## Preview Input and Range Selection
 
 Completed October 20, with user verification and final review before committing each stage:
