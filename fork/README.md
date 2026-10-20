@@ -31,18 +31,20 @@ Post-0.2.0 development separates **Quit App** from **Force Quit App**. Normal pr
 The packaging script is a fork-only CLI distribution workflow, not a replacement for upstream's Xcode development instructions. Building requires macOS 27 and Xcode 27 or later, with Xcode selected as the active developer directory. Initial dependency resolution requires network access. No Apple account is required for this ad-hoc-signing workflow.
 
 ```sh
-./fork/package.sh
+./fork/package.sh --clean-old-builds
 # Optional release version override:
-./fork/package.sh --version 1.0.0
+./fork/package.sh --version 1.0.0 --clean-old-builds
 # Inspect the isolated source overlay without building:
-./fork/package.sh --prepare-only
+./fork/package.sh --prepare-only --clean-old-builds
 # Local testing of tracked, uncommitted source changes (not a release):
-./fork/package.sh --include-working-tree
+./fork/package.sh --include-working-tree --clean-old-builds
 ```
 
 By default the script uses **committed HEAD**, not uncommitted application changes or the local project overrides. `--include-working-tree` is an explicit local-test exception: it applies tracked changes in `DockDoor`, `Assets`, `BuildTools`, and `DockDoorTests`, records them in `WORKING-TREE.patch`, and labels the output `working`. It excludes untracked files and project-file changes. Do not publish these test builds; commit reviewed changes and rebuild normally for release. The script reads the packaging patch, entitlements, installation guide, and optional preset from this checkout. Commit and review those assets before publishing a release. A future upstream change that invalidates the overlay stops packaging rather than silently skipping it.
 
-Each invocation creates a unique directory under `fork/dist/` (or `--output DIRECTORY`). Temporary build sources and derived data are deleted afterward. The original project is not edited. Packaging does not install, launch, import preferences, publish, or push anything.
+Each invocation creates a unique directory under `fork/dist/` (or `--output DIRECTORY`). Temporary build sources and derived data are deleted afterward. The original project is not edited. Release packaging does not install, launch, import preferences, publish, or push anything.
+
+Pass `--clean-old-builds` on routine rebuilds to remove older local-test/development output after success. Cleanup requires generated folder names, source-commit records and matching build metadata. It keeps the current build, installed `dev/DockFork.app`, Release packages, active builds, symlinks and unrelated/unrecognized entries. ZIPs and checksum manifests protect packaged outputs even with a `working` label. Failed invocations retain old output and remove their temporary active-build marker; the next successful invocation can clean recognized failed builds. Without the flag, old output is retained. Cleanup is limited to the selected output directory. Run its safety tests with `ruby fork/packaging/tests/build_cleanup_test.rb`.
 
 The resulting app uses `DockFork.app`, executable `DockFork`, and bundle/preference identity `io.github.hexcrete.DockFork`. Its Swift module and scripting command names remain DockDoor-compatible. The overlay disables Sparkle construction and replaces update checks with manual fork-release downloads; upstream feed/signing keys are removed. Diagnostics use a separate DockFork directory. See [installation and signing limitations](packaging/INSTALL.md).
 
@@ -75,9 +77,9 @@ These are fallbacks for unset preferences, not a migration or forced configurati
 ### Stable Local Development Build
 
 ```sh
-./fork/package.sh --dev
+./fork/package.sh --dev --clean-old-builds
 # If multiple Apple Development certificates are available:
-./fork/package.sh --dev --signing-identity CERTIFICATE_SHA1
+./fork/package.sh --dev --clean-old-builds --signing-identity CERTIFICATE_SHA1
 ```
 
 This local-only mode builds Debug with tracked working-tree source changes and uses your installed Apple Development certificate. With exactly one valid development identity, selection is automatic; otherwise select its SHA-1 from `security find-identity -v -p codesigning`. No account name or certificate fingerprint is stored in tracked files, and no certificates or private keys are exported. macOS may request access to the signing key.

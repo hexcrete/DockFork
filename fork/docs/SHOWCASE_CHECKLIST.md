@@ -1,5 +1,7 @@
 # DockFork Showcase Capture Checklist
 
+October 20 packaging cleanup, committed as `715421b3` after final review and user authorization: routine commands now include `--clean-old-builds`, preserving Release packages. This is storage housekeeping with no new app UI or capture ID. Existing media remains pending; build cleanup does not imply visual verification or publication.
+
 This is a menu of possible captures, not a requirement to record everything. Select rows, then attach the chosen media to [Changes and Showcase](CHANGES_AND_SHOWCASE.md). The commit ledger groups the complete implementation history for each topic.
 
 Feature audit: `9efa1cc` against upstream `0bd2e46`, October 8, 2026; publication/defaults/control-spacing additions reviewed through `09a2cc2` on October 9. All capture selections below remain undecided. No media has been captured or approved by this checklist.

@@ -28,16 +28,18 @@ Follow the detailed [upstream contribution checklist](fork/docs/UPSTREAM_CONTRIB
 Requires Xcode 27 or later on macOS 27 or later. For this fork, use the included script from the repository root:
 
 ```sh
-./fork/package.sh --dev
+./fork/package.sh --dev --clean-old-builds
 ```
 
 Build and relaunch after implementation changes unless the user explicitly says otherwise. This command builds Debug, signs with a local Apple Development certificate, gracefully replaces the running DockFork instance, and launches `fork/dist/dev/DockFork.app`. That location is gitignored. Verify the exact executable is running; do not launch older builds from other folders. Do not use computer-use automation for builds.
+
+Include `--clean-old-builds` on routine rebuilds. After success it removes recognized old local-test/development output folders, preserving the current build, installed app and Release packages. Cleanup is limited to the selected output directory and skips active builds and unrelated entries.
 
 Keep application identity and signing configuration in the fork build script rather than modifying the source project. The script applies DockFork identity in an isolated build snapshot. Preserve existing preferences and permissions. Certificate selection and limitations are documented in [fork/README.md](fork/README.md#stable-local-development-build).
 
 The development script includes tracked working-tree source changes but excludes untracked files and project-file changes. Flag that limitation when adding source files or project registrations rather than silently testing an incomplete snapshot.
 
-For release packaging, use `./fork/package.sh` separately. Release mode builds committed sources, uses ad-hoc signing, and does not install or launch the app. Do not distribute development builds.
+For release packaging, use `./fork/package.sh --clean-old-builds` separately. Release mode builds committed sources, uses ad-hoc signing, and does not install or launch the app. Do not distribute development builds.
 
 After each upstream merge, update `fork/version.json` with the exact incorporated upstream commit and the newest published stable release tag contained in that commit's history, including its full release commit hash. Fetch upstream tags before selecting the release. Never label an unmerged release as the base or infer a release version from the stale Xcode project version. Keep DockFork's own version separate; update it for fork releases. Packaging validates the record and embeds it for Support > Updates. See [version maintenance](fork/README.md#fork-and-upstream-versions).
 

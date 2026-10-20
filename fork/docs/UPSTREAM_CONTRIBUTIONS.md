@@ -1,5 +1,7 @@
 # Preparing Upstream Contributions
 
+October 20 packaging cleanup `715421b3` is committed and fork-only: exclude `fork/package.sh`, its cleanup tests/documentation and root agent-command changes from upstream app PRs. No app behavior, dependency or project registration is changed.
+
 Checked October 8, 2026 against the live [upstream contribution rules](https://github.com/ejbills/DockDoor/blob/main/CONTRIBUTING.md) and [PR template](https://github.com/ejbills/DockDoor/blob/main/.github/pull_request_template.md). Both matched the current checkout. Re-read them before each submission: this checklist is not a substitute for the maintainer's rules.
 
 Publishing DockFork and submitting changes to DockDoor are separate activities. Preserve the fork's history and documented choices; do not offer the entire branch as one upstream PR or claim that it already complies with all upstream requirements.
