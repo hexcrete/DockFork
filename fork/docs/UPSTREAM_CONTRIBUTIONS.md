@@ -1,5 +1,7 @@
 # Preparing Upstream Contributions
 
+October 20 0.3.0 preparation and preset/publication records are fork-only. Upstream merge `d50d6882` incorporates the website-only `77e4771`; it adds no app feature to extract. Exclude the fork version bump, preset, release notes, package/audit results and root README release banner from app PRs. Existing feature-specific dependency notes and final-diff gates still apply.
+
 October 20 reviewed, user-verified Wine action-support commit `7fab4ad7` depends on the shared Wine/CrossOver identity classifier in `b1ad1436`. A focused contribution must carry the cached WindowInfo classification, common action-support policy, UI/target filtering and direct worker guards together; do not submit only the hidden-toolbar symptom fix. Keep normal apps unchanged and distinguish game fullscreen from native fullscreen. Port relevant inert regression cases into the agreed upstream test location; exclude fork documentation/build configuration. No icon-file fallback, new setting or preference migration is included. The user reports the behavior working; exhaustive native action/mode coverage remains unverified.
 
 October 20 packaging cleanup `715421b3` is committed and fork-only: exclude `fork/package.sh`, its cleanup tests/documentation and root agent-command changes from upstream app PRs. No app behavior, dependency or project registration is changed.

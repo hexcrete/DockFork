@@ -75,7 +75,7 @@ These are highlights, not the complete list. See the [changes guide](https://git
 
 Report problems through [this fork's Issues page](https://github.com/hexcrete/DockFork/issues). Review diagnostic logs for private information before attaching them.
 
-## Preparation Checks
+## Historical Preparation Checks
 
 The user-edited fork settings explainers have been shortened and grammar-reviewed in both the settings UI and search catalog. The temporary editing worksheet is not included in the release source. No defaults or application behavior changed.
 
@@ -106,7 +106,7 @@ The ledger coverage boundary is explicit in [COMMIT_LEDGER.md](COMMIT_LEDGER.md)
 
 Do not block publication on showcase media alone. Do not replace missing Release tests with screenshots or earlier Debug results.
 
-The current upstream record is DockDoor 1.41.0 plus changes through `3e08721ec56c6747dba04561ab57b03ec254d785`. Upstream main and tags were fetched for this integration; the published stable release and its included tag were verified. The current Release-candidate record below supersedes the earlier build-pending stage notes. Publication remains paused.
+The current upstream record is DockDoor 1.41.0 plus changes through `3e08721ec56c6747dba04561ab57b03ec254d785`. Upstream main and tags were fetched for this integration; the published stable release and its included tag were verified. The current Release-candidate record below supersedes the earlier build-pending stage notes. Publication was paused at this stage; the completed October 17 publication is recorded below.
 
 ## Candidate Handoff
 

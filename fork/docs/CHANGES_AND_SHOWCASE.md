@@ -1,5 +1,11 @@
 # DockFork: Changes and Showcase
 
+## 0.3.0 Prerelease Preparation
+
+The [0.3.0 notes and gate](RELEASE_NOTES_0.3.0.md) summarize changes since the published 0.2.0 source `c863e62`: optional action/cursor feedback, range selection, explicit Force Quit, background action work and shared ownership, native-tab and Wine handling, Cmd+Tab app-level Minimize, and input/windowless-preview fixes. Existing dated entries below remain the detailed implementation/validation history, not additional release features.
+
+October 20 upstream merge `d50d6882` incorporates `77e4771`, a website-only compatibility entry. Latest included stable release remains 1.41.0 at `3d6a3cba`. The newly supplied showcase export is reduced from 253 to 249 recognized preferences by removing four system/private-state keys; all 15 shortcut IDs are generic and debug logging is Off. Only the three action/cursor-feedback preferences are added relative to the older preset. No live import, settings reset or published-asset replacement is performed. All sixteen regression suites, 19 version cases and cleanup checks pass; the unchanged native Compact Mode hit test needed one retry. Release build/audit results will be recorded in the handoff; no publication is authorized, and screenshots remain deferred.
+
 October 20 settings-copy follow-up: the explainer below Keybinds > Window Selection > Enable multi-window selection describes Shift-checkbox ranges, checkbox dragging and held-selection-shortcut arrow ranges. Show it only while selection is enabled, with matching search text and range-related search keywords. No setting, default or selection behavior changes. The focused settings/search/visibility fixture and SwiftFormat/diff checks pass. Signed Debug build/relaunch, installed signature/binary/source correspondence and exact running path pass; visual verification remains pending. Existing cleanup removes the previous local build and preserves Release packages.
 
 ## In Development: Wine and CrossOver Action Support

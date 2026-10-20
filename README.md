@@ -12,6 +12,8 @@ Based on **[DockDoor by ejbills](https://github.com/ejbills/DockDoor)**, with ad
 
 **Latest prerelease:** [DockFork 0.2.0](https://github.com/hexcrete/DockFork/releases/tag/v0.2.0) adds ordered multi-window selection, group actions/dragging, automatic and directional tiling, ordered AppleScript inputs, adaptive preview toolbars and native More menus, and further UI/reliability fixes. It includes an updated privacy-reviewed optional showcase configuration. See the [release notes and validation record](fork/docs/RELEASE_NOTES_0.2.0.md). Screenshots and recordings will follow during testing. Ad-hoc-signed upgrades can require removing and re-adding affected permissions in System Settings. The original 0.1.0 assets remain unchanged.
 
+**Next candidate: 0.3.0 prerelease, not published.** Preparation includes action feedback, range selection, explicit Force Quit, action responsiveness/ownership, native-tab and Wine/CrossOver fixes, and an updated optional preset. See the [0.3.0 notes and preparation gate](fork/docs/RELEASE_NOTES_0.3.0.md). The published 0.2.0 download remains unchanged; screenshots and recordings are deferred.
+
 ---
 
 <a id="readme-top"></a>

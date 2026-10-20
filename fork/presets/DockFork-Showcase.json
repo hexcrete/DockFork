@@ -1,9 +1,10 @@
 {
   "app": "DockDoor",
-  "appVersion": "0.2.0",
+  "appVersion": "0.3.0",
   "formatVersion": 1,
   "settings": {
     "UserKeybind": "{\"keyCode\":48,\"modifierFlags\":524576,\"modifierSide\":\"left\"}",
+    "actionFeedbackPosition": "trigger",
     "activeAppIndicatorAutoLength": true,
     "activeAppIndicatorAutoSize": true,
     "activeAppIndicatorHeight": 5,
@@ -30,9 +31,9 @@
       "{\"action\":\"hide\",\"id\":\"00000000-0000-4000-8000-000000000010\",\"isPending\":false,\"keyCode\":4}",
       "{\"action\":\"toggleFullScreen\",\"id\":\"00000000-0000-4000-8000-000000000011\",\"isPending\":false,\"keyCode\":3}",
       "{\"action\":\"openNewWindow\",\"id\":\"00000000-0000-4000-8000-000000000012\",\"isPending\":false,\"keyCode\":45}",
-      "{\"action\":\"bringToCurrentSpace\",\"id\":\"00000000-0000-4000-8000-000000000015\",\"isPending\":false,\"keyCode\":11}",
-      "{\"action\":\"toggleWindowSelection\",\"id\":\"00000000-0000-4000-8000-000000000013\",\"isPending\":false,\"keyCode\":14}",
-      "{\"action\":\"autoTileSelectedWindows\",\"id\":\"00000000-0000-4000-8000-000000000014\",\"isPending\":false,\"keyCode\":17}"
+      "{\"action\":\"bringToCurrentSpace\",\"id\":\"00000000-0000-4000-8000-000000000013\",\"isPending\":false,\"keyCode\":11}",
+      "{\"action\":\"toggleWindowSelection\",\"id\":\"00000000-0000-4000-8000-000000000014\",\"isPending\":false,\"keyCode\":14}",
+      "{\"action\":\"autoTileSelectedWindows\",\"id\":\"00000000-0000-4000-8000-000000000015\",\"isPending\":false,\"keyCode\":17}"
     ],
     "cmdTabAppNameStyle": "shadowed",
     "cmdTabAutoSelectFirstWindow": true,
@@ -96,6 +97,7 @@
     "dockPreviewWindowStateIndicatorPlacement": "nextToTrafficLightButtons",
     "dockSwipeAwayFromDockAction": "maximize",
     "dockSwipeTowardsDockAction": "minimize",
+    "enableActionFeedback": true,
     "enableCmdTabEnhancements": true,
     "enableCmdTabFocusFade": false,
     "enableDockPreviewEdgeAutoScroll": true,
@@ -210,6 +212,7 @@
     "showFullSizeWindowlessDockPreviews": false,
     "showMassActionButtons": true,
     "showMinimizedHiddenLabels": true,
+    "showMouseFollowsFocusFeedback": true,
     "showPreviewShadow": true,
     "showSpaceNumber": false,
     "showSpecialAppControls": true,

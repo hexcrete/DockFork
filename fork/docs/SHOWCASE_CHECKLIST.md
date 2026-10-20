@@ -1,5 +1,9 @@
 # DockFork Showcase Capture Checklist
 
+## 0.3.0 Candidate
+
+Screenshots and recordings remain deferred and are not a packaging/publication prerequisite. Preserve all capture IDs and uncompleted media states. Later captures can use the optional October 20 preset, now with action feedback and Mouse Follows Focus feedback enabled, but importing it replaces settings and must be explicit. The [0.3.0 notes](RELEASE_NOTES_0.3.0.md) group the highlights; existing feedback, selection/range, native-tab, input and Wine rows below remain the capture plan. No media was captured or approved during release preparation.
+
 October 20 selection explainer, reuse M01/M02 settings captures: enable multi-window selection and show the helper naming all three range methods; disable selection and verify the helper hides. Matching search descriptions use the same text. This is copy/visibility only, not a new gesture or setting. Static settings and signed Debug build/relaunch checks pass, including installed signature/binary/source/running-path verification; native visual verification and media remain pending. Existing capture IDs are unchanged.
 
 October 20 action-support follow-up `7fab4ad7`, reuse the existing Wine/window-discovery capture setup: inspect regular/Compact controls in Dock, Window Switcher and Cmd+Tab before/after hiding a known Wine app. Verify unsupported controls remain absent, supported actions remain reachable, an assigned unsupported single-window action shows failure when feedback is enabled, and a mixed native/Wine selection ignores Wine for Minimize/Restore without changing toggle intent or counters. Check Space moves and best-effort placement separately. Implementation, isolated policy tests and signed development-build checks pass. The user reports the behavior working; exhaustive native coverage and media remain pending. Do not Quit/Force Quit or mutate a working game just for a capture. No new capture ID or captured-media claim.
