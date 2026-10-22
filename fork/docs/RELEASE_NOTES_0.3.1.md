@@ -1,6 +1,6 @@
 # DockFork 0.3.1 Prerelease
 
-Status: the user has explicitly authorized a refreshed Release build with the sanitized October 22 preset. Build and artifact checks are pending. The earlier candidate from `586be06ae0de421e73d0ce7ec5d537509c1c3806` remains superseded and must not be distributed. No tag, upload or publication is authorized. Screenshots remain deferred.
+Status: refreshed candidate built and audited from `07dfcb7de8fc77edbe20b8bc2d9c400b32e12608` with the sanitized October 22 preset, following explicit user build authorization. Awaiting exact-candidate user testing and approval. The earlier candidate from `586be06ae0de421e73d0ce7ec5d537509c1c3806` remains superseded and must not be distributed. No tag, upload or publication performed. Screenshots remain deferred.
 
 ## Changes Since 0.3.0
 
@@ -29,6 +29,23 @@ Before publication, test the exact candidate: selection sweeps and held-shortcut
 Ad-hoc signed, Apple Silicon and not notarized. Replacing an ad-hoc build can require removing and re-adding affected system permissions. Updates remain manual. Browser-quarantine/Gatekeeper testing, older macOS releases, exhaustive custom-app/display coverage and media remain unverified. Do not infer them from packaging checks.
 
 Use [the concise release body](RELEASE_BODY_0.3.1.md) for a future GitHub description, not this preparation record. Publication requires approval after candidate testing. Published 0.3.0 assets remain untouched.
+
+## Refreshed Candidate Handoff
+
+- Source: `07dfcb7de8fc77edbe20b8bc2d9c400b32e12608`. Later handoff documentation does not rebuild or change this candidate.
+- Folder: `fork/dist/DockFork-07dfcb7-eYQtAL`.
+- App ZIP: `DockFork-0.3.1-07dfcb7-arm64.zip`.
+- ZIP SHA-256: `4fbce623cea4abb68677a5c35be3efd9ff001136e7bd528d74e6139924e225eb`.
+- Optional preset SHA-256: `8d83ef5b74b8689ebef65a808ad7bf5caf690e7e286bdf119e8caa3385a4974b`.
+- Apple Silicon Release, ad-hoc signed and not notarized. Established DockFork identity and upstream metadata are unchanged; upstream automatic updates remain disabled.
+- The packaged preset exactly matches the committed October 22 sanitized export: 249 recognized preferences, 14 generic-ID shortcut rows, debug logging Off, title-bar scrolling/tab filter enabled and custom Persistent Switcher shortcut omitted as supplied. No automatic import or default-setting change.
+- All 8,079 artifact assertions pass: nine payload checksums, ten-file publication inventory, version/source/upstream metadata, arm64/ad-hoc signatures, absence of development/signing/coverage payloads, ZIP integrity and extracted app content/mode/link correspondence, exact committed source archive, clean packaging-patch application and sidecar/preset correspondence.
+- Configured private-path/local-development-identity/key/GitHub-token marker checks pass across 480 app/source/sidecar files, including UTF-16 path/identity forms. Intentional public attribution remains; this is not comprehensive secret or malware certification.
+- Fresh preset privacy checks, all 19 version-metadata cases, build-cleanup tests, script syntax and diff checks pass. Application sources are identical to the earlier candidate; the previously recorded seventeen-suite results still apply, but that entire suite was not rerun for this preset-only refresh.
+- Release packaging did not install or launch the app or import preferences. The running development executable's before/after checksum is unchanged. Published releases and the superseded candidate are untouched.
+- Later publication allowlist: `DockFork-0.3.1-07dfcb7-arm64.zip`, `DockFork-07dfcb7-source.tar.gz`, `DockFork-Showcase.json`, `DockFork.patch`, `INSTALL.md`, `LICENSE`, `SOURCE-COMMIT.txt`, `PACKAGING-PATCH-SHA256.txt`, `BUILD-METADATA.json`, `SHA256SUMS.txt`. Exclude build logs, the unpacked app, development builds and every unlisted file.
+
+Test this exact refreshed package before publication, including selection ranges across background refreshes and the optional title-bar filter. Export a settings backup before optional preset import; import replaces settings. Manual Release installation/import, downloaded/quarantined Gatekeeper testing, older OS and exhaustive app/display coverage remain pending. No push, tag, upload or publication occurred. Keep these exact assets after approval.
 
 ## Superseded Candidate Record — Do Not Distribute
 
