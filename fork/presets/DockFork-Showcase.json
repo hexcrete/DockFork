@@ -1,6 +1,6 @@
 {
   "app": "DockDoor",
-  "appVersion": "0.3.0",
+  "appVersion": "0.3.1",
   "formatVersion": 1,
   "settings": {
     "UserKeybind": "{\"keyCode\":48,\"modifierFlags\":524576,\"modifierSide\":\"left\"}",

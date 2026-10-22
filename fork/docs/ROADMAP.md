@@ -1,5 +1,7 @@
 # DockFork Roadmap
 
+0.3.1 preparation: package the user-verified selection-refresh correction and optional scrolling/tab title-bar exclusion before returning to larger roadmap features. Upstream was fetched October 22 with no new main commits. Exact Release-candidate testing and publication approval remain gates; screenshots are deferred.
+
 ## Title-bar Scrolling and Tab Exclusion
 
 October 22: implement the user-verified middle ground Disable title bar gestures over scrollable areas and tabs, default Off, using the existing committed preference key. The broader interactive-element version was user-verified; the new policy excludes scroll/content ancestry and all recognized tab groups/subroles while retaining other controls under standard rules. Unknown/incomplete hits and cache bypass protections remain. All seventeen regression suites, SwiftFormat/diff checks, signed development build/relaunch and installed/running binary/source checks pass; the user reports this refinement works. Exhaustive custom-app/display coverage remains pending. Traffic-light-row restriction and exact draggable-region detection are not implemented; legacy title-bar scrolling is unchanged.
