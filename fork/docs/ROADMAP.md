@@ -1,5 +1,9 @@
 # DockFork Roadmap
 
+## Title-bar Interactive Exclusion
+
+October 22: restore the default-Off Disable title bar gestures over interactive elements option in Gestures > Options after user testing found scrolling-only exclusion missed tab bars without scrolling ancestry. Accept recognized background roles, reject interactive/content ancestors and unknown/incomplete hits, and avoid stale window-hit cache approvals. All seventeen regression suites, SwiftFormat/diff checks, signed development build/relaunch and installed/running binary/source correspondence pass. The user reports the restored filter works; exhaustive custom-app/display verification remains pending. Traffic-light-row restriction and exact draggable-region detection are not implemented; the legacy title-bar scroll mode is unchanged.
+
 ## 0.3.0 Post-release Testing
 
 [0.3.0 is published as a prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) from unchanged audited source `6d3eb470`, with explicit user authorization. Action feedback/ownership/responsiveness, explicit Quit, range selection, native-tab and Wine work are shipped development changes, not new prerequisites to implement. The release retains stable base 1.41.0 plus upstream history through `77e4771`. All ten uploaded assets and anonymous public downloads match the audited package. No Release installation, settings import or media capture accompanied publication. Next work is manual upgrade/import and browser-quarantine/Gatekeeper testing, broader OS/display/app coverage and optional screenshots/recordings. See the [publication record](RELEASE_NOTES_0.3.0.md#publication-record). Previous releases remain unchanged.

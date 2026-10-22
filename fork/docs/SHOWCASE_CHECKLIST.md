@@ -1,5 +1,7 @@
 # DockFork Showcase Capture Checklist
 
+October 22 gesture settings follow-up, reuse existing settings captures without a new ID: show Disable title bar gestures over interactive elements under Gestures > Options. Compare empty title-bar backgrounds with buttons, tab labels/icons and scrollable contents; include tab strips without scrolling ancestry and quick adjacent background-to-control starts. Dock/menu-bar gestures must remain unchanged. Default Off; the preset is not modified. All seventeen regression suites, SwiftFormat/diff checks, signed development build/relaunch and installed/running binary/source correspondence pass. The user reports the restored filter works; exhaustive custom-app/display verification and media remain pending. No captured-media claim.
+
 October 21 post-release correction, reuse M01/M02: open a fresh regular or Compact Window Switcher and immediately sweep from a checkbox. Keep dragging beyond the initial background discovery refresh, then reverse and release; the range must continue. Repeat with held-selection-shortcut arrows. Actual filter/membership/order changes must still end the range. Production-source regression and all sixteen suites pass; the user reports the freeze resolved. Media and exhaustive physical-input/display coverage remain pending. No new capture ID or captured-media claim. Published 0.3.0 does not contain this correction.
 
 ## 0.3.0 Prerelease

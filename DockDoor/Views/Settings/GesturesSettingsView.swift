@@ -7,6 +7,7 @@ struct GesturesSettingsView: View {
     @Default(.windowGestureSensitivity) var sensitivity
     @Default(.windowGestureHaptics) var haptics
     @Default(.windowGestureLivePreview) var livePreview
+    @Default(.disableTitleBarGesturesOverInteractiveElements) var disableOverInteractiveElements
     @Default(.customDockReservationEdge) var reservationEdge
     @Default(.customDockReservationThickness) var reservationThickness
 
@@ -154,6 +155,12 @@ struct GesturesSettingsView: View {
 
                 Toggle("Haptic feedback", isOn: $haptics)
                     .settingsSearchTarget("windowGestures.haptics")
+
+                Toggle("Disable title bar gestures over interactive elements", isOn: $disableOverInteractiveElements)
+                    .settingsSearchTarget("windowGestures.disableOverInteractiveElements")
+                Text("Skip controls, tabs and scrollable areas. Unrecognized areas are left to the app.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }

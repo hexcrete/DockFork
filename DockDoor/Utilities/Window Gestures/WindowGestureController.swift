@@ -352,7 +352,9 @@ final class WindowGestureController {
     }
 
     private func zone(at point: CGPoint, now: TimeInterval) -> WindowGestureZone? {
+        let excludesInteractiveElements = Defaults[.disableTitleBarGesturesOverInteractiveElements]
         if let recentZone, now - recentZone.time < Self.zoneReuseWindow,
+           !excludesInteractiveElements || recentZone.zone.map({ $0.window == nil }) == true,
            hypot(recentZone.point.x - point.x, recentZone.point.y - point.y) < 4
         {
             return recentZone.zone
@@ -360,7 +362,7 @@ final class WindowGestureController {
         let zone = DebugLogger.measureSlow("WindowGestures zone", thresholdMs: 30, details: "\(point)") {
             WindowGestureZoneResolver.resolve(at: point)
         }
-        recentZone = RecentZone(zone: zone, point: point, time: now)
+        recentZone = excludesInteractiveElements && zone.map { $0.window == nil } != true ? nil : RecentZone(zone: zone, point: point, time: now)
         return zone
     }
 

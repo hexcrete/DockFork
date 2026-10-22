@@ -879,6 +879,15 @@ enum SettingsSearchCatalog {
             icon: "waveform"
         ),
         SettingsSearchItem(
+            id: "windowGestures.disableOverInteractiveElements",
+            title: String(localized: "Disable title bar gestures over interactive elements"),
+            description: String(localized: "Skip controls, tabs and scrollable areas. Unrecognized areas are left to the app."),
+            keywords: ["title bar", "toolbar", "interactive", "button", "scroll", "tabs", "background"],
+            tab: "Gestures",
+            section: String(localized: "Options"),
+            icon: "hand.point.up.left"
+        ),
+        SettingsSearchItem(
             id: "windowGestures.dockSpace",
             title: String(localized: "Space for a Custom Dock"),
             description: String(localized: "Keep a strip of the screen free so snapped windows don't cover a custom dock."),
