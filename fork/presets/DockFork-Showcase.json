@@ -22,18 +22,18 @@
     "bufferFromDock": -25,
     "closingPostActionBehavior": true,
     "cmdShortcuts": [
-      "{\"action\":\"close\",\"id\":\"00000000-0000-4000-8000-000000000004\",\"isPending\":false,\"keyCode\":13}",
-      "{\"action\":\"minimize\",\"id\":\"00000000-0000-4000-8000-000000000005\",\"isPending\":false,\"keyCode\":46}",
-      "{\"action\":\"quit\",\"id\":\"00000000-0000-4000-8000-000000000006\",\"isPending\":false,\"keyCode\":12}",
-      "{\"action\":\"fillLeftHalf\",\"id\":\"00000000-0000-4000-8000-000000000007\",\"isPending\":false,\"keyCode\":0}",
-      "{\"action\":\"maximize\",\"id\":\"00000000-0000-4000-8000-000000000008\",\"isPending\":false,\"keyCode\":1}",
-      "{\"action\":\"fillRightHalf\",\"id\":\"00000000-0000-4000-8000-000000000009\",\"isPending\":false,\"keyCode\":2}",
-      "{\"action\":\"hide\",\"id\":\"00000000-0000-4000-8000-000000000010\",\"isPending\":false,\"keyCode\":4}",
-      "{\"action\":\"toggleFullScreen\",\"id\":\"00000000-0000-4000-8000-000000000011\",\"isPending\":false,\"keyCode\":3}",
-      "{\"action\":\"openNewWindow\",\"id\":\"00000000-0000-4000-8000-000000000012\",\"isPending\":false,\"keyCode\":45}",
-      "{\"action\":\"bringToCurrentSpace\",\"id\":\"00000000-0000-4000-8000-000000000013\",\"isPending\":false,\"keyCode\":11}",
-      "{\"action\":\"toggleWindowSelection\",\"id\":\"00000000-0000-4000-8000-000000000014\",\"isPending\":false,\"keyCode\":14}",
-      "{\"action\":\"autoTileSelectedWindows\",\"id\":\"00000000-0000-4000-8000-000000000015\",\"isPending\":false,\"keyCode\":17}"
+      "{\"action\":\"close\",\"id\":\"00000000-0000-4000-8000-000000000003\",\"isPending\":false,\"keyCode\":13}",
+      "{\"action\":\"minimize\",\"id\":\"00000000-0000-4000-8000-000000000004\",\"isPending\":false,\"keyCode\":46}",
+      "{\"action\":\"quit\",\"id\":\"00000000-0000-4000-8000-000000000005\",\"isPending\":false,\"keyCode\":12}",
+      "{\"action\":\"fillLeftHalf\",\"id\":\"00000000-0000-4000-8000-000000000006\",\"isPending\":false,\"keyCode\":0}",
+      "{\"action\":\"maximize\",\"id\":\"00000000-0000-4000-8000-000000000007\",\"isPending\":false,\"keyCode\":1}",
+      "{\"action\":\"fillRightHalf\",\"id\":\"00000000-0000-4000-8000-000000000008\",\"isPending\":false,\"keyCode\":2}",
+      "{\"action\":\"hide\",\"id\":\"00000000-0000-4000-8000-000000000009\",\"isPending\":false,\"keyCode\":4}",
+      "{\"action\":\"toggleFullScreen\",\"id\":\"00000000-0000-4000-8000-000000000010\",\"isPending\":false,\"keyCode\":3}",
+      "{\"action\":\"openNewWindow\",\"id\":\"00000000-0000-4000-8000-000000000011\",\"isPending\":false,\"keyCode\":45}",
+      "{\"action\":\"bringToCurrentSpace\",\"id\":\"00000000-0000-4000-8000-000000000012\",\"isPending\":false,\"keyCode\":11}",
+      "{\"action\":\"toggleWindowSelection\",\"id\":\"00000000-0000-4000-8000-000000000013\",\"isPending\":false,\"keyCode\":14}",
+      "{\"action\":\"autoTileSelectedWindows\",\"id\":\"00000000-0000-4000-8000-000000000014\",\"isPending\":false,\"keyCode\":17}"
     ],
     "cmdTabAppNameStyle": "shadowed",
     "cmdTabAutoSelectFirstWindow": true,
@@ -75,6 +75,7 @@
     "disableDockStyleTrafficLights": false,
     "disableImagePreview": false,
     "disableMinWindowSizeFilter": true,
+    "disableTitleBarGesturesOverInteractiveElements": true,
     "dockBackgroundBorderOpacity": 0.25,
     "dockBackgroundMaterial": "ultraThin",
     "dockBackgroundStyle": "liquidGlass",
@@ -154,7 +155,7 @@
     "keepDockPreviewsOpenWhenCycling": true,
     "keepPreviewOnAppTerminate": false,
     "lastFocusedWindowShortcuts": [
-      "{\"doubleTapKey\":\"command\",\"doubleTapSide\":\"left\",\"id\":\"00000000-0000-4000-8000-000000000003\",\"isConfigured\":true,\"isPending\":false,\"keyCode\":0,\"mode\":\"globalAllWindows\",\"modifierFlags\":0,\"usesDoubleTap\":true}"
+      "{\"doubleTapKey\":\"command\",\"doubleTapSide\":\"left\",\"id\":\"00000000-0000-4000-8000-000000000002\",\"isConfigured\":true,\"isPending\":false,\"keyCode\":0,\"mode\":\"globalAllWindows\",\"modifierFlags\":0,\"usesDoubleTap\":true}"
     ],
     "launched": true,
     "limitCmdTabIndicatorSwapToCompactMode": true,
@@ -177,9 +178,6 @@
     "newWindowPostActionBehavior": false,
     "openWindowSwitcherFromMenuBarIcon": true,
     "passArrowsThroughToSystem": false,
-    "persistentSwitcherShortcuts": [
-      "{\"doubleTapKey\":\"command\",\"doubleTapSide\":\"right\",\"id\":\"00000000-0000-4000-8000-000000000002\",\"isConfigured\":true,\"isPending\":false,\"keyCode\":0,\"mode\":\"allWindows\",\"modifierFlags\":0,\"usesDoubleTap\":true}"
-    ],
     "persistentSwitcherStartsUnfocused": true,
     "preventDockHide": false,
     "preventPreviewReentryDuringFadeOut": true,

@@ -16,7 +16,7 @@ Follow the [required documentation maintenance instructions](../AGENTS.md#fork-d
 
 ## Preparing 0.3.1
 
-A patch prerelease is being prepared for the user-verified range-selection refresh fix and optional title-bar scrolling/tab exclusion. Upstream was fetched October 22; main remains `77e4771`, with stable base 1.41.0, so no merge is needed. See the [0.3.1 preparation record](docs/RELEASE_NOTES_0.3.1.md) and [draft public notes](docs/RELEASE_BODY_0.3.1.md). The candidate from `586be06a` is built and audited; exact-candidate user testing and publication approval remain pending. Nothing is published. The existing October 20 preset changes only its export version label to 0.3.1. Screenshots remain deferred.
+A patch prerelease is being prepared for the user-verified range-selection refresh fix and optional title-bar scrolling/tab exclusion. Upstream was fetched October 22; main remains `77e4771`, with stable base 1.41.0, so no merge is needed. See the [0.3.1 preparation record](docs/RELEASE_NOTES_0.3.1.md) and [draft public notes](docs/RELEASE_BODY_0.3.1.md). The user has now authorized a new Release build with the refreshed preset. The prematurely built candidate from `586be06a` is superseded and must not be distributed; it does not contain the refreshed preset. The October 22 showcase export is sanitized for this build. Build and artifact verification are pending; nothing is published. Screenshots remain deferred.
 
 ## Latest Published Prerelease: 0.3.0
 
@@ -24,7 +24,7 @@ The [public release body](docs/RELEASE_BODY_0.3.0.md) is separate from the detai
 
 The [0.3.0 release notes and gate](docs/RELEASE_NOTES_0.3.0.md) cover changes since the published 0.2.0 package: optional action/cursor feedback, range selection, explicit Quit/Force Quit, off-main action work, shared batch ownership, native-tab and Wine/CrossOver handling, and input/windowless-preview fixes. The latest upstream merge is website-only; DockDoor 1.41.0 remains the included stable release, with history through `77e4771`. [0.3.0 is published as a prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) from the unchanged audited candidate `6d3eb470`; see the publication record below. Screenshots are deferred, not required.
 
-The current optional preset is the sanitized October 20 export for 0.3.0: 249 preferences and 15 generic-ID shortcut rows. It enables action feedback and Mouse Follows Focus feedback using trigger-based placement. It is not imported automatically and does not change application defaults. Published 0.1.0 and 0.2.0 assets retain their original presets.
+The current optional preset is the sanitized October 22 export for the next 0.3.1 build: 249 preferences and 14 generic-ID shortcut rows. It enables the optional title-bar scrolling/tab filter and omits the previously included custom Persistent Switcher shortcut. It enables action feedback and Mouse Follows Focus feedback using trigger-based placement. It is not imported automatically and does not change application defaults. Published 0.1.0 and 0.2.0 assets retain their original presets.
 
 ## Previous Prerelease: 0.2.0
 
@@ -32,7 +32,7 @@ The current optional preset is the sanitized October 20 export for 0.3.0: 249 pr
 
 The published [0.1.0 prerelease](https://github.com/hexcrete/DockFork/releases/tag/v0.1.0) remains unchanged. The 0.2.0 Release candidate from `c863e62` is built and audited, including the refreshed optional preset and Release-only privacy safeguards. See the candidate record under Release Assets and Validation. [DockFork 0.2.0](https://github.com/hexcrete/DockFork/releases/tag/v0.2.0) is now published from the unchanged audited candidate. Draft download-back checks and anonymous public-download verification passed; the publication record below retains the remaining installation/testing gaps. Screenshots and recordings are deferred, not a release gate. Do not distribute the certificate-signed development app.
 
-The published 0.2.0 preset is the reviewed 246-preference October 16 export with 15 shortcut rows; the repository now holds the separately reviewed 0.3.0 preset. Explicitly importing it enables selection, drag-to-tile, linked resizing and Window Gestures; these remain Off in fresh application defaults. The preset is never automatically imported. Actual candidate privacy checks passed; manual Release and preset-import testing are still required. Earlier Debug and 0.1.0 checks do not substitute for those tests.
+The published 0.2.0 preset is the reviewed 246-preference October 16 export with 15 shortcut rows; the repository holds the separately reviewed October 22 preset for the next authorized 0.3.1 build. Explicitly importing it enables selection, drag-to-tile, linked resizing and Window Gestures; these remain Off in fresh application defaults. The preset is never automatically imported. Actual candidate privacy checks passed; manual Release and preset-import testing are still required. Earlier Debug and 0.1.0 checks do not substitute for those tests.
 
 New 0.2.0 defaults: Windowless-app selection in standalone Window Switcher is On under enabled multi-selection; Quit and Open New Window included those apps in the 0.2.0 batch targets; current code also supports the explicit Force Quit action. Show selection summary is On, gated by enabled selection and checked windows; maximum tiling rows is 2 and columns is 3. Window Selection and Tiling have separate sections under Keybinds. Tile only what fits and group Fill-to-Auto-Tile default Off; overflow stacks in existing cells, and ordinary Fill does not switch Spaces. See the [settings reference](docs/CHANGES_AND_SHOWCASE.md#selection-and-tiling-settings) for locations, defaults and verification commands. Existing saved choices are preserved.
 
@@ -164,20 +164,20 @@ Published October 12, 2026: [DockFork 0.1.0 prerelease](https://github.com/hexcr
 
 ## Optional Showcase Preset
 
-[DockFork-Showcase.json](presets/DockFork-Showcase.json) is the sanitized October 20 example configuration for the 0.3.0 candidate. It is not the application's default configuration and must not be imported automatically. Published 0.1.0 and 0.2.0 releases retain their separately attached presets; updating this file does not replace those assets.
+[DockFork-Showcase.json](presets/DockFork-Showcase.json) is the sanitized October 22 example configuration for the next authorized 0.3.1 build. It is not the application's default configuration and must not be imported automatically. Published releases retain their separately attached presets; updating this file does not replace those assets.
 
 To try it, first export your existing settings, then use **General > Backup & Restore > Import Settings** in the fork build. Import replaces the current preference domain rather than merging only the included settings, and the app asks to restart. Omitted settings return to their defaults. Use a separately identified DockFork build; this preset alone does not isolate preferences from DockDoor.
 
 ### Privacy Review
 
-The current preset was refreshed and privacy-reviewed October 20, 2026. It retains 249 recognized preferences from the supplied 253-key export. Review included every remaining string and nested shortcut JSON. Run `ruby fork/tests/showcase_preset.rb` for repeatable format, key-inventory, generic-ID and privacy-marker checks. These checks do not replace the actual packaged-asset audit or prove installation/import behavior.
+The current preset was refreshed and privacy-reviewed October 22, 2026. It retains 249 recognized preferences from the supplied 253-key export. Review included every remaining string and nested shortcut JSON. Run `ruby fork/tests/showcase_preset.rb` for repeatable format, key-inventory, generic-ID and privacy-marker checks. These checks do not replace the actual packaged-asset audit or prove installation/import behavior.
 
 - Removed four system/private-state entries: save-panel geometry, the last file-dialog root directory, cached screen-recording permission and the reopen-settings flag. No private directory value is retained.
-- Preserved the required backup envelope with application version 0.3.0; no timestamp is added.
-- Replaced all 15 shortcut-row UUIDs with unique generic IDs. Actions, keys, scopes, sides and row order remain those supplied.
+- Preserved the required backup envelope with application version 0.3.1; no timestamp is added.
+- Replaced all 14 shortcut-row UUIDs with unique generic IDs. Actions, keys, scopes, sides and row order remain those supplied.
 - Debug logging is Off. Retained nonidentifying onboarding flags, which grant no permissions.
 - No remaining personal file paths, bookmarks, account identifiers, email addresses, URLs, opaque payloads or window titles were found in the prepared preset.
-- Relative to the earlier showcase, the only preference additions are enabled action feedback, trigger-based placement and enabled Mouse Follows Focus feedback. Generic-ID reassignment is not a shortcut behavior change.
+- Relative to the October 20 showcase, the title-bar scrolling/tab filter is enabled and the custom Persistent Switcher shortcut is omitted, as supplied. The other 14 shortcut definitions, their order and all other preference values are unchanged. Generic-ID reassignment is not a shortcut behavior change. Missing preferences use importer defaults.
 
 The envelope intentionally retains `"app": "DockDoor"` because the current importer requires that marker. It does not select the destination preference domain or change the installed application's identity.
 

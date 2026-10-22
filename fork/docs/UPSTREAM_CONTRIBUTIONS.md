@@ -1,6 +1,6 @@
 # Preparing Upstream Contributions
 
-0.3.1 release preparation, version metadata, preset export-label adjustment and publication records are fork-only. Keep focused upstream selection-refresh and gesture-filter contributions separate; include their necessary source tests, not the complete fork history. No upstream submission is part of packaging.
+0.3.1 release records and the October 22 showcase preset refresh are fork-only. The refreshed Release build is authorized; the earlier candidate remains superseded. Exclude the preset, version/packaging and publication records from focused upstream selection-refresh or gesture-filter contributions; preserve the complete final-diff gate. No upstream submission or publication is included in this build request.
 
 October 22 title-bar exclusion refinement retains the default-Off preference key, search/reset wiring and cache protections from c353d70f. A focused proposal must include the resolver, settings and tests together. The narrowed policy rejects scrolling/content ancestry and tab groups/subroles even without scrolling metadata, retaining standard behavior for other controls. The user reports the narrower policy works; exhaustive custom-app/display coverage remains pending. Port relevant inert coverage from fork/tests/window_gesture_zones.rb into the upstream test location; exclude fork documentation and build configuration. No PR submission is implied.
 

@@ -1,6 +1,6 @@
 # DockFork Roadmap
 
-0.3.1 preparation: package the user-verified selection-refresh correction and optional scrolling/tab title-bar exclusion before returning to larger roadmap features. Upstream was fetched October 22 with no new main commits. The candidate from `586be06a` is built and audited. Exact Release-candidate testing and publication approval remain gates; screenshots are deferred.
+0.3.1 refreshed Release build is now authorized after sanitizing the October 22 export. Candidate `586be06a` is superseded and ineligible for publication. Build and audit the new candidate with the October 22 preset; no publication is authorized. Selection and title-bar fixes remain user-verified, upstream main is unchanged at `77e4771`, and exact future-candidate testing and screenshots remain pending.
 
 ## Title-bar Scrolling and Tab Exclusion
 

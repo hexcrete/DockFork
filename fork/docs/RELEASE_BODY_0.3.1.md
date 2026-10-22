@@ -5,7 +5,7 @@ A small testing update to DockFork 0.3.0.
 - **Range-selection fix:** dragging from a checkbox or extending selection with a held shortcut no longer stops when a background refresh leaves the window list unchanged. Applies to regular and Compact Window Switcher.
 - **Optional title-bar gesture filter:** enable **Gestures > Options > Disable title bar gestures over scrollable areas and tabs** to leave those areas to the app. Other controls retain the standard gesture rules. Off by default; detection depends on the app's Accessibility information.
 
-Upstream is unchanged: DockDoor 1.41.0 plus incorporated history through `77e4771`. The optional showcase settings are unchanged apart from their export version label.
+Upstream is unchanged: DockDoor 1.41.0 plus incorporated history through `77e4771`. The refreshed optional showcase preset enables the title-bar scrolling/tab filter and omits the previously included custom Persistent Switcher shortcut. Application defaults are unchanged.
 
 ### Installation notes
 

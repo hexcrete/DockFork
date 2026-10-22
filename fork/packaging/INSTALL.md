@@ -18,7 +18,7 @@ This Apple Silicon package is ad-hoc signed, not Developer ID signed or notarize
 
 ## Upgrading and New Optional Features
 
-Version 0.3.1 fixes range selection across unchanged background refreshes and adds the default-Off Gestures > Options > Disable title bar gestures over scrollable areas and tabs preference. Other controls retain standard gesture behavior. Its optional preset retains the October 20 settings with only the export version label updated; importing it does not enable this new option. Follow the notes for the package actually downloaded; a candidate is not a published release.
+Version 0.3.1 fixes range selection across unchanged background refreshes and adds the default-Off Gestures > Options > Disable title bar gestures over scrollable areas and tabs preference. Other controls retain standard gesture behavior. The October 22 optional preset enables this new option and omits the previously included custom Persistent Switcher shortcut. Export a backup before importing; omitted settings use defaults. Follow the notes for the package actually downloaded; a candidate is not a published release.
 
 Before replacing an installed version, export a settings backup and quit every running DockDoor/DockFork instance. Keep the DockFork name, bundle ID and installation path consistent. Existing DockFork preferences are not reset by packaging, but a rebuilt ad-hoc release can require granting permissions again.
 

@@ -1,8 +1,8 @@
 # DockFork: Changes and Showcase
 
-## 0.3.1 Preparation
+## 0.3.1 Refreshed Candidate Preparation
 
-Prepare a small prerelease for the user-verified selection-refresh fix and final optional scrolling/tab title-bar exclusion. The unused-argument cleanup is not a user-facing feature. Upstream main was fetched October 22 and is unchanged at `77e4771`; stable base remains 1.41.0. The showcase preset changes only its export version label, not its 249 preferences or 15 shortcut rows. See the [preparation record](RELEASE_NOTES_0.3.1.md) and [draft public notes](RELEASE_BODY_0.3.1.md). The candidate from `586be06a` is built and audited: metadata/signatures, source/ZIP/preset correspondence, checksums and configured private-data markers pass. The unchanged native Compact Mode hit test needed one retry; all seventeen suites and packaging checks pass. Exact-candidate user testing remains pending; no publication or media capture is claimed.
+The user has now authorized a new Release build with the sanitized October 22 preset. The earlier candidate `586be06a` remains superseded and must not be distributed. New build/artifact verification is pending; no upload or publication is authorized. The new October 22 showcase export is sanitized to 249 recognized preferences and 14 generic-ID shortcut rows; four system/private-state entries are removed and debug logging is Off. The title-bar scrolling/tab filter is enabled and the previously included custom Persistent Switcher shortcut is omitted, as supplied. Other shortcut definitions and all other preference values are unchanged. No retained personal paths, accounts, URLs, opaque payloads or window titles were found. The source export is unchanged and no live import occurred. The existing preset privacy test passes; a future package needs a new artifact audit. See the [preparation record](RELEASE_NOTES_0.3.1.md) and [draft public notes](RELEASE_BODY_0.3.1.md). Published releases remain untouched; screenshots remain deferred.
 
 ## Post-0.3.0 Maintenance
 
