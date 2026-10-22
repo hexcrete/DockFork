@@ -17,6 +17,7 @@ state = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Supporting/
 navigation = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Supporting/Window Image Sizing Calculations.swift")
 grid = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Supporting/CardGridScrollView.swift")
 container = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift")
+keybinds = File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift")
 interaction = block(container, '    private func selectionInteraction(for window:')
 abort 'Pointer sweep must replace, not retain, an old hover-scroll request' unless interaction.match?(/if !previewStateCoordinator.isPointerSelecting \{\s+cancelDockHighlightAction\(\)\s+edgeScrollRequest = nil/)
 abort 'Selection scrolling must reuse the live grid offset' unless block(grid, '        private func offsetChanged(').include?('updatePointerSelectionRange()') && block(grid, '        func windowForDrop(').include?('container.contentPoint(')
@@ -26,6 +27,8 @@ source = <<~'SWIFT'
 import AppKit
 final class App { let processIdentifier: pid_t; var isTerminated = false; init(_ pid: pid_t) { processIdentifier = pid } }
 struct WindowInfo { let id: CGWindowID; var app: App; var isWindowlessApp = false }
+enum DockPosition { case bottom }
+final class NSScreen {}
 enum WindowUtil { static var cached: [WindowInfo] = []; static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { cached.filter {$0.app.processIdentifier == pid} } }
 enum Key { case enableMultiWindowSelection, enableWindowlessAppSelection, keepWindowSwitcherOpenWhenSelected }
 enum Defaults {
@@ -62,10 +65,17 @@ final class Selection { var checkedWindows = OrderedPreviewSelection() }
  var selectionRangeGeneration: UInt = 0, filterGeneration: UInt = 0
  var selectionAllowsWindowless = false
  var selectionPointerLocation: CGPoint?, pointerSelectionOrigin: PreviewWindowIdentity?
+ var lastKnownBestGuessMonitor: NSScreen?, onFrameRefreshNeeded: (() -> Void)?
+ var hasRealWindows: Bool { windows.contains { !$0.isWindowlessApp } }
  var hasSelectionRange: Bool { selectionRange != nil }
  var isPointerSelecting: Bool { pointerSelectionOrigin != nil }
  func filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }
  func refreshSelectionLayout() { }
+ func refreshFocusedWindowID(from: [WindowInfo]) { }
+ func refreshDesktopNumbers() { }
+ func scheduleActiveFocusedWindowRefresh() { }
+ func recomputeAndPublishDimensions(dockPosition: DockPosition, bestGuessMonitor: NSScreen, isMockPreviewActive: Bool) { }
+ func getCurrentWindow() -> WindowInfo? { windows.indices.contains(currIndex) ? windows[currIndex] : nil }
 SWIFT
 source += block(state, '    private enum SelectionRangeInput:') + "\n"
 source += block(state, '    var keyboardSelectionPress:') + "\n"
@@ -74,7 +84,11 @@ source += block(state, '    var keyboardSelectionPress:') + "\n"
   source += "@MainActor\n" + block(state, signature) + "\n"
 end
 source += "@MainActor\n" + block(state, '    func updatePointerSelectionRange(from') + "\n"
-source += "@MainActor\n" + block(state, '    func updatePointerSelectionRange()') + "\n}\n"
+source += "@MainActor\n" + block(state, '    func updatePointerSelectionRange()') + "\n"
+source += "@MainActor\n" + block(state, '    func setWindows(') + "\n}\n"
+source += "@MainActor final class RefreshHarness {\n"
+source += block(keybinds, '    private func applyRefreshedSwitcherWindows(').sub('private func ', 'func ') + "\n"
+source += block(keybinds, '    private func isSameSwitcherWindow(') + "\n}\n"
 source += "enum ArrowDirection { case left, right, up, down }\nenum Nav {\n"
 source += block(navigation, '    static func chunkArray<T>(') + "\n"
 source += block(navigation, '    static func navigateInGrid(') + "\n}\n"
@@ -83,6 +97,29 @@ source += <<~'SWIFT'
  @MainActor static func main() {
   let app = App(1), other = App(2)
   let windows = (1...7).map { WindowInfo(id: UInt32($0), app: app) }
+  WindowUtil.cached = windows
+  do {
+   let c = PreviewStateCoordinator(), grid = Grid(), refresh = RefreshHarness(), monitor = NSScreen()
+   c.windows = windows; grid.windows = windows; c.selectionGrid = grid
+   for keyboard in [false, true] {
+    c.clearCheckedWindows()
+    if keyboard {
+     c.toggleCheckedWindow(windows[0], keyboardPress: PreviewSelectionKeyPress(keyCode: 14, timestamp: 100))
+     c.setIndex(to: 2, source: .keyboard, extendingSelection: true)
+    } else { c.updatePointerSelectionRange(from: windows[0], at: CGPoint(x: 2,y: 0)) }
+    for _ in 0..<3 {
+     refresh.applyRefreshedSwitcherWindows(windows, coordinator: c, dockPosition: .bottom, bestGuessMonitor: monitor)
+     precondition(c.hasSelectionRange, "Background refresh must not cancel an unchanged active range")
+    }
+    if keyboard { c.setIndex(to: 4, source: .keyboard, extendingSelection: true) }
+    else { c.updatePointerSelectionRange(from: windows[0], at: CGPoint(x: 4,y: 0)) }
+    precondition(c.selection.checkedWindows.identities.map(\.windowID) == [1,2,3,4,5], "Selection must continue after refresh")
+    let source = c.selectionInputSource
+    refresh.applyRefreshedSwitcherWindows(Array(windows.reversed()), coordinator: c, dockPosition: .bottom, bestGuessMonitor: monitor)
+    precondition(!c.hasSelectionRange && c.getCurrentWindow()?.id == 5 && c.selectionInputSource == source, "Reorder must end the range but preserve highlight identity and input source")
+    c.endPointerSelectionRange(); c.windows = windows
+   }
+  }
   let c = PreviewStateCoordinator(), grid = Grid()
   c.windows = windows; grid.windows = windows; c.selectionGrid = grid
   func ids() -> [CGWindowID] { c.selection.checkedWindows.identities.map(\.windowID) }
@@ -185,7 +222,6 @@ Dir.mktmpdir('dockfork-selection-ranges-') do |dir|
   abort 'Range selection checks failed' unless system("#{dir}/checks")
 end
 
-keybinds = File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift")
 keyboard = "import AppKit\n"
 keyboard += block(keybinds, 'private final class PreviewActionKeyPressState {') + "\n"
 keyboard += block(state, 'struct PreviewSelectionKeyPress:') + "\n"

@@ -587,7 +587,7 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    private func updateSelectionIndex(_ requestedIndex: Int, source: SelectionInputSource, shouldScroll: Bool? = nil) {
+    func updateSelectionIndex(_ requestedIndex: Int, source: SelectionInputSource, shouldScroll: Bool? = nil) {
         if let shouldScroll {
             shouldScrollToIndex = shouldScroll
         }
@@ -659,6 +659,7 @@ class PreviewStateCoordinator: ObservableObject {
             hasRealWindows != newWindows.contains { !$0.isWindowlessApp }
         windows = newWindows
         reconcileCheckedWindows()
+        reconcileSelectionRange()
         refreshFocusedWindowID(from: newWindows)
         refreshDesktopNumbers()
         lastKnownBestGuessMonitor = bestGuessMonitor
@@ -746,7 +747,7 @@ class PreviewStateCoordinator: ObservableObject {
            let restoredIndex = windows.firstIndex(where: { mergeIdentity(for: $0) == selectedWindowIdentity }),
            restoredIndex != currIndex
         {
-            setIndex(to: restoredIndex, shouldScroll: false, source: previousSelectionSource)
+            updateSelectionIndex(restoredIndex, source: previousSelectionSource, shouldScroll: false)
         }
 
         return (windows, true)

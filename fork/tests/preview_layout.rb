@@ -61,6 +61,7 @@ enum Input { case programmatic, keyboard }
  var height = 0
  var onFrameRefreshNeeded: (() -> Void)?
  func reconcileCheckedWindows() {}
+ func reconcileSelectionRange() {}
  func refreshFocusedWindowID(from: [WindowInfo]? = nil) {}
  func refreshDesktopNumbers() {}
  func scheduleActiveFocusedWindowRefresh() {}

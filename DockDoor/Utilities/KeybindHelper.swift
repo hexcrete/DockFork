@@ -489,7 +489,7 @@ private class WindowSwitchingCoordinator {
         if let selectedWindow,
            let newIndex = coordinator.windows.firstIndex(where: { isSameSwitcherWindow($0, selectedWindow) })
         {
-            coordinator.setIndex(to: newIndex, source: previousSelectionSource)
+            coordinator.updateSelectionIndex(newIndex, source: previousSelectionSource)
         } else if fallbackToFirst, !coordinator.windows.isEmpty {
             coordinator.setIndex(to: 0, source: .keyboard)
         }
