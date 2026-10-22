@@ -1,8 +1,8 @@
 # DockFork Roadmap
 
-## Title-bar Interactive Exclusion
+## Title-bar Scrolling and Tab Exclusion
 
-October 22: restore the default-Off Disable title bar gestures over interactive elements option in Gestures > Options after user testing found scrolling-only exclusion missed tab bars without scrolling ancestry. Accept recognized background roles, reject interactive/content ancestors and unknown/incomplete hits, and avoid stale window-hit cache approvals. All seventeen regression suites, SwiftFormat/diff checks, signed development build/relaunch and installed/running binary/source correspondence pass. The user reports the restored filter works; exhaustive custom-app/display verification remains pending. Traffic-light-row restriction and exact draggable-region detection are not implemented; the legacy title-bar scroll mode is unchanged.
+October 22: implement the user-verified middle ground Disable title bar gestures over scrollable areas and tabs, default Off, using the existing committed preference key. The broader interactive-element version was user-verified; the new policy excludes scroll/content ancestry and all recognized tab groups/subroles while retaining other controls under standard rules. Unknown/incomplete hits and cache bypass protections remain. All seventeen regression suites, SwiftFormat/diff checks, signed development build/relaunch and installed/running binary/source checks pass; the user reports this refinement works. Exhaustive custom-app/display coverage remains pending. Traffic-light-row restriction and exact draggable-region detection are not implemented; legacy title-bar scrolling is unchanged.
 
 ## 0.3.0 Post-release Testing
 

@@ -58,7 +58,6 @@ enum WindowGestureZoneResolver {
         kAXBrowserRole as String, kAXGridRole as String, kAXLayoutAreaRole as String, kAXTextAreaRole as String,
     ]
     private static let contentRoles = scrollingRoles.union(["AXWebArea"])
-    private static let backgroundRoles: Set<String> = [kAXGroupRole as String, kAXToolbarRole as String, kAXStaticTextRole as String, kAXImageRole as String]
 
     private struct AXNode {
         let element: AXUIElement
@@ -169,12 +168,12 @@ enum WindowGestureZoneResolver {
             return .notHere
         }
 
-        let excludesInteractiveElements = Defaults[.disableTitleBarGesturesOverInteractiveElements]
+        let excludesScrollingAndTabs = Defaults[.disableTitleBarGesturesOverInteractiveElements]
         let windowID = (hit[kCGWindowNumber as String] as? NSNumber).map { CGWindowID($0.uint32Value) }
         let deadline = CFAbsoluteTimeGetCurrent() + resolutionBudget
         let appElement = AXUIElementCreateApplication(pid)
         guard let hitElement = element(in: appElement, at: point), let hitNode = node(for: hitElement) else {
-            guard !excludesInteractiveElements else { return .notHere }
+            guard !excludesScrollingAndTabs else { return .notHere }
             return cachedTitleBarZone(windowID: windowID, bounds: windowBounds, offsetFromTop: offsetFromTop, app: app)
         }
 
@@ -202,14 +201,14 @@ enum WindowGestureZoneResolver {
         guard CFAbsoluteTimeGetCurrent() < deadline,
               let windowElement = windowElement ?? cachedWindow(windowID, pid: pid)?.axElement
         else {
-            guard !excludesInteractiveElements else { return .notHere }
+            guard !excludesScrollingAndTabs else { return .notHere }
             return cachedTitleBarZone(windowID: windowID, bounds: windowBounds, offsetFromTop: offsetFromTop, app: app)
         }
         guard let windowNode = node(for: windowElement), acceptedWindowSubroles.contains(windowNode.subrole ?? "") else {
             DebugLogger.log("WindowGestures", details: "unsupported window in \(app.localizedName ?? "-") chain=\(describe(chain))")
             return .notHere
         }
-        guard acceptsTitleBarHit(chain, reachedWindow: reachedWindow, excludesInteractiveElements: excludesInteractiveElements) else { return .notHere }
+        guard acceptsTitleBarHit(chain, reachedWindow: reachedWindow, excludesScrollingAndTabs: excludesScrollingAndTabs) else { return .notHere }
         guard let target = WindowUtil.windowInfo(for: windowElement, app: app, windowID: windowID) else { return .notHere }
 
         let isFullscreen = (try? windowElement.isFullscreen()) == true
@@ -240,8 +239,11 @@ enum WindowGestureZoneResolver {
         return WindowUtil.readCachedWindows(for: pid).first { $0.id == windowID && !$0.isMinimized }
     }
 
-    private static func acceptsTitleBarHit(_ chain: [AXNode], reachedWindow: Bool, excludesInteractiveElements: Bool) -> Bool {
-        !excludesInteractiveElements || (reachedWindow && chain.allSatisfy { backgroundRoles.contains($0.role ?? "") })
+    private static func acceptsTitleBarHit(_ chain: [AXNode], reachedWindow: Bool, excludesScrollingAndTabs: Bool) -> Bool {
+        !excludesScrollingAndTabs || (reachedWindow && chain.allSatisfy {
+            guard let role = $0.role, role != kAXUnknownRole as String else { return false }
+            return !contentRoles.contains(role) && role != kAXScrollBarRole as String && role != kAXTabGroupRole as String && $0.subrole != "AXTabButton"
+        })
     }
 
     private static func cachedTitleBarZone(windowID: CGWindowID?, bounds: CGRect, offsetFromTop: CGFloat, app: NSRunningApplication) -> Outcome {

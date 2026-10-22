@@ -880,8 +880,8 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "windowGestures.disableOverInteractiveElements",
-            title: String(localized: "Disable title bar gestures over interactive elements"),
-            description: String(localized: "Skip controls, tabs and scrollable areas. Unrecognized areas are left to the app."),
+            title: String(localized: "Disable title bar gestures over scrollable areas and tabs"),
+            description: String(localized: "Skip scrollable areas and tab bars. Other controls follow the standard gesture rules."),
             keywords: ["title bar", "toolbar", "interactive", "button", "scroll", "tabs", "background"],
             tab: "Gestures",
             section: String(localized: "Options"),

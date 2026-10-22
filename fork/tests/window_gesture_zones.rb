@@ -22,14 +22,14 @@ view = File.read("#{root}/DockDoor/Views/Settings/GesturesSettingsView.swift")
 catalog = File.read("#{root}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
 reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")
 key = 'disableTitleBarGesturesOverInteractiveElements'
-title = 'Disable title bar gestures over interactive elements'
-description = 'Skip controls, tabs and scrollable areas. Unrecognized areas are left to the app.'
+title = 'Disable title bar gestures over scrollable areas and tabs'
+description = 'Skip scrollable areas and tab bars. Other controls follow the standard gesture rules.'
 abort 'Setting must default Off' unless keys.include?("Key<Bool>(\"#{key}\", default: false)")
 abort 'Missing reset handling' unless reset.include?("Defaults.reset(.#{key})")
 abort 'Missing matching setting/search strings' unless view.include?("Toggle(\"#{title}\"") && catalog.include?("title: String(localized: \"#{title}\")") && view.include?("Text(\"#{description}\")") && catalog.include?("description: String(localized: \"#{description}\")")
 abort 'Missing matching search target' unless view.include?('.settingsSearchTarget("windowGestures.disableOverInteractiveElements")') && catalog.include?('id: "windowGestures.disableOverInteractiveElements"')
 window = block(zone, '    private static func windowZone(')
-abort 'Strict mode must reject both geometry-only fallback paths' unless window.scan(/guard !excludesInteractiveElements else \{ return \.notHere \}\s+return cachedTitleBarZone/).size == 2
+abort 'Strict mode must reject both geometry-only fallback paths' unless window.scan(/guard !excludesScrollingAndTabs else \{ return \.notHere \}\s+return cachedTitleBarZone/).size == 2
 abort 'Scrollable ancestors must be rejected before tab handling or window lookup' unless window.index('guard acceptsTitleBarHit(') < window.index('WindowUtil.windowInfo(') && window.index('guard acceptsTitleBarHit(') < window.index('if let tabIndex')
 abort 'Upstream control exclusions must remain' unless window.include?('if let role = chain.first?.role, interactiveRoles.contains(role)')
 abort 'Parent traversal must distinguish a complete chain' unless window.include?('var reachedWindow = hitNode.role == kAXWindowRole as String') && window.include?('reachedWindow = true')
@@ -39,7 +39,8 @@ import AppKit
 typealias AXUIElement = Int
 enum Classification {
 SWIFT
-source += zone.lines.find { |line| line.include?('private static let backgroundRoles:') }.sub('private ', '')
+source += zone[/    private static let scrollingRoles: Set<String> = \[.*?^    \]/m].sub('private ', '') + "\n"
+source += zone.lines.find { |line| line.include?('private static let contentRoles =') }.sub('private ', '')
 source += block(zone, '    private struct AXNode {').sub('private ', '') + "\n"
 source += block(zone, '    private static func acceptsTitleBarHit(').sub('private ', '') + "\n}\n"
 source += <<~'SWIFT'
@@ -62,23 +63,26 @@ source += block(controller, '    private func zone(at point:').sub('private ', '
 source += <<~'SWIFT'
 @main struct Checks {
  static func main() {
-  func hit(_ roles: [String?], complete: Bool = true, strict: Bool = true) -> Bool {
-   let chain = roles.enumerated().map { Classification.AXNode(element: $0.offset, role: $0.element, subrole: nil, parent: nil) }
-   return Classification.acceptsTitleBarHit(chain, reachedWindow: complete, excludesInteractiveElements: strict)
+  func hit(_ roles: [String?], complete: Bool = true, strict: Bool = true, tabIndex: Int? = nil) -> Bool {
+   let chain = roles.enumerated().map { Classification.AXNode(element: $0.offset, role: $0.element, subrole: tabIndex == $0.offset ? "AXTabButton" : nil, parent: nil) }
+   return Classification.acceptsTitleBarHit(chain, reachedWindow: complete, excludesScrollingAndTabs: strict)
   }
-  let allowed: [String?] = ["AXGroup", "AXToolbar", "AXStaticText", "AXImage"]
-  let rejected: [String?] = ["AXButton", "AXCheckBox", "AXRadioButton", "AXPopUpButton", "AXMenuButton", "AXLink", "AXDisclosureTriangle", "AXTextField", "AXSlider", "AXComboBox", "AXIncrementor", "AXValueIndicator", "AXTabGroup", "AXTextArea", "AXScrollBar", "AXScrollArea", "AXTable", "AXOutline", "AXList", "AXBrowser", "AXGrid", "AXLayoutArea", "AXWebArea", "AXUnknown", nil]
+  let allowed: [String?] = ["AXGroup", "AXToolbar", "AXStaticText", "AXImage", "AXButton", "AXCheckBox", "AXRadioButton", "AXPopUpButton", "AXMenuButton", "AXLink", "AXDisclosureTriangle", "AXTextField", "AXSlider", "AXComboBox", "AXIncrementor", "AXValueIndicator"]
+  let rejected: [String?] = ["AXTabGroup", "AXTextArea", "AXScrollBar", "AXScrollArea", "AXTable", "AXOutline", "AXList", "AXBrowser", "AXGrid", "AXLayoutArea", "AXWebArea", "AXUnknown", nil]
   precondition(hit([]) && hit(allowed))
   precondition(!hit(allowed, complete: false))
   for role in allowed {
-   precondition(hit([role]) && hit(["AXStaticText", role, "AXToolbar"]), "Recognized title-bar backgrounds must remain available")
+   precondition(hit([role]) && hit(["AXStaticText", role, "AXToolbar"]), "Ordinary controls must retain standard classification")
   }
   for role in rejected {
-   precondition(!hit([role]) && !hit(["AXStaticText", role, "AXToolbar"]), "Interactive/content ancestors must block child labels")
+   precondition(!hit([role]) && !hit(["AXStaticText", role, "AXToolbar"]), "Scrolling/content and tab ancestors must block child labels")
    precondition(hit([role], strict: false) && hit([role], complete: false, strict: false), "Disabled option must preserve existing classification")
   }
   precondition(!hit(["AXStaticText", "AXRadioButton", "AXTabGroup", "AXToolbar"]), "Tab strips must be rejected without a scrolling ancestor")
   precondition(!hit(["AXImage", "AXTabGroup", "AXGroup"]), "Tab icons must be rejected without scrolling metadata")
+  precondition(!hit(["AXRadioButton", "AXToolbar"], tabIndex: 0), "Standalone tab buttons must be rejected without a tab group")
+  precondition(!hit(["AXImage", "AXButton", "AXGroup"], tabIndex: 1), "Tab subroles on ancestors must block child icons")
+  precondition(hit(["AXRadioButton", "AXToolbar"], strict: false, tabIndex: 0), "Disabled option must retain upstream tab behavior")
   let cache = Cache(), origin = CGPoint(x: 100,y: 100), nearby = CGPoint(x: 102,y: 100)
   let window = Zone(window: 1,name: "window"), dock = Zone(window: nil,name: "dock"), menu = Zone(window: nil,name: "menu")
   WindowGestureZoneResolver.result = window
@@ -100,7 +104,7 @@ source += <<~'SWIFT'
    _ = cache.zone(at: origin, now: 1); _ = cache.zone(at: nearby, now: 1.1)
    precondition(WindowGestureZoneResolver.calls == before + 1, "Dock/menu caching must stay unchanged")
   }
-  print("PASS production background policy, interactive/content ancestry, tab strips without scrolling metadata, unknown/incomplete hits, default-Off behavior, setting transitions and cache isolation")
+  print("PASS production scrolling/tab policy, ordinary controls, tab ancestry/subroles without scrolling metadata, unknown/incomplete hits, default-Off behavior, setting transitions and cache isolation")
  }
 }
 SWIFT

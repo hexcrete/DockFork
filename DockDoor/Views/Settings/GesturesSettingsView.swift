@@ -156,9 +156,9 @@ struct GesturesSettingsView: View {
                 Toggle("Haptic feedback", isOn: $haptics)
                     .settingsSearchTarget("windowGestures.haptics")
 
-                Toggle("Disable title bar gestures over interactive elements", isOn: $disableOverInteractiveElements)
+                Toggle("Disable title bar gestures over scrollable areas and tabs", isOn: $disableOverInteractiveElements)
                     .settingsSearchTarget("windowGestures.disableOverInteractiveElements")
-                Text("Skip controls, tabs and scrollable areas. Unrecognized areas are left to the app.")
+                Text("Skip scrollable areas and tab bars. Other controls follow the standard gesture rules.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
