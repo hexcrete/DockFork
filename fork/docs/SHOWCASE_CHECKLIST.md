@@ -1,6 +1,6 @@
 # DockFork Showcase Capture Checklist
 
-0.3.1 preparation: reuse selection captures M01/M02 and the gesture-settings capture plan below. No new capture IDs or completed-media claims. The selection-refresh fix and narrower title-bar filter are user-verified in development; exact-candidate tests and screenshots remain pending. See [the patch-release record](RELEASE_NOTES_0.3.1.md).
+0.3.1 preparation: reuse selection captures M01/M02 and the gesture-settings capture plan below. No new capture IDs or completed-media claims. The selection-refresh fix and narrower title-bar filter are user-verified in development; the Release candidate from `586be06a` is built/audited, while exact-candidate interaction tests and screenshots remain pending. See [the patch-release record](RELEASE_NOTES_0.3.1.md).
 
 October 22 gesture settings refinement, reuse existing settings captures without a new ID: show Disable title bar gestures over scrollable areas and tabs under Gestures > Options. Compare ordinary buttons/backgrounds with scrolling contents, tab labels/icons, and tab-button subroles without scrolling ancestors. Include quick adjacent allowed-to-tab starts and confirm Dock/menu-bar gestures remain unchanged. Default Off and existing preference value preserved; preset unchanged. All seventeen regression suites, SwiftFormat/diff checks, signed development build/relaunch and installed/running binary/source checks pass. The user reports the narrower policy works. Exhaustive custom-app/display verification and media remain pending; no captured-media claim.
 

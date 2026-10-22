@@ -2,7 +2,7 @@
 
 ## 0.3.1 Preparation
 
-Prepare a small prerelease for the user-verified selection-refresh fix and final optional scrolling/tab title-bar exclusion. The unused-argument cleanup is not a user-facing feature. Upstream main was fetched October 22 and is unchanged at `77e4771`; stable base remains 1.41.0. The showcase preset changes only its export version label, not its 249 preferences or 15 shortcut rows. See the [preparation record](RELEASE_NOTES_0.3.1.md) and [draft public notes](RELEASE_BODY_0.3.1.md). Fresh packaging/artifact checks and exact-candidate user testing are pending; no publication or media capture is claimed.
+Prepare a small prerelease for the user-verified selection-refresh fix and final optional scrolling/tab title-bar exclusion. The unused-argument cleanup is not a user-facing feature. Upstream main was fetched October 22 and is unchanged at `77e4771`; stable base remains 1.41.0. The showcase preset changes only its export version label, not its 249 preferences or 15 shortcut rows. See the [preparation record](RELEASE_NOTES_0.3.1.md) and [draft public notes](RELEASE_BODY_0.3.1.md). The candidate from `586be06a` is built and audited: metadata/signatures, source/ZIP/preset correspondence, checksums and configured private-data markers pass. The unchanged native Compact Mode hit test needed one retry; all seventeen suites and packaging checks pass. Exact-candidate user testing remains pending; no publication or media capture is claimed.
 
 ## Post-0.3.0 Maintenance
 

@@ -16,7 +16,7 @@ Follow the [required documentation maintenance instructions](../AGENTS.md#fork-d
 
 ## Preparing 0.3.1
 
-A patch prerelease is being prepared for the user-verified range-selection refresh fix and optional title-bar scrolling/tab exclusion. Upstream was fetched October 22; main remains `77e4771`, with stable base 1.41.0, so no merge is needed. See the [0.3.1 preparation record](docs/RELEASE_NOTES_0.3.1.md) and [draft public notes](docs/RELEASE_BODY_0.3.1.md). Packaging and exact-candidate testing are pending; nothing is published. The existing October 20 preset changes only its export version label to 0.3.1. Screenshots remain deferred.
+A patch prerelease is being prepared for the user-verified range-selection refresh fix and optional title-bar scrolling/tab exclusion. Upstream was fetched October 22; main remains `77e4771`, with stable base 1.41.0, so no merge is needed. See the [0.3.1 preparation record](docs/RELEASE_NOTES_0.3.1.md) and [draft public notes](docs/RELEASE_BODY_0.3.1.md). The candidate from `586be06a` is built and audited; exact-candidate user testing and publication approval remain pending. Nothing is published. The existing October 20 preset changes only its export version label to 0.3.1. Screenshots remain deferred.
 
 ## Latest Published Prerelease: 0.3.0
 
