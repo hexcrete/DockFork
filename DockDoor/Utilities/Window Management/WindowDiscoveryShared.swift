@@ -658,6 +658,115 @@ struct ManagedSpaceDestination {
     let space: ManagedSpaceDescriptor
 }
 
+enum ManagedSpacePresentation {
+    struct App {
+        let application: NSRunningApplication
+        let windowIdentities: [PreviewWindowIdentity]
+
+        var windowCount: Int { windowIdentities.count }
+    }
+
+    struct Entry: Identifiable {
+        let destination: ManagedSpaceDestination
+        let apps: [App]
+
+        var id: CGSSpaceID { destination.space.id }
+        var isCurrent: Bool { destination.display.currentSpaceID == id }
+        var isFullscreen: Bool { destination.space.kind == .fullscreen }
+
+        func title(mode: SpaceMenuDisplayMode) -> String {
+            switch mode {
+            case .numberOnly:
+                return "\(destination.space.number)"
+            case .fullName:
+                if destination.space.kind == .desktop {
+                    return String(localized: "Desktop \(destination.space.desktopNumber ?? destination.space.number)", comment: "Desktop name in Space destination menu")
+                }
+                let names = apps.compactMap(\.application.localizedName)
+                return names.isEmpty
+                    ? String(localized: "Full Screen", comment: "Fallback fullscreen Space name")
+                    : names.joined(separator: " + ")
+            }
+        }
+    }
+
+    struct Display: Identifiable {
+        let id: String
+        let name: String
+        let spaces: [Entry]
+    }
+
+    @MainActor
+    static func snapshot(displays: [ManagedDisplayDescriptor], orderedWindows: [WindowInfo]) -> [Display] {
+        var windowsBySpace: [CGSSpaceID: [(NSRunningApplication, PreviewWindowIdentity)]] = [:]
+        var applicationsByPID: [pid_t: NSRunningApplication] = [:]
+        var applicationOrder: [pid_t: Int] = [:]
+        var seenWindows = Set<PreviewWindowIdentity>()
+        let visibleSpaces = Set(displays.flatMap(\.spaces).filter { $0.kind == .desktop || $0.kind == .fullscreen }.map(\.id))
+        guard !visibleSpaces.isEmpty else { return [] }
+
+        for window in orderedWindows {
+            guard !window.isWindowlessApp, window.id != 0, !window.app.isTerminated,
+                  !WindowUtil.isInternalWindow(window.id),
+                  seenWindows.insert(PreviewWindowIdentity(window)).inserted
+            else { continue }
+            applicationsByPID[window.app.processIdentifier] = window.app
+            applicationsByPID[window.ownerApp.processIdentifier] = window.app
+            let pid = window.app.processIdentifier
+            if applicationOrder[pid] == nil { applicationOrder[pid] = applicationOrder.count }
+            for spaceID in WindowSpaces.sourceSpaceIDs(for: window).intersection(visibleSpaces) {
+                windowsBySpace[spaceID, default: []].append((window.app, PreviewWindowIdentity(window)))
+            }
+        }
+
+        return displays.enumerated().compactMap { displayIndex, display in
+            let spaces = display.spaces.filter { $0.kind == .desktop || $0.kind == .fullscreen }.map { space in
+                var order: [String] = []
+                var applications: [String: NSRunningApplication] = [:]
+                var identities: [String: [PreviewWindowIdentity]] = [:]
+
+                func add(_ app: NSRunningApplication, window: PreviewWindowIdentity? = nil) {
+                    let key = app.bundleIdentifier ?? "pid:\(app.processIdentifier)"
+                    if applications[key] == nil {
+                        applications[key] = app
+                        order.append(key)
+                    }
+                    if let window { identities[key, default: []].append(window) }
+                }
+
+                for (app, identity) in windowsBySpace[space.id] ?? [] {
+                    add(app, window: identity)
+                }
+                // Fullscreen ownership can be available before its window enters the cache.
+                if space.kind == .fullscreen {
+                    var owners = space.ownerPIDs.sorted().compactMap { pid -> NSRunningApplication? in
+                        guard let app = applicationsByPID[pid] ?? NSRunningApplication(processIdentifier: pid),
+                              !app.isTerminated, pid != ProcessInfo.processInfo.processIdentifier
+                        else { return nil }
+                        return app
+                    }
+                    owners.sort {
+                        let first = applicationOrder[$0.processIdentifier, default: Int.max]
+                        let second = applicationOrder[$1.processIdentifier, default: Int.max]
+                        return first == second ? $0.processIdentifier < $1.processIdentifier : first < second
+                    }
+                    for app in owners {
+                        add(app)
+                    }
+                }
+                let apps = order.compactMap { key -> App? in
+                    guard let app = applications[key] else { return nil }
+                    return App(application: app, windowIdentities: identities[key] ?? [])
+                }
+                return Entry(destination: ManagedSpaceDestination(display: display, space: space), apps: apps)
+            }
+            guard !spaces.isEmpty else { return nil }
+            let fallback = String(localized: "Display \(displayIndex + 1)", comment: "Fallback display name in Space destination menu")
+            return Display(id: display.identifier, name: WindowSpaces.displayName(for: display.identifier) ?? fallback, spaces: spaces)
+        }
+    }
+}
+
 enum ManagedSpaceMoveValidationError: Equatable {
     case windowless
     case fullscreen

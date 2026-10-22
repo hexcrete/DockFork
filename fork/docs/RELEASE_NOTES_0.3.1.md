@@ -1,6 +1,6 @@
 # DockFork 0.3.1 Prerelease
 
-Status: refreshed candidate built and audited from `07dfcb7de8fc77edbe20b8bc2d9c400b32e12608` with the sanitized October 22 preset, following explicit user build authorization. Awaiting exact-candidate user testing and approval. The earlier candidate from `586be06ae0de421e73d0ce7ec5d537509c1c3806` remains superseded and must not be distributed. No tag, upload or publication performed. Screenshots remain deferred.
+Status: held unpublished at the user’s request while developing a larger Spaces Bar release. The audited interim candidate from `07dfcb7de8fc77edbe20b8bc2d9c400b32e12608` contains the sanitized October 22 preset but not later Spaces Bar development. Preserve the existing candidate/assets; do not rebuild, tag, upload or publish during this feature. The earlier `586be06a` candidate remains superseded. Screenshots remain deferred.
 
 ## Changes Since 0.3.0
 

@@ -232,13 +232,17 @@ final class SpaceMoveMenuController: NSObject {
             return menu
         }
 
-        let cachedWindows = WindowUtil.getAllWindowsIgnoringSwitcherFilters().filter { !$0.isWindowlessApp }
+        let cachedWindows = WindowUtil.collapseNativeTabsIfNeeded(WindowUtil.getAllWindowsIgnoringSwitcherFilters())
+        let presentation = ManagedSpacePresentation.snapshot(
+            displays: displays,
+            orderedWindows: cachedWindows
+        )
         let showUnavailable = Defaults[.showUnavailableSpacesInMenu]
-        let visibleDisplays = displays.compactMap { display -> (ManagedDisplayDescriptor, [ManagedSpaceDescriptor])? in
-            let spaces = display.spaces.filter { space in
-                space.kind == .desktop || (showUnavailable && space.kind == .fullscreen)
+        let visibleDisplays = presentation.compactMap { display -> (String, [ManagedSpacePresentation.Entry])? in
+            let spaces = display.spaces.filter { entry in
+                !entry.isFullscreen || showUnavailable
             }
-            return spaces.isEmpty ? nil : (display, spaces)
+            return spaces.isEmpty ? nil : (display.name, spaces)
         }
         let showsDisplayHeadings = visibleDisplays.count > 1
 
@@ -247,22 +251,22 @@ final class SpaceMoveMenuController: NSObject {
                 menu.addItem(.separator())
             }
             if showsDisplayHeadings {
-                let fallback = String(localized: "Display \(displayIndex + 1)", comment: "Fallback display name in Space destination menu")
-                addInformationalItem(WindowSpaces.displayName(for: entry.0.identifier) ?? fallback, to: menu)
+                addInformationalItem(entry.0, to: menu)
             }
 
-            for space in entry.1 {
-                let destination = ManagedSpaceDestination(display: entry.0, space: space)
-                let apps = apps(on: space, cachedWindows: cachedWindows)
-                let title = menuTitle(for: space, apps: apps)
+            for presentedSpace in entry.1 {
+                let destination = presentedSpace.destination
+                let space = destination.space
+                let apps = presentedSpace.apps
+                let title = presentedSpace.title(mode: Defaults[.spaceMenuDisplayMode])
                 let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
                 item.attributedTitle = attributedTitle(
                     title,
                     apps: apps,
-                    includesFullscreenSymbol: space.kind == .fullscreen,
+                    includesFullscreenSymbol: presentedSpace.isFullscreen,
                     appearance: menu.effectiveAppearance
                 )
-                if entry.0.currentSpaceID == space.id,
+                if presentedSpace.isCurrent,
                    Defaults[.showCurrentSpaceBadgeInMenu]
                 {
                     if #available(macOS 14.0, *) {
@@ -311,44 +315,9 @@ final class SpaceMoveMenuController: NSObject {
         return menu
     }
 
-    private func apps(on space: ManagedSpaceDescriptor, cachedWindows: [WindowInfo]) -> [NSRunningApplication] {
-        var pids = space.ownerPIDs
-        pids.formUnion(cachedWindows.compactMap { window in
-            window.spaceID == Int(space.id) ? window.app.processIdentifier : nil
-        })
-
-        var seenApps = Set<String>()
-        return pids.compactMap { pid in
-            cachedWindows.first(where: { $0.app.processIdentifier == pid })?.app ??
-                NSRunningApplication(processIdentifier: pid)
-        }
-        .filter { app in
-            let identity = app.bundleIdentifier ?? "pid:\(app.processIdentifier)"
-            return seenApps.insert(identity).inserted
-        }
-        .sorted {
-            ($0.localizedName ?? "").localizedStandardCompare($1.localizedName ?? "") == .orderedAscending
-        }
-    }
-
-    private func menuTitle(for space: ManagedSpaceDescriptor, apps: [NSRunningApplication]) -> String {
-        switch Defaults[.spaceMenuDisplayMode] {
-        case .numberOnly:
-            return "\(space.number)"
-        case .fullName:
-            if space.kind == .desktop {
-                return String(localized: "Desktop \(space.desktopNumber ?? space.number)", comment: "Desktop name in Space destination menu")
-            }
-            let appNames = apps.compactMap(\.localizedName)
-            return appNames.isEmpty
-                ? String(localized: "Full Screen", comment: "Fallback fullscreen Space name")
-                : appNames.joined(separator: " + ")
-        }
-    }
-
     private func attributedTitle(
         _ title: String,
-        apps: [NSRunningApplication],
+        apps: [ManagedSpacePresentation.App],
         includesFullscreenSymbol: Bool,
         appearance: NSAppearance
     ) -> NSAttributedString {
@@ -377,7 +346,7 @@ final class SpaceMoveMenuController: NSObject {
             appendImage(symbol, usesPrimaryColor: true)
         }
 
-        let appIcons = apps.compactMap(\.icon)
+        let appIcons = apps.compactMap(\.application.icon)
         result.append(AppIconStripFormatting.attributedIcons(appIcons, maximumVisible: max(0, 5 - attachmentCount), leadingSpaces: attachmentCount == 0 ? 2 : 1))
         return result
     }

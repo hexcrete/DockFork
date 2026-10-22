@@ -1,6 +1,6 @@
 # DockFork Roadmap
 
-0.3.1 refreshed Release build is now authorized after sanitizing the October 22 export. Candidate `586be06a` is superseded and ineligible for publication. The refreshed `07dfcb7d` candidate is built and audited with the October 22 preset; exact-candidate testing and approval are required before publication. Selection and title-bar fixes remain user-verified, upstream main is unchanged at `77e4771`, and exact future-candidate testing and screenshots remain pending.
+Release publication is held at the user’s request while developing a larger Spaces Bar release. The audited `07dfcb7d` 0.3.1 package remains an unpublished interim candidate; it does not contain subsequent Spaces Bar development. Do not rebuild or publish Release packages during this feature. Screenshots remain deferred.
 
 ## Title-bar Scrolling and Tab Exclusion
 
@@ -132,13 +132,20 @@ Linked-tiling integration is implemented behind a default-Off option: confirmed 
 
 ## Spaces Bar in Window Switcher
 
-Deferred to a later release. Current work prioritizes polishing and fixing the completed selection, tiling and dragging features.
+Approved October 22. Implement six stages, each followed by regressions/format/diff checks, signed development build/relaunch, exact running-binary verification and a pause for user verification before review/commit/continuation. No subagents without approval; no Release build/publication, identity or project changes.
 
-- A horizontal Space-pill container, grouped by display, with names/numbers, resident app icons, per-app window counts, and fullscreen indicators.
-- Optional app-icon activation, Space filtering, activation on double click, search integration, and recent/sequential ordering.
-- Keyboard focus and forward/backward cycling, optional direct invocation with the bar focused, and selection on modifier release.
-- Window drops onto eligible Spaces should reuse confirmed Space movement. Creating, closing, reordering, and fullscreen-creating Space gestures require separate private-API feasibility checks; no Mission Control parity is promised yet.
-- Hide windowless apps while explicitly filtering by a Space. Reconcile bar/search/panel sizing through shared layout rules.
+1. Shared Space model: implemented, all eighteen regression suites and signed/running development checks pass; user verification and final source review passed; ready for Stage 2. Extract immutable display/Space/app/window-identity metadata and generated labels from the existing dropdown. Reuse native-tab collapsing and existing membership reads once per represented window per snapshot; retain no screenshots. All Space menus follow the configured Window sort order, preserving the first contributing resident window per app. No persistent model, observers, polling or new discovery/capture loop.
+2. Spaces Bar/layout/accessibility: one horizontal row above search and the window grid, grouped by display and using Compact Mode styling. Size the combined stack within existing screen margins; keep the bar stable during hover filtering. Flexible pills shrink to their minimum before scrolling. Center the invocation display’s current Space on opening. Distinguish current Space, navigation highlight and active filter; accessible buttons/counts/state from this stage.
+3. Keyboard/filter/history: navigation target Windows/Spaces is separate from held/persistent/swipe ownership. Space cycle keys can unfocus search; window cycle keys or typing return to windows. Explicit Space/app activation dismisses; highlighting only filters when enabled. Filtering overrides spatial invocation scope but retains search/non-spatial exclusions; Clear restores it. Preserve checked windows across filters. Mouse filtering remains when the cursor leaves the bar. History tracks actual confirmed focus/Space changes, per-display and globally, not highlights, and is not persisted. Extend show switcher with an optional spaces-focused flag without changing existing behavior/codes.
+4. Window drops: reuse stable single/checked drag targets, highlights, confirmed moves and action ownership. No pointer-placement geometry writes. Exclude invalid fullscreen/windowless/multi-Desktop sources and fullscreen destinations. Follow the existing destination-follow preference and existing partial-failure/dismissal behavior; accepted drops survive preview teardown.
+5. Two-axis swipes: extend the existing detector/tap with opposite-axis Space navigation, default Off. Latch the dominant axis until release; retain existing sensitivity/reversal/ownership and held-modifier precedence. Update conflict guidance; no second tap or polling.
+6. Desktop-content dragging: Desktop pills only. Move/swap eligible contents onto another Desktop; between-pill zones shift contents within one display, skipping fullscreen slots and disallowing boundaries before fullscreen pills. Snapshot all original membership and mappings before writes, retain compound reservations, preserve hidden/minimized state and report partial failures without blind rollback. This does not reorder actual Space IDs, wallpaper or assignments. Empty operations are no-ops. Reuse existing Space selectors/results for new script commands switch to last space (scope defaults current display), move space contents (optional swap), and shift space contents (final Desktop slot, same display). Scripts stay silent and settle exactly once with bounded completion.
+
+Settings: Window Switcher > Spaces Bar, master Off; labels Numbers; width Flexible, minimum 160 pt/fixed 240 pt, sliders 100–600 step 10; app-icon activation Off; filtering Off; mouse-hover highlighting Off; hide-one-Space On; start-next-Space On; cycle-key launch Off; Space-on-Space contents default Move. Bindings and latest-Space rows go under Keybinds > Spaces, initially unassigned; latest scope is configurable, default Current display. Hide unavailable subordinate controls and add search/reset/catalog/localization wiring without replacing existing keys. The opposite-axis switch belongs under trackpad direction.
+
+Icons represent resident apps, with superscript represented-window counts above one and shared +N overflow. Use existing cached real windows and owner metadata, not windowless placeholders. Search and the bar’s filter do not change Space membership. Native-tab groups count represented windows; owner-only fullscreen fallback must not fabricate window targets/counts.
+
+Deferred: Desktop creation/deletion, plus buttons, Mission Control automation, native Space reordering, fullscreen gap drops and Split View creation. Generated Desktop/app names only, no Mission Control name scraping. Latest-Space history is gated by the bar/assigned latest shortcuts; scripts without history fail instead of inventing a destination. No new background capture/discovery. Reuse existing registered sources and shared operations rather than another executor.
 
 ## Multi-Window Selection and Tiling
 
