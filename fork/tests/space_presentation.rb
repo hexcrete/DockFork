@@ -15,8 +15,133 @@ def block(source, signature)
 end
 
 root = File.expand_path('../..', __dir__)
+util = File.read("#{root}/DockDoor/Utilities/Window Management/WindowUtil.swift")
+ordering_source = <<~'SWIFT'
+import Foundation
+typealias CGWindowID = UInt32
+let kCGNullWindowID: UInt32 = 0
+let kCGWindowNumber = "number"
+enum WindowListOption { case excludeDesktopElements }
+var windowListReads = 0
+func CGWindowListCopyWindowInfo(_ options: [WindowListOption], _ relative: UInt32) -> Any? {
+ windowListReads += 1
+ return [["number": NSNumber(value: 1)], ["number": NSNumber(value: 2)]]
+}
+struct App { let processIdentifier: Int }
+struct WindowInfo { let id: UInt32; let lastAccessedTime: Date; let app: App }
+enum Ordering {
+SWIFT
+ordering_source += block(util, '    private static func spaceSwitchCandidatesByRecency(').sub('private static', 'static') + "\n}\n"
+ordering_source += <<~'SWIFT'
+@main struct OrderingChecks {
+ static func main() {
+  func w(_ id: UInt32, _ time: Double, _ pid: Int = 1) -> WindowInfo { .init(id: id, lastAccessedTime: Date(timeIntervalSince1970: time), app: App(processIdentifier: pid)) }
+  let ranked = Ordering.spaceSwitchCandidatesByRecency([w(1,1), w(3,3), w(2,2)])
+  precondition(ranked.map(\.id) == [3,2,1], "Focus recency must beat stacking order and missing WindowServer ranks")
+  precondition(windowListReads == 1, "One existing window-list read, never one per comparison")
+  let tied = Ordering.spaceSwitchCandidatesByRecency([w(5,1,9), w(2,1), w(4,1,2), w(1,1), w(3,1,2)])
+  precondition(tied.map(\.id) == [1,2,3,4,5], "Equal timestamps retain stacking, PID and window-ID tie-breaks")
+  precondition(Ordering.spaceSwitchCandidatesByRecency([]).isEmpty)
+  print("PASS production Space-switch ordering: recency first, stacking/identity ties and unchanged single window-list read")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-order-') do |dir|
+  File.write("#{dir}/checks.swift", ordering_source)
+  abort 'Space ordering compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+  abort 'Space ordering checks failed' unless system("#{dir}/checks")
+end
 shared = File.read("#{root}/DockDoor/Utilities/Window Management/WindowDiscoveryShared.swift")
+keybind_source = File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift")
+builder = block(keybind_source, '    private func buildSwitcherWindows(')
+filter_source = <<~'SWIFT'
+import Foundation
+typealias CGSSpaceID = UInt64
+enum SwitcherInvocationMode { case allWindows, currentSpaceOnly, currentMonitorCurrentSpace, activeAppCurrentSpace, currentMonitorOnly, activeAppOnly }
+enum Key { case includeHiddenWindowsInSwitcher, showWindowsFromCurrentSpaceOnlyInSwitcher, showWindowsFromCurrentMonitorOnlyInSwitcher, excludeWindowlessAppsFromCurrentMonitorSwitcherScopes, excludeWindowlessAppsFromCurrentSpaceSwitcherScopes, showWindowlessAppsInSwitcher, limitSwitcherToFrontmostApp }
+enum Defaults { static var hidden = true; static subscript(_ key: Key) -> Bool { key == .showWindowlessAppsInSwitcher || (key == .includeHiddenWindowsInSwitcher && hidden) } }
+struct WindowInfo { let id: Int; let app: Int; let space: Int; var isMinimized = false; var isHidden = false; var isWindowlessApp = false; var appHidden = false; var isEffectivelyHiddenForUI: Bool { isHidden || appHidden } }
+struct PreviewWindowIdentity: Hashable { let id: Int; init(_ w: WindowInfo) { id = w.id } }
+enum WindowUtil {
+ static var all = [WindowInfo(id: 1, app: 1, space: 1), WindowInfo(id: 2, app: 1, space: 2), WindowInfo(id: 3, app: 2, space: 2, isHidden: true)]
+ static func getAllWindowsOfAllApps() -> [WindowInfo] { all }
+ static func getAllWindowsIgnoringSwitcherFilters() -> [WindowInfo] { all }
+ static func collapseNativeTabsIfNeeded(_ w: [WindowInfo]) -> [WindowInfo] { w }
+ static func filterWindowsByCurrentSpace(_ w: [WindowInfo]) -> [WindowInfo] { w.filter { $0.space == 1 } }
+ static func filterWindowsByCurrentMonitor(_ w: [WindowInfo]) -> [WindowInfo] { w.filter { $0.space == 1 } }
+ static func getWindowsForFrontmostApp(from w: [WindowInfo]) -> [WindowInfo] { w.filter { $0.app == 1 } }
+ static func sortWindowsForSwitcher(_ w: [WindowInfo]) -> [WindowInfo] { w }
+ static func sortWindowsForSwitcherByRecency(_ w: [WindowInfo]) -> [WindowInfo] { w }
+ static func groupWindowsByApp(_ w: [WindowInfo]) -> [WindowInfo] { var seen = Set<Int>(); return w.filter { seen.insert($0.app).inserted } }
+ static func getWindowlessRunningApps(existingWindows: [WindowInfo]) -> [WindowInfo] { [.init(id: 0, app: 3, space: 1, isWindowlessApp: true)] }
+}
+@MainActor final class Builder {
+SWIFT
+filter_source += builder.sub('private func ', 'func ') + "\n" + block(keybind_source, '    private func isActiveAppMode(') + "\n}\n"
+filter_source += <<~'SWIFT'
+@main struct FilterChecks {
+ @MainActor static func main() {
+  let b = Builder(), members = Set(WindowUtil.all.filter { $0.space == 2 }.map(PreviewWindowIdentity.init))
+  precondition(b.buildSwitcherWindows(mode: .currentMonitorCurrentSpace).map(\.id) == [1,0])
+  precondition(b.buildSwitcherWindows(mode: .currentMonitorCurrentSpace, spaceMembers: members).map(\.id) == [2,3], "Space filter overrides spatial scope before grouping and omits placeholders")
+  precondition(b.buildSwitcherWindows(mode: .activeAppCurrentSpace, spaceMembers: members).map(\.id) == [2], "Active-app exclusion must survive Space override")
+  Defaults.hidden = false
+  precondition(b.buildSwitcherWindows(mode: .currentSpaceOnly, spaceMembers: members).map(\.id) == [2], "Hidden/minimized exclusion must survive Space override")
+  let hiddenApp = WindowInfo(id: 4, app: 4, space: 2, appHidden: true)
+  WindowUtil.all.append(hiddenApp)
+  precondition(b.buildSwitcherWindows(mode: .currentSpaceOnly, spaceMembers: members.union([PreviewWindowIdentity(hiddenApp)])).map(\.id) == [2], "App-level hidden state must remain excluded")
+  precondition(b.buildSwitcherWindows(mode: .allWindows, spaceMembers: []).isEmpty, "Empty Space must not become an unfiltered invocation")
+  precondition(b.buildSwitcherWindows(mode: .currentMonitorCurrentSpace).map(\.id) == [1,0], "Clearing restores the invocation scope")
+  print("PASS production Space filter builder: spatial override, clear restoration, grouping order, empty/fullscreen membership, hidden/app exclusions and placeholder omission")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-filter-') do |dir|
+  File.write("#{dir}/checks.swift", filter_source)
+  abort 'Space filter compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+  abort 'Space filter checks failed' unless system("#{dir}/checks")
+end
 state = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift")
+publication_source = <<~'SWIFT'
+import Combine
+struct WindowInfo { let id: Int; var isWindowlessApp = false }
+struct PreviewWindowIdentity: Hashable { let id: Int; init(_ window: WindowInfo) { id = window.id } }
+final class PublicationProbe: ObservableObject {
+ @Published private var storedWindows: [WindowInfo] = []
+ var activeSpaceMembers: Set<PreviewWindowIdentity>?
+ var invalidations = 0
+ func invalidateFilterCache() { invalidations += 1 }
+SWIFT
+publication_source += block(state, '    var windows: [WindowInfo] {') + "\n}\n"
+publication_source += <<~'SWIFT'
+@main struct PublicationChecks {
+ static func main() {
+  let probe = PublicationProbe(), a = WindowInfo(id: 1), b = WindowInfo(id: 2)
+  var publications = 0
+  let subscription = probe.objectWillChange.sink { publications += 1 }
+  probe.windows = [a,b]
+  precondition(publications == 1 && probe.windows.count == 2)
+  probe.activeSpaceMembers = [PreviewWindowIdentity(b)]
+  for _ in 0..<100 { probe.windows = [a,b,WindowInfo(id: 0, isWindowlessApp: true)] }
+  precondition(publications == 101 && probe.invalidations == 101 && probe.windows.map(\.id) == [2], "Filtered replacement must publish once without observer/setter recursion")
+  probe.windows.append(a)
+  precondition(publications == 102 && probe.windows.map(\.id) == [2], "In-place updates must share filtering before publication")
+  probe.activeSpaceMembers = []
+  probe.windows = [a,b]
+  precondition(publications == 103 && probe.windows.isEmpty)
+  probe.activeSpaceMembers = nil
+  probe.windows = [a,b]
+  precondition(publications == 104 && probe.windows.count == 2)
+  withExtendedLifetime(subscription) {}
+  print("PASS production Combine window publication: repeated filtered writes, in-place mutation, empty membership, clearing and exactly one publication/invalidation per write")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-filter-publication-') do |dir|
+  File.write("#{dir}/checks.swift", publication_source)
+  abort 'Window publication compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+  abort 'Window publication checks failed' unless system("#{dir}/checks")
+end
 view = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview.swift")
 menu = block(view, '    func makeMenu(for window:')
 abort 'Menu must share one model and one native-tab collapse' unless menu.scan('ManagedSpacePresentation.snapshot(').size == 1 && menu.scan('WindowUtil.collapseNativeTabsIfNeeded(').size == 1
@@ -33,7 +158,7 @@ abort 'Bar must refresh with cache metadata and display topology' unless block(c
 settings = File.read("#{root}/DockDoor/Views/Settings/WindowSwitcherBehaviorSettingsView.swift") + File.read("#{root}/DockDoor/Views/Settings/AppearanceSettingsView.swift")
 catalog = File.read("#{root}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
 reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")
-%w[enableSpacesBar spacesBarItemSize spacesBarPreferDetails spacesBarMinimumWidth spacesBarLabels spacesBarFixedWidth spacesBarMaximumWidth spacesBarPillWidth spacesBarHideWhenSingle].each do |key|
+%w[enableSpacesBar spacesBarItemSize spacesBarPreferDetails spacesBarMinimumWidth spacesBarLabels spacesBarFixedWidth spacesBarMaximumWidth spacesBarPillWidth spacesBarHideWhenSingle spacesBarFilterWindows spacesBarActivateAppIcons].each do |key|
   abort "Unwired bar setting #{key}" unless settings.include?("windowSwitcher.#{key}") && catalog.include?("windowSwitcher.#{key}") && reset.include?("Defaults[.#{key}] = Defaults.Keys.#{key}.defaultValue")
 end
 %w[spacesBarItemSize spacesBarLabels spacesBarFixedWidth spacesBarPreferDetails spacesBarMinimumWidth spacesBarMaximumWidth spacesBarPillWidth].each do |key|
@@ -48,15 +173,22 @@ abort 'Bar must use shared icon fitting and native accessibility' unless bar.inc
 abort 'Bar must remain gated, internal and inherit preview capture policy' unless panel.include?('guard windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar]') && panel.include?('WindowUtil.registerInternalWindow') && panel.include?('panel.sharingType = sharingType') && !block(bar, 'final class SpacesBarWindow:').include?('sharingType = .none')
 abort 'Bar must preserve scroll state and cached membership' unless panel.include?('hosting.rootView = barView') && panel.include?('if fingerprint != spacesBarFingerprint')
 abort 'Single-Space hiding must retain topology observation' unless panel.include?('removeSpacesBar(keepTopologyObserver: true)')
-activation = panel.split('activate: { [weak self] entry in',2).last.split("\n        )",2).first
+activation = block(panel, '    private func activateSpace(')
+app_activation = block(panel, '    private func activateSpaceApp(')
+abort 'Icon activation must confirm a real resident target and protect reopened sessions' unless app_activation.include?('current.windowIdentities.first(where:') && app_activation.include?('await window.bringToFrontConfirmed()') && app_activation.include?('session == windowSwitcherCoordinator.pointerInteractionSessionID') && app_activation.index('if succeeded') < app_activation.index('appDelegate.dismissPreviews()') && !app_activation.include?('application.activate(')
 abort 'Space activation must dismiss through the shared lifecycle before both occupied/empty transitions' unless activation.index('appDelegate.dismissPreviews()') < activation.index('WindowUtil.switchToManagedSpace')
 abort 'A late switch completion must not dismiss a reopened switcher' if activation.split('WindowUtil.switchToManagedSpace',2).last.include?('hideWindow()')
 abort 'Count must overlay the icon slot alongside the shared badge component' unless bar.include?('.overlay(alignment: .bottomTrailing)') && bar.include?('PreviewAppIcon(icon: app.application.icon') && bar.include?('@Default(.switcherShowAppIconBadges)') && bar.include?('@Default(.switcherAppIconBadgeScale)')
 count_style = bar.split('Text("\(app.windowCount)")',2).last&.split('.accessibilityHidden(true)',2)&.first
 abort 'Subscript must not have badge-like decoration' if count_style.nil? || count_style.match?(/\.shadow\(|\.background\(/)
 pill_style = block(bar, '    private func pill(')
-abort 'Space cards must share preview-card styling and centered labels' unless pill_style.include?('.previewCardChrome(') && pill_style.include?('hideBackground: hideCardBackground') && pill_style.include?('uniformCardRadius: uniformCardRadius') && !pill_style.include?('.materialPill(') && pill_style.include?('frame(width: titleWidth, alignment: .center)')
-abort 'Space cards must honor active-border visibility and actual hover independently' unless bar.include?('@Default(.showActiveWindowBorder)') && pill_style.include?('isHighlighted: viewport.hoveredSpaceID == entry.id, isActiveWindow: showActiveWindowBorder && entry.isCurrent') && pill_style.include?('highlightColor: highlightColor ?? Color(nsColor: .controlAccentColor)') && pill_style.include?('.onHover { hovering in')
+label_region = pill_style.split('ZStack(alignment: .leading)', 2).last&.split('ForEach(', 2)&.first
+abort 'Filter label must retain stable child views and full-size symbol geometry' unless label_region && !label_region.include?('if filteredSpace') && !label_region.include?('if titleParts') && !label_region.include?('.transition(') && label_region.include?('width: SpacesBarLayout.clearSymbolSize') && label_region.include?('.allowsHitTesting(filteredSpace == entry.id)')
+abort 'Clear filter must precede the Space label' unless pill_style.index('Button(action: clearFilter)') < pill_style.index('Text(title).lineLimit(1)')
+abort 'Filter label must slide within its reserved slot using shared animation policy' unless label_region.include?('.offset(x: titleParts.button + titleParts.spacing)') && label_region.include?('.previewControlVisibilityAnimation(') && label_region.include?('-SpacesBarLayout.minimumLabelWidth')
+abort 'Bar refresh must not recommit unchanged native scroll geometry' unless bar.include?('if view.scroller.contentSize != contentSize') && bar.include?('if view.hosting.frame != contentFrame')
+abort 'Space cards must share preview-card styling and centered labels' unless pill_style.include?('.previewCardChrome(') && pill_style.include?('hideBackground: hideCardBackground') && pill_style.include?('uniformCardRadius: uniformCardRadius') && !pill_style.include?('.materialPill(') && pill_style.include?('frame(width: titleWidth, height:')
+abort 'Space cards must honor active-border visibility and actual hover independently' unless bar.include?('@Default(.showActiveWindowBorder)') && pill_style.include?('isHighlighted: (enableMouseHoverInSwitcher && viewport.hoveredSpaceID == entry.id) || highlightedSpace == entry.id, isActiveWindow: showActiveWindowBorder && entry.isCurrent') && pill_style.include?('highlightColor: highlightColor ?? Color(nsColor: .controlAccentColor)') && pill_style.include?('.onContinuousHover { phase in')
 abort 'Companions must follow actual native frames without content rebuilding' unless panel.include?('if spacesBarWindow != nil { positionCompanionWindows() }') && !panel.include?('positionSpacesBar(relativeTo: targetFrame)')
 model = block(shared, 'enum ManagedSpacePresentation {')
 abort 'Space model must not retain screenshots or discover windows' if model.match?(/let \w+: (?:\[)?WindowInfo|\.image\b|\.axElement\b|Task\b|Timer\b|\.addObserver\b|getAllWindows/)
@@ -117,6 +249,7 @@ font_space_sizes = space_sizes
 font_sizes = sizes
 ['    var primaryFont:', '    var primaryAppKitFont:', '    var secondaryFont:'].each { |signature| sizes = sizes.sub(block(sizes, signature), '') }
 source += sizes + "\n" + space_sizes + "\n"
+source += "import AppKit\nextension CompactModeItemSize {\n" + block(font_sizes, '    var primaryAppKitFont:') + "\n}\nextension SpacesBarItemSize {\n" + block(font_space_sizes, '    var primaryAppKitFont:') + "\n}\n"
 source += <<~'SWIFT'
 enum PreviewHeaderLayout { static let horizontalInset: CGFloat = 20 }
 enum SearchWindow { static let searchHeight: CGFloat = 40; static let panelEdgeOffset: CGFloat = -4 }
@@ -134,12 +267,26 @@ enum WindowPreviewHoverContainer {
 SWIFT
 
 layout = block(bar, 'enum SpacesBarLayout {')
-layout = layout.lines.reject { |line| line.include?('static var font:') || line.include?('static var textFont:') || line.include?('static var headingFont:') || line.include?('static var headingTextFont:') || line.include?('static var headingHeight:') }.join
+layout = layout.lines.reject { |line| line.include?('static var font:') || line.include?('static var headingFont:') || line.include?('static var headingTextFont:') || line.include?('static var headingHeight:') }.join
 source += layout.sub("enum SpacesBarLayout {", "enum SpacesBarLayout {\n static var headingHeight: CGFloat { 14 * scale }") + "\n"
 source += block(bar, 'enum SpacesBarAppLayout {') + "\n"
+source += block(state, '    enum SpaceNavigationRequest:') + "\n"
+source += "func navigationIndex(ids:[UInt64],current:UInt64?,highlightedSpaceID:UInt64?,backward:Bool,startNext:Bool)->Int { SpaceNavigationRequest.cycle(backward:backward).targetIndex(ids:ids,current:current,highlighted:highlightedSpaceID,startNext:startNext)! }\n"
 source += <<~'SWIFT'
 @main struct Checks {
  @MainActor static func main() {
+  precondition(navigationIndex(ids:[1,2,3],current:2,highlightedSpaceID:nil,backward:false,startNext:true)==2)
+  precondition(navigationIndex(ids:[1,2,3],current:2,highlightedSpaceID:nil,backward:true,startNext:true)==0)
+  precondition(navigationIndex(ids:[1,2,3],current:2,highlightedSpaceID:nil,backward:false,startNext:false)==1)
+  precondition(navigationIndex(ids:[1,2,3],current:2,highlightedSpaceID:3,backward:false,startNext:false)==0)
+  precondition(SpaceNavigationRequest.current.targetIndex(ids:[1,2,3],current:2,highlighted:nil,startNext:true)==1, "Scripted focus must not apply cycle-entry advance")
+  precondition(SpaceNavigationRequest.cycle(backward:true).targetIndex(ids:[1,2,3],current:1,highlighted:nil,startNext:true)==2)
+  precondition(SpaceNavigationRequest.current.targetIndex(ids:[],current:2,highlighted:nil,startNext:true)==nil)
+  for width: CGFloat in [8,14,20,26,100,240] {
+   let parts = SpacesBarLayout.titleParts(width:width,filtered:true,spacing:6)
+   precondition(abs(parts.button + parts.text + parts.spacing - width) < 0.001 && parts.text >= 0 && parts.button <= width)
+   precondition(SpacesBarLayout.titleParts(width:width,filtered:false,spacing:6).text == width)
+  }
   precondition(SpacesBarLayout.widths(ideal:[200,300],labels:[40,60],maximum:240,available:600,fixed:false)==[200,240])
   precondition(SpacesBarLayout.widths(ideal:[200,300],labels:[48,60],maximum:240,available:108,fixed:false)==[48,60])
   precondition(SpacesBarLayout.widths(ideal:[200,300],labels:[48,60],maximum:240,available:1,fixed:false)==[48,60], "Only label widths constrain shrinking; overflow then scrolls")
@@ -148,6 +295,12 @@ source += <<~'SWIFT'
   precondition(SpacesBarLayout.widths(ideal:[10,30],labels:[8,28],maximum:240,available:100,fixed:false)==[48,48], "Short labels must use the shared Space indicator ratio")
   precondition(SpacesBarLayout.reservation(displayCount:1,search:true)==108)
   precondition(SpacesBarLayout.reservation(displayCount:1,search:false)==80)
+  for fraction: CGFloat in [0,0.1,0.49,0.5,0.9] {
+   let fitted = SpacesBarLayout.windowSize(CGSize(width:240+fraction,height:300+fraction),maximum:CGSize(width:600.8,height:500.8))
+   precondition(fitted.width == ceil(240+fraction) && fitted.height == ceil(300+fraction))
+   let clamped = SpacesBarLayout.windowSize(CGSize(width:900,height:900),maximum:CGSize(width:600.8,height:500.8))
+   precondition(clamped == CGSize(width:600,height:500), "Native integral sizing must not round beyond the available area")
+  }
   for size in SpacesBarItemSize.allCases {
    Defaults.size = size
    let scale = size.scale
@@ -156,7 +309,12 @@ source += <<~'SWIFT'
    precondition(abs(SpacesBarAppLayout.countFontSize - 9 * scale) < 0.001)
    precondition(abs(SpacesBarAppLayout.spacing - 6 * scale) < 0.001)
    precondition(SpacesBarLayout.minimumPillWidth >= SpacesBarLayout.pillHeight)
+   let label = SpacesBarLayout.labelWidth(1, fullscreen:false) - SpacesBarLayout.horizontalInset * 2
+   precondition(label >= SpacesBarLayout.clearSymbolSize)
+   let parts = SpacesBarLayout.titleParts(width:SpacesBarLayout.minimumLabelWidth, filtered:true, spacing:6*scale)
+   precondition(parts.button >= SpacesBarLayout.clearSymbolSize && parts.text == 0, "Numeric labels must fit the same full-size symbol as names")
    precondition(SpacesBarLayout.height(displayCount:1) > SpacesBarLayout.pillHeight)
+   precondition(SpacesBarLayout.height(displayCount:2).rounded() == SpacesBarLayout.height(displayCount:2), "Reservation and native panel height must use the same integral size")
    precondition(SpacesBarLayout.widths(ideal:[800], labels:[48], maximum:240, available:500, fixed:true)==[240])
   }
   precondition(SpacesBarItemSize.medium.localizedName == CompactModeItemSize.medium.localizedName)
@@ -186,6 +344,16 @@ for search in [false,true] {
   precondition(bar.minY+SpacesBarLayout.outerPadding-lower==(search ? SpacesBarLayout.searchGap : SpacesBarLayout.gap),"Attachment gap must remain unchanged through search resize/reversal")
   precondition(bar.midX==grid.midX)
  }
+}
+for fraction: CGFloat in [0,0.1,0.49,0.5,0.9] {
+ let grid = CGRect(x:100,y:100,width:301,height:500)
+ let bar = SpacesBarLayout.frame(grid:grid,size:CGSize(width:400+fraction,height:124+fraction),screen:CGRect(x:0,y:0,width:2000,height:2000),search:true,alignment:0.5)
+ precondition(bar == bar.integral, "Companion target frames must survive AppKit rounding unchanged")
+ let searchBottom = SpacesBarLayout.searchY(gridTop:grid.maxY)
+ let pillInset: CGFloat = 5.375
+ let lowerGap = searchBottom + pillInset - (grid.maxY-SpacesBarLayout.outerPadding)
+ let upperGap = bar.minY+SpacesBarLayout.outerPadding - (searchBottom+SearchWindow.searchHeight-pillInset)
+ precondition(lowerGap == upperGap, "Search capsule's symmetric insets must leave equal visible gaps")
 }
   let zebra=NSRunningApplication(11,"Zebra","example.zebra")
   let alpha=NSRunningApplication(12,"Alpha","example.alpha")
@@ -255,6 +423,154 @@ Dir.mktmpdir('dockfork-space-presentation-') do |dir|
   abort 'Space snapshot checks failed' unless system("#{dir}/checks")
 end
 
+# Exercise mouse-owned Space navigation without changing a real session or pointer.
+hover_source = <<~'SWIFT'
+import Foundation
+import CoreGraphics
+typealias CGSSpaceID = UInt64
+enum Key { case enableSpacesBar, enableMouseHoverInSwitcher }
+enum Defaults {
+ static var enabled = true, hover = false
+ static subscript(_ key: Key) -> Bool { key == .enableSpacesBar ? enabled : hover }
+}
+enum NSEvent { static var mouseLocation = CGPoint.zero }
+@MainActor final class HoverState {
+ var mouseHighlightedSpaceID: CGSSpaceID?
+ enum SelectionInputSource { case programmatic, keyboard, mouse }
+ enum NavigationTarget: Equatable { case windows, space(CGSSpaceID) }
+ var navigationTarget = NavigationTarget.windows
+ var spaceNavigationInputSource = SelectionInputSource.programmatic
+ var windowSwitcherActive = true, isPointerSelecting = false, pointerInteractionReady = true, hasMovedSinceOpen = false
+ var initialHoverLocation: CGPoint? = .zero
+ var currIndex = 4, writes = 0
+ func setIndex(to index: Int, shouldScroll: Bool, source: SelectionInputSource) { currIndex = index; writes += 1 }
+SWIFT
+hover_source += block(state, '    func hoverSpace(') + "\n" + block(state, '    func registerMouseMovementSinceOpen(') + "\n}\n"
+hover_source += <<~'SWIFT'
+@main struct HoverChecks {
+ @MainActor static func main() {
+  let state = HoverState()
+  NSEvent.mouseLocation = CGPoint(x: 20, y: 0)
+  state.hoverSpace(2, hovering: true)
+  precondition(state.navigationTarget == .windows && state.writes == 0, "Disabled hover must not affect navigation")
+  Defaults.hover = true
+  state.pointerInteractionReady = false
+  state.hoverSpace(2, hovering: true)
+  precondition(state.writes == 0)
+  state.pointerInteractionReady = true
+  NSEvent.mouseLocation = .zero
+  state.hoverSpace(2, hovering: true)
+  precondition(state.writes == 0, "Stationary pointer must not steal keyboard navigation")
+  NSEvent.mouseLocation = CGPoint(x: 20, y: 0)
+  state.hoverSpace(2, hovering: true)
+  precondition(state.navigationTarget == .space(2) && state.spaceNavigationInputSource == .mouse && state.currIndex == -1)
+  state.hoverSpace(2, hovering: true)
+  precondition(state.writes == 1, "Movement within the same pill must not repeat selection work")
+  state.navigationTarget = .windows; state.spaceNavigationInputSource = .programmatic
+  state.hasMovedSinceOpen = false; state.initialHoverLocation = NSEvent.mouseLocation
+  NSEvent.mouseLocation = CGPoint(x: 40, y: 0)
+  for _ in 0..<50 { state.hoverSpace(2, hovering: true) }
+  precondition(state.navigationTarget == .windows && state.writes == 1, "Clearing the filter must survive continued movement within its pill")
+  state.hoverSpace(2, hovering: false)
+  state.hoverSpace(2, hovering: true)
+  precondition(state.navigationTarget == .space(2) && state.writes == 2, "Leaving and re-entering must permit a new highlight")
+  state.hoverSpace(3, hovering: true)
+  state.hoverSpace(2, hovering: false)
+  precondition(state.navigationTarget == .space(3), "Late exit must not clear another pill")
+  state.hoverSpace(3, hovering: false)
+  precondition(state.navigationTarget == .windows && state.currIndex == -1, "Leaving must not restore a stale window release target")
+  state.hoverSpace(3, hovering: true)
+  Defaults.hover = false
+  state.hoverSpace(3, hovering: true)
+  precondition(state.navigationTarget == .windows, "Disabling shared hover must clear mouse-owned navigation")
+  state.hoverSpace(3, hovering: false)
+  precondition(state.mouseHighlightedSpaceID == nil, "Exit must clear hover-entry tracking even while shared hover is disabled")
+  state.navigationTarget = .space(4); state.spaceNavigationInputSource = .keyboard
+  state.hoverSpace(4, hovering: true)
+  precondition(state.navigationTarget == .space(4), "Disabling mouse hover must preserve keyboard navigation")
+  Defaults.hover = true
+  state.hoverSpace(4, hovering: false)
+  precondition(state.navigationTarget == .space(4), "Mouse exit must retain keyboard-owned selection")
+  state.isPointerSelecting = true
+  state.hoverSpace(5, hovering: true)
+  precondition(state.navigationTarget == .space(4), "Checkbox sweep must not become Space navigation")
+  state.isPointerSelecting = false; state.windowSwitcherActive = false
+  state.hoverSpace(5, hovering: true)
+  precondition(state.navigationTarget == .space(4), "Stale callbacks must not change a closed session")
+  print("PASS production Space hover: opt-in, pointer readiness/movement, stable targets, exit/input ownership, sweep and session guards")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-hover-') do |dir|
+  File.write("#{dir}/checks.swift", hover_source)
+  abort 'Space hover compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+  abort 'Space hover checks failed' unless system("#{dir}/checks")
+end
+
+activation_source = <<~'SWIFT'
+import Foundation
+struct PreviewWindowIdentity: Hashable { let id: Int; init(_ w: Window) { id = w.id } }
+enum Key { case spacesBarActivateAppIcons }
+enum Defaults { static var enabled = true; static subscript(_ key: Key) -> Bool { enabled } }
+enum NSSound { static var beeps = 0; static func beep() { beeps += 1 } }
+final class AppDelegate { var dismissals = 0; func dismissPreviews() { dismissals += 1 } }
+enum NSApp { static var delegate: AnyObject? = AppDelegate() }
+struct Application { let processIdentifier: Int }
+enum ManagedSpacePresentation {
+ struct App { let application: Application; let windowIdentities: [PreviewWindowIdentity] }
+ struct Entry { let id: Int; let apps: [App] }
+ struct Display { let spaces: [Entry] }
+}
+@MainActor final class Window {
+ let id: Int; var success = true, calls = 0, warps = 0; var onActivation: (() -> Void)?
+ init(_ id: Int) { self.id = id }
+ func bringToFrontConfirmed() async -> Bool { calls += 1; onActivation?(); return success }
+ func warpMouseToCenterIfNeeded() { warps += 1 }
+}
+@MainActor enum WindowUtil { static var windows: [Window] = []; static func getAllWindowsIgnoringSwitcherFilters() -> [Window] { windows } }
+final class State { var windowSwitcherActive = true, pointerInteractionSessionID = 1 }
+@MainActor final class ActivationProbe {
+ var isVisible = true, windowSwitcherCoordinator = State()
+ var spacesBarSections: [ManagedSpacePresentation.Display] = []
+ func hideWindow() { isVisible = false }
+SWIFT
+activation_source += app_activation.sub('private func ', 'func ') + "\n}\n"
+activation_source += <<~'SWIFT'
+@main struct ActivationChecks {
+ @MainActor static func main() async {
+  let a = Window(1), b = Window(2), probe = ActivationProbe()
+  let app = ManagedSpacePresentation.App(application: Application(processIdentifier: 3), windowIdentities: [PreviewWindowIdentity(b), PreviewWindowIdentity(a)])
+  let entry = ManagedSpacePresentation.Entry(id: 5, apps: [app])
+  probe.spacesBarSections = [.init(spaces: [entry])]; WindowUtil.windows = [a,b]
+  let delegate = NSApp.delegate as! AppDelegate
+  Defaults.enabled = false
+  await probe.activateSpaceApp(app, in: entry)
+  precondition(a.calls == 0 && b.calls == 0)
+  Defaults.enabled = true
+  await probe.activateSpaceApp(app, in: entry)
+  precondition(b.calls == 1 && a.calls == 0 && delegate.dismissals == 1 && b.warps == 1, "Resident order, not cache order, selects the leading target")
+  b.success = false
+  await probe.activateSpaceApp(app, in: entry)
+  precondition(delegate.dismissals == 1 && NSSound.beeps == 1, "Failure must retain previews")
+  b.success = true; b.onActivation = { probe.windowSwitcherCoordinator.pointerInteractionSessionID += 1 }
+  await probe.activateSpaceApp(app, in: entry)
+  precondition(delegate.dismissals == 1 && b.warps == 1, "Stale completion must not dismiss or warp a newer session")
+  b.onActivation = nil; WindowUtil.windows = [a]
+  await probe.activateSpaceApp(app, in: entry)
+  precondition(a.calls == 1 && delegate.dismissals == 2, "Missing leading identity must use the next known resident")
+  WindowUtil.windows = []
+  await probe.activateSpaceApp(app, in: entry)
+  precondition(delegate.dismissals == 2 && NSSound.beeps == 2, "No real target must refuse without generic app activation")
+  print("PASS production Space app activation: gating, resident ordering, missing targets, confirmation, failure and stale-session guards")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-app-') do |dir|
+  File.write("#{dir}/checks.swift", activation_source)
+  abort 'Space activation compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+  abort 'Space activation checks failed' unless system("#{dir}/checks")
+end
+
 # Exercise the production bar adapter and shared scrolling engine without sending
 # events to user windows or moving the pointer/focus.
 scroll_source = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Supporting/CardGridScrollView.swift")
@@ -267,6 +583,7 @@ native_source += block(bar, 'struct SpacesBarDisplayHeading:') + "\n"
 native_source += block(bar, 'final class SpacesBarHeadingOverlay:') + "\n"
 native_source += block(bar, 'final class SpacesBarViewport:') + "\n"
 native_source += block(bar, 'final class SpacesBarWindow:') + "\n"
+native_source += block(bar, 'final class SpacesBarHostedState:') + "\n" + block(bar, 'struct SpacesBarHostedContent:') + "\n"
 native_source += block(bar, 'struct SpacesBarScroll:') + "\n"
 material = File.read("#{root}/DockDoor/Components/MaterialPill.swift")
 view_extensions = File.read("#{root}/DockDoor/Extensions/View.swift")
@@ -295,7 +612,7 @@ enum SpacesBarLayout {
 enum WindowStateIndicator { static let styledContentPadding: CGFloat = 4 }
 enum SpaceMenuDisplayMode { case numberOnly }
 enum ManagedSpacePresentation {
- struct App { let application: NSRunningApplication; let windowCount: Int }
+ struct App { let application: NSRunningApplication; let windowCount: Int; var windowIdentities: [UInt64] { windowCount > 0 ? [1] : [] } }
  struct Entry {
   let id: UInt64 = 1
   let label: String
@@ -334,8 +651,16 @@ extension View {
  }
 }
 SWIFT
+animation_source = File.read("#{root}/DockDoor/Extensions/SwiftUIUtils.swift")
+native_source += block(animation_source, 'enum PreviewControlAnimation {') + "\n" + block(animation_source, 'private struct PreviewControlVisibilityAnimation:') + "\n"
+native_source += "extension View {\n" + block(animation_source, '    func previewControlVisibilityAnimation(') + "\n}\n"
+native_source += "extension SpacesBarLayout {\n" + bar.lines.grep(/static var (clearSymbolSize|minimumLabelWidth):/).join + block(bar, '    static func titleParts(') + "\n}\n"
 native_source += <<~'SWIFT'
 struct PillProbe: View {
+ let showAnimations = false
+ let controlAnimationDuration = 0.1
+ let activateAppIcons = false
+ let enableMouseHoverInSwitcher = true
  let uniformCardRadius = true
  let hideCardBackground = false
  let showActiveWindowBorder = true
@@ -349,24 +674,37 @@ struct PillProbe: View {
  let width: CGFloat
  let label: String
  var widths: [UInt64: CGFloat] { [1:width] }
+ var filteredSpace: UInt64? = nil
+ func clearFilter() {}
+ let highlightedSpace: UInt64? = nil
  let labels = SpaceMenuDisplayMode.numberOnly
  func activate(_ entry: ManagedSpacePresentation.Entry) {}
+ func hover(_ id: UInt64, _ hovering: Bool) {}
+ func activateApp(_ app: ManagedSpacePresentation.App, _ entry: ManagedSpacePresentation.Entry) {}
  var body: some View { pill(ManagedSpacePresentation.Entry(label:label)).fixedSize() }
 SWIFT
 native_source += block(bar, '    private func pill(') + "\n}\n"
 native_source += "struct AppSlotProbe: View {\n let count: Int\n let showBadges = false\n let badgeScale: CGFloat = 1\n var body: some View {\n  let app = ManagedSpacePresentation.App(application:NSRunningApplication.current,windowCount:count)\n"
 native_source += "                    PreviewAppIcon(icon: app.application.icon, bundleURL: app.application.bundleURL,\n                                   size: SpacesBarAppLayout.iconSize, showBadge: showBadges,\n                                   badgeScale: badgeScale, mockPreviewActive: false)\n                        .overlay(alignment: .bottomTrailing) {\n                            if app.windowCount > 1 {\n                                Text(\"\(app.windowCount)\")\n                                    .font(.system(size: SpacesBarAppLayout.countFontSize, weight: .bold))\n                                    .foregroundStyle(.primary)\n                                    .offset(x: 2, y: 4)\n                            }\n                        }\n    " + "\n }\n}\n"
 native_source += "enum HoverContainerPadding { static let container: CGFloat = 24; static let dockStyleOuter: CGFloat = 2 }\n"
-native_source += "class SearchWindow: NSPanel { static let searchHeight: CGFloat = 40; static let panelEdgeOffset: CGFloat = -4\n func targetFrame(relativeTo frame: CGRect, on screen: NSScreen?) -> CGRect { CGRect(x:frame.midX-150,y:SpacesBarLayout.searchY(gridTop:frame.maxY),width:300,height:40) }\n}\n"
+native_source += "enum SharedPreviewWindowCoordinator { struct Instance { let spacesBarReservation: CGFloat = 1 }; static let activeInstance: Instance? = Instance() }\n"
+native_source += "class SearchWindow: NSPanel { static let searchWidth: CGFloat = 300; static let searchHeight: CGFloat = 40; static let panelEdgeOffset: CGFloat = -4\n" + block(bar, '    func targetFrame(relativeTo frame:') + "\n}\n"
 native_source += "extension SpacesBarLayout { static let outerPadding: CGFloat = 26; static let gap: CGFloat = 8\n"
 native_source += bar.lines.find { |line| line.include?('static var searchGap:') }.strip + "\n"
 native_source += bar.lines.find { |line| line.include?('static func searchY(') }.strip + "\n"
 native_source += block(bar, '    static func frame(grid:') + "\n}\n"
+native_source += "extension SpacesBarLayout {\n" + block(bar, '    static func windowSize(') + "\n}\n"
 native_source += <<~'SWIFT'
 final class CompanionProbe: NSPanel {
  var isPositioningCompanions = false
  var searchWindow: SearchWindow?
  var spacesBarWindow: SpacesBarWindow?
+ var panelAnchor: (screen: NSScreen, origin: (CGSize) -> CGPoint)?
+ var spaceFilterTop: CGFloat?
+ let spacesBarSections = [1]
+ let windowSwitcherCoordinator = (windowSwitcherActive: true, unused: false)
+ func previewPlacementFrame(on screen: NSScreen) -> CGRect { screen.visibleFrame }
+ func constrainHeaderTop(_ origin: CGPoint, windowSize: CGSize, screen: NSScreen) -> CGPoint { origin }
  func spacesBarFrame(relativeTo grid: CGRect, size: CGSize, screen: NSScreen) -> CGRect {
   SpacesBarLayout.frame(grid:grid,size:size,screen:screen.visibleFrame,search:searchWindow != nil,alignment:0.5)
  }
@@ -378,11 +716,43 @@ final class CompanionProbe: NSPanel {
  deinit { NotificationCenter.default.removeObserver(self) }
 SWIFT
 native_source += block(panel, '    @objc private func positionCompanionWindows()').sub('panelAnchor?.screen ?? screen','screen') + "\n}\n"
+native_source += "extension CompanionProbe {\n" + block(panel, '    private func anchoredOrigin(').sub('private func','func') + "\n}\n"
 native_source += <<~'SWIFT'
+enum SlideSamples { static var values: [CGFloat] = [] }
+struct SlideProbe: AnimatableModifier {
+ var position: CGFloat
+ var animatableData: CGFloat { get { position } set { position = newValue } }
+ func body(content: Content) -> some View {
+  SlideSamples.values.append(position)
+  return content.offset(x:position)
+ }
+}
 @main struct NativeChecks {
  @MainActor static func main() {
   _ = NSApplication.shared
   guard !NSScreen.screens.isEmpty else { print("SKIP native Space viewport: no display access"); return }
+  let animationPanel = NSPanel(contentRect:CGRect(x:20,y:20,width:160,height:40),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+  animationPanel.ignoresMouseEvents = true
+  let animationViewport = SpacesBarScroll.ViewportView(frame:CGRect(x:0,y:0,width:160,height:40))
+  animationViewport.hosting.frame = animationViewport.bounds
+  animationPanel.contentView = animationViewport
+  func slide(_ x: CGFloat) -> AnyView { AnyView(Color.gray.frame(width:20,height:20).modifier(SlideProbe(position:x))) }
+  animationViewport.updateContent(slide(0),filteredSpace:nil,animation:nil)
+  animationPanel.orderFront(nil)
+  RunLoop.main.run(until:Date().addingTimeInterval(0.15))
+  SlideSamples.values = []
+  animationViewport.updateContent(slide(40),filteredSpace:1,animation:.linear(duration:0.3))
+  RunLoop.main.run(until:Date().addingTimeInterval(0.06))
+  SlideSamples.values = []
+  animationViewport.updateContent(slide(40),filteredSpace:1,animation:.linear(duration:0.3))
+  RunLoop.main.run(until:Date().addingTimeInterval(0.5))
+  precondition(SlideSamples.values.contains { $0>0 && $0<40 }, "Hosted filter content must receive an animation transaction, not jump directly to the result")
+  SlideSamples.values = []
+  animationViewport.updateContent(slide(0),filteredSpace:nil,animation:nil)
+  RunLoop.main.run(until:Date().addingTimeInterval(0.1))
+  precondition(!SlideSamples.values.contains { $0>0 && $0<40 }, "Disabled motion must update the hosting root immediately")
+  animationPanel.orderOut(nil)
+  print("PASS native hosted content animation: real intermediate frames and immediate disabled-motion update")
   for size in SpacesBarItemSize.allCases {
    let text = "Desktop 12"
    let hosted = NSHostingView(rootView: Text(text).font(size.primaryFont).fixedSize())
@@ -440,6 +810,25 @@ for rect in [original,CGRect(x:original.minX+150,y:original.minY+70,width:250,he
  let expected=parent.spacesBarFrame(relativeTo:parent.frame,size:companion.frame.size,screen:screen)
  precondition(abs(companion.frame.minX-expected.minX)<=0.5 && abs(companion.frame.minY-expected.minY)<=0.5,"Native child movement must not compound companion offsets")
 }
+let search = SearchWindow(contentRect:CGRect(x:0,y:0,width:300,height:40),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+search.alphaValue=0
+parent.searchWindow=search
+parent.addChildWindow(search,ordered:.above)
+search.orderFront(nil)
+let pinnedTop = original.maxY
+parent.spaceFilterTop=pinnedTop
+parent.panelAnchor=(screen,{ size in CGPoint(x:original.midX-size.width/2,y:original.midY-size.height/2) })
+for (width,height): (CGFloat,CGFloat) in [(301.2,220.1),(301,300.49),(302.4,130.9),(301,299.5),(301.2,220.1),(301,300.49)] {
+ let size=SpacesBarLayout.windowSize(CGSize(width:width,height:height),maximum:screen.visibleFrame.size)
+ parent.setFrame(CGRect(origin:parent.anchoredOrigin(for:size)!,size:size),display:false)
+ RunLoop.main.run(until:Date().addingTimeInterval(0.03))
+ precondition(parent.frame.maxY == pinnedTop, "Fractional filtered heights must not move the stack's pinned top")
+ precondition(search.frame == search.targetFrame(relativeTo:parent.frame,on:screen), "Search must match its exact integral target after native child movement")
+ precondition(companion.frame == parent.spacesBarFrame(relativeTo:parent.frame,size:companion.frame.size,screen:screen), "Bar and search must share exact attachment geometry")
+}
+parent.removeChildWindow(search)
+search.orderOut(nil)
+parent.searchWindow=nil
 parent.removeChildWindow(companion)
 companion.orderOut(nil)
 parent.spacesBarWindow=nil
@@ -448,9 +837,13 @@ parent.orderOut(nil)
   let parentProbe=NSPanel()
   precondition(captureProbe.sharingType==parentProbe.sharingType,"Bar must not opt out of screenshots by default")
   for width: CGFloat in [48,100,240] {
-   let hosting=NSHostingView(rootView:PillProbe(width:width,label:"1"))
-   let size=hosting.fittingSize
-   precondition(abs(size.width-width)<0.1 && abs(size.height-40)<0.1,"Rendered production pill must match allocated size including material and border padding: \(size)")
+   for label in ["1", "Desktop 12"] {
+    for filtered: UInt64? in [nil,1] {
+     let hosting=NSHostingView(rootView:PillProbe(width:width,label:label,filteredSpace:filtered))
+     let size=hosting.fittingSize
+     precondition(abs(size.width-width)<0.1 && abs(size.height-40)<0.1,"Rendered production pill must match allocated size with/without filter control: \(size)")
+    }
+   }
   }
   let window=NSPanel(contentRect:NSRect(x:0,y:0,width:900,height:56),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
   let view=SpacesBarScroll.ViewportView(frame:NSRect(x:0,y:0,width:900,height:56))
@@ -513,4 +906,36 @@ Dir.mktmpdir('dockfork-space-viewport-') do |dir|
   File.write("#{dir}/checks.swift",native_source)
   abort 'Native Space viewport compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
   abort 'Native Space viewport checks failed' unless system("#{dir}/checks")
+end
+
+history = "import Foundation\ntypealias CGSSpaceID = UInt64\n"
+%w[ManagedSpaceKind ManagedSpaceDescriptor ManagedDisplayDescriptor].each do |name|
+ history += block(shared, name == 'ManagedSpaceKind' ? "enum #{name}:" : "struct #{name} {") + "\n"
+end
+history += block(shared, 'struct SpaceVisitHistory {') + "\n"
+history += <<~'SWIFT'
+@main struct HistoryChecks {
+ static func main() {
+  func display(_ current:UInt64, _ ids:[UInt64] = [1,2,3], _ name:String = "one") -> ManagedDisplayDescriptor {
+   ManagedDisplayDescriptor(identifier:name,currentSpaceID:current,spaces:ids.map {ManagedSpaceDescriptor(id:$0,kind:.desktop,number:Int($0),desktopNumber:Int($0),ownerPIDs:[])})
+  }
+  var history = SpaceVisitHistory()
+  precondition(history.ordered([1,2,3]) == [1,2,3])
+  history.update([display(1)]); history.update([display(2)]); history.update([display(3)])
+  precondition(history.ordered([1,2,3]) == [3,2,1])
+  for _ in 0..<30 {history.update([display(3)])}
+  precondition(history.ordered([1,2,3]) == [3,2,1], "Unchanged snapshots/highlighting cannot invent visits")
+  history.update([display(3),display(4,[4,5],"two")])
+  history.update([display(3),display(5,[4,5],"two")])
+  precondition(history.ordered([1,2,3]) == [3,2,1] && history.ordered([4,5]) == [5,4])
+  history.update([display(3,[1,3])]); history.update([display(3)])
+  precondition(history.ordered([1,2,3]) == [3,1,2], "Deleted/reintroduced IDs must not inherit obsolete visit ranks")
+  print("PASS Space visit ordering: sequential fallback, current/previous visits, empty Desktop metadata, unchanged snapshots, independent displays and removed IDs")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-visits-') do |dir|
+ File.write("#{dir}/checks.swift",history)
+ abort 'Space history compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Space history checks failed' unless system("#{dir}/checks")
 end

@@ -188,6 +188,13 @@ struct MainSettingsView: View {
                 Defaults[.cmdTabCycleKey] = Defaults.Keys.cmdTabCycleKey.defaultValue
                 Defaults[.enableSpacesBar] = Defaults.Keys.enableSpacesBar.defaultValue
                 Defaults[.spacesBarItemSize] = Defaults.Keys.spacesBarItemSize.defaultValue
+                Defaults[.spacesBarCycleKey] = Defaults.Keys.spacesBarCycleKey.defaultValue
+                Defaults[.spacesBarBackwardCycleKey] = Defaults.Keys.spacesBarBackwardCycleKey.defaultValue
+                Defaults[.spacesBarFilterWindows] = Defaults.Keys.spacesBarFilterWindows.defaultValue
+                Defaults[.spacesBarStartOnNext] = Defaults.Keys.spacesBarStartOnNext.defaultValue
+                Defaults[.spacesBarRecentlyUsed] = Defaults.Keys.spacesBarRecentlyUsed.defaultValue
+                Defaults[.spacesBarCycleOpensSwitcher] = Defaults.Keys.spacesBarCycleOpensSwitcher.defaultValue
+                Defaults[.spacesBarActivateAppIcons] = Defaults.Keys.spacesBarActivateAppIcons.defaultValue
                 Defaults[.spacesBarLabels] = Defaults.Keys.spacesBarLabels.defaultValue
                 Defaults[.spacesBarFixedWidth] = Defaults.Keys.spacesBarFixedWidth.defaultValue
                 Defaults[.spacesBarPreferDetails] = Defaults.Keys.spacesBarPreferDetails.defaultValue

@@ -36,6 +36,10 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.showMouseFollowsFocusFeedback) private var mouseFollowsFocusFeedback
 
     @Default(.enableSpacesBar) private var enableSpacesBar
+    @Default(.spacesBarFilterWindows) private var spacesBarFilterWindows
+    @Default(.spacesBarStartOnNext) private var spacesBarStartOnNext
+    @Default(.spacesBarRecentlyUsed) private var spacesBarRecentlyUsed
+    @Default(.spacesBarActivateAppIcons) private var spacesBarActivateAppIcons
     @Default(.spacesBarHideWhenSingle) private var spacesBarHideWhenSingle
 
     @State private var showGroupedAppsSheet: Bool = false
@@ -60,6 +64,8 @@ struct WindowSwitcherBehaviorSettingsView: View {
                 }
             }
         }
+        .onChange(of: spacesBarRecentlyUsed) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
+        .onChange(of: spacesBarFilterWindows) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
         .onChange(of: enableSpacesBar) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
         .onChange(of: spacesBarHideWhenSingle) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
         .sheet(isPresented: $showGroupedAppsSheet) {
@@ -200,6 +206,17 @@ struct WindowSwitcherBehaviorSettingsView: View {
                 Toggle("Enable Spaces Bar", isOn: $enableSpacesBar)
                     .settingsSearchTarget("windowSwitcher.enableSpacesBar")
                 if enableSpacesBar {
+                    Toggle("Filter windows by highlighted Space", isOn: $spacesBarFilterWindows)
+                        .settingsSearchTarget("windowSwitcher.spacesBarFilterWindows")
+                    Toggle("Start on next Space", isOn: $spacesBarStartOnNext)
+                        .settingsSearchTarget("windowSwitcher.spacesBarStartOnNext")
+                    Picker("Spaces sort order", selection: $spacesBarRecentlyUsed) {
+                        Text("Sequential").tag(false)
+                        Text("Recently used").tag(true)
+                    }
+                    .settingsSearchTarget("windowSwitcher.spacesBarRecentlyUsed")
+                    Toggle("Activate apps by clicking their icons", isOn: $spacesBarActivateAppIcons)
+                        .settingsSearchTarget("windowSwitcher.spacesBarActivateAppIcons")
                     Toggle("Hide when only one Space exists", isOn: $spacesBarHideWhenSingle)
                         .settingsSearchTarget("windowSwitcher.spacesBarHideWhenSingle")
                 }

@@ -1845,7 +1845,7 @@ extension WindowUtil {
         }
 
         let token = UUID()
-        let orderedCandidates = windowsInFrontToBackOrder(candidates)
+        let orderedCandidates = spaceSwitchCandidatesByRecency(candidates)
         pendingManagedSpaceSwitchFeedback = feedback
         let task = Task { @MainActor in
             defer {
@@ -1913,7 +1913,7 @@ extension WindowUtil {
         CGAssociateMouseAndMouseCursorPosition(1)
     }
 
-    private static func windowsInFrontToBackOrder(_ windows: [WindowInfo]) -> [WindowInfo] {
+    private static func spaceSwitchCandidatesByRecency(_ windows: [WindowInfo]) -> [WindowInfo] {
         let descriptions = (CGWindowListCopyWindowInfo([.excludeDesktopElements], kCGNullWindowID) as? [[String: AnyObject]]) ?? []
         let rankByID: [CGWindowID: Int] = Dictionary(uniqueKeysWithValues: descriptions.enumerated().compactMap { index, entry in
             guard let number = entry[kCGWindowNumber as String] as? NSNumber else { return nil }
@@ -1921,6 +1921,9 @@ extension WindowUtil {
         })
 
         return windows.sorted { first, second in
+            if first.lastAccessedTime != second.lastAccessedTime {
+                return first.lastAccessedTime > second.lastAccessedTime
+            }
             switch (rankByID[first.id], rankByID[second.id]) {
             case let (firstRank?, secondRank?) where firstRank != secondRank:
                 return firstRank < secondRank
@@ -1929,9 +1932,6 @@ extension WindowUtil {
             case (nil, _?):
                 return false
             default:
-                if first.lastAccessedTime != second.lastAccessedTime {
-                    return first.lastAccessedTime > second.lastAccessedTime
-                }
                 if first.app.processIdentifier != second.app.processIdentifier {
                     return first.app.processIdentifier < second.app.processIdentifier
                 }

@@ -190,7 +190,7 @@ class SearchWindow: NSPanel, NSSearchFieldDelegate {
         let searchHeight = Self.searchHeight
         if (SharedPreviewWindowCoordinator.activeInstance?.spacesBarReservation ?? 0) > 0 {
             let screenFrame = windowScreen?.visibleFrame ?? frame
-            return CGRect(x: max(screenFrame.minX, min(frame.midX - searchWidth / 2, screenFrame.maxX - searchWidth)),
+            return CGRect(x: max(screenFrame.minX, min((frame.midX - searchWidth / 2).rounded(), screenFrame.maxX - searchWidth)),
                           y: SpacesBarLayout.searchY(gridTop: frame.maxY), width: searchWidth, height: searchHeight)
         }
         let gap = Self.panelEdgeOffset
@@ -334,6 +334,15 @@ class SearchWindow: NSPanel, NSSearchFieldDelegate {
 
 enum SpacesBarLayout {
     static var scale: CGFloat { Defaults[.spacesBarItemSize].scale }
+    static var clearSymbolSize: CGFloat { textFont.pointSize }
+    static var minimumLabelWidth: CGFloat { max(20 * scale, clearSymbolSize) }
+    static func titleParts(width: CGFloat, filtered: Bool, spacing: CGFloat) -> (button: CGFloat, text: CGFloat, spacing: CGFloat) {
+        guard filtered else { return (0, width, 0) }
+        let button = min(width, minimumLabelWidth)
+        let gap = min(spacing, width - button)
+        return (button, width - button - gap, gap)
+    }
+
     static var font: Font { Defaults[.spacesBarItemSize].primaryFont }
     static var textFont: NSFont { Defaults[.spacesBarItemSize].primaryAppKitFont }
     static var headingTextFont: NSFont { PreviewHeaderLayout.textFont }
@@ -358,18 +367,23 @@ enum SpacesBarLayout {
     }
 
     static var itemSpacing: CGFloat { HoverContainerPadding.compactItemSpacing * scale }
-    static var minimumPillWidth: CGFloat { ceil(pillHeight * WindowStateIndicator.styledMinimumAspectRatio) }
+    static var minimumPillWidth: CGFloat { ceil(max(pillHeight * WindowStateIndicator.styledMinimumAspectRatio, minimumLabelWidth + horizontalInset * 2)) }
     static var horizontalInset: CGFloat { (MaterialPillStyle.horizontalInset + WindowStateIndicator.styledContentPadding) * scale }
     static func labelWidth(_ textWidth: CGFloat, fullscreen: Bool) -> CGFloat {
-        max(minimumPillWidth, ceil(textWidth) + horizontalInset * 2 + (fullscreen ? fullscreenWidth : 0) + WindowStateIndicator.styledContentPadding * scale)
+        max(minimumPillWidth, max(minimumLabelWidth, ceil(textWidth)) + horizontalInset * 2 + (fullscreen ? fullscreenWidth : 0) + WindowStateIndicator.styledContentPadding * scale)
     }
 
-    static func searchY(gridTop: CGFloat) -> CGFloat { gridTop - HoverContainerPadding.container + SearchWindow.panelEdgeOffset }
+    static func searchY(gridTop: CGFloat) -> CGFloat { gridTop.rounded() - outerPadding + searchGap }
     static var pillHeight: CGFloat { 40 * scale }
     static var outerPadding: CGFloat { HoverContainerPadding.styledPanelInset }
 
     static func height(displayCount: Int) -> CGFloat {
-        pillHeight + innerPadding * 2 + HoverContainerPadding.scrollOuter * 2 + outerPadding * 2 + (displayCount > 1 ? headingHeight + 4 * scale : 0)
+        ceil(pillHeight + innerPadding * 2 + HoverContainerPadding.scrollOuter * 2 + outerPadding * 2 + (displayCount > 1 ? headingHeight + 4 * scale : 0))
+    }
+
+    // AppKit integralizes panel frames; size before anchoring so rounding cannot move the top edge.
+    static func windowSize(_ size: CGSize, maximum: CGSize) -> CGSize {
+        CGSize(width: min(ceil(size.width), floor(maximum.width)), height: min(ceil(size.height), floor(maximum.height)))
     }
 
     static func reservation(displayCount: Int, search: Bool) -> CGFloat {
@@ -377,10 +391,11 @@ enum SpacesBarLayout {
     }
 
     static func frame(grid: CGRect, size: CGSize, screen: CGRect, search: Bool, alignment: CGFloat) -> CGRect {
-        let x = grid.minX + (grid.width - size.width) * alignment
+        let size = CGSize(width: ceil(size.width), height: ceil(size.height))
+        let x = (grid.minX + (grid.width - size.width) * alignment).rounded()
         let lowerTop = search ? searchY(gridTop: grid.maxY) + SearchWindow.searchHeight : grid.maxY - outerPadding
         return CGRect(x: max(screen.minX, min(x, screen.maxX - size.width)),
-                      y: min(lowerTop + (search ? searchGap : gap) - outerPadding, screen.maxY - size.height),
+                      y: min((lowerTop + (search ? searchGap : gap) - outerPadding).rounded(), screen.maxY - size.height),
                       width: size.width, height: size.height)
     }
 
@@ -406,6 +421,11 @@ enum SpacesBarAppLayout {
 }
 
 struct SpacesBarView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Default(.showAnimations) private var showAnimations
+    @Default(.trafficLightTransitionDuration) private var controlAnimationDuration
+    @Default(.enableMouseHoverInSwitcher) private var enableMouseHoverInSwitcher
+    @Default(.spacesBarActivateAppIcons) private var activateAppIcons
     @Default(.uniformCardRadius) private var uniformCardRadius
     @Default(.hidePreviewCardBackground) private var hideCardBackground
     @Default(.globalPaddingMultiplier) private var paddingMultiplier
@@ -423,7 +443,12 @@ struct SpacesBarView: View {
     let sections: [ManagedSpacePresentation.Display]
     let widths: [CGSSpaceID: CGFloat]
     let initialSpace: CGSSpaceID?
+    let highlightedSpace: CGSSpaceID?
     let labels: SpaceMenuDisplayMode
+    let hover: (CGSSpaceID, Bool) -> Void
+    let filteredSpace: CGSSpaceID?
+    let clearFilter: () -> Void
+    let activateApp: (ManagedSpacePresentation.App, ManagedSpacePresentation.Entry) -> Void
     let activate: (ManagedSpacePresentation.Entry) -> Void
 
     var body: some View {
@@ -431,14 +456,20 @@ struct SpacesBarView: View {
         let contentWidth = entries.reduce(SpacesBarLayout.innerPadding * 2) { $0 + (widths[$1.id] ?? SpacesBarLayout.pillHeight) }
             + CGFloat(max(0, entries.count - 1)) * SpacesBarLayout.itemSpacing + SpacesBarLayout.sectionExtraWidth(displayCount: sections.count)
         let height = SpacesBarLayout.height(displayCount: sections.count) - SpacesBarLayout.outerPadding * 2 - HoverContainerPadding.scrollOuter * 2
-        let preceding = entries.prefix { $0.id != initialSpace }
-        let initialCenter = initialSpace.map { id in
+        let target = highlightedSpace ?? initialSpace
+        let preceding = entries.prefix { $0.id != target }
+        let initialCenter = target.map { id in
             SpacesBarLayout.sectionExtraWidth(displayCount: (sections.firstIndex { $0.spaces.contains { $0.id == id } } ?? 0) + 1) + SpacesBarLayout.innerPadding + preceding.reduce(0) { $0 + (widths[$1.id] ?? 0) + SpacesBarLayout.itemSpacing } + (widths[id] ?? 0) / 2
         }
         BaseHoverContainer(bestGuessMonitor: screen, content: {
             SpacesBarScroll(content: AnyView(spaceContents.frame(width: max(contentWidth, viewportWidth), height: height, alignment: .topLeading)),
                             contentSize: CGSize(width: max(contentWidth, viewportWidth), height: height), headings: displayHeadings,
-                            initialCenter: initialCenter, viewport: viewport,
+                            initialCenter: initialCenter, revealRange: highlightedSpace.flatMap { id in initialCenter.map { center in
+                                let halfWidth = (widths[id] ?? 0) / 2
+                                return (center - halfWidth) ... (center + halfWidth)
+                            } }, viewport: viewport,
+                            filteredSpace: filteredSpace,
+                            contentAnimation: PreviewControlAnimation.animation(duration: controlAnimationDuration, animationsEnabled: showAnimations, reduceMotion: reduceMotion),
                             edgeScrolling: edgeScrolling, speed: scrollSpeed)
                 .frame(width: viewportWidth, height: height)
                 .padding(HoverContainerPadding.scrollOuter)
@@ -484,23 +515,48 @@ struct SpacesBarView: View {
         let width = widths[entry.id] ?? 160
         let title = entry.title(mode: labels)
         let font = SpacesBarLayout.textFont
-        let titleWidth = min(max(0, width - SpacesBarLayout.horizontalInset * 2 - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0)), ceil((title as NSString).size(withAttributes: [.font: font]).width) + 2)
+        let titleWidth = min(max(0, width - SpacesBarLayout.horizontalInset * 2 - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0)), max(SpacesBarLayout.minimumLabelWidth, ceil((title as NSString).size(withAttributes: [.font: font]).width) + 2))
+        let titleParts = SpacesBarLayout.titleParts(width: titleWidth, filtered: filteredSpace == entry.id, spacing: SpacesBarAppLayout.spacing)
         let iconRoom = max(0, width - titleWidth - SpacesBarLayout.horizontalInset * 2 - SpacesBarAppLayout.spacing - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0))
         let fittedCount = AppIconStripFormatting.visibleCount(
             total: entry.apps.count, availableWidth: iconRoom, iconSize: SpacesBarAppLayout.iconSize,
             font: font, spacing: SpacesBarAppLayout.spacing
         )
         let count = fittedCount ?? 0
-        return Button {
-            activate(entry)
-        } label: {
+        return ZStack {
+            Button { activate(entry) } label: { Color.clear.contentShape(Rectangle()) }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("\(title), \(entry.apps.reduce(0) { $0 + $1.windowCount }) windows"))
+                .accessibilityValue(entry.isCurrent ? Text("Current") : Text(""))
             HStack(spacing: SpacesBarAppLayout.spacing) {
-                if entry.isFullscreen { Image(systemName: "arrow.up.left.and.arrow.down.right") }
-                Text(title).lineLimit(1).frame(width: titleWidth, alignment: .center)
+                if entry.isFullscreen { Image(systemName: "arrow.up.left.and.arrow.down.right").allowsHitTesting(false) }
+                ZStack(alignment: .leading) {
+                    Button(action: clearFilter) {
+                        Image(systemName: "xmark.circle.fill")
+                            .resizable().scaledToFit()
+                            .frame(width: SpacesBarLayout.clearSymbolSize, height: SpacesBarLayout.clearSymbolSize)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(width: SpacesBarLayout.minimumLabelWidth)
+                    .offset(x: filteredSpace == entry.id ? 0 : -SpacesBarLayout.minimumLabelWidth)
+                    .opacity(filteredSpace == entry.id ? 1 : 0)
+                    .allowsHitTesting(filteredSpace == entry.id)
+                    .help(String(localized: "Clear Space filter"))
+                    .accessibilityLabel(Text("Clear Space filter"))
+                    .accessibilityHidden(filteredSpace != entry.id)
+                    Text(title).lineLimit(1).truncationMode(.tail)
+                        .frame(width: titleParts.text, alignment: .center).clipped()
+                        .offset(x: titleParts.button + titleParts.spacing)
+                        .opacity(titleParts.text > 0 ? 1 : 0).allowsHitTesting(false)
+                }
+                .frame(width: titleWidth, height: ceil(font.ascender - font.descender + font.leading), alignment: .leading)
+                .clipped()
+                .previewControlVisibilityAnimation(isVisible: filteredSpace == entry.id, duration: controlAnimationDuration, animationsEnabled: showAnimations)
                 ForEach(Array(entry.apps.prefix(count).enumerated()), id: \.element.application.processIdentifier) { _, app in
-                    PreviewAppIcon(icon: app.application.icon, bundleURL: app.application.bundleURL,
-                                   size: SpacesBarAppLayout.iconSize, showBadge: showBadges,
-                                   badgeScale: badgeScale, mockPreviewActive: false)
+                    let icon = PreviewAppIcon(icon: app.application.icon, bundleURL: app.application.bundleURL,
+                                              size: SpacesBarAppLayout.iconSize, showBadge: showBadges,
+                                              badgeScale: badgeScale, mockPreviewActive: false)
                         .overlay(alignment: .bottomTrailing) {
                             if app.windowCount > 1 {
                                 Text("\(app.windowCount)")
@@ -510,31 +566,40 @@ struct SpacesBarView: View {
                             }
                         }
                         .accessibilityHidden(true)
+                    if activateAppIcons, !app.windowIdentities.isEmpty {
+                        Button { activateApp(app, entry) } label: { icon.contentShape(Rectangle()) }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(Text(app.application.localizedName ?? String(localized: "Application")))
+                    } else {
+                        icon.allowsHitTesting(false)
+                    }
                 }
-                if fittedCount != nil, count < entry.apps.count { Text("+\(entry.apps.count - count)").foregroundStyle(.secondary) }
+                if fittedCount != nil, count < entry.apps.count { Text("+\(entry.apps.count - count)").foregroundStyle(.secondary).allowsHitTesting(false) }
             }
             .font(SpacesBarLayout.font)
             .padding(.horizontal, SpacesBarLayout.horizontalInset)
             .frame(width: width, height: SpacesBarLayout.pillHeight, alignment: .center)
-            .previewCardChrome(
-                uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier,
-                expansionEdges: [], hideBackground: hideCardBackground,
-                isHighlighted: viewport.hoveredSpaceID == entry.id, isActiveWindow: showActiveWindowBorder && entry.isCurrent,
-                highlightColor: highlightColor ?? Color(nsColor: .controlAccentColor), highlightOpacity: highlightOpacity,
-                activeBorderColor: activeBorderColor, backgroundAppearance: .resolve()
-            )
-            .contentShape(RoundedRectangle(cornerRadius: CardRadius.previewCard(uniform: uniformCardRadius, paddingMultiplier: paddingMultiplier)))
         }
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            if hovering {
-                viewport.hoveredSpaceID = entry.id
-            } else if viewport.hoveredSpaceID == entry.id {
-                viewport.hoveredSpaceID = nil
+        .frame(width: width, height: SpacesBarLayout.pillHeight)
+        .previewCardChrome(
+            uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier,
+            expansionEdges: [], hideBackground: hideCardBackground,
+            isHighlighted: (enableMouseHoverInSwitcher && viewport.hoveredSpaceID == entry.id) || highlightedSpace == entry.id, isActiveWindow: showActiveWindowBorder && entry.isCurrent,
+            highlightColor: highlightColor ?? Color(nsColor: .controlAccentColor), highlightOpacity: highlightOpacity,
+            activeBorderColor: activeBorderColor, backgroundAppearance: .resolve()
+        )
+        .contentShape(RoundedRectangle(cornerRadius: CardRadius.previewCard(uniform: uniformCardRadius, paddingMultiplier: paddingMultiplier)))
+        .onContinuousHover { phase in
+            switch phase {
+            case .active:
+                if viewport.hoveredSpaceID != entry.id { viewport.hoveredSpaceID = entry.id }
+                hover(entry.id, true)
+            case .ended:
+                if viewport.hoveredSpaceID == entry.id { viewport.hoveredSpaceID = nil }
+                hover(entry.id, false)
             }
         }
-        .accessibilityLabel(Text("\(title), \(entry.apps.reduce(0) { $0 + $1.windowCount }) windows"))
-        .accessibilityValue(entry.isCurrent ? Text("Current") : Text(""))
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -567,22 +632,46 @@ final class SpacesBarViewport: ObservableObject {
     @Published var hoveredSpaceID: CGSSpaceID?
 }
 
+final class SpacesBarHostedState: ObservableObject {
+    @Published var content = AnyView(EmptyView())
+}
+
+struct SpacesBarHostedContent: View {
+    @ObservedObject var state: SpacesBarHostedState
+    var body: some View { state.content }
+}
+
 struct SpacesBarScroll: NSViewRepresentable {
     let content: AnyView
     let contentSize: CGSize
     var headings: [SpacesBarDisplayHeading] = []
     let initialCenter: CGFloat?
+    var revealRange: ClosedRange<CGFloat>? = nil
     let viewport: SpacesBarViewport
+    var filteredSpace: CGSSpaceID? = nil
+    var contentAnimation: Animation? = nil
     let edgeScrolling: Bool
     let speed: CGFloat
 
     func makeNSView(context: Context) -> ViewportView { ViewportView() }
 
     func updateNSView(_ view: ViewportView, context: Context) {
-        view.hosting.rootView = content
-        view.hosting.frame = CGRect(origin: .zero, size: contentSize)
-        view.scroller.contentSize = contentSize
+        view.updateContent(content, filteredSpace: filteredSpace, animation: contentAnimation)
+        let contentFrame = CGRect(origin: .zero, size: contentSize)
+        if view.hosting.frame != contentFrame { view.hosting.frame = contentFrame }
+        if view.scroller.contentSize != contentSize { view.scroller.contentSize = contentSize }
         view.initialCenter = initialCenter
+        if view.lastRevealRange != revealRange {
+            view.lastRevealRange = revealRange
+            if let revealRange {
+                let inset = SpacesBarLayout.innerPadding
+                if revealRange.lowerBound < view.scroller.offset + inset {
+                    view.scroller.scroll(to: revealRange.lowerBound - inset, animated: false)
+                } else if revealRange.upperBound > view.scroller.offset + view.bounds.width - inset {
+                    view.scroller.scroll(to: revealRange.upperBound + inset - view.bounds.width, animated: false)
+                }
+            }
+        }
         view.edgeScrolling = edgeScrolling
         view.speed = speed
         view.updateHeadings(headings)
@@ -606,13 +695,25 @@ struct SpacesBarScroll: NSViewRepresentable {
 
     final class ViewportView: NSView {
         let scroller = CardGridScrollView.ContainerView(scrollsVertically: false)
-        let hosting = NSHostingView(rootView: AnyView(EmptyView()))
+        private let hostedState: SpacesBarHostedState
+        let hosting: NSHostingView<SpacesBarHostedContent>
+        private var presentedContent = false
+        private var lastFilteredSpace: CGSSpaceID?
+
+        func updateContent(_ content: AnyView, filteredSpace: CGSSpaceID?, animation: Animation?) {
+            let transition = presentedContent && lastFilteredSpace != filteredSpace ? animation : nil
+            presentedContent = true
+            lastFilteredSpace = filteredSpace
+            withAnimation(transition) { hostedState.content = content }
+        }
+
         let headingOverlay = SpacesBarHeadingOverlay()
         private var headings: [SpacesBarDisplayHeading] = []
         private var headingLabels: [NSTextField] = []
         private var headingLabelWidths: [CGFloat] = []
         private var headingFont: NSFont?
         var initialCenter: CGFloat?
+        var lastRevealRange: ClosedRange<CGFloat>?
         var edgeScrolling = false
         var speed: CGFloat = 0
         private var centered = false
@@ -620,6 +721,9 @@ struct SpacesBarScroll: NSViewRepresentable {
         private var hoverArea: NSTrackingArea?
 
         override init(frame: NSRect) {
+            let state = SpacesBarHostedState()
+            hostedState = state
+            hosting = NSHostingView(rootView: SpacesBarHostedContent(state: state))
             super.init(frame: frame)
             hosting.sizingOptions = []
             scroller.contentView.addSubview(hosting)

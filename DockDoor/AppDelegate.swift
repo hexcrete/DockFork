@@ -176,8 +176,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor
-    func showWindowSwitcherFromAppleScript() async {
-        await keybindHelper?.showWindowSwitcherFromAppleScript()
+    func showWindowSwitcherFromAppleScript(spacesFocused: Bool = false) async {
+        await keybindHelper?.showWindowSwitcherFromAppleScript(spacesFocused: spacesFocused)
     }
 
     @MainActor

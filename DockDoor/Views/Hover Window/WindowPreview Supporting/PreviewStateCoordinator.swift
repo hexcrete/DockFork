@@ -349,7 +349,10 @@ class PreviewStateCoordinator: ObservableObject {
             WindowUtil.readCachedWindows(for: $0).map(PreviewWindowIdentity.init)
         })
         if identities.contains(where: { $0.windowID == 0 }) {
-            live.formUnion(windows.filter { $0.isWindowlessApp && canSelectWindow($0) }.map(PreviewWindowIdentity.init))
+            let appsWithWindows = Set(live.filter { $0.windowID != 0 }.map(\.pid))
+            live.formUnion((windows + retainedWindowlessSelectionRows).filter {
+                $0.isWindowlessApp && canSelectWindow($0) && !appsWithWindows.contains($0.app.processIdentifier)
+            }.map(PreviewWindowIdentity.init))
         }
         let removed = selection.checkedWindows.membership.subtracting(live)
         guard !removed.isEmpty else { return }
@@ -367,10 +370,15 @@ class PreviewStateCoordinator: ObservableObject {
             identities = checked
         } else { identities = selection.checkedWindows.identities }
         guard !identities.isEmpty else { return nil }
-        let windowless = includingWindowlessApps && identities.contains(where: { $0.windowID == 0 })
-            ? windows.filter { $0.isWindowlessApp && canSelectWindow($0) } : []
-        let cached = Set(identities.map(\.pid)).flatMap { WindowUtil.readCachedWindows(for: $0) } + windowless
-        let byIdentity = Dictionary(cached.map { (PreviewWindowIdentity($0), $0) }, uniquingKeysWith: { first, _ in first })
+        let cached = Set(identities.map(\.pid)).flatMap { WindowUtil.readCachedWindows(for: $0) }
+        var windowless: [WindowInfo] = []
+        if includingWindowlessApps, identities.contains(where: { $0.windowID == 0 }) {
+            let appsWithWindows = Set(cached.filter { !$0.isWindowlessApp }.map(\.app.processIdentifier))
+            windowless = (windows + retainedWindowlessSelectionRows).filter {
+                $0.isWindowlessApp && canSelectWindow($0) && !appsWithWindows.contains($0.app.processIdentifier)
+            }
+        }
+        let byIdentity = Dictionary((cached + windowless).map { (PreviewWindowIdentity($0), $0) }, uniquingKeysWith: { first, _ in first })
         return identities.compactMap { byIdentity[$0] }.filter { (includingWindowlessApps || !$0.isWindowlessApp) && !$0.app.isTerminated }
     }
 
@@ -392,6 +400,76 @@ class PreviewStateCoordinator: ObservableObject {
     var selectionSummaryStyle: AppNameStyle {
         if windowSwitcherActive { return .default }
         return lastKnownDockPosition == .cmdTab ? Defaults[.cmdTabAppNameStyle] : Defaults[.appNameStyle]
+    }
+
+    enum SpaceNavigationRequest: Equatable {
+        case current
+        case cycle(backward: Bool)
+
+        func targetIndex(ids: [CGSSpaceID], current: CGSSpaceID?, highlighted: CGSSpaceID?, startNext: Bool) -> Int? {
+            guard !ids.isEmpty else { return nil }
+            let index = ids.firstIndex(of: highlighted ?? current ?? 0) ?? 0
+            let delta: Int = switch self {
+            case .current: 0
+            case let .cycle(backward): highlighted == nil && !startNext ? 0 : (backward ? -1 : 1)
+            }
+            return (index + delta + ids.count) % ids.count
+        }
+    }
+
+    var pendingSpaceNavigation: (request: SpaceNavigationRequest, screen: NSScreen)?
+    enum NavigationTarget: Equatable { case windows, space(CGSSpaceID) }
+    @Published var navigationTarget: NavigationTarget = .windows {
+        didSet {
+            guard oldValue != navigationTarget else { return }
+            if navigationTarget == .windows { spaceNavigationInputSource = .programmatic }
+            tapStateDidChange?()
+            onNavigationTargetChanged?()
+        }
+    }
+
+    var onNavigationTargetChanged: (() -> Void)?
+    var onSpaceFilterChanged: (() -> Void)?
+    private(set) var activeSpaceFilterID: CGSSpaceID?
+    private(set) var activeSpaceMembers: Set<PreviewWindowIdentity>?
+    var retainedWindowlessSelectionRows: [WindowInfo] = []
+
+    @MainActor
+    func setSpaceFilter(_ id: CGSSpaceID?, members: Set<PreviewWindowIdentity>? = nil) {
+        guard activeSpaceFilterID != id || activeSpaceMembers != members else { return }
+        endSelectionRange()
+        if activeSpaceFilterID == nil, id != nil {
+            retainedWindowlessSelectionRows = windows.filter(\.isWindowlessApp)
+        }
+        activeSpaceFilterID = id
+        activeSpaceMembers = id == nil ? nil : members
+        updateSelectionIndex(-1, source: .programmatic)
+        onSpaceFilterChanged?()
+        if id == nil { retainedWindowlessSelectionRows = [] }
+    }
+
+    var spaceNavigationInputSource: SelectionInputSource = .programmatic
+    var mouseHighlightedSpaceID: CGSSpaceID?
+
+    @MainActor
+    func hoverSpace(_ id: CGSSpaceID, hovering: Bool) {
+        if !hovering, mouseHighlightedSpaceID == id { mouseHighlightedSpaceID = nil }
+        guard windowSwitcherActive, Defaults[.enableSpacesBar] else { return }
+        guard Defaults[.enableMouseHoverInSwitcher] else {
+            if spaceNavigationInputSource == .mouse { navigationTarget = .windows }
+            return
+        }
+        if hovering {
+            guard mouseHighlightedSpaceID != id else { return }
+            guard !isPointerSelecting, registerMouseMovementSinceOpen() else { return }
+            mouseHighlightedSpaceID = id
+            guard navigationTarget != .space(id) || spaceNavigationInputSource != .mouse else { return }
+            setIndex(to: -1, shouldScroll: false, source: .programmatic)
+            spaceNavigationInputSource = .mouse
+            navigationTarget = .space(id)
+        } else {
+            if spaceNavigationInputSource == .mouse, navigationTarget == .space(id) { navigationTarget = .windows }
+        }
     }
 
     @Published var switcherTopAccessoryHeight: CGFloat = 0
@@ -428,6 +506,12 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func deactivateKeybindSession() {
+        mouseHighlightedSpaceID = nil
+        pendingSpaceNavigation = nil
+        onSpaceFilterChanged = nil
+        activeSpaceFilterID = nil
+        activeSpaceMembers = nil
+        retainedWindowlessSelectionRows = []
         let changed = isKeybindSessionActive
         isKeybindSessionActive = false
         if changed {
@@ -443,8 +527,17 @@ class PreviewStateCoordinator: ObservableObject {
     @Published private(set) var pointerInteractionSessionID: UInt = 0
     private var pointerInteractionReady = true
     var fullWindowPreviewActive: Bool = false
-    @Published var windows: [WindowInfo] = [] {
-        didSet { invalidateFilterCache() }
+    @Published private var storedWindows: [WindowInfo] = []
+    var windows: [WindowInfo] {
+        get { storedWindows }
+        set {
+            if let activeSpaceMembers {
+                storedWindows = newValue.filter { !$0.isWindowlessApp && activeSpaceMembers.contains(PreviewWindowIdentity($0)) }
+            } else {
+                storedWindows = newValue
+            }
+            invalidateFilterCache()
+        }
     }
 
     var hasRealWindows: Bool {
@@ -458,6 +551,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @Published var searchQuery: String = "" {
         didSet {
+            navigationTarget = .windows
             invalidateFilterCache()
             if windowSwitcherActive {
                 Task { @MainActor in
@@ -590,6 +684,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func updateSelectionIndex(_ requestedIndex: Int, source: SelectionInputSource, shouldScroll: Bool? = nil) {
+        if source == .mouse { navigationTarget = .windows }
         if let shouldScroll {
             shouldScrollToIndex = shouldScroll
         }
@@ -1511,6 +1606,8 @@ class PreviewStateCoordinator: ObservableObject {
     /// Cycle to the next window in the grid
     @MainActor
     func cycleForward() {
+        pendingSpaceNavigation = nil
+        navigationTarget = .windows
         guard !windows.isEmpty else { return }
 
         if hasActiveSearch {
@@ -1539,6 +1636,8 @@ class PreviewStateCoordinator: ObservableObject {
     /// Cycle to the previous window in the grid
     @MainActor
     func cycleBackward() {
+        pendingSpaceNavigation = nil
+        navigationTarget = .windows
         guard !windows.isEmpty else { return }
 
         if hasActiveSearch {
@@ -1634,6 +1733,7 @@ class PreviewStateCoordinator: ObservableObject {
         startOnSecondWindow: Bool = Defaults[.useClassicWindowOrdering],
         startUnfocused: Bool = false
     ) {
+        pendingSpaceNavigation = nil
         setWindows(newWindows, dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
         searchQuery = ""
 

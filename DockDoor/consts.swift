@@ -329,6 +329,43 @@ enum WindowSwitcherShortcutResolver {
             sidesOverlap(modifierSide, spacesKeybind.modifierSide)
     }
 
+    static func spaceCycleConflict(backward: Bool, previewKeybind: UserKeyBind, mainKeybind: UserKeyBind) -> AlternateSwitcherShortcutConflict? {
+        let key = backward ? Defaults[.spacesBarBackwardCycleKey] : Defaults[.spacesBarCycleKey]
+        guard key != .max else { return nil }
+        if conflictsWithSpacesShortcut(keyCode: key, modifierFlags: previewKeybind.modifierFlags,
+                                       modifierSide: previewKeybind.modifierSide, mainKeybind: mainKeybind)
+        {
+            return .spacesShortcut
+        }
+        if backward, key == Defaults[.spacesBarCycleKey] { return .duplicate }
+        let reserved = [UInt16(kVK_Tab), UInt16(kVK_Escape), UInt16(kVK_Return), UInt16(kVK_ANSI_KeypadEnter),
+                        UInt16(kVK_LeftArrow), UInt16(kVK_RightArrow), UInt16(kVK_UpArrow), UInt16(kVK_DownArrow),
+                        Defaults[.switcherBackwardKeyCode], Defaults[.windowSwitcherSelectionKeyCode]]
+        if reserved.contains(key) { return .duplicate }
+        let candidate = UserKeyBind(keyCode: key, modifierFlags: previewKeybind.modifierFlags, modifierSide: previewKeybind.modifierSide)
+        if heldShortcutOverlaps(candidate, initializer: mainKeybind) || heldShortcutOverlaps(candidate, initializer: previewKeybind) {
+            return .duplicate
+        }
+        let previews = Defaults[.cmdShortcuts]
+        let alternates = Defaults[.alternateSwitcherShortcuts]
+        let persistent = Defaults[.persistentSwitcherShortcuts]
+        if resolvedPreviewShortcuts(previews, previewKeybind: previewKeybind, mainKeybind: mainKeybind).contains(where: { $0.keyCode == key }) {
+            return .previewAction
+        }
+        if resolvedAlternateShortcuts(alternates, mainKeybind: mainKeybind, previewShortcuts: previews)
+            .contains(where: { heldShortcutOverlaps(candidate, initializer: $0.keybind) })
+        {
+            return .duplicate
+        }
+        let global = resolvedPersistentShortcuts(persistent, mainKeybind: mainKeybind, alternateShortcuts: alternates, previewShortcuts: previews) +
+            resolvedLastFocusedShortcuts(Defaults[.lastFocusedWindowShortcuts], mainKeybind: mainKeybind,
+                                         alternateShortcuts: alternates, persistentShortcuts: persistent, previewShortcuts: previews)
+        if global.contains(where: { $0.doubleTapKey == nil && combinationsMatch(candidate, UserKeyBind(keyCode: $0.keyCode, modifierFlags: $0.modifierFlags)) }) {
+            return .duplicate
+        }
+        return nil
+    }
+
     static func resolvedPreviewShortcuts(
         _ shortcuts: [CmdShortcut],
         previewKeybind: UserKeyBind,
@@ -810,6 +847,13 @@ extension Defaults.Keys {
     static let passArrowsThroughToSystem = Key<Bool>("passArrowsThroughToSystem", default: false)
     static let enableSpacesBar = Key<Bool>("enableSpacesBar", default: false)
     static let spacesBarItemSize = Key<SpacesBarItemSize>("spacesBarItemSize", default: .small)
+    static let spacesBarCycleKey = Key<UInt16>("spacesBarCycleKey", default: .max)
+    static let spacesBarBackwardCycleKey = Key<UInt16>("spacesBarBackwardCycleKey", default: .max)
+    static let spacesBarRecentlyUsed = Key<Bool>("spacesBarRecentlyUsed", default: false)
+    static let spacesBarCycleOpensSwitcher = Key<Bool>("spacesBarCycleOpensSwitcher", default: false)
+    static let spacesBarFilterWindows = Key<Bool>("spacesBarFilterWindows", default: false)
+    static let spacesBarStartOnNext = Key<Bool>("spacesBarStartOnNext", default: true)
+    static let spacesBarActivateAppIcons = Key<Bool>("spacesBarActivateAppIcons", default: false)
     static let spacesBarLabels = Key<SpaceMenuDisplayMode>("spacesBarLabels", default: .numberOnly)
     static let spacesBarFixedWidth = Key<Bool>("spacesBarFixedWidth", default: false)
     static let spacesBarPreferDetails = Key<Bool>("spacesBarPreferDetails", default: false)

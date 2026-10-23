@@ -227,6 +227,7 @@ class WindowManipulationObservers {
     @objc private func activeSpaceDidChange(_ notification: Notification) {
         DebugLogger.log("activeSpaceDidChange")
         Task { @MainActor in
+            WindowSpaces.recordBarSpaceVisits()
             dismissPreviewsForSpaceChange()
         }
         if Defaults[.showActiveAppIndicator] {

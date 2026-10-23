@@ -40,6 +40,9 @@
 
         <command name="show switcher" code="DKDRshsw" description="Open the Persistent Window Switcher using Window Switcher Defaults. Repeated calls leave it open. Requires Window Switcher to be enabled.">
             <cocoa class="ShowSwitcherCommand"/>
+            <parameter name="spaces focused" code="spfc" type="boolean" optional="yes" description="Focus the current Space without advancing. Defaults to false. Requires Spaces Bar to be enabled.">
+                <cocoa key="spacesFocused"/>
+            </parameter>
             <result type="text" description="Success or error message."/>
         </command>
 

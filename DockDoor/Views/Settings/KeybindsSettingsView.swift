@@ -140,6 +140,15 @@ private struct TilingSettingsSection: View {
 }
 
 private struct SpacesSettingsSection: View {
+    @Default(.cmdShortcuts) private var previewShortcuts
+    @Default(.alternateSwitcherShortcuts) private var alternateShortcuts
+    @Default(.persistentSwitcherShortcuts) private var persistentShortcuts
+    @Default(.lastFocusedWindowShortcuts) private var lastFocusedShortcuts
+    @Default(.switcherBackwardKeyCode) private var backwardKey
+    @Default(.windowSwitcherSelectionKeyCode) private var selectionKey
+    @Default(.spacesBarCycleOpensSwitcher) private var spacesBarCycleOpensSwitcher
+    @Default(.spacesBarCycleKey) private var spacesBarCycleKey
+    @Default(.spacesBarBackwardCycleKey) private var spacesBarBackwardCycleKey
     @Default(.enableSpaceIndicatorWindowMoving) private var enableSpaceIndicatorWindowMoving
     @Default(.spaceMenuDisplayMode) private var spaceMenuDisplayMode
     @Default(.switchToDestinationSpaceAfterMoving) private var switchToDestinationSpaceAfterMoving
@@ -156,9 +165,35 @@ private struct SpacesSettingsSection: View {
         )
     }
 
+    private func spaceCycleKeyRow(_ title: LocalizedStringKey, key: Binding<UInt16>, backward: Bool) -> some View {
+        let _ = (previewShortcuts, alternateShortcuts, persistentShortcuts, lastFocusedShortcuts, backwardKey, selectionKey, enableSpacesShortcuts)
+        let conflict = WindowSwitcherShortcutResolver.spaceCycleConflict(backward: backward, previewKeybind: spacesShortcutKeybind, mainKeybind: windowSwitcherKeybind)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Text(title)
+                Text(modifierConverter.toSymbol(spacesShortcutKeybind)).foregroundStyle(.secondary)
+                KeyCaptureButton(keyCode: key, emptyLabel: String(localized: "Unassigned"),
+                                 forceEmptyLabel: key.wrappedValue == .max, treatKeyCodeZeroAsEmpty: false)
+                if key.wrappedValue != .max {
+                    Button("Clear") { key.wrappedValue = .max }.buttonStyle(.borderless)
+                }
+            }
+            if let conflict {
+                Text(conflict.localizedMessage).font(.caption2).foregroundStyle(.red)
+            }
+        }
+    }
+
     var body: some View {
         SettingsGroup(header: "Spaces") {
             VStack(alignment: .leading, spacing: 10) {
+                spaceCycleKeyRow("Space cycle key", key: $spacesBarCycleKey, backward: false)
+                    .settingsSearchTarget("gestures.spacesBarCycleKey")
+                spaceCycleKeyRow("Backward Space cycle key", key: $spacesBarBackwardCycleKey, backward: true)
+                    .settingsSearchTarget("gestures.spacesBarBackwardCycleKey")
+                Toggle("Allow Space-cycle shortcuts to open the switcher", isOn: $spacesBarCycleOpensSwitcher)
+                    .settingsSearchTarget("gestures.spacesBarCycleOpensSwitcher")
+                Divider()
                 Toggle("Use Space Number Indicator to move windows to Spaces", isOn: $enableSpaceIndicatorWindowMoving)
                     .settingsSearchTarget("gestures.enableSpaceIndicatorWindowMoving")
 

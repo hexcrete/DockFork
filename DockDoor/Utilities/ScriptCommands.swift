@@ -184,9 +184,9 @@ enum DockDoorCommands {
         }
     }
 
-    static func showSwitcherAsync() {
+    static func showSwitcherAsync(spacesFocused: Bool = false) {
         Task { @MainActor in
-            await (NSApp.delegate as? AppDelegate)?.showWindowSwitcherFromAppleScript()
+            await (NSApp.delegate as? AppDelegate)?.showWindowSwitcherFromAppleScript(spacesFocused: spacesFocused)
         }
     }
 
@@ -409,6 +409,7 @@ enum DockDoorCommands {
         lines.append("  Single IDs and lists share action failure reporting and the move/resize foreground preference. Fullscreen toggles a text ID; lists only exit fullscreen.")
         lines.append("  toggle window selection \"active\" -- requires an open preview and multi-window selection enabled")
         lines.append("  list spaces")
+        lines.append("  show switcher with spaces focused -- requires Window Switcher and Spaces Bar enabled")
         lines.append("  switch to space 3")
         lines.append("  switch to space by id \"12345\"")
         lines.append("  move window \"12345\" to space 3")
@@ -544,7 +545,11 @@ class HidePreviewCommand: NSScriptCommand {
 @objc(ShowSwitcherCommand)
 class ShowSwitcherCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
-        DockDoorCommands.showSwitcherAsync()
+        let spacesFocused = evaluatedArguments?["spacesFocused"] as? Bool ?? false
+        if spacesFocused, !Defaults[.enableWindowSwitcher] || !Defaults[.enableSpacesBar] {
+            return "error: Window Switcher and Spaces Bar must be enabled"
+        }
+        DockDoorCommands.showSwitcherAsync(spacesFocused: spacesFocused)
         return "ok"
     }
 }

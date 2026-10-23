@@ -25,6 +25,7 @@ abort 'Selection must not require drag-to-tile' unless grid.include?('representa
 abort 'Grid teardown must stop selection' unless block(grid, '        func detach(').include?('endSelectionRange()')
 source = <<~'SWIFT'
 import AppKit
+typealias CGSSpaceID = UInt64
 final class App { let processIdentifier: pid_t; var isTerminated = false; init(_ pid: pid_t) { processIdentifier = pid } }
 struct WindowInfo { let id: CGWindowID; var app: App; var isWindowlessApp = false }
 enum DockPosition { case bottom }
@@ -53,6 +54,12 @@ final class Selection { var checkedWindows = OrderedPreviewSelection() }
 }
 @MainActor final class PreviewStateCoordinator {
  enum SelectionInputSource { case programmatic, keyboard, mouse }
+ enum NavigationTarget { case windows }
+ var activeSpaceFilterID: CGSSpaceID?
+ var activeSpaceMembers: Set<PreviewWindowIdentity>?
+ var onSpaceFilterChanged: (() -> Void)?
+ var retainedWindowlessSelectionRows: [WindowInfo] = []
+ var navigationTarget = NavigationTarget.windows
  let selection = Selection()
  var windows: [WindowInfo] = [] { didSet { filterGeneration &+= 1 } }
  var visibleIndices: [Int]? { didSet { filterGeneration &+= 1 } }
@@ -79,7 +86,7 @@ final class Selection { var checkedWindows = OrderedPreviewSelection() }
 SWIFT
 source += block(state, '    private enum SelectionRangeInput:') + "\n"
 source += block(state, '    var keyboardSelectionPress:') + "\n"
-%w[displayedSelectionIdentities endSelectionRange endKeyboardSelectionRange endPointerSelectionRange reconcileSelectionRange beginSelectionRange extendSelectionRange toggleSelectionCheckbox canSelectWindow toggleCheckedWindow selectAllDisplayedWindows pinCheckedSelectionIfNeeded clearCheckedWindows publishCheckedSelection consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows updateSelectionIndex setIndex].each do |name|
+%w[setSpaceFilter displayedSelectionIdentities endSelectionRange endKeyboardSelectionRange endPointerSelectionRange reconcileSelectionRange beginSelectionRange extendSelectionRange toggleSelectionCheckbox canSelectWindow toggleCheckedWindow selectAllDisplayedWindows pinCheckedSelectionIfNeeded clearCheckedWindows publishCheckedSelection consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows updateSelectionIndex setIndex].each do |name|
   signature = state.include?("    private func #{name}(") ? "    private func #{name}(" : "    func #{name}("
   source += "@MainActor\n" + block(state, signature) + "\n"
 end
@@ -99,7 +106,32 @@ source += <<~'SWIFT'
   let windows = (1...7).map { WindowInfo(id: UInt32($0), app: app) }
   WindowUtil.cached = windows
   do {
-   let c = PreviewStateCoordinator(), grid = Grid(), refresh = RefreshHarness(), monitor = NSScreen()
+ do {
+ let filtered = PreviewStateCoordinator(), monitor = NSScreen()
+ var placeholder = WindowInfo(id: 0, app: other); placeholder.isWindowlessApp = true
+ let original = windows + [placeholder]
+ filtered.windows = original
+ filtered.toggleCheckedWindow(windows[0]); filtered.toggleCheckedWindow(placeholder)
+ var updates = 0
+ filtered.onSpaceFilterChanged = {
+  updates += 1
+  let rows = filtered.activeSpaceMembers == nil ? original : [windows[1]]
+  filtered.setWindows(rows, dockPosition: .bottom, bestGuessMonitor: monitor)
+ }
+ let members: Set<PreviewWindowIdentity> = [PreviewWindowIdentity(windows[1])]
+ filtered.setSpaceFilter(2, members: members)
+ precondition(filtered.checkedWindowCount == 2 && filtered.windows.count == 1, "Filtering must retain outside-view real and windowless selection")
+ filtered.setSpaceFilter(2, members: members)
+ precondition(updates == 1, "Unchanged membership must not rebuild rows")
+ filtered.setSpaceFilter(nil)
+ precondition(filtered.windows.count == original.count && filtered.checkedWindowCount == 2 && filtered.retainedWindowlessSelectionRows.isEmpty)
+ filtered.setSpaceFilter(2, members: members)
+ WindowUtil.cached = windows + [WindowInfo(id: 99, app: other)]
+ filtered.reconcileCheckedWindows()
+ precondition(filtered.checkedWindowCount == 1 && filtered.selection.checkedWindows.identities == [PreviewWindowIdentity(windows[0])], "Retained placeholder must be pruned when its app acquires a real cached window")
+ WindowUtil.cached = windows
+}
+  let c = PreviewStateCoordinator(), grid = Grid(), refresh = RefreshHarness(), monitor = NSScreen()
    c.windows = windows; grid.windows = windows; c.selectionGrid = grid
    for keyboard in [false, true] {
     c.clearCheckedWindows()
@@ -229,6 +261,8 @@ keyboard += <<~'SWIFT'
 enum WindowAction { case toggleWindowSelection, other }
 enum ArrowDirection { case right }
 @MainActor final class SelectionCoordinator {
+ enum NavigationTarget { case windows }
+ var navigationTarget = NavigationTarget.windows
  var keyboardSelectionPress: PreviewSelectionKeyPress?, window: Int? = 1
  var toggles = 0
  func getCurrentWindow() -> Int? { window }

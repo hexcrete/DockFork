@@ -395,6 +395,11 @@ enum SettingsSearchCatalog {
     // MARK: - Window Switcher
 
     private static let windowSwitcherItems: [SettingsSearchItem] = [
+        SettingsSearchItem(id: "windowSwitcher.spacesBarFilterWindows", title: String(localized: "Filter windows by highlighted Space"), keywords: ["spaces", "bar", "filter"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "line.3.horizontal.decrease.circle"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarStartOnNext", title: String(localized: "Start on next Space"), keywords: ["spaces", "bar", "cycle"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "keyboard"),
+        SettingsSearchItem(id: "gestures.spacesBarCycleOpensSwitcher", title: String(localized: "Allow Space-cycle shortcuts to open the switcher"), keywords: ["spaces", "bar", "cycle", "launch", "open", "shortcut"], tab: "Keybinds", section: String(localized: "Spaces"), icon: "keyboard"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarRecentlyUsed", title: String(localized: "Spaces sort order"), keywords: ["spaces", "sequential", "recently used", "history"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "clock"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarActivateAppIcons", title: String(localized: "Activate apps by clicking their icons"), keywords: ["spaces", "bar", "app", "icon", "activate"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "app"),
         SettingsSearchItem(
             id: "windowSwitcher.enable",
             title: String(localized: "Enable Window Switcher"),
@@ -2055,6 +2060,8 @@ enum SettingsSearchCatalog {
     // MARK: - Keybinds
 
     private static let keybindItems: [SettingsSearchItem] = [
+        SettingsSearchItem(id: "gestures.spacesBarCycleKey", title: String(localized: "Space cycle key"), keywords: ["spaces", "bar", "cycle"], tab: "Keybinds", section: String(localized: "Spaces"), icon: "keyboard"),
+        SettingsSearchItem(id: "gestures.spacesBarBackwardCycleKey", title: String(localized: "Backward Space cycle key"), keywords: ["spaces", "bar", "cycle"], tab: "Keybinds", section: String(localized: "Spaces"), icon: "keyboard"),
         SettingsSearchItem(
             id: "gestures.enableWindowDragTiling",
             title: String(localized: "Enable dragging windows together to tile them"),

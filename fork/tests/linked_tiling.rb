@@ -252,7 +252,7 @@ source += block(selection, 'struct OrderedPreviewSelection:') + "\n"
 source += block(selection, 'struct PreviewSelectionKeyPress:') + "\n"
 source += block(selection, 'struct PreviewSelectionRange {') + "\n"
 source += "struct SelectionState { var checkedWindows = OrderedPreviewSelection() }\n"
-source += "@MainActor final class SelectionHarness { var selection = SelectionState(); var windows: [WindowInfo] = []; var windowSwitcherActive = true; var checkedWindowCount = 0; var visibleIndices: [Int]?\nfunc filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }\nfunc publishCheckedSelection() { checkedWindowCount = selection.checkedWindows.identities.count }\n"
+source += "@MainActor final class SelectionHarness { var retainedWindowlessSelectionRows: [WindowInfo] = []; var selection = SelectionState(); var windows: [WindowInfo] = []; var windowSwitcherActive = true; var checkedWindowCount = 0; var visibleIndices: [Int]?\nfunc filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }\nfunc publishCheckedSelection() { checkedWindowCount = selection.checkedWindows.identities.count }\n"
 source += "var selectionAnchor: PreviewWindowIdentity?; var selectionRange: PreviewSelectionRange?\nenum RangeInput {case keyboard(PreviewSelectionKeyPress)}\nfunc endSelectionRange() {selectionRange = nil}\nfunc beginSelectionRange(at:PreviewWindowIdentity,input:RangeInput)->Bool {preconditionFailure(\"Range execution is tested in selection_ranges.rb\")}\n"
 %w[canSelectWindow toggleCheckedWindow selectAllDisplayedWindows consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows checkedActionTargets].each do |name|
   source += block(selection, "    func #{name}(") + "\n"
@@ -332,6 +332,9 @@ checks = <<~'SWIFT'
   precondition(selectionModel.checkedWindowCount == 2)
   precondition(selectionModel.checkedActionTargets()?.map(\.id) == [selectedReal.id])
   precondition(selectionModel.checkedActionTargets(includingWindowlessApps: true)?.map(\.id) == [selectedReal.id, 0])
+  WindowUtil.cachedWindows.append(WindowInfo(id: 99, app: emptyApp, axElement: FakeAX(50000, 99, .zero)))
+  precondition(selectionModel.checkedActionTargets(includingWindowlessApps: true)?.map(\.id) == [selectedReal.id], "A retained placeholder must not remain an action target once its app has a real window")
+  WindowUtil.cachedWindows = [selectedReal]
   selectionModel.visibleIndices = [0]
   selectionModel.reconcileCheckedWindows()
   precondition(selectionModel.checkedWindowCount == 2)

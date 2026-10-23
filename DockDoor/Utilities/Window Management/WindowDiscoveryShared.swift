@@ -904,7 +904,47 @@ enum SpaceNumberResolver {
     }
 }
 
+struct SpaceVisitHistory {
+    private var current: [String: CGSSpaceID] = [:]
+    private var visits: [CGSSpaceID: UInt64] = [:]
+    private var sequence: UInt64 = 0
+
+    mutating func update(_ displays: [ManagedDisplayDescriptor]) {
+        let valid = Set(displays.flatMap(\.spaces).map(\.id))
+        visits = visits.filter { valid.contains($0.key) }
+        sequence &+= 1
+        var next: [String: CGSSpaceID] = [:]
+        for display in displays {
+            guard let id = display.currentSpaceID, valid.contains(id) else { continue }
+            next[display.identifier] = id
+            if current[display.identifier] != id { visits[id] = sequence }
+        }
+        current = next
+    }
+
+    func ordered(_ ids: [CGSSpaceID]) -> [CGSSpaceID] {
+        ids.enumerated().sorted {
+            let first = visits[$0.element, default: 0], second = visits[$1.element, default: 0]
+            return first == second ? $0.offset < $1.offset : first > second
+        }.map(\.element)
+    }
+}
+
 enum WindowSpaces {
+    @MainActor private static var barVisits = SpaceVisitHistory()
+
+    @MainActor static func recordBarSpaceVisits(_ displays: [ManagedDisplayDescriptor]? = nil) {
+        guard Defaults[.enableSpacesBar], Defaults[.spacesBarRecentlyUsed] else { return }
+        barVisits.update(displays ?? managedDisplays())
+    }
+
+    @MainActor static func barSpaceOrder(_ displays: [ManagedDisplayDescriptor]) -> [CGSSpaceID] {
+        displays.flatMap { display in
+            let ids = display.spaces.filter { $0.kind == .desktop || $0.kind == .fullscreen }.map(\.id)
+            return Defaults[.spacesBarRecentlyUsed] ? barVisits.ordered(ids) : ids
+        }
+    }
+
     static func managedDisplays(includeOwners: Bool = false) -> [ManagedDisplayDescriptor] {
         ManagedSpacesTopology.snapshot(includeOwners: includeOwners)
     }

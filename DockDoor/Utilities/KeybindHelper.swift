@@ -125,7 +125,8 @@ private class WindowSwitchingCoordinator {
         isBackwardPressed: Bool,
         mode: SwitcherInvocationMode = .allWindows,
         launchSource: WindowSwitcherLaunchSource = .keyboard,
-        initializerHeld: Bool = false
+        initializerHeld: Bool = false,
+        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil
     ) async -> Bool {
         guard !isProcessingSwitcher else { return false }
         isProcessingSwitcher = true
@@ -151,7 +152,9 @@ private class WindowSwitchingCoordinator {
             coordinator.hasMovedSinceOpen = false
             coordinator.initialHoverLocation = nil
 
-            if isBackwardPressed {
+            if let spaceNavigation {
+                navigateSpaces(previewCoordinator: previewCoordinator, request: spaceNavigation)
+            } else if isBackwardPressed {
                 coordinator.cycleBackward()
             } else {
                 coordinator.cycleForward()
@@ -162,7 +165,8 @@ private class WindowSwitchingCoordinator {
             return await initializeWindowSwitching(
                 previewCoordinator: previewCoordinator,
                 mode: mode,
-                launchSource: launchSource
+                launchSource: launchSource,
+                spaceNavigation: spaceNavigation
             )
         }
         return false
@@ -190,7 +194,8 @@ private class WindowSwitchingCoordinator {
         let launchSource = launchSourceOverride ?? activeLaunchSource ?? .keyboard
         activeLaunchSource = launchSource
 
-        let windows = buildSwitcherWindows(mode: mode)
+        installSpaceFilter(previewCoordinator: previewCoordinator, mode: mode, screen: getTargetScreenForSwitcher(), dockPosition: DockUtils.getDockPosition())
+        let windows = buildSwitcherWindows(mode: mode, spaceMembers: coordinator.activeSpaceMembers)
 
         let dockPosition = DockUtils.getDockPosition()
         let targetScreen = getTargetScreenForSwitcher()
@@ -247,9 +252,21 @@ private class WindowSwitchingCoordinator {
     }
 
     @MainActor
+    func navigateSpaces(previewCoordinator: SharedPreviewWindowCoordinator, request: PreviewStateCoordinator.SpaceNavigationRequest) {
+        let coordinator = previewCoordinator.windowSwitcherCoordinator
+        if previewCoordinator.isVisible, coordinator.windowSwitcherActive {
+            coordinator.pendingSpaceNavigation = nil
+            previewCoordinator.navigateSpaces(request)
+        } else {
+            coordinator.pendingSpaceNavigation = (request, getTargetScreenForSwitcher())
+        }
+    }
+
+    @MainActor
     func openPersistent(
         previewCoordinator: SharedPreviewWindowCoordinator,
-        mode: SwitcherInvocationMode
+        mode: SwitcherInvocationMode,
+        spacesFocused: Bool = false
     ) async {
         guard !isProcessingSwitcher,
               !previewCoordinator.windowSwitcherCoordinator.isKeybindSessionActive
@@ -260,7 +277,8 @@ private class WindowSwitchingCoordinator {
         _ = await initializeWindowSwitching(
             previewCoordinator: previewCoordinator,
             mode: mode,
-            launchSource: .persistent
+            launchSource: .persistent,
+            spaceNavigation: spacesFocused ? .current : nil
         )
     }
 
@@ -273,7 +291,8 @@ private class WindowSwitchingCoordinator {
     private func initializeWindowSwitching(
         previewCoordinator: SharedPreviewWindowCoordinator,
         mode: SwitcherInvocationMode = .allWindows,
-        launchSource: WindowSwitcherLaunchSource
+        launchSource: WindowSwitcherLaunchSource,
+        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil
     ) async -> Bool {
         guard previewCoordinator.canPresentPreviews else { return false }
         HangDiagnostics.record("switcher initialization started mode=\(mode.rawValue)")
@@ -304,9 +323,12 @@ private class WindowSwitchingCoordinator {
         )
         activeLaunchSource = launchSource
         coordinator.activateKeybindSession()
+        coordinator.pendingSpaceNavigation = spaceNavigation.map { ($0, targetScreen) }
+        installSpaceFilter(previewCoordinator: previewCoordinator, mode: mode, screen: targetScreen, dockPosition: dockPosition)
 
         // If modifier was released during initialization, immediately select and exit
         if launchSource == .keyboard, shouldSelectImmediately {
+            if previewCoordinator.activatePendingSpaceNavigation() { return true }
             if let selectedWindow = coordinator.getCurrentWindow() {
                 selectedWindow.bringToFront()
                 selectedWindow.warpMouseToCenterIfNeeded()
@@ -350,10 +372,17 @@ private class WindowSwitchingCoordinator {
     @MainActor
     private func buildSwitcherWindows(
         mode: SwitcherInvocationMode,
-        forceRecencyOrder: Bool = false
+        forceRecencyOrder: Bool = false,
+        spaceMembers: Set<PreviewWindowIdentity>? = nil
     ) -> [WindowInfo] {
         var windows: [WindowInfo]
-        if mode == .allWindows {
+        if spaceMembers != nil {
+            // The shared Space model has already resolved native-tab representatives.
+            windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters()
+            if !Defaults[.includeHiddenWindowsInSwitcher] {
+                windows = windows.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
+            }
+        } else if mode == .allWindows {
             windows = WindowUtil.getAllWindowsOfAllApps()
         } else {
             windows = WindowUtil.collapseNativeTabsIfNeeded(WindowUtil.getAllWindowsIgnoringSwitcherFilters())
@@ -365,13 +394,13 @@ private class WindowSwitchingCoordinator {
 
         let filterBySpace = (mode == .currentSpaceOnly || mode == .currentMonitorCurrentSpace || mode == .activeAppCurrentSpace)
             || (mode == .allWindows && Defaults[.showWindowsFromCurrentSpaceOnlyInSwitcher])
-        if filterBySpace {
+        if filterBySpace, spaceMembers == nil {
             windows = WindowUtil.filterWindowsByCurrentSpace(windows)
         }
 
         let filterByMonitor = mode == .currentMonitorOnly || mode == .currentMonitorCurrentSpace
             || (mode == .allWindows && Defaults[.showWindowsFromCurrentMonitorOnlyInSwitcher])
-        if filterByMonitor {
+        if filterByMonitor, spaceMembers == nil {
             windows = WindowUtil.filterWindowsByCurrentMonitor(windows)
         }
 
@@ -383,6 +412,8 @@ private class WindowSwitchingCoordinator {
         if !Defaults[.includeHiddenWindowsInSwitcher] {
             windows = windows.filter { !$0.isHidden && !$0.isMinimized }
         }
+
+        if let spaceMembers { windows = windows.filter { !$0.isWindowlessApp && spaceMembers.contains(PreviewWindowIdentity($0)) } }
 
         windows = forceRecencyOrder
             ? WindowUtil.sortWindowsForSwitcherByRecency(windows)
@@ -396,11 +427,25 @@ private class WindowSwitchingCoordinator {
             && (mode == .currentMonitorOnly || mode == .currentMonitorCurrentSpace))
             || (Defaults[.excludeWindowlessAppsFromCurrentSpaceSwitcherScopes]
                 && (mode == .currentSpaceOnly || mode == .currentMonitorCurrentSpace))
-        if !filterByApp, Defaults[.showWindowlessAppsInSwitcher], !excludesWindowlessApps {
+        if spaceMembers == nil, !filterByApp, Defaults[.showWindowlessAppsInSwitcher], !excludesWindowlessApps {
             windows.append(contentsOf: WindowUtil.getWindowlessRunningApps(existingWindows: windowsForWindowlessDetection))
         }
 
         return windows
+    }
+
+    @MainActor
+    private func installSpaceFilter(previewCoordinator: SharedPreviewWindowCoordinator, mode: SwitcherInvocationMode, screen: NSScreen, dockPosition: DockPosition) {
+        let coordinator = previewCoordinator.windowSwitcherCoordinator
+        guard Defaults[.enableSpacesBar] else { coordinator.onSpaceFilterChanged = nil; return }
+        coordinator.onSpaceFilterChanged = { [weak self, weak previewCoordinator] in
+            guard let self, let previewCoordinator, previewCoordinator.isVisible else { return }
+            let coordinator = previewCoordinator.windowSwitcherCoordinator
+            guard coordinator.windowSwitcherActive else { return }
+            let windows = buildSwitcherWindows(mode: mode, spaceMembers: coordinator.activeSpaceMembers)
+            applyRefreshedSwitcherWindows(windows, coordinator: coordinator, dockPosition: dockPosition, bestGuessMonitor: previewCoordinator.screen ?? screen)
+            coordinator.onFrameRefreshNeeded?()
+        }
     }
 
     private func isActiveAppMode(_ mode: SwitcherInvocationMode) -> Bool {
@@ -456,7 +501,7 @@ private class WindowSwitchingCoordinator {
                 let coordinator = previewCoordinator.windowSwitcherCoordinator
                 guard coordinator.isKeybindSessionActive else { return }
 
-                let freshWindows = buildSwitcherWindows(mode: mode)
+                let freshWindows = buildSwitcherWindows(mode: mode, spaceMembers: coordinator.activeSpaceMembers)
                 guard !freshWindows.isEmpty else { return }
 
                 applyRefreshedSwitcherWindows(
@@ -554,7 +599,7 @@ private class WindowSwitchingCoordinator {
             showWindowLambda(convertedMouseLocation, mouseScreen)
         }
 
-        if launchSource.focusesSearchOnOpen, Defaults[.enableWindowSwitcherSearch] {
+        if coordinator.pendingSpaceNavigation == nil, launchSource.focusesSearchOnOpen, Defaults[.enableWindowSwitcherSearch] {
             previewCoordinator.focusSearchWindow()
         }
 
@@ -772,16 +817,17 @@ class KeybindHelper {
     }
 
     @MainActor
-    func showWindowSwitcherFromAppleScript() async {
-        await presentPersistentWindowSwitcher(mode: .allWindows, togglesCurrentScope: false)
+    func showWindowSwitcherFromAppleScript(spacesFocused: Bool = false) async {
+        await presentPersistentWindowSwitcher(mode: .allWindows, togglesCurrentScope: false, spacesFocused: spacesFocused)
     }
 
     @MainActor
     private func presentPersistentWindowSwitcher(
         mode: SwitcherInvocationMode,
-        togglesCurrentScope: Bool = true
+        togglesCurrentScope: Bool = true,
+        spacesFocused: Bool = false
     ) async {
-        guard Defaults[.enableWindowSwitcher], previewCoordinator.canPresentPreviews else { return }
+        guard Defaults[.enableWindowSwitcher], !spacesFocused || Defaults[.enableSpacesBar], previewCoordinator.canPresentPreviews else { return }
         lastFocusedActivationTask?.cancel()
         lastFocusedActivationTask = nil
         windowSwitchingCoordinator.relinquishTrackpadSession()
@@ -799,6 +845,7 @@ class KeybindHelper {
             if currentInvocationMode == mode,
                windowSwitchingCoordinator.isPersistentSession
             {
+                if spacesFocused { windowSwitchingCoordinator.navigateSpaces(previewCoordinator: previewCoordinator, request: .current) }
                 return
             }
 
@@ -813,6 +860,7 @@ class KeybindHelper {
                 mode: mode,
                 launchSourceOverride: .persistent
             )
+            if spacesFocused { windowSwitchingCoordinator.navigateSpaces(previewCoordinator: previewCoordinator, request: .current) }
             return
         }
 
@@ -825,7 +873,8 @@ class KeybindHelper {
 
         await windowSwitchingCoordinator.openPersistent(
             previewCoordinator: previewCoordinator,
-            mode: mode
+            mode: mode,
+            spacesFocused: spacesFocused
         )
     }
 
@@ -1069,6 +1118,34 @@ class KeybindHelper {
                     self?.handleNumberedSpaceShortcut(spaceNumber)
                 }
                 return nil
+            }
+
+            if Defaults[.enableSpacesBar], Defaults[.enableWindowSwitcher],
+               (tapSnapshot.isVisible && tapSnapshot.isWindowSwitcherActive) || Defaults[.spacesBarCycleOpensSwitcher],
+               keyCode == Int64(Defaults[.spacesBarCycleKey]) || keyCode == Int64(Defaults[.spacesBarBackwardCycleKey])
+            {
+                let spaceCycleKeybind = tapSnapshot.isWindowSwitcherActive ? effectivePreviewShortcutKeybind() :
+                    WindowSwitcherShortcutResolver.dependentShortcutKeybind(Defaults[.UserKeybind])
+                let backward = keyCode != Int64(Defaults[.spacesBarCycleKey])
+                if modifierFlagsMatch(spaceCycleKeybind, flags: flags),
+                   WindowSwitcherShortcutResolver.spaceCycleConflict(backward: backward,
+                                                                     previewKeybind: spaceCycleKeybind, mainKeybind: Defaults[.UserKeybind]) == nil
+                {
+                    if tapSnapshot.isVisible, tapSnapshot.isWindowSwitcherActive {
+                        Task { @MainActor [weak self] in self?.previewCoordinator.cycleSpaces(backward: backward) }
+                    } else {
+                        guard !WindowUtil.shouldIgnoreKeybindForFrontmostApp() else { return Unmanaged.passUnretained(event) }
+                        let previousKeybind = activeSessionKeybind
+                        let previousActive = switcherSessionActive
+                        beginSwitcherSession(with: spaceCycleKeybind)
+                        Task { @MainActor [weak self] in
+                            await self?.handleKeybindActivation(mode: .allWindows, isModifierPressed: true, isBackwardPressed: false,
+                                                                rollbackKeybind: previousKeybind, rollbackSessionActive: previousActive,
+                                                                spaceNavigation: .cycle(backward: backward))
+                        }
+                    }
+                    return nil
+                }
             }
 
             // Consume bare spacebar for a visible media preview so it doesn't also reach the focused app and double-toggle playback.
@@ -1710,6 +1787,7 @@ class KeybindHelper {
             guard self.windowSwitchingCoordinator.currentSessionId == sessionId,
                   !self.previewCoordinator.windowSwitcherCoordinator.selectionSuppressesRelease
             else { return }
+            if self.previewCoordinator.activatePendingSpaceNavigation() { return }
             if self.previewCoordinator.isVisible, self.previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
                 self.previewCoordinator.selectAndBringToFrontCurrentWindow()
                 self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
@@ -1911,6 +1989,7 @@ class KeybindHelper {
 
                 return (true, { @MainActor in
                     if self.previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
+                        self.previewCoordinator.windowSwitcherCoordinator.navigationTarget = .windows
                         if !self.previewCoordinator.windowSwitcherCoordinator.hasActiveSearch {
                             let shouldGoBackward = isBackwardPressed &&
                                 (!Defaults[.requireShiftTabToGoBack] ||
@@ -2098,7 +2177,8 @@ class KeybindHelper {
         isModifierPressed: Bool? = nil,
         isBackwardPressed: Bool? = nil,
         rollbackKeybind: UserKeyBind? = nil,
-        rollbackSessionActive: Bool? = nil
+        rollbackSessionActive: Bool? = nil,
+        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil
     ) async {
         guard Defaults[.enableWindowSwitcher], previewCoordinator.canPresentPreviews else { return }
         lastFocusedActivationTask?.cancel()
@@ -2126,7 +2206,7 @@ class KeybindHelper {
             isSwitcherModifierKeyPressed = true
         }
         isBackwardModifierPressed = backwardPressedForActivation
-        if !isExistingSession, Defaults[.focusSearchOnWindowSwitcherOpen], Defaults[.enableWindowSwitcherSearch] {
+        if spaceNavigation == nil, !isExistingSession, Defaults[.focusSearchOnWindowSwitcherOpen], Defaults[.enableWindowSwitcherSearch] {
             preventSwitcherHideOnRelease = true
         }
         if shouldSwitchScope {
@@ -2150,7 +2230,8 @@ class KeybindHelper {
             previewCoordinator: previewCoordinator,
             isModifierPressed: modifierPressedForActivation,
             isBackwardPressed: backwardPressedForActivation,
-            mode: mode
+            mode: mode,
+            spaceNavigation: spaceNavigation
         )
         if !activated {
             currentInvocationMode = previousMode
@@ -2173,6 +2254,7 @@ class KeybindHelper {
             coordinator.toggleCheckedWindow(window, keyboardPress: press)
             return false
         }
+        coordinator.navigationTarget = .windows
         coordinator.endSelectionRange()
         return previewCoordinator.performActionOnCurrentWindow(action: action, preservePreviews: preservePreviews)
     }
