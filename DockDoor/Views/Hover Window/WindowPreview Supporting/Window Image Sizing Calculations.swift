@@ -22,7 +22,7 @@ extension WindowPreviewHoverContainer {
             let scaledContentInset = HoverContainerPadding.contentInner * paddingMultiplier
             let usesTightInset = compact || onlyWindowlessDockLikeRows
             return Self(
-                itemSpacing: compact ? 4 : HoverContainerPadding.itemSpacing,
+                itemSpacing: compact ? HoverContainerPadding.compactItemSpacing : HoverContainerPadding.itemSpacing,
                 contentInset: usesTightInset
                     ? max(0, scaledContentInset - CGFloat(CardRadius.innerPadding))
                     : scaledContentInset

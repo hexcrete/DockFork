@@ -2,6 +2,9 @@ import Defaults
 import SwiftUI
 
 enum HoverContainerPadding {
+    static let edgeFadeLength: Double = 20
+    static let compactItemSpacing: CGFloat = 4
+    static var styledPanelInset: CGFloat { container + dockStyleOuter }
     static let container: CGFloat = 24
     static let dockStyleOuter: CGFloat = 2
     static let scrollOuter: CGFloat = 2

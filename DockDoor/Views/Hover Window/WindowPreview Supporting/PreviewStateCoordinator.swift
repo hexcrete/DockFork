@@ -394,6 +394,8 @@ class PreviewStateCoordinator: ObservableObject {
         return lastKnownDockPosition == .cmdTab ? Defaults[.cmdTabAppNameStyle] : Defaults[.appNameStyle]
     }
 
+    @Published var switcherTopAccessoryHeight: CGFloat = 0
+
     var selectionAccessoryHeight: CGFloat {
         guard checkedWindowCount > 0, Defaults[.showWindowSelectionSummary] else { return 0 }
         return PreviewHeaderLayout.contentReservation(for: selectionSummaryStyle)
@@ -1135,7 +1137,7 @@ class PreviewStateCoordinator: ObservableObject {
             previewMaxRows: Defaults[.previewMaxRows],
             switcherMaxRows: Defaults[.switcherMaxRows],
             totalItems: windows.count,
-            accessoryHeight: selectionAccessoryHeight
+            accessoryHeight: selectionAccessoryHeight + switcherTopAccessoryHeight
         )
 
         var newDimensionsMap = WindowPreviewHoverContainer.precomputeWindowDimensions(
@@ -1250,7 +1252,7 @@ class PreviewStateCoordinator: ObservableObject {
             paddingMultiplier: Defaults[.globalPaddingMultiplier]
         )
         let spacing = metrics.itemSpacing
-        let availableHeight = bestGuessMonitor.visibleFrame.height - metrics.totalPanelInset * 2 - selectionAccessoryHeight
+        let availableHeight = bestGuessMonitor.visibleFrame.height - metrics.totalPanelInset * 2 - selectionAccessoryHeight - switcherTopAccessoryHeight
         let rowsThatFit = max(1, Int((availableHeight + spacing) / (itemHeight + spacing)))
         return min(initialRows, rowsThatFit)
     }

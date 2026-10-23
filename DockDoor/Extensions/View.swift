@@ -1,6 +1,10 @@
 import SmoothGradient
 import SwiftUI
 
+enum BorderedBackgroundMetrics {
+    static func inset(lineWidth: CGFloat) -> CGFloat { lineWidth * 0.75 }
+}
+
 extension View {
     @ViewBuilder
     func `if`(_ condition: Bool, transform: (Self) -> some View) -> some View {
@@ -12,7 +16,7 @@ extension View {
     }
 
     func borderedBackground(_ content: some ShapeStyle, lineWidth: CGFloat = 1.0, shape: some InsettableShape) -> some View {
-        padding(lineWidth * 0.75)
+        padding(BorderedBackgroundMetrics.inset(lineWidth: lineWidth))
             .background {
                 shape
                     .strokeBorder(content, lineWidth: lineWidth)

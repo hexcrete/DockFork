@@ -4,19 +4,22 @@ import SwiftUI
 enum AppIconStripFormatting {
     static let menuIconSize: CGFloat = 14
 
-    static func width(iconCount: Int, iconSize: CGFloat, font: NSFont) -> CGFloat {
-        let spacing = ("\u{00A0}" as NSString).size(withAttributes: [.font: font]).width
+    static func width(iconCount: Int, iconSize: CGFloat, font: NSFont, spacing: CGFloat? = nil) -> CGFloat {
+        let spacing = spacing ?? ("\u{00A0}" as NSString).size(withAttributes: [.font: font]).width
         return CGFloat(iconCount) * iconSize + CGFloat(max(0, iconCount - 1)) * spacing
     }
 
-    static func visibleCount(total: Int, availableWidth: CGFloat, iconSize: CGFloat, font: NSFont) -> Int? {
+    static func visibleCount(total: Int, availableWidth: CGFloat, iconSize: CGFloat, font: NSFont, spacing: CGFloat? = nil) -> Int? {
         guard total > 0, availableWidth > 0 else { return nil }
         var count = min(total, Int(availableWidth / iconSize))
         while count >= 0 {
             let remaining = total - count
             let suffix = remaining > 0 ? (count > 0 ? " +\(remaining)" : "+\(remaining)") : ""
-            let required = width(iconCount: count, iconSize: iconSize, font: font) +
+            var required = width(iconCount: count, iconSize: iconSize, font: font, spacing: spacing) +
                 (suffix as NSString).size(withAttributes: [.font: font]).width
+            if let spacing, remaining > 0, count > 0 {
+                required += spacing - (" " as NSString).size(withAttributes: [.font: font]).width
+            }
             if required <= availableWidth { return count }
             count -= 1
         }
@@ -719,7 +722,11 @@ extension View {
 struct WindowStateIndicator: View {
     static let unstyledControlLineHeight: CGFloat = 24
     private static let styledBadgeMinimumSize: CGFloat = 14
-    private static let styledContentPadding: CGFloat = 4
+    static let styledContentPadding: CGFloat = 4
+    static var styledMinimumAspectRatio: CGFloat {
+        let content = fontMetrics[.system]!.styledMinimumSize + 2 * styledContentPadding
+        return (content + 2 * MaterialPillStyle.horizontalInset) / (content + 2 * MaterialPillStyle.verticalInset)
+    }
 
     private struct FontMetrics {
         let pointSize: CGFloat

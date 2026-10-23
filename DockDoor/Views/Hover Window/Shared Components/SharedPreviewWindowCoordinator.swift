@@ -57,6 +57,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     let windowSwitcherCoordinator = PreviewStateCoordinator()
     private let dockManager = DockAutoHideManager()
     private var searchWindow: SearchWindow?
+    private var isPositioningCompanions = false
+    private var spacesBarWindow: SpacesBarWindow?
+    private var spacesBarSections: [ManagedSpacePresentation.Display] = []
+    private var spacesBarFingerprint: [String] = []
+    private var spacesBarSpaceObserver: NSObjectProtocol?
+    private var spacesBarScreenObserver: NSObjectProtocol?
 
     private var appName: String = ""
     var currentlyDisplayedPID: pid_t?
@@ -233,6 +239,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @objc private func publishTapSnapshot() {
+        if spacesBarWindow != nil { positionCompanionWindows() }
         updatePreviewFocusFade()
         let snapshot = TapSnapshot(
             isVisible: isVisible,
@@ -242,7 +249,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 return convertToScreen(view.convert(view.bounds, to: nil))
             },
             fullPreviewFrame: fullPreviewWindow.flatMap { $0.isVisible ? $0.frame : nil },
-            searchFrame: searchWindowFrame,
+            searchFrame: spacesBarWindow.flatMap { $0.isVisible ? $0.frame.union(searchWindowFrame ?? frame) : nil } ?? searchWindowFrame,
             isSearchFocused: isSearchWindowFocused,
             isWindowSwitcherActive: windowSwitcherCoordinator.windowSwitcherActive,
             isCmdTabPreview: !windowSwitcherCoordinator.windowSwitcherActive && currentDockPosition == .cmdTab,
@@ -306,6 +313,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         if let focusFadeLocalMonitor { NSEvent.removeMonitor(focusFadeLocalMonitor) }
         if let focusFadeGlobalMonitor { NSEvent.removeMonitor(focusFadeGlobalMonitor) }
         focusFadeSettingsObserver?.invalidate()
+        if let observer = spacesBarSpaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(observer) }
+        if let observer = spacesBarScreenObserver { NotificationCenter.default.removeObserver(observer) }
+        if let panel = spacesBarWindow { WindowUtil.unregisterInternalWindow(CGWindowID(panel.windowNumber)) }
         NotificationCenter.default.removeObserver(self)
         if SharedPreviewWindowCoordinator.activeInstance === self {
             SharedPreviewWindowCoordinator.activeInstance = nil
@@ -460,6 +470,176 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         animationBehavior = .none
     }
 
+    var spacesBarReservation: CGFloat {
+        spacesBarSections.isEmpty ? 0 : SpacesBarLayout.reservation(displayCount: spacesBarSections.count, search: Defaults[.enableWindowSwitcherSearch])
+    }
+
+    func refreshSpacesBar(metadataOnly: Bool = false) {
+        guard windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar] else {
+            removeSpacesBar()
+            return
+        }
+        if spacesBarSpaceObserver == nil {
+            spacesBarSpaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                self?.refreshSpacesBar()
+            }
+        }
+        if spacesBarScreenObserver == nil {
+            spacesBarScreenObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                self?.refreshSpacesBar()
+            }
+        }
+        let displays = WindowSpaces.managedDisplays(includeOwners: true)
+
+        let windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters()
+        let fingerprint = displays.flatMap { display in
+            ["\(display.identifier):\(display.currentSpaceID ?? 0):\(WindowSpaces.displayName(for: display.identifier) ?? "")"] + display.spaces.map { "\($0.id):\($0.kind?.rawValue ?? -1):\($0.ownerPIDs.sorted())" }
+        } + windows.map { "\($0.app.processIdentifier):\($0.id):\($0.spaceID ?? 0):\($0.isMinimized):\($0.isHidden):\($0.isFullscreen):\($0.windowName ?? "")" }
+        if metadataOnly, fingerprint == spacesBarFingerprint { return }
+        if fingerprint != spacesBarFingerprint {
+            spacesBarFingerprint = fingerprint
+            spacesBarSections = ManagedSpacePresentation.snapshot(
+                displays: displays, orderedWindows: WindowUtil.collapseNativeTabsIfNeeded(windows)
+            )
+        }
+        let sections = spacesBarSections
+        spacesBarSections = Defaults[.spacesBarHideWhenSingle] && sections.flatMap(\.spaces).count <= 1 ? [] : sections
+        guard !spacesBarSections.isEmpty else {
+            removeSpacesBar(keepTopologyObserver: true)
+            return
+        }
+        if spacesBarWindow == nil {
+            spacesBarWindow = SpacesBarWindow()
+            if let spacesBarWindow { WindowUtil.registerInternalWindow(CGWindowID(spacesBarWindow.windowNumber)) }
+        }
+
+        updateSpacesBarReservation()
+        if isVisible {
+            positionSpacesBar(relativeTo: frame)
+            schedulePanelFrameRefresh()
+        }
+    }
+
+    private func removeSpacesBar(keepTopologyObserver: Bool = false) {
+        if !keepTopologyObserver, let observer = spacesBarSpaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+            spacesBarSpaceObserver = nil
+        }
+        if !keepTopologyObserver, let observer = spacesBarScreenObserver {
+            NotificationCenter.default.removeObserver(observer)
+            spacesBarScreenObserver = nil
+        }
+        if let panel = spacesBarWindow {
+            WindowUtil.unregisterInternalWindow(CGWindowID(panel.windowNumber))
+            removeChildWindow(panel)
+            panel.orderOut(nil)
+            panel.contentView = nil
+        }
+        spacesBarWindow = nil
+        spacesBarSections = []
+        spacesBarFingerprint = []
+        updateSpacesBarReservation()
+    }
+
+    private func updateSpacesBarReservation() {
+        let height = spacesBarReservation
+        guard windowSwitcherCoordinator.switcherTopAccessoryHeight != height else { return }
+        windowSwitcherCoordinator.switcherTopAccessoryHeight = height
+        windowSwitcherCoordinator.refreshSelectionLayout()
+    }
+
+    private func positionSpacesBar(relativeTo grid: CGRect) {
+        guard let panel = spacesBarWindow, !spacesBarSections.isEmpty,
+              let screen = panelAnchor?.screen ?? screen
+        else { return }
+        let entries = spacesBarSections.flatMap(\.spaces)
+        let fixed = Defaults[.spacesBarFixedWidth]
+        let preferDetails = Defaults[.spacesBarPreferDetails]
+        let requestedWidth = fixed ? Defaults[.spacesBarPillWidth] : Defaults[.spacesBarMaximumWidth]
+        let requestedMinimum = Defaults[.spacesBarMinimumWidth]
+        let minimum = requestedMinimum.isFinite ? min(600, max(10, requestedMinimum)) : 160
+        let available = max(1, screen.visibleFrame.width)
+        let spacing = CGFloat(max(0, entries.count - 1)) * SpacesBarLayout.itemSpacing + SpacesBarLayout.sectionExtraWidth(displayCount: spacesBarSections.count) + SpacesBarLayout.innerPadding * 2 + (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2
+        let labels = Defaults[.spacesBarLabels]
+        let font = SpacesBarLayout.textFont
+        let labelWidths = entries.map { entry in
+            SpacesBarLayout.labelWidth((entry.title(mode: labels) as NSString).size(withAttributes: [.font: font]).width, fullscreen: entry.isFullscreen)
+        }
+        let ideal = zip(entries, labelWidths).map { entry, labelWidth in
+            labelWidth + CGFloat(entry.apps.count) * (SpacesBarAppLayout.iconSize + SpacesBarAppLayout.spacing)
+        }
+        let availablePillWidth = max(1, available - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter + SpacesBarLayout.innerPadding) * 2)
+        let maximum = fixed || preferDetails ? min(availablePillWidth, max(SpacesBarLayout.minimumPillWidth, requestedWidth.isFinite ? min(600, max(10, requestedWidth)) : 240)) : availablePillWidth
+        let sizes = SpacesBarLayout.widths(ideal: ideal, labels: labelWidths, maximum: maximum, available: max(1, available - spacing), fixed: fixed,
+                                           minimum: fixed || preferDetails ? 0 : minimum, preferDetails: preferDetails)
+        let width = min(available, sizes.reduce(0, +) + spacing)
+        let target = spacesBarFrame(relativeTo: grid, size: CGSize(width: width, height: SpacesBarLayout.height(displayCount: spacesBarSections.count)), screen: screen)
+        let current = spacesBarSections.first(where: { WindowSpaces.screen(forDisplayIdentifier: $0.id) == screen })?
+            .spaces.first(where: \.isCurrent)?.id
+        panel.level = level
+        panel.sharingType = sharingType
+        let barView = SpacesBarView(
+            viewport: panel.viewport, viewportWidth: max(1, width - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2), screen: screen, sections: spacesBarSections, widths: Dictionary(uniqueKeysWithValues: zip(entries.map(\.id), sizes)),
+            initialSpace: current, labels: labels,
+            activate: { [weak self] entry in
+                guard let self else { return }
+                if let appDelegate = NSApp.delegate as? AppDelegate {
+                    appDelegate.dismissPreviews()
+                } else {
+                    hideWindow()
+                }
+                guard !entry.isCurrent else { return }
+                WindowUtil.switchToManagedSpace(entry.destination) { success in
+                    if !success { NSSound.beep() }
+                }
+            }
+        )
+        if let hosting = panel.contentView as? NSHostingView<SpacesBarView> {
+            hosting.rootView = barView
+        } else {
+            let hosting = NSHostingView(rootView: barView)
+            hosting.sizingOptions = []
+            panel.contentView = hosting
+        }
+        panel.setFrame(target, display: false)
+        if panel.parent !== self { addChildWindow(panel, ordered: .above) }
+        panel.orderFront(nil)
+    }
+
+    private func spacesBarFrame(relativeTo grid: CGRect, size: CGSize, screen: NSScreen) -> CGRect {
+        let alignment: CGFloat = switch Defaults[.windowSwitcherHorizontalAnchor] {
+        case .left: 0
+        case .center: 0.5
+        case .right: 1
+        }
+        return SpacesBarLayout.frame(grid: grid, size: size, screen: screen.visibleFrame,
+                                     search: Defaults[.enableWindowSwitcherSearch], alignment: alignment)
+    }
+
+    @objc private func positionCompanionWindows() {
+        guard !isPositioningCompanions, isVisible, let screen = panelAnchor?.screen ?? screen else { return }
+        isPositioningCompanions = true
+        defer { isPositioningCompanions = false }
+        func place(_ window: NSWindow, at target: CGRect) {
+            let current = window.frame
+            guard abs(current.minX - target.minX) > 0.5 || abs(current.minY - target.minY) > 0.5 ||
+                abs(current.width - target.width) > 0.5 || abs(current.height - target.height) > 0.5 else { return }
+            window.setFrame(target, display: true)
+        }
+        if let searchWindow, searchWindow.isVisible {
+            let target = searchWindow.targetFrame(relativeTo: frame, on: screen)
+            place(searchWindow, at: target)
+        }
+        if let panel = spacesBarWindow, panel.isVisible {
+            let target = spacesBarFrame(relativeTo: frame, size: panel.frame.size, screen: screen)
+            place(panel, at: target)
+        }
+    }
+
     private func setupSearchWindow() {
         if Defaults[.enableWindowSwitcherSearch] {
             if searchWindow == nil {
@@ -473,6 +653,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     private func setupFrameRefreshObserver() {
         windowSwitcherCoordinator.onFrameRefreshNeeded = { [weak self] in
+            self?.refreshSpacesBar()
             self?.schedulePanelFrameRefresh()
         }
     }
@@ -582,6 +763,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         guard isVisible else { return }
 
         searchWindow?.hideSearch()
+        removeSpacesBar()
 
         if let currentContent = contentView {
             currentContent.removeFromSuperview()
@@ -777,11 +959,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let targetFrame = CGRect(origin: newOrigin, size: newSize)
         guard targetFrame != frame else { return }
 
-        let searchFrame = searchWindow.flatMap { $0.isVisible ? $0.targetFrame(relativeTo: targetFrame, on: self.screen ?? panelAnchor.screen) : nil }
         animateWithUserPreference {
             self.animator().setFrame(targetFrame, display: true)
-            if let searchFrame { self.searchWindow?.animator().setFrame(searchFrame, display: true) }
         }
+        positionCompanionWindows()
     }
 
     private func anchoredOrigin(for size: CGSize) -> CGPoint? {
@@ -794,13 +975,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @objc private func panelDidResize() {
-        guard let origin = anchoredOrigin(for: frame.size),
-              abs(origin.x - frame.minX) > 0.5 || abs(origin.y - frame.minY) > 0.5
-        else { return }
-        setFrameOrigin(origin)
-        if let searchWindow, searchWindow.isVisible {
-            searchWindow.showSearch(relativeTo: self)
+        if let origin = anchoredOrigin(for: frame.size),
+           abs(origin.x - frame.minX) > 0.5 || abs(origin.y - frame.minY) > 0.5
+        {
+            setFrameOrigin(origin)
         }
+        positionCompanionWindows()
     }
 
     @MainActor
@@ -863,6 +1043,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         DebugLogger.log("PreviewRender", details: "updateContentView start (+\(String(format: "%.1f", elapsed))ms)")
 
         windowSwitcherCoordinator.setShowing(centeredHoverWindowState, toState: centerOnScreen)
+        refreshSpacesBar()
 
         // Defer showing the search window until after the hover window frame is applied
 
@@ -959,12 +1140,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         elapsed = renderStartTime.map { (CFAbsoluteTimeGetCurrent() - $0) * 1000 } ?? 0
         DebugLogger.log("PreviewRender", details: "window frame applied, render complete (+\(String(format: "%.1f", elapsed))ms)")
 
+        positionSpacesBar(relativeTo: finalFrame)
+
         // Now that the main panel has a valid frame, position the search window (if active)
         if windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableWindowSwitcherSearch] {
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 if searchWindow == nil { setupSearchWindow() }
                 searchWindow?.showSearch(relativeTo: self)
+                positionSpacesBar(relativeTo: frame)
                 publishTapSnapshot()
             }
         }
@@ -1168,7 +1352,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var xPosition = baseXPosition + horizontalOffset
         var yPosition = baseYPosition + verticalOffset
 
-        if reservesWindowSwitcherSearchSpace {
+        if reservesWindowSwitcherSearchSpace || !spacesBarSections.isEmpty {
             xPosition = max(placementFrame.minX, min(xPosition, placementFrame.maxX - size.width))
             yPosition = max(placementFrame.minY, min(yPosition, placementFrame.maxY - size.height))
         }
@@ -1187,15 +1371,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     private func previewPlacementFrame(on screen: NSScreen) -> CGRect {
-        guard reservesWindowSwitcherSearchSpace else { return screen.frame }
+        guard reservesWindowSwitcherSearchSpace || !spacesBarSections.isEmpty else { return screen.frame }
 
         var frame = screen.visibleFrame
-        frame.size.height = max(0, frame.height - SearchWindow.reservedHeight)
+        frame.size.height = max(0, frame.height - (spacesBarReservation > 0 ? spacesBarReservation : (reservesWindowSwitcherSearchSpace ? SearchWindow.reservedHeight : 0)))
         return frame
     }
 
     private func maximumPreviewSize(on screen: NSScreen) -> CGSize {
-        let frame = reservesWindowSwitcherSearchSpace ? previewPlacementFrame(on: screen) : screen.visibleFrame
+        let frame = reservesWindowSwitcherSearchSpace || !spacesBarSections.isEmpty ? previewPlacementFrame(on: screen) : screen.visibleFrame
         return frame.size
     }
 

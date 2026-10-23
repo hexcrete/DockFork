@@ -43,8 +43,10 @@ enum CardRadius {
         ).card
     }
 
-    static var containerContentClip: some Shape {
-        RoundedRectangle(cornerRadius: container, style: .continuous)
+    static var containerContentClip: some Shape { containerContentClip(cornerRadius: container) }
+
+    static func containerContentClip(cornerRadius: Double) -> some Shape {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .inset(by: 1)
     }
 

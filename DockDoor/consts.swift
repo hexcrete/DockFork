@@ -808,6 +808,16 @@ extension Defaults.Keys {
     static let keepPreviewOnAppTerminate = Key<Bool>("keepPreviewOnAppTerminate", default: false)
     static let enableVimMotions = Key<Bool>("enableVimMotions", default: false)
     static let passArrowsThroughToSystem = Key<Bool>("passArrowsThroughToSystem", default: false)
+    static let enableSpacesBar = Key<Bool>("enableSpacesBar", default: false)
+    static let spacesBarItemSize = Key<SpacesBarItemSize>("spacesBarItemSize", default: .small)
+    static let spacesBarLabels = Key<SpaceMenuDisplayMode>("spacesBarLabels", default: .numberOnly)
+    static let spacesBarFixedWidth = Key<Bool>("spacesBarFixedWidth", default: false)
+    static let spacesBarPreferDetails = Key<Bool>("spacesBarPreferDetails", default: false)
+    static let spacesBarMinimumWidth = Key<Double>("spacesBarMinimumWidth", default: 160)
+    static let spacesBarMaximumWidth = Key<Double>("spacesBarMaximumWidth", default: 240)
+    static let spacesBarPillWidth = Key<Double>("spacesBarPillWidth", default: 240)
+    static let spacesBarHideWhenSingle = Key<Bool>("spacesBarHideWhenSingle", default: true)
+
     static let enableWindowSwitcherSearch = Key<Bool>("enableWindowSwitcherSearch", default: false)
     static let focusSearchOnWindowSwitcherOpen = Key<Bool>("focusSearchOnWindowSwitcherOpen", default: false)
     static let searchTriggerKey = Key<UInt16>("searchTriggerKey", default: UInt16(kVK_ANSI_Slash))
@@ -2245,6 +2255,18 @@ enum CompactModeItemSize: Int, CaseIterable, Defaults.Serializable, Identifiable
         }
     }
 
+    var primaryAppKitFont: NSFont {
+        switch self {
+        case .xSmall: .preferredFont(forTextStyle: .caption1)
+        case .small: .preferredFont(forTextStyle: .callout)
+        case .medium: .systemFont(ofSize: 13, weight: .medium)
+        case .large: .preferredFont(forTextStyle: .headline)
+        case .xLarge: .preferredFont(forTextStyle: .title3)
+        case .xxLarge: .preferredFont(forTextStyle: .title2)
+        case .xxxLarge: .preferredFont(forTextStyle: .title1)
+        }
+    }
+
     var secondaryFont: Font {
         switch self {
         case .xSmall: .caption2
@@ -2279,6 +2301,32 @@ enum CompactModeItemSize: Int, CaseIterable, Defaults.Serializable, Identifiable
         case .xxLarge: 64
         case .xxxLarge: 72
         }
+    }
+}
+
+enum SpacesBarItemSize: Int, CaseIterable, Defaults.Serializable, Identifiable {
+    case xxxSmall, xxSmall, xSmall, small, medium, large, xLarge, xxLarge, xxxLarge
+
+    var id: Int { rawValue }
+
+    var localizedName: String {
+        if let size = CompactModeItemSize(rawValue: rawValue - 2) { return size.localizedName }
+        return self == .xxxSmall ? String(localized: "3X-Small") : String(localized: "2X-Small")
+    }
+
+    var scale: CGFloat {
+        let step = CompactModeItemSize(rawValue: rawValue)?.iconSize ?? (self == .xxLarge ? 64 : 72)
+        return step / CompactModeItemSize.large.iconSize
+    }
+
+    var primaryFont: Font {
+        if let size = CompactModeItemSize(rawValue: rawValue) { return size.primaryFont }
+        return Font(primaryAppKitFont)
+    }
+
+    var primaryAppKitFont: NSFont {
+        if let size = CompactModeItemSize(rawValue: rawValue) { return size.primaryAppKitFont }
+        return self == .xxLarge ? .preferredFont(forTextStyle: .largeTitle) : .systemFont(ofSize: 32)
     }
 }
 

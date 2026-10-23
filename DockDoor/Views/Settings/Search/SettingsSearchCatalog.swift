@@ -508,6 +508,8 @@ enum SettingsSearchCatalog {
             section: String(localized: "Window Display"),
             icon: "rectangle.on.rectangle"
         ),
+        SettingsSearchItem(id: "windowSwitcher.enableSpacesBar", title: String(localized: "Enable Spaces Bar"), keywords: ["spaces", "bar", "desktop"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarHideWhenSingle", title: String(localized: "Hide when only one Space exists"), keywords: ["spaces", "bar", "desktop"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
         SettingsSearchItem(
             id: "windowSwitcher.enableSearch",
             title: String(localized: "Enable search"),
@@ -1097,6 +1099,13 @@ enum SettingsSearchCatalog {
     // MARK: - Appearance
 
     private static let appearanceItems: [SettingsSearchItem] = [
+        SettingsSearchItem(id: "windowSwitcher.spacesBarItemSize", title: String(localized: "Item Size"), keywords: ["spaces", "bar", "size", "icons", "text"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarLabels", title: String(localized: "Labels"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarFixedWidth", title: String(localized: "Pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarPillWidth", title: String(localized: "Pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarPreferDetails", title: String(localized: "Flexible (Prefer Space details)"), keywords: ["spaces", "bar", "width", "icons", "flexible"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarMinimumWidth", title: String(localized: "Minimum pill width"), keywords: ["spaces", "bar", "desktop", "screen", "flexible"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarMaximumWidth", title: String(localized: "Maximum pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
         // Window Preview Size
         SettingsSearchItem(
             id: "appearance.lockAspect",

@@ -2,6 +2,7 @@ import Defaults
 import SwiftUI
 
 struct WindowSwitcherAppearanceSection: View {
+    @Default(.enableSpacesBar) private var enableSpacesBar
     @Default(.windowSwitcherControlPosition) var windowSwitcherControlPosition
     @Default(.switcherShowAppHeader) var switcherShowAppHeader
     @Default(.switcherShowWindowTitle) var switcherShowWindowTitle
@@ -74,13 +75,13 @@ struct WindowSwitcherAppearanceSection: View {
             }
 
             Toggle("Show App Icon Badges", isOn: $switcherShowAppIconBadges)
-                .disabled(!switcherShowAppHeader)
+                .disabled(!switcherShowAppHeader && !enableSpacesBar)
                 .settingsSearchTarget("appearance.switcherShowAppIconBadges")
 
             Toggle("Show App Icon Badges in Compact Mode", isOn: $switcherShowCompactAppIconBadges)
                 .settingsSearchTarget("appearance.switcherShowCompactAppIconBadges")
 
-            if (switcherShowAppHeader && switcherShowAppIconBadges) || switcherShowCompactAppIconBadges {
+            if ((switcherShowAppHeader || enableSpacesBar) && switcherShowAppIconBadges) || switcherShowCompactAppIconBadges {
                 sliderSetting(
                     title: "Badge Size",
                     value: $switcherAppIconBadgeScale,

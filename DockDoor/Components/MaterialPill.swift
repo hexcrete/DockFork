@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct MaterialPillStyle: ViewModifier {
+    static let borderWidth: CGFloat = 1.5
+    static var horizontalInset: CGFloat { horizontalPadding + BorderedBackgroundMetrics.inset(lineWidth: borderWidth) }
+    static var verticalInset: CGFloat { verticalPadding + BorderedBackgroundMetrics.inset(lineWidth: borderWidth) }
     static let horizontalPadding: CGFloat = 8
     static let verticalPadding: CGFloat = 5
 
@@ -23,7 +26,7 @@ struct MaterialPillStyle: ViewModifier {
             .clipShape(Capsule(style: .continuous))
             .borderedBackground(
                 .primary.opacity(0.1),
-                lineWidth: 1.5,
+                lineWidth: Self.borderWidth,
                 shape: Capsule(style: .continuous)
             )
     }

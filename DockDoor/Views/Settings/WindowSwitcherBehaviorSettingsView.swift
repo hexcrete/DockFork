@@ -35,6 +35,9 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.enableActionFeedback) private var enableActionFeedback
     @Default(.showMouseFollowsFocusFeedback) private var mouseFollowsFocusFeedback
 
+    @Default(.enableSpacesBar) private var enableSpacesBar
+    @Default(.spacesBarHideWhenSingle) private var spacesBarHideWhenSingle
+
     @State private var showGroupedAppsSheet: Bool = false
 
     var body: some View {
@@ -45,6 +48,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
                 if enableWindowSwitcher {
                     behaviorSection
                     windowDisplaySection
+                    spacesBarSection
                     searchAndInputSection
                     hoverActionsSection
                     sortingAndGroupingSection
@@ -56,6 +60,8 @@ struct WindowSwitcherBehaviorSettingsView: View {
                 }
             }
         }
+        .onChange(of: enableSpacesBar) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
+        .onChange(of: spacesBarHideWhenSingle) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
         .sheet(isPresented: $showGroupedAppsSheet) {
             AppPickerSheet(
                 selectedApps: $groupedAppsInSwitcher,
@@ -187,6 +193,19 @@ struct WindowSwitcherBehaviorSettingsView: View {
     }
 
     // MARK: - Search & Input
+
+    private var spacesBarSection: some View {
+        SettingsGroup(header: "Spaces Bar") {
+            VStack(alignment: .leading, spacing: 10) {
+                Toggle("Enable Spaces Bar", isOn: $enableSpacesBar)
+                    .settingsSearchTarget("windowSwitcher.enableSpacesBar")
+                if enableSpacesBar {
+                    Toggle("Hide when only one Space exists", isOn: $spacesBarHideWhenSingle)
+                        .settingsSearchTarget("windowSwitcher.spacesBarHideWhenSingle")
+                }
+            }
+        }
+    }
 
     private var searchAndInputSection: some View {
         SettingsGroup(header: "Search & Input") {

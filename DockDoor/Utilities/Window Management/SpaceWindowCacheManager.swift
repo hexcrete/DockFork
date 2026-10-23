@@ -65,6 +65,9 @@ class SpaceWindowCacheManager {
         MainActor.assumeIsolated {
             preview.windowSwitcherCoordinator.applyCacheChanges(removed: batch.removed, added: batch.added, updated: batch.updated)
             preview.refreshDisplayedFullPreview(after: batch.updated)
+            if preview.windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar] {
+                preview.refreshSpacesBar(metadataOnly: true)
+            }
         }
     }
 

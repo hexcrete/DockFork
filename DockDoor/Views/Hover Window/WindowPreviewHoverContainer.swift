@@ -677,13 +677,13 @@ struct WindowPreviewHoverContainer: View {
         )
         .fadeOnEdges(
             axis: scrollAxis == .horizontal ? .horizontal : .vertical,
-            fadeLength: 20,
+            fadeLength: HoverContainerPadding.edgeFadeLength,
             disableLeading: dynamicFadeEnabled && !scrolledFromStart,
             disableTrailing: scrolledToEnd
         )
         .padding(.top, (effectiveShouldShowHeader && effectiveAppNameStyle == .default) ? PreviewHeaderLayout.contentReservation(for: .default) : 0)
         .padding(.bottom, showsSelectionSummary && previewStateCoordinator.selectionSummaryStyle == .default ? PreviewHeaderLayout.contentReservation(for: .default) : 0)
-        .clipShape(RoundedRectangle(cornerRadius: radii.container, style: .continuous).inset(by: 1))
+        .clipShape(CardRadius.containerContentClip(cornerRadius: radii.container))
         .overlay(alignment: PreviewHeaderLayout.alignment(for: effectiveAppNameStyle, edge: .top)) {
             hoverTitleBaseView(labelSize: measureString(appName, fontSize: 14))
         }
