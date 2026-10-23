@@ -540,7 +540,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     private func activateSpaceApp(_ app: ManagedSpacePresentation.App, in entry: ManagedSpacePresentation.Entry) async {
-        guard isVisible, windowSwitcherCoordinator.windowSwitcherActive, Defaults[.spacesBarActivateAppIcons],
+        guard isVisible, windowSwitcherCoordinator.windowSwitcherActive, Defaults[.spacesBarShowAppIcons], Defaults[.spacesBarActivateAppIcons],
               let current = spacesBarSections.flatMap(\.spaces).first(where: { $0.id == entry.id })?
               .apps.first(where: { $0.application.processIdentifier == app.application.processIdentifier })
         else { return }
@@ -680,7 +680,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             SpacesBarLayout.labelWidth((entry.title(mode: labels) as NSString).size(withAttributes: [.font: font]).width, fullscreen: entry.isFullscreen)
         }
         let ideal = zip(entries, labelWidths).map { entry, labelWidth in
-            labelWidth + CGFloat(entry.apps.count) * (SpacesBarAppLayout.iconSize + SpacesBarAppLayout.spacing)
+            labelWidth + CGFloat(Defaults[.spacesBarShowAppIcons] ? entry.apps.count : 0) * (SpacesBarAppLayout.iconSize + SpacesBarAppLayout.spacing)
         }
         let availablePillWidth = max(1, available - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter + SpacesBarLayout.innerPadding) * 2)
         let maximum = fixed || preferDetails ? min(availablePillWidth, max(SpacesBarLayout.minimumPillWidth, requestedWidth.isFinite ? min(600, max(10, requestedWidth)) : 240)) : availablePillWidth

@@ -39,6 +39,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.spacesBarFilterWindows) private var spacesBarFilterWindows
     @Default(.spacesBarStartOnNext) private var spacesBarStartOnNext
     @Default(.spacesBarRecentlyUsed) private var spacesBarRecentlyUsed
+    @Default(.spacesBarShowAppIcons) private var spacesBarShowAppIcons
     @Default(.spacesBarActivateAppIcons) private var spacesBarActivateAppIcons
     @Default(.spacesBarHideWhenSingle) private var spacesBarHideWhenSingle
 
@@ -217,6 +218,11 @@ struct WindowSwitcherBehaviorSettingsView: View {
                     .settingsSearchTarget("windowSwitcher.spacesBarRecentlyUsed")
                     Toggle("Activate apps by clicking their icons", isOn: $spacesBarActivateAppIcons)
                         .settingsSearchTarget("windowSwitcher.spacesBarActivateAppIcons")
+                    if !spacesBarShowAppIcons {
+                        Text("Enable \"Appearance > Spaces Bar > Show app icons in the Spaces Bar\" to use this.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Toggle("Hide when only one Space exists", isOn: $spacesBarHideWhenSingle)
                         .settingsSearchTarget("windowSwitcher.spacesBarHideWhenSingle")
                 }

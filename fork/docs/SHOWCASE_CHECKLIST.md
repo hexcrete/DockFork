@@ -365,3 +365,7 @@ October 23 hover-entry regression: clear a hovered Space's filter, move within i
 Hover-entry handoff: final-source hover fixtures, format/diff checks and signed development build/running-binary verification pass. The unchanged Compact title-hit fixture fails in the full run and isolated retry; no new drag behavior is claimed. Clear/re-entry visual verification and media capture remain pending.
 
 Stage 3 sign-off, October 23: user reports the current feature working and authorizes review/commit, including the hover-clear correction. Keep existing capture IDs; no screenshots or recordings are supplied or marked captured. Broader accessibility/display/fault coverage remains unclaimed. Window-drop, two-axis swipe and Desktop-content demonstrations await their later stages.
+
+Space icon visibility: compare On/Off with numeric/name labels and each pill width mode. Off should show no app icons, counts or +N, with flexible sizes recalculated and icon-click activation visible and editable in Behavior, with an explanation pointing to Appearance. Re-enable to restore the saved activation preference; filtering and Space switching must still work. No media captured; manual verification pending.
+
+Icon-visibility user verification passed October 23, including the editable dependent setting and final explanation. No media captured. Broader size/display combinations remain unclaimed.

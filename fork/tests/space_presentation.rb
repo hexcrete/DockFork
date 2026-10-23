@@ -158,10 +158,10 @@ abort 'Bar must refresh with cache metadata and display topology' unless block(c
 settings = File.read("#{root}/DockDoor/Views/Settings/WindowSwitcherBehaviorSettingsView.swift") + File.read("#{root}/DockDoor/Views/Settings/AppearanceSettingsView.swift")
 catalog = File.read("#{root}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
 reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")
-%w[enableSpacesBar spacesBarItemSize spacesBarPreferDetails spacesBarMinimumWidth spacesBarLabels spacesBarFixedWidth spacesBarMaximumWidth spacesBarPillWidth spacesBarHideWhenSingle spacesBarFilterWindows spacesBarActivateAppIcons].each do |key|
+%w[enableSpacesBar spacesBarItemSize spacesBarPreferDetails spacesBarMinimumWidth spacesBarLabels spacesBarFixedWidth spacesBarMaximumWidth spacesBarPillWidth spacesBarHideWhenSingle spacesBarFilterWindows spacesBarActivateAppIcons spacesBarShowAppIcons].each do |key|
   abort "Unwired bar setting #{key}" unless settings.include?("windowSwitcher.#{key}") && catalog.include?("windowSwitcher.#{key}") && reset.include?("Defaults[.#{key}] = Defaults.Keys.#{key}.defaultValue")
 end
-%w[spacesBarItemSize spacesBarLabels spacesBarFixedWidth spacesBarPreferDetails spacesBarMinimumWidth spacesBarMaximumWidth spacesBarPillWidth].each do |key|
+%w[spacesBarShowAppIcons spacesBarItemSize spacesBarLabels spacesBarFixedWidth spacesBarPreferDetails spacesBarMinimumWidth spacesBarMaximumWidth spacesBarPillWidth].each do |key|
   entry = catalog.lines.find { |line| line.include?("id: \"windowSwitcher.#{key}\"") }
   abort "Visual setting must navigate to Appearance: #{key}" unless entry&.include?('tab: "Appearance"')
 end
@@ -510,8 +510,8 @@ end
 activation_source = <<~'SWIFT'
 import Foundation
 struct PreviewWindowIdentity: Hashable { let id: Int; init(_ w: Window) { id = w.id } }
-enum Key { case spacesBarActivateAppIcons }
-enum Defaults { static var enabled = true; static subscript(_ key: Key) -> Bool { enabled } }
+enum Key { case spacesBarActivateAppIcons, spacesBarShowAppIcons }
+enum Defaults { static var enabled = true, iconsVisible = true; static subscript(_ key: Key) -> Bool { key == .spacesBarShowAppIcons ? iconsVisible : enabled } }
 enum NSSound { static var beeps = 0; static func beep() { beeps += 1 } }
 final class AppDelegate { var dismissals = 0; func dismissPreviews() { dismissals += 1 } }
 enum NSApp { static var delegate: AnyObject? = AppDelegate() }
@@ -546,7 +546,10 @@ activation_source += <<~'SWIFT'
   Defaults.enabled = false
   await probe.activateSpaceApp(app, in: entry)
   precondition(a.calls == 0 && b.calls == 0)
-  Defaults.enabled = true
+  Defaults.enabled = true; Defaults.iconsVisible = false
+  await probe.activateSpaceApp(app, in: entry)
+  precondition(a.calls == 0 && b.calls == 0, "Hidden icons cannot activate resident windows")
+  Defaults.iconsVisible = true
   await probe.activateSpaceApp(app, in: entry)
   precondition(b.calls == 1 && a.calls == 0 && delegate.dismissals == 1 && b.warps == 1, "Resident order, not cache order, selects the leading target")
   b.success = false
@@ -659,6 +662,7 @@ native_source += <<~'SWIFT'
 struct PillProbe: View {
  let showAnimations = false
  let controlAnimationDuration = 0.1
+ let showAppIcons = true
  let activateAppIcons = false
  let enableMouseHoverInSwitcher = true
  let uniformCardRadius = true
@@ -939,3 +943,7 @@ Dir.mktmpdir('dockfork-space-visits-') do |dir|
  abort 'Space history compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
  abort 'Space history checks failed' unless system("#{dir}/checks")
 end
+
+abort 'Hidden Space icons must reserve no app width or render overflow' unless panel.include?('CGFloat(Defaults[.spacesBarShowAppIcons] ? entry.apps.count : 0)') && bar.include?('let apps = showAppIcons ? entry.apps : []') && bar.include?('total: apps.count, availableWidth: iconRoom') && bar.include?('count < apps.count')
+abort 'Icon activation setting must remain editable with a visibility explanation' unless settings.include?('if !spacesBarShowAppIcons {') && settings.include?('Enable \"Appearance > Spaces Bar > Show app icons in the Spaces Bar\" to use this.') && !settings.include?('.disabled(!spacesBarShowAppIcons)')
+puts 'PASS Space icon visibility: default-on preference wiring, Appearance search/reset, no hidden icon width/overflow and gated activation'

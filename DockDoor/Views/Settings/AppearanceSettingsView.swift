@@ -37,6 +37,7 @@ struct AppearanceSettingsView: View {
 struct SpacesBarAppearanceSection: View {
     @Default(.enableSpacesBar) private var enableSpacesBar
     @Default(.spacesBarItemSize) private var spacesBarItemSize
+    @Default(.spacesBarShowAppIcons) private var spacesBarShowAppIcons
     @Default(.spacesBarLabels) private var spacesBarLabels
     @Default(.spacesBarFixedWidth) private var spacesBarFixedWidth
     @Default(.spacesBarPreferDetails) private var spacesBarPreferDetails
@@ -69,6 +70,8 @@ struct SpacesBarAppearanceSection: View {
                         }
                         .pickerStyle(.menu)
                         .settingsSearchTarget("windowSwitcher.spacesBarItemSize")
+                        Toggle("Show app icons in the Spaces Bar", isOn: $spacesBarShowAppIcons)
+                            .settingsSearchTarget("windowSwitcher.spacesBarShowAppIcons")
                         Picker("Labels", selection: $spacesBarLabels) {
                             Text("Numbers").tag(SpaceMenuDisplayMode.numberOnly)
                             Text("Names").tag(SpaceMenuDisplayMode.fullName)
@@ -108,6 +111,7 @@ struct SpacesBarAppearanceSection: View {
             }
         }
         .onChange(of: spacesBarItemSize) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
+        .onChange(of: spacesBarShowAppIcons) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
         .onChange(of: spacesBarLabels) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
         .onChange(of: spacesBarFixedWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
         .onChange(of: spacesBarPreferDetails) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }

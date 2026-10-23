@@ -425,6 +425,7 @@ struct SpacesBarView: View {
     @Default(.showAnimations) private var showAnimations
     @Default(.trafficLightTransitionDuration) private var controlAnimationDuration
     @Default(.enableMouseHoverInSwitcher) private var enableMouseHoverInSwitcher
+    @Default(.spacesBarShowAppIcons) private var showAppIcons
     @Default(.spacesBarActivateAppIcons) private var activateAppIcons
     @Default(.uniformCardRadius) private var uniformCardRadius
     @Default(.hidePreviewCardBackground) private var hideCardBackground
@@ -518,8 +519,9 @@ struct SpacesBarView: View {
         let titleWidth = min(max(0, width - SpacesBarLayout.horizontalInset * 2 - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0)), max(SpacesBarLayout.minimumLabelWidth, ceil((title as NSString).size(withAttributes: [.font: font]).width) + 2))
         let titleParts = SpacesBarLayout.titleParts(width: titleWidth, filtered: filteredSpace == entry.id, spacing: SpacesBarAppLayout.spacing)
         let iconRoom = max(0, width - titleWidth - SpacesBarLayout.horizontalInset * 2 - SpacesBarAppLayout.spacing - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0))
+        let apps = showAppIcons ? entry.apps : []
         let fittedCount = AppIconStripFormatting.visibleCount(
-            total: entry.apps.count, availableWidth: iconRoom, iconSize: SpacesBarAppLayout.iconSize,
+            total: apps.count, availableWidth: iconRoom, iconSize: SpacesBarAppLayout.iconSize,
             font: font, spacing: SpacesBarAppLayout.spacing
         )
         let count = fittedCount ?? 0
@@ -553,7 +555,7 @@ struct SpacesBarView: View {
                 .frame(width: titleWidth, height: ceil(font.ascender - font.descender + font.leading), alignment: .leading)
                 .clipped()
                 .previewControlVisibilityAnimation(isVisible: filteredSpace == entry.id, duration: controlAnimationDuration, animationsEnabled: showAnimations)
-                ForEach(Array(entry.apps.prefix(count).enumerated()), id: \.element.application.processIdentifier) { _, app in
+                ForEach(Array(apps.prefix(count).enumerated()), id: \.element.application.processIdentifier) { _, app in
                     let icon = PreviewAppIcon(icon: app.application.icon, bundleURL: app.application.bundleURL,
                                               size: SpacesBarAppLayout.iconSize, showBadge: showBadges,
                                               badgeScale: badgeScale, mockPreviewActive: false)
@@ -574,7 +576,7 @@ struct SpacesBarView: View {
                         icon.allowsHitTesting(false)
                     }
                 }
-                if fittedCount != nil, count < entry.apps.count { Text("+\(entry.apps.count - count)").foregroundStyle(.secondary).allowsHitTesting(false) }
+                if fittedCount != nil, count < apps.count { Text("+\(apps.count - count)").foregroundStyle(.secondary).allowsHitTesting(false) }
             }
             .font(SpacesBarLayout.font)
             .padding(.horizontal, SpacesBarLayout.horizontalInset)

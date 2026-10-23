@@ -1104,6 +1104,7 @@ enum SettingsSearchCatalog {
     // MARK: - Appearance
 
     private static let appearanceItems: [SettingsSearchItem] = [
+        SettingsSearchItem(id: "windowSwitcher.spacesBarShowAppIcons", title: String(localized: "Show app icons in the Spaces Bar"), keywords: ["spaces", "bar", "icons", "hide"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "app"),
         SettingsSearchItem(id: "windowSwitcher.spacesBarItemSize", title: String(localized: "Item Size"), keywords: ["spaces", "bar", "size", "icons", "text"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
         SettingsSearchItem(id: "windowSwitcher.spacesBarLabels", title: String(localized: "Labels"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
         SettingsSearchItem(id: "windowSwitcher.spacesBarFixedWidth", title: String(localized: "Pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),

@@ -853,6 +853,7 @@ extension Defaults.Keys {
     static let spacesBarCycleOpensSwitcher = Key<Bool>("spacesBarCycleOpensSwitcher", default: false)
     static let spacesBarFilterWindows = Key<Bool>("spacesBarFilterWindows", default: false)
     static let spacesBarStartOnNext = Key<Bool>("spacesBarStartOnNext", default: true)
+    static let spacesBarShowAppIcons = Key<Bool>("spacesBarShowAppIcons", default: true)
     static let spacesBarActivateAppIcons = Key<Bool>("spacesBarActivateAppIcons", default: false)
     static let spacesBarLabels = Key<SpaceMenuDisplayMode>("spacesBarLabels", default: .numberOnly)
     static let spacesBarFixedWidth = Key<Bool>("spacesBarFixedWidth", default: false)
