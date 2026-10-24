@@ -186,7 +186,7 @@ struct Row: View {
   .padding(.vertical, 8)
   .frame(width: 400, height: 80, alignment: .leading)
 SWIFT
-native_source += compact_background + "\n"
+native_source += compact_background + "\n  .opacity(0.25)\n"
 native_source += <<~'SWIFT'
   .background {
    RoundedRectangle(cornerRadius: 8).fill(.regularMaterial).padding(.horizontal, -CardRadius.innerPadding)
@@ -246,4 +246,113 @@ Dir.mktmpdir('dockfork-compact-drag-') do |dir|
   File.write("#{dir}/checks.swift", native_source)
   abort 'Compact drag fixture compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
   abort 'Compact drag checks failed' unless system("#{dir}/checks")
+end
+
+opacity = '.opacity(isHighlighted || isChecked ? 1.0 : appearance.unselectedContentOpacity)'
+abort 'Compact opacity must affect contents before shared chrome, not the entire card' unless compact_body.scan(opacity).size == 1 && compact_body.index(opacity) < compact_body.index('.previewCardChrome(')
+chrome_start = compact_body.index('            .previewCardChrome(')
+opening = compact_body.index('(', chrome_start)
+depth = 0
+chrome_end = (opening...compact_body.length).find do |i|
+  depth += 1 if compact_body[i] == '('
+  depth -= 1 if compact_body[i] == ')'
+  depth.zero?
+end
+chrome_call = compact_body[chrome_start..chrome_end]
+chrome = File.read("#{root}/DockDoor/Components/dockStyle.swift")
+view_helpers = File.read("#{root}/DockDoor/Extensions/View.swift")
+render_source = <<~'SWIFT'
+import AppKit
+import SwiftUI
+enum Defaults {
+ struct Key<T> { let value:T }
+ static subscript<T>(_ key:Key<T>)->T {key.value}
+}
+extension Defaults.Key where T == Double {
+ static let previewCornerRadius = Self(value:8)
+ static let globalPaddingMultiplier = Self(value:1)
+}
+extension Defaults.Key where T == Bool { static let uniformCardRadius = Self(value:true) }
+@propertyWrapper struct Default<T> {
+ let wrappedValue:T
+ init(_ key:Defaults.Key<T>){wrappedValue=key.value}
+}
+struct BackgroundAppearance {let color:Color}
+struct BlurView: View {
+ let cornerRadius:Double
+ let appearance:BackgroundAppearance
+ var body:some View {appearance.color}
+}
+SWIFT
+render_source += block(chrome, 'enum CardRadius {') + "\n" + block(chrome, 'private struct PreviewCardChromeModifier:') + "\n"
+render_source += block(view_helpers, 'enum BorderedBackgroundMetrics {') + "\n"
+render_source += "extension View {\n" + block(chrome, '    func previewCardChrome(') + "\n"
+render_source += block(view_helpers, '    func borderedBackground(_ content: some ShapeStyle, lineWidth: CGFloat = 1.0, shape:') + "\n"
+render_source += block(view_helpers, '    func borderedBackground(_ content: some ShapeStyle, lineWidth: CGFloat = 1.0, cornerRadius:') + "\n}\n"
+render_source += <<~'SWIFT'
+struct Appearance {
+ let unselectedContentOpacity:Double
+ let hidePreviewCardBackground:Bool
+ let globalPaddingMultiplier:CGFloat = 1
+ let hoverHighlightColor:Color? = .blue
+ let selectionOpacity:Double = 0.4
+ let activeAppIndicatorColor:Color = .green
+}
+struct CardProbe:View {
+ let appearance:Appearance
+ let isHighlighted:Bool
+ let isChecked:Bool
+ let isActiveWindow:Bool
+ let backgroundAppearance:BackgroundAppearance
+ let uniformCardRadius=true
+ var body:some View {
+  HStack {Color.red.frame(width:16,height:16);Spacer(minLength:0)}
+   .frame(width:160,height:48)
+SWIFT
+render_source += "   #{opacity}\n" + chrome_call + "\n"
+render_source += <<~'SWIFT'
+   .padding(.horizontal,CardRadius.innerPadding)
+ }
+}
+@main struct MaterialChecks {
+ @MainActor static func render(dim:Double,hidden:Bool,selected:Bool,checked:Bool,active:Bool,outerHidden:Bool,dark:Bool,custom:Bool)->NSBitmapImageRep {
+  let surface:Color=custom ? Color(red:0.3,green:0.2,blue:0.6):Color(white:dark ? 0.2:0.8)
+  let card=CardProbe(appearance:Appearance(unselectedContentOpacity:dim,hidePreviewCardBackground:hidden),isHighlighted:selected,isChecked:checked,isActiveWindow:active,backgroundAppearance:BackgroundAppearance(color:surface))
+   .background(outerHidden ? Color.clear:Color(white:dark ? 0.1:0.95))
+   .environment(\.colorScheme,dark ? .dark:.light)
+  let renderer=ImageRenderer(content:card)
+  renderer.scale=1
+  return NSBitmapImageRep(cgImage:renderer.cgImage!)
+ }
+ static func components(_ image:NSBitmapImageRep,_ x:Int,_ y:Int)->[CGFloat] {
+  let color=image.colorAt(x:x,y:y)!.usingColorSpace(.deviceRGB)!
+  return [color.redComponent,color.greenComponent,color.blueComponent,color.alphaComponent]
+ }
+ static func difference(_ first:[CGFloat],_ second:[CGFloat])->CGFloat {zip(first,second).map{abs($0-$1)}.max()!}
+ @MainActor static func main() {
+  _=NSApplication.shared
+  var cases=0
+  for dark in [false,true] {for custom in [false,true] {for outer in [false,true] {for hidden in [false,true] {for active in [false,true] {for (selected,checked) in [(false,false),(true,false),(false,true)] {
+   let original=render(dim:1,hidden:hidden,selected:selected,checked:checked,active:active,outerHidden:outer,dark:dark,custom:custom)
+   let dimmed=render(dim:0.2,hidden:hidden,selected:selected,checked:checked,active:active,outerHidden:outer,dark:dark,custom:custom)
+   precondition(original.pixelsWide==dimmed.pixelsWide && original.pixelsHigh==dimmed.pixelsHigh)
+   for x in [2,100] {
+    precondition(difference(components(original,x,24),components(dimmed,x,24))<0.01,"Material/highlight/border must not be dimmed with content")
+   }
+   let delta=difference(components(original,14,24),components(dimmed,14,24))
+   if selected || checked {precondition(delta<0.01,"Selected/checked content must remain full strength")}
+   else {precondition(delta>0.1,"Unselected content must retain configured dimming")}
+   if outer && hidden {
+    precondition(components(dimmed,100,24)[3]<0.01,"Hiding both backgrounds must remain transparent")
+   }
+   cases+=1
+  }}}}}}
+  print("PASS shared Compact chrome opacity: \(cases) light/dark, custom fill, outer/card visibility, active, selected and checked raster cases; production chrome with deterministic material fill, not native glass certification")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-compact-opacity-') do |dir|
+  File.write("#{dir}/checks.swift",render_source)
+  abort 'Compact chrome fixture compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+  abort 'Compact chrome checks failed' unless system("#{dir}/checks")
 end

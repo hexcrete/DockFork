@@ -206,6 +206,7 @@ struct WindowPreviewCompact: View, Equatable {
                     .gesture(previewBodyDrag)
                     .padding(.horizontal, -CardRadius.innerPadding)
             }
+            .opacity(isHighlighted || isChecked ? 1.0 : appearance.unselectedContentOpacity)
             .previewCardChrome(
                 uniformCardRadius: uniformCardRadius,
                 paddingMultiplier: appearance.globalPaddingMultiplier,
@@ -218,7 +219,6 @@ struct WindowPreviewCompact: View, Equatable {
                 activeBorderColor: appearance.activeAppIndicatorColor,
                 backgroundAppearance: backgroundAppearance
             )
-            .opacity(isHighlighted || isChecked ? 1.0 : appearance.unselectedContentOpacity)
             .externalDragSpringLoading(
                 windowInfo: windowInfo,
                 index: index,

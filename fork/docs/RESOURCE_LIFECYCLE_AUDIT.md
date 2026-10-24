@@ -446,3 +446,11 @@ Spaces Bar delegates its seven surviving sizes to Compact Mode height/font metri
 Stage 1 validation: eighteen suites, format/syntax/diff checks and signed development build/relaunch pass. Strict installed signature, binary/source comparisons and exact running-path checks pass. Tests cover nominal heights, typography, smaller icon proportions and read-only fallback resolution; the pinned Defaults bridge/getter was source-audited separately. No live preference change, working-window mutation or profiling. Manual verification remains pending before commit/continuation.
 
 Stage 1 user verification and final source review passed October 24. The tested source/signature/running-path match is confirmed again; no additional resource or production change is needed before commit. Stage 2 remains a separate presentation-only change.
+
+## Compact Opacity Candidate, October 24
+
+Move the existing content-opacity modifier ahead of shared card chrome. No new view state, setting, material pipeline, observer, timer, allocation owner or AX/discovery/capture work is introduced. Existing Compact layout/hit geometry and regular-card opacity are unchanged. Native dimmed-row input checks use owned panels; 96 raster combinations test production chrome composition with deterministic fill, not native glass appearance or performance. Stage 2 awaits manual verification; Stage 3 drag resources are unchanged.
+
+Stage 2 checks: focused Compact tests and seventeen suites pass. The unchanged native popup fade-in fixture fails in the broad run and isolated retry, matching the previously documented baseline failure; it is not certified or repaired here. Format/syntax/diff checks and signed development build pass. Exact-path retry recovers a -600 launch error; installed signature, binary/source and running-path checks pass. Scoped cleanup preserves Release packages. No profiling or physical material certification is claimed.
+
+Stage 2 user verification and final source review passed October 24. No added material/blur/shadow/highlight pipeline, resource handler or production change is needed after the tested modifier reorder. Installed source/signature/running correspondence is verified again. Drag-card resources remain a separate Stage 3.

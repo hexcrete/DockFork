@@ -138,3 +138,5 @@ Fullscreen gap-validity follow-up belongs in the shared resolver, not separate U
 Directional-fix review confirms the shared boundary is sufficient; keep mirrored-order and nonsequential-ID regressions with an extracted fix. No additional UI-side exception or unrelated change is required.
 
 Shared card-size work must remain three focused changes: Space size parity, Compact content-versus-chrome opacity, then source-styled drag ghosts. Preserve Defaults keys/defaults and surviving raw values; removed fork-only Space sizes use normal fallback, without migration. Keep shared metrics and their measurement/geometry tests together rather than copying numeric tables into Space rendering. Fork records/presets/identity remain excluded; no upstream submission is made.
+
+Compact opacity is a separate modifier-order fix using existing shared chrome, not a new material renderer. Keep its input/opacity regressions when extracting it; do not include the unrelated Space-size or pending drag-ghost changes. Deterministic-fill render checks are not a substitute for native glass/blur review in Xcode and on the user's Mac.
