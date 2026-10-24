@@ -2066,6 +2066,8 @@ class KeybindHelper {
            snapshot.isWindowSwitcherActive,
            Defaults[.enableWindowSwitcherSearch],
            keyCode == Int64(Defaults[.searchTriggerKey]),
+           WindowSwitcherShortcutResolver.searchTriggerConflict(previewKeybind: effectivePreviewShortcutKeybind(), mainKeybind: keyBoardShortcutSaved) == nil,
+           WindowSwitcherShortcutResolver.normalizedModifiers(Int(flags.rawValue)) == 0 || modifierFlagsMatch(effectivePreviewShortcutKeybind(), flags: flags),
            !snapshot.isSearchFocused
         {
             return (true, { @MainActor in

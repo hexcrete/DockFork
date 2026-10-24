@@ -154,13 +154,20 @@ enum Defaults {
  struct Key<T> { let read:()->T }
  static subscript<T>(_ key:Key<T>)->T {key.read()}
  static var forward:UInt16 = .max, backward:UInt16 = .max
+ static var search:UInt16 = 44
+ static var bar = false, vim = false
  static var previews:[UserKeyBind]=[], alternates:[UserKeyBind]=[], persistent:[GlobalShortcut]=[], last:[GlobalShortcut]=[]
 }
 extension Defaults.Key where T == UInt16 {
  static var spacesBarCycleKey:Self{Self(read:{Defaults.forward})}
  static var spacesBarBackwardCycleKey:Self{Self(read:{Defaults.backward})}
+ static var searchTriggerKey:Self{Self(read:{Defaults.search})}
  static var switcherBackwardKeyCode:Self{Self(read:{56})}
  static var windowSwitcherSelectionKeyCode:Self{Self(read:{36})}
+}
+extension Defaults.Key where T == Bool {
+ static var enableSpacesBar:Self{Self(read:{Defaults.bar})}
+ static var enableVimMotions:Self{Self(read:{Defaults.vim})}
 }
 extension Defaults.Key where T == [UserKeyBind] {
  static var cmdShortcuts:Self{Self(read:{Defaults.previews})}
@@ -180,8 +187,8 @@ enum WindowSwitcherShortcutResolver {
  static func resolvedPersistentShortcuts(_ shortcuts:[GlobalShortcut],mainKeybind:UserKeyBind,alternateShortcuts:[UserKeyBind],previewShortcuts:[UserKeyBind])->[GlobalShortcut]{shortcuts}
  static func resolvedLastFocusedShortcuts(_ shortcuts:[GlobalShortcut],mainKeybind:UserKeyBind,alternateShortcuts:[UserKeyBind],persistentShortcuts:[GlobalShortcut],previewShortcuts:[UserKeyBind])->[GlobalShortcut]{shortcuts}
 SWIFT
-%w[spaceCycleConflict combinationsMatch sidesOverlap normalizedModifiers].each do |name|
-  signature = name == 'combinationsMatch' || name == 'sidesOverlap' ? "    private static func #{name}(" : "    static func #{name}("
+%w[spaceCycleConflict searchTriggerConflict dependentKeyConflict combinationsMatch sidesOverlap normalizedModifiers].each do |name|
+  signature = %w[dependentKeyConflict combinationsMatch sidesOverlap].include?(name) ? "    private static func #{name}(" : "    static func #{name}("
   conflicts += block(constants, signature) + "\n"
 end
 conflicts += <<~'SWIFT'
@@ -211,6 +218,22 @@ conflicts += <<~'SWIFT'
  check(4,nil)
  check(4,.duplicate,backward:true)
  check(2,nil,keybind:UserKeyBind(keyCode:48,modifierFlags:Int(CGEventFlags.maskCommand.rawValue)))
+ Defaults.previews=[];Defaults.alternates=[];Defaults.persistent=[];Defaults.last=[]
+ func search(_ code:UInt16,_ expected:AlternateSwitcherShortcutConflict?,side:ModifierKeySide = .either) {
+  Defaults.search=code
+  let keybind=UserKeyBind(keyCode:48,modifierFlags:main.modifierFlags,modifierSide:side)
+  precondition(WindowSwitcherShortcutResolver.searchTriggerConflict(previewKeybind:keybind,mainKeybind:main)==expected)
+ }
+ search(44,nil);search(48,.duplicate);search(UInt16(kVK_LeftArrow),.duplicate)
+ WindowSwitcherShortcutResolver.spacesReserved=true;search(18,.spacesShortcut);WindowSwitcherShortcutResolver.spacesReserved=false
+ Defaults.previews=[UserKeyBind(keyCode:0,modifierFlags:main.modifierFlags)];search(0,.previewAction);Defaults.previews=[]
+ Defaults.alternates=[UserKeyBind(keyCode:1,modifierFlags:main.modifierFlags,modifierSide:.left)]
+ search(1,.duplicate,side:.left);search(1,nil,side:.right);search(1,.duplicate,side:.either);Defaults.alternates=[]
+ Defaults.persistent=[GlobalShortcut(keyCode:2,modifierFlags:main.modifierFlags)];search(2,.duplicate);Defaults.persistent=[]
+ Defaults.last=[GlobalShortcut(keyCode:3,modifierFlags:main.modifierFlags)];search(3,.duplicate);Defaults.last=[]
+ Defaults.forward=4;Defaults.backward=5;Defaults.bar=true;search(4,.duplicate);search(5,.duplicate)
+ Defaults.bar=false;search(4,nil)
+ Defaults.vim=true;search(UInt16(kVK_ANSI_H),.duplicate);Defaults.vim=false;search(UInt16(kVK_ANSI_H),nil)
  print("PASS production Space-cycle conflict policy: unassigned, reserved/navigation, numbered Spaces, preview actions, alternate/persistent/last-focused bindings, duplicates and modifier sides/session modifiers")
  }
 }
@@ -552,3 +575,8 @@ Dir.mktmpdir('dockfork-spaces-swipe-ownership-') do |dir|
  abort 'Swipe ownership compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
  abort 'Swipe ownership checks failed' unless system("#{dir}/checks")
 end
+
+search_section = File.read("#{root}/DockDoor/Views/Settings/Gestures/WindowSwitcherKeybindSection.swift")
+abort 'Search settings must share dependent modifier-side resolution and conflict warnings' unless search_section.include?('ignoreModifierSide: ignoreMainModifierSideForDependentShortcuts') && search_section.include?('Text(modifierConverter.toSymbol(searchShortcutKeybind))') && search_section.include?('if let conflict = searchShortcutConflict')
+search_route = keybinds[keybinds.index('keyCode == Int64(Defaults[.searchTriggerKey])')...keybinds.index('self.previewCoordinator.focusSearchWindow()', keybinds.index('keyCode == Int64(Defaults[.searchTriggerKey])'))]
+abort 'Search trigger must share runtime conflict policy and allow bare typing or the effective side-aware modifier' unless search_route.include?('WindowSwitcherShortcutResolver.searchTriggerConflict(previewKeybind: effectivePreviewShortcutKeybind()') && search_route.include?('normalizedModifiers(Int(flags.rawValue)) == 0 || modifierFlagsMatch(effectivePreviewShortcutKeybind(), flags: flags)')

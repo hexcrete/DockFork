@@ -331,13 +331,26 @@ enum WindowSwitcherShortcutResolver {
 
     static func spaceCycleConflict(backward: Bool, previewKeybind: UserKeyBind, mainKeybind: UserKeyBind) -> AlternateSwitcherShortcutConflict? {
         let key = backward ? Defaults[.spacesBarBackwardCycleKey] : Defaults[.spacesBarCycleKey]
+        if let conflict = dependentKeyConflict(key, previewKeybind: previewKeybind, mainKeybind: mainKeybind) { return conflict }
+        return backward && key != .max && key == Defaults[.spacesBarCycleKey] ? .duplicate : nil
+    }
+
+    static func searchTriggerConflict(previewKeybind: UserKeyBind, mainKeybind: UserKeyBind) -> AlternateSwitcherShortcutConflict? {
+        let key = Defaults[.searchTriggerKey]
+        if let conflict = dependentKeyConflict(key, previewKeybind: previewKeybind, mainKeybind: mainKeybind) { return conflict }
+        if Defaults[.enableSpacesBar], key != .max,
+           key == Defaults[.spacesBarCycleKey] || key == Defaults[.spacesBarBackwardCycleKey] { return .duplicate }
+        if Defaults[.enableVimMotions], [UInt16(kVK_ANSI_H), UInt16(kVK_ANSI_J), UInt16(kVK_ANSI_K), UInt16(kVK_ANSI_L)].contains(key) { return .duplicate }
+        return nil
+    }
+
+    private static func dependentKeyConflict(_ key: UInt16, previewKeybind: UserKeyBind, mainKeybind: UserKeyBind) -> AlternateSwitcherShortcutConflict? {
         guard key != .max else { return nil }
         if conflictsWithSpacesShortcut(keyCode: key, modifierFlags: previewKeybind.modifierFlags,
                                        modifierSide: previewKeybind.modifierSide, mainKeybind: mainKeybind)
         {
             return .spacesShortcut
         }
-        if backward, key == Defaults[.spacesBarCycleKey] { return .duplicate }
         let reserved = [UInt16(kVK_Tab), UInt16(kVK_Escape), UInt16(kVK_Return), UInt16(kVK_ANSI_KeypadEnter),
                         UInt16(kVK_LeftArrow), UInt16(kVK_RightArrow), UInt16(kVK_UpArrow), UInt16(kVK_DownArrow),
                         Defaults[.switcherBackwardKeyCode], Defaults[.windowSwitcherSelectionKeyCode]]

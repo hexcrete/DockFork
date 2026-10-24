@@ -441,3 +441,7 @@ The user verified the Space-pill menus. Media capture and exhaustive original-me
 Cross-display Shift: drag left-to-right and right-to-left into gaps on another display and use Shift Contents from its native menu. Verify global sequential rotation, arrows, equivalent end/start display-boundary gaps, fullscreen-adjacent refusal and unchanged window state/geometry policy. Check the shared AppleScript command with a destination on another display. Use disposable windows; no capture or native mutation test is claimed yet.
 
 The user verified cross-display Shift. Final review additionally hardened stale topology against inserted displays/slots; native fault injection, script-specific execution and media capture remain unclaimed.
+
+Search shortcut follow-up: collide Search Trigger Key with a preview action, a Space-cycle key and a numbered-Space shortcut; capture the standard warning and verify the existing route wins. Change each binding back and verify the warning clears. In a persistent switcher, compare Left/Right modifier behavior with Ignore modifier key side Off/On; compare an alternate initializer and bare-key focus. Verify normal typing/navigation remain unchanged. Capture/manual verification pending.
+
+The user verified the search shortcut's glyph presentation. Exhaustive conflict/physical-side/alternate-session combinations and media capture remain unclaimed.

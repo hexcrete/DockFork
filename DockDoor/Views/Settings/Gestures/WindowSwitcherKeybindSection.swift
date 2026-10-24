@@ -14,6 +14,9 @@ struct WindowSwitcherKeybindSection: View {
     @Default(.cmdShortcuts) private var cmdShortcuts
     @Default(.UserKeybind) private var mainKeybind
     @Default(.enableSpacesShortcuts) private var enableSpacesShortcuts
+    @Default(.enableSpacesBar) private var enableSpacesBar
+    @Default(.spacesBarCycleKey) private var spacesBarCycleKey
+    @Default(.spacesBarBackwardCycleKey) private var spacesBarBackwardCycleKey
     @Default(.requireShiftTabToGoBack) var requireShiftTabToGoBack
     @Default(.ignoreMainModifierSideForDependentShortcuts) private var ignoreMainModifierSideForDependentShortcuts
     @Default(.switcherBackwardKeyCode) var switcherBackwardKeyCode
@@ -26,6 +29,17 @@ struct WindowSwitcherKeybindSection: View {
     @StateObject private var keybindModel = KeybindModel()
     @State private var showingAddBlacklistAppSheet = false
     @State private var newBlacklistApp = ""
+
+    private var searchShortcutKeybind: UserKeyBind {
+        WindowSwitcherShortcutResolver.dependentShortcutKeybind(mainKeybind, ignoreModifierSide: ignoreMainModifierSideForDependentShortcuts)
+    }
+
+    private var searchShortcutConflict: AlternateSwitcherShortcutConflict? {
+        let _ = (cmdShortcuts, alternateSwitcherShortcuts, persistentSwitcherShortcuts, lastFocusedWindowShortcuts,
+                 enableSpacesShortcuts, enableSpacesBar, spacesBarCycleKey, spacesBarBackwardCycleKey,
+                 switcherBackwardKeyCode, selectionKeyCode, enableVimMotions, searchTriggerKey)
+        return WindowSwitcherShortcutResolver.searchTriggerConflict(previewKeybind: searchShortcutKeybind, mainKeybind: mainKeybind)
+    }
 
     var body: some View {
         SettingsGroup(header: "Window Switcher Shortcuts") {
@@ -137,15 +151,14 @@ struct WindowSwitcherKeybindSection: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
 
-                        HStack(spacing: 12) {
-                            Text(modifierConverter.toString(mainKeybind))
-                                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        HStack(spacing: 4) {
+                            Text(modifierConverter.toSymbol(searchShortcutKeybind))
+                                .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.secondary)
-                            Text("+")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-
                             KeyCaptureButton(keyCode: $searchTriggerKey)
+                        }
+                        if let conflict = searchShortcutConflict {
+                            Text(conflict.localizedMessage).font(.caption2).foregroundStyle(.red)
                         }
                     }
                     .settingsSearchTarget("gestures.searchTriggerKey")
