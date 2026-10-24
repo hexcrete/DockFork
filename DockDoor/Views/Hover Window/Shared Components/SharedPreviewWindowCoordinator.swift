@@ -614,7 +614,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             windowSwitcherCoordinator.isDraggingPreview = true
             panel.viewport.draggedSpaceID = source
             if let session = contentsDragSession {
-                DragPreviewCoordinator.shared.startSpaceDragging(title: session.title, at: pointer, token: session.token)
+                DragPreviewCoordinator.shared.startSpaceDragging(title: session.title, style: .spacesBar(backgroundAppearance: .resolve()), at: pointer, token: session.token)
             }
             positionSpacesBar(relativeTo: frame)
         }

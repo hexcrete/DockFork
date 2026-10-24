@@ -270,6 +270,7 @@ SWIFT
 
 layout = block(bar, 'enum SpacesBarLayout {')
 layout = layout.lines.reject { |line| line.include?('static var font:') || line.include?('static var headingFont:') || line.include?('static var headingTextFont:') || line.include?('static var headingHeight:') }.join
+source += block(bar, 'struct SpacePillMetrics {') + "\n"
 source += layout.sub("enum SpacesBarLayout {", "enum SpacesBarLayout {\n static var headingHeight: CGFloat { 14 * scale }") + "\n"
 source += block(bar, 'enum SpacesBarAppLayout {') + "\n"
 source += block(state, '    enum SpaceNavigationRequest:') + "\n"
@@ -308,7 +309,7 @@ source += <<~'SWIFT'
    let scale = size.scale
    precondition(abs(SpacesBarLayout.pillHeight - 40 * scale) < 0.001)
    precondition(abs(SpacesBarAppLayout.iconSize - 24 * scale) < 0.001)
-   precondition(abs(SpacesBarAppLayout.countFontSize - 9 * scale) < 0.001)
+   precondition(abs(SpacePillMetrics(height:SpacesBarLayout.pillHeight).countFontSize - 9 * scale) < 0.001)
    precondition(abs(SpacesBarAppLayout.spacing - 6 * scale) < 0.001)
    precondition(SpacesBarLayout.minimumPillWidth >= SpacesBarLayout.pillHeight)
    let label = SpacesBarLayout.labelWidth(1, fullscreen:false) - SpacesBarLayout.horizontalInset * 2
@@ -662,6 +663,7 @@ native_source += "enum AppIconStripFormatting {\n" + block(preview, '    static 
 native_source += "extension SpacesBarLayout {\n" + block(bar, '    static func titleInset(') + "\n" + block(bar, '    static func pinnedTitleOffset(') + "\n}\n"
 native_source += "enum Defaults { struct Key<T> { let value:T }; static var size = SpacesBarItemSize.small; static subscript<T>(_ key:Key<T>)->T {key.value} }\nextension Defaults.Key where T == SpacesBarItemSize {static var spacesBarItemSize: Self {Self(value:Defaults.size)}}\n"
 native_source += "final class PreviewStateCoordinator { weak var spaceDragViewport: SpacesBarScroll.ViewportView? }\n"
+native_source += block(bar, 'struct SpacePillMetrics {')+"\n"+block(bar, 'private struct AppWindowCountSubscript:')+"\nextension View {\n"+block(bar, '    func appWindowCount(')+"\n}\n"
 native_source += block(bar, 'enum SpacesBarAppLayout {') + "\n"
 native_source += block(File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedHoverAppTitle.swift"), 'struct PreviewAppIcon:') + "\n"
 native_source += <<~'SWIFT'
@@ -727,7 +729,7 @@ struct PillProbe: View {
 SWIFT
 native_source += block(bar, '    private func pill(') + "\n}\n"
 native_source += "struct AppSlotProbe: View {\n let count: Int\n let showBadges = false\n let badgeScale: CGFloat = 1\n var body: some View {\n  let app = ManagedSpacePresentation.App(application:NSRunningApplication.current,windowCount:count)\n"
-native_source += "                    PreviewAppIcon(icon: app.application.icon, bundleURL: app.application.bundleURL,\n                                   size: SpacesBarAppLayout.iconSize, showBadge: showBadges,\n                                   badgeScale: badgeScale, mockPreviewActive: false)\n                        .overlay(alignment: .bottomTrailing) {\n                            if app.windowCount > 1 {\n                                Text(\"\(app.windowCount)\")\n                                    .font(.system(size: SpacesBarAppLayout.countFontSize, weight: .bold))\n                                    .foregroundStyle(.primary)\n                                    .offset(x: 2, y: 4)\n                            }\n                        }\n    " + "\n }\n}\n"
+native_source += " PreviewAppIcon(icon:app.application.icon,bundleURL:app.application.bundleURL,size:SpacesBarAppLayout.iconSize,showBadge:showBadges,badgeScale:badgeScale,mockPreviewActive:false).appWindowCount(app.windowCount,height:SpacesBarLayout.pillHeight)\n }\n}\n"
 native_source += "enum HoverContainerPadding { static let container: CGFloat = 24; static let dockStyleOuter: CGFloat = 2 }\n"
 native_source += "enum SharedPreviewWindowCoordinator { struct Instance { let spacesBarReservation: CGFloat = 1 }; static let activeInstance: Instance? = Instance() }\n"
 native_source += "class SearchWindow: NSPanel { static let searchWidth: CGFloat = 300; static let searchHeight: CGFloat = 40; static let panelEdgeOffset: CGFloat = -4\n" + block(bar, '    func targetFrame(relativeTo frame:') + "\n}\n"
@@ -1449,7 +1451,7 @@ abort 'Missing content script dictionary entries' unless sdef.include?('name="mo
 puts 'PASS content integration: Sequential-only gaps, topology/teardown cleanup, aggregate per-window feedback, shared script executor and existing bounded single-reply lifecycle'
 
 drag_ghost = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/DragPreviewCoordinator.swift")
-abort 'Space label and window group must share the card styling implementation' unless drag_ghost.scan('.previewDragCard()').size==2 && block(drag_ghost,'    func previewDragCard(').include?('.dockStyle(backgroundAppearance: .resolve(), cornerRadius: 12)')
+abort 'Space label and window group must share the card styling implementation' unless drag_ghost.scan('.previewDragCard(style, width: width)').size==2 && block(drag_ghost,'    func previewDragCard(').include?('.previewCardChrome(') && !block(drag_ghost,'    func previewDragCard(').include?('.dockStyle(')
 abort 'Space drag label updates must be token-owned and measured only on content changes' unless block(drag_ghost,'    func updateSpaceLabel(').include?('guard spaceLabel != content else { return }') && block(drag_ghost,'    func endDragging(').include?('spaceLabelView = nil')
 abort 'Symbols must follow both pointer and cached-target changes without discovery' unless panel.include?('contentsTargetChanged: { [weak self] target in self?.updateContentsDragSymbol(target) }') && block(panel,'    private func updateContentsDragSymbol(').include?('displays: session.displays')
 puts 'PASS Space drag label: common group chrome, token cleanup, change-only sizing and cached target glyph updates'
@@ -1457,3 +1459,11 @@ puts 'PASS Space drag label: common group chrome, token cleanup, change-only siz
 abort 'Space item size default/key must remain unchanged' unless File.read("#{root}/DockDoor/consts.swift").include?('Key<SpacesBarItemSize>("spacesBarItemSize", default: .small)')
 abort 'Space pill height must share Compact Mode row-height metrics directly' unless bar.include?('static var pillHeight: CGFloat { Defaults[.spacesBarItemSize].rowHeight }')
 puts 'PASS Space size parity: seven shared heights/fonts, smaller icon proportions, stable stored values and read-only removed-value fallback'
+abort 'Window groups must snapshot the initiating mode appearance' unless File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift").include?('cardStyle: .compact(appearance: resolvedAppearance, uniformCardRadius: uniformCardRadius, backgroundAppearance: backgroundAppearance)')
+abort 'Group snapshots must aggregate apps before fitting and load only visible icons' unless block(drag_ghost,'    func startDragging(').include?('let apps = PreviewDragApp.grouped(group)') && block(drag_ghost,'    func startDragging(').include?('apps.prefix(layout.visible).map') && !block(drag_ghost,'struct PreviewDragIcon:').include?('WindowInfo')
+abort 'Space symbol updates must use the captured style, not live settings' unless block(drag_ghost,'    func updateSpaceLabel(').include?('style: previous.style, maximumWidth: previous.maximumWidth')
+puts 'PASS drag presentation wiring: mode-resolved immutable style, shared card chrome, first-seen app grouping, visible-only icon loading, no screenshot payload and token-owned Space label snapshots'
+abort 'Shared subscript must be reused by Space pills and group ghosts' unless bar.include?('.appWindowCount(app.windowCount, height: SpacesBarLayout.pillHeight)') && drag_ghost.include?('.appWindowCount(icon.windowCount, height: style.height)')
+abort 'Drag clipping must precede shared chrome, not cut its edges' unless block(drag_ghost,'    func previewDragCard(').index('.clipped()') < block(drag_ghost,'    func previewDragCard(').index('.previewCardChrome(')
+abort 'Card ghosts must suppress native window shadow without changing image ghosts' unless drag_ghost.scan('at: location, hasShadow: false)').size==2 && drag_ghost.include?('at location: CGPoint, hasShadow: Bool = true)')
+puts 'PASS Space-pill drag polish: shared height-based padding/spacing/subscript, app aggregation, content-only clipping and shadow-free card ghosts'

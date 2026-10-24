@@ -1,4 +1,5 @@
 import AppKit
+import Defaults
 import SwiftUI
 
 struct PreviewDragTarget {
@@ -28,32 +29,156 @@ enum PreviewDragLayout {
     }
 }
 
-enum PreviewDragCardStyle {
-    static let padding: CGFloat = 10
-    static let spacing: CGFloat = 8
+struct PreviewDragCardStyle: Equatable {
+    let height: CGFloat
+    let iconSize: CGFloat
+    let spacing: CGFloat
+    let horizontalInset: CGFloat
+    let verticalPadding: CGFloat
+    let font: Font
+    let textFont: NSFont
+    let uniformCardRadius: Bool
+    let paddingMultiplier: CGFloat
+    let hideBackground: Bool
+    let backgroundAppearance: BackgroundAppearance
+
+    static func compact(appearance: PreviewAppearanceSettings, uniformCardRadius: Bool, backgroundAppearance: BackgroundAppearance) -> Self {
+        let size = appearance.compactModeItemSize
+        let pill = SpacePillMetrics(height: size.rowHeight)
+        return Self(height: size.rowHeight, iconSize: size.iconSize, spacing: pill.spacing,
+                    horizontalInset: pill.horizontalInset, verticalPadding: CompactPreviewCardLayout.verticalPadding,
+                    font: size.primaryFont, textFont: size.primaryAppKitFont, uniformCardRadius: uniformCardRadius,
+                    paddingMultiplier: appearance.globalPaddingMultiplier, hideBackground: appearance.hidePreviewCardBackground,
+                    backgroundAppearance: backgroundAppearance)
+    }
+
+    static func spacesBar(backgroundAppearance: BackgroundAppearance) -> Self {
+        Self(height: SpacesBarLayout.pillHeight, iconSize: SpacesBarAppLayout.iconSize, spacing: SpacesBarAppLayout.spacing,
+             horizontalInset: SpacesBarLayout.horizontalInset, verticalPadding: 0,
+             font: SpacesBarLayout.font, textFont: SpacesBarLayout.textFont, uniformCardRadius: Defaults[.uniformCardRadius],
+             paddingMultiplier: Defaults[.globalPaddingMultiplier], hideBackground: Defaults[.hidePreviewCardBackground],
+             backgroundAppearance: backgroundAppearance)
+    }
+
+    var actionWidth: CGFloat { textFont.pointSize + spacing }
+
+    func groupLayout(total: Int, maximumWidth: CGFloat) -> (visible: Int, width: CGFloat) {
+        let count = AppIconStripFormatting.visibleCount(total: total, availableWidth: maximumWidth - horizontalInset * 2 - actionWidth,
+                                                        iconSize: iconSize, font: textFont, spacing: spacing, maximumVisible: 6) ?? 0
+        let remaining = total - count
+        let suffixWidth = remaining > 0 ? ("+\(remaining)" as NSString).size(withAttributes: [.font: textFont]).width : 0
+        let width = AppIconStripFormatting.width(iconCount: count, iconSize: iconSize, font: textFont, spacing: spacing)
+            + suffixWidth + (remaining > 0 && count > 0 ? spacing : 0) + horizontalInset * 2 + actionWidth
+        return (count, min(maximumWidth, ceil(width)))
+    }
 }
 
 extension View {
-    func previewDragCard() -> some View {
-        padding(PreviewDragCardStyle.padding)
-            .dockStyle(backgroundAppearance: .resolve(), cornerRadius: 12)
+    func previewDragCard(_ style: PreviewDragCardStyle, width: CGFloat) -> some View {
+        let inset = min(style.horizontalInset, width / 2)
+        return frame(width: max(0, width - inset * 2), height: style.height)
+            .padding(.horizontal, inset)
+            .clipped()
+            .previewCardChrome(
+                uniformCardRadius: style.uniformCardRadius, paddingMultiplier: style.paddingMultiplier, expansionEdges: [],
+                hideBackground: style.hideBackground, isHighlighted: false,
+                highlightColor: .accentColor, highlightOpacity: 0, activeBorderColor: .accentColor,
+                backgroundAppearance: style.backgroundAppearance
+            )
+    }
+}
+
+struct PreviewDragApp: Identifiable {
+    let id: String
+    let app: NSRunningApplication
+    var windowCount: Int
+
+    static func grouped(_ windows: [WindowInfo]) -> [Self] {
+        var result: [Self] = []
+        var indices: [String: Int] = [:]
+        for window in windows {
+            let key = ManagedSpacePresentation.applicationKey(for: window.app)
+            if let index = indices[key] {
+                result[index].windowCount += 1
+            } else {
+                indices[key] = result.count
+                result.append(Self(id: key, app: window.app, windowCount: 1))
+            }
+        }
+        return result
+    }
+}
+
+struct PreviewDragIcon: Identifiable {
+    let id: String
+    let image: NSImage
+    let windowCount: Int
+}
+
+struct PreviewDragActionSymbol: View {
+    let symbol: String
+    let width: CGFloat
+
+    var body: some View {
+        Image(systemName: symbol).foregroundStyle(.secondary).frame(width: width)
+    }
+}
+
+struct WindowGroupDragCard: View {
+    var symbol: String = "nosign"
+    let icons: [PreviewDragIcon]
+    let overflow: Int
+    let width: CGFloat
+    let style: PreviewDragCardStyle
+
+    var body: some View {
+        HStack(spacing: style.spacing) {
+            PreviewDragActionSymbol(symbol: symbol, width: style.textFont.pointSize)
+            ForEach(icons) { icon in
+                Image(nsImage: icon.image).resizable().frame(width: style.iconSize, height: style.iconSize)
+                    .appWindowCount(icon.windowCount, height: style.height)
+            }
+            if overflow > 0 { Text("+\(overflow)").foregroundStyle(.secondary).lineLimit(1) }
+        }
+        .font(style.font)
+        .padding(.vertical, style.verticalPadding)
+        .previewDragCard(style, width: width)
     }
 }
 
 struct SpaceDragLabel: View, Equatable {
     let title: String
     let symbol: String
+    let style: PreviewDragCardStyle
+    let maximumWidth: CGFloat
 
     var body: some View {
-        HStack(spacing: PreviewDragCardStyle.spacing) {
-            Image(systemName: symbol)
-                .foregroundStyle(.secondary)
-                .frame(width: SpacesBarLayout.textFont.pointSize)
-            Text(title)
+        let titleWidth = (title as NSString).size(withAttributes: [.font: style.textFont]).width
+        let width = min(maximumWidth, ceil(titleWidth + style.textFont.pointSize + style.spacing + style.horizontalInset * 2))
+        HStack(spacing: style.spacing) {
+            PreviewDragActionSymbol(symbol: symbol, width: style.textFont.pointSize)
+            Text(title).lineLimit(1).truncationMode(.tail)
         }
-        .font(SpacesBarLayout.font)
-        .previewDragCard()
-        .fixedSize()
+        .font(style.font)
+        .previewDragCard(style, width: width)
+    }
+}
+
+struct WindowDragGhost: View {
+    var card: WindowGroupDragCard
+    let image: NSImage?
+    let imageSize: CGSize
+    let imageOpacity: CGFloat
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            if let image {
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fit)
+                    .frame(width: imageSize.width, height: imageSize.height).opacity(imageOpacity)
+            }
+            card
+        }
+        .frame(width: max(card.width, imageSize.width), height: max(card.style.height, imageSize.height))
     }
 }
 
@@ -65,6 +190,8 @@ final class DragPreviewCoordinator {
     private var sessionToken: UUID?
     private var dropToken: UUID?
     private var dropTask: Task<Void, Never>?
+    private var windowGhostView: NSHostingView<WindowDragGhost>?
+    private var windowSymbol = "nosign"
     private var spaceLabel: SpaceDragLabel?
     private var spaceLabelView: NSHostingView<SpaceDragLabel>?
     private var initialWindowFrame: CGRect?
@@ -79,48 +206,41 @@ final class DragPreviewCoordinator {
         fallbackIcon: NSImage?,
         logicalWindowSize: CGSize,
         group: [WindowInfo] = [],
+        cardStyle: PreviewDragCardStyle,
         at location: CGPoint,
         token: UUID
     ) {
         beginDragging(at: location, token: token)
 
-        if group.count > 1 {
-            let visible = Array(group.prefix(6))
-            let overflow = group.count - visible.count
-            let iconsWidth = CGFloat(visible.count) * iconPreviewSize.width
-            let spacingWidth = CGFloat(visible.count - 1) * PreviewDragCardStyle.spacing
-            let overflowWidth: CGFloat = overflow > 0 ? 40 : 0
-            let size = CGSize(width: iconsWidth + spacingWidth + PreviewDragCardStyle.padding * 2 + overflowWidth, height: 65)
-            let row = HStack(spacing: PreviewDragCardStyle.spacing) {
-                ForEach(visible, id: \.id) { window in
-                    Image(nsImage: window.app.icon ?? NSImage())
-                        .resizable().frame(width: 45, height: 45)
-                }
-                if overflow > 0 { Text("+\(overflow)").font(.caption).foregroundStyle(.secondary) }
+        let maximumWidth = max(1, location.screen()?.visibleFrame.width ?? maximumPreviewSize.width)
+        let apps = PreviewDragApp.grouped(group)
+        let layout = cardStyle.groupLayout(total: apps.count, maximumWidth: maximumWidth)
+        let icons = apps.prefix(layout.visible).map { PreviewDragIcon(id: $0.id, image: $0.app.icon ?? NSImage(), windowCount: $0.windowCount) }
+        let card = WindowGroupDragCard(icons: icons, overflow: apps.count - icons.count, width: layout.width, style: cardStyle)
+        var content: NSImage?
+        var imageSize = CGSize.zero
+        if group.count <= 1 {
+            if let image {
+                content = NSImage(cgImage: image, size: logicalWindowSize)
+                imageSize = constrainedPreviewSize(for: logicalWindowSize)
+            } else if let fallbackIcon {
+                content = fallbackIcon
+                imageSize = iconPreviewSize
             }
-            .frame(width: size.width - PreviewDragCardStyle.padding * 2, height: size.height - PreviewDragCardStyle.padding * 2)
-            .previewDragCard()
-            showGhost(NSHostingView(rootView: row), size: size, at: location)
-            return
         }
+        let ghost = WindowDragGhost(card: card, image: content, imageSize: imageSize, imageOpacity: previewOpacity)
+        let hosting = NSHostingView(rootView: ghost)
+        windowGhostView = hosting
+        showGhost(hosting, size: CGSize(width: max(layout.width, imageSize.width), height: max(cardStyle.height, imageSize.height)),
+                  at: location, hasShadow: false)
+    }
 
-        let content: NSImage
-        let scaledSize: CGSize
-        if let image {
-            content = NSImage(cgImage: image, size: logicalWindowSize)
-            scaledSize = constrainedPreviewSize(for: logicalWindowSize)
-        } else if let fallbackIcon {
-            content = fallbackIcon
-            scaledSize = iconPreviewSize
-        } else {
-            return
-        }
-
-        let imageView = NSImageView(frame: NSRect(origin: .zero, size: scaledSize))
-        imageView.image = content
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        imageView.alphaValue = previewOpacity
-        showGhost(imageView, size: scaledSize, at: location)
+    func updateWindowSymbol(_ symbol: String, token: UUID) {
+        guard sessionToken == token, symbol != windowSymbol, let hosting = windowGhostView else { return }
+        windowSymbol = symbol
+        var content = hosting.rootView
+        content.card.symbol = symbol
+        hosting.rootView = content
     }
 
     private func beginDragging(at location: CGPoint, token: UUID) {
@@ -130,20 +250,21 @@ final class DragPreviewCoordinator {
         dragStartLocation = location
     }
 
-    func startSpaceDragging(title: String, at location: CGPoint, token: UUID) {
+    func startSpaceDragging(title: String, style: PreviewDragCardStyle, at location: CGPoint, token: UUID) {
         beginDragging(at: location, token: token)
-        let content = SpaceDragLabel(title: title, symbol: "nosign")
+        let content = SpaceDragLabel(title: title, symbol: "nosign", style: style,
+                                     maximumWidth: max(1, location.screen()?.visibleFrame.width ?? maximumPreviewSize.width))
         let hosting = NSHostingView(rootView: content)
         let size = hosting.fittingSize
         spaceLabel = content
         spaceLabelView = hosting
-        showGhost(hosting, size: CGSize(width: ceil(size.width), height: ceil(size.height)), at: location)
+        showGhost(hosting, size: CGSize(width: ceil(size.width), height: ceil(size.height)), at: location, hasShadow: false)
     }
 
     func updateSpaceLabel(title: String, symbol: String, token: UUID) {
         guard sessionToken == token, let hosting = spaceLabelView, let window = previewWindow,
-              let initialFrame = initialWindowFrame else { return }
-        let content = SpaceDragLabel(title: title, symbol: symbol)
+              let initialFrame = initialWindowFrame, let previous = spaceLabel else { return }
+        let content = SpaceDragLabel(title: title, symbol: symbol, style: previous.style, maximumWidth: previous.maximumWidth)
         guard spaceLabel != content else { return }
         spaceLabel = content
         hosting.rootView = content
@@ -157,7 +278,7 @@ final class DragPreviewCoordinator {
                                width: roundedSize.width, height: roundedSize.height), display: true)
     }
 
-    private func showGhost(_ content: NSView, size: CGSize, at location: CGPoint) {
+    private func showGhost(_ content: NSView, size: CGSize, at location: CGPoint, hasShadow: Bool = true) {
         let scaledFrame = CGRect(x: location.x - size.width / 2, y: location.y - size.height / 2,
                                  width: size.width, height: size.height)
 
@@ -169,7 +290,7 @@ final class DragPreviewCoordinator {
         )
         previewWindow.backgroundColor = .clear
         previewWindow.isOpaque = false
-        previewWindow.hasShadow = true
+        previewWindow.hasShadow = hasShadow
         previewWindow.level = .popUpMenu
         previewWindow.animationBehavior = .none
         previewWindow.isReleasedWhenClosed = false
@@ -258,6 +379,8 @@ final class DragPreviewCoordinator {
         if let token, sessionToken != token { return }
 
         sessionToken = nil
+        windowGhostView = nil
+        windowSymbol = "nosign"
         spaceLabel = nil
         spaceLabelView = nil
         dragStartLocation = nil

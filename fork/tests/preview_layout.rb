@@ -165,6 +165,9 @@ native_source = <<~'SWIFT'
 import AppKit
 import SwiftUI
 enum CardRadius { static let innerPadding = 6.0 }
+SWIFT
+native_source += block(compact, 'enum CompactPreviewCardLayout {') + "\n"
+native_source += <<~'SWIFT'
 @MainActor final class Counts { var changes = 0; var ends = 0; var clicks = 0; var activations = 0 }
 struct Row: View {
  let counts: Counts
@@ -173,7 +176,7 @@ struct Row: View {
    .onChanged { _ in counts.changes += 1 }.onEnded { _ in counts.ends += 1 })
  }
  var body: some View {
-  HStack(spacing: 10) {
+  HStack(spacing: CompactPreviewCardLayout.spacing) {
    Color.blue.frame(width: 32, height: 32).allowsHitTesting(false)
     .overlay {
      Button { counts.clicks += 1 } label: { Color.white.frame(width: 24, height: 24) }.buttonStyle(.plain)
@@ -183,7 +186,7 @@ struct Row: View {
    Spacer()
    Button { counts.clicks += 1 } label: { Color.red.frame(width: 32, height: 32) }.buttonStyle(.plain)
   }
-  .padding(.vertical, 8)
+  .padding(.vertical, CompactPreviewCardLayout.verticalPadding)
   .frame(width: 400, height: 80, alignment: .leading)
 SWIFT
 native_source += compact_background + "\n  .opacity(0.25)\n"
@@ -270,14 +273,13 @@ enum Defaults {
 }
 extension Defaults.Key where T == Double {
  static let previewCornerRadius = Self(value:8)
- static let globalPaddingMultiplier = Self(value:1)
 }
 extension Defaults.Key where T == Bool { static let uniformCardRadius = Self(value:true) }
 @propertyWrapper struct Default<T> {
  let wrappedValue:T
  init(_ key:Defaults.Key<T>){wrappedValue=key.value}
 }
-struct BackgroundAppearance {let color:Color}
+struct BackgroundAppearance: Equatable {let color:Color}
 struct BlurView: View {
  let cornerRadius:Double
  let appearance:BackgroundAppearance
@@ -351,6 +353,121 @@ render_source += <<~'SWIFT'
  }
 }
 SWIFT
+drag_style_source = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/DragPreviewCoordinator.swift")
+consts = File.read("#{root}/DockDoor/consts.swift")
+drag_declarations = block(consts,'enum CompactModeItemSize:').sub(', Defaults.Serializable','')+"\n"+block(consts,'enum SpacesBarItemSize:').sub(', Defaults.Serializable','')+"\n"
+drag_declarations += block(compact,'enum CompactPreviewCardLayout {')+"\n"
+drag_declarations += <<~'SWIFT'
+final class NSRunningApplication {
+ let processIdentifier:Int32
+ let bundleIdentifier:String?
+ let icon:NSImage?=NSImage(size:CGSize(width:32,height:32))
+ init(_ pid:Int32,_ bundle:String?){processIdentifier=pid;bundleIdentifier=bundle}
+}
+struct WindowInfo {let app:NSRunningApplication}
+struct PreviewAppearanceSettings {
+ var compactModeItemSize:CompactModeItemSize
+ var globalPaddingMultiplier:CGFloat=0.7
+ var hidePreviewCardBackground=false
+}
+enum GhostTestSettings {static var size=SpacesBarItemSize.small}
+extension Defaults.Key where T == CGFloat {static var globalPaddingMultiplier:Self{Self(value:0.7)}}
+extension Defaults.Key where T == Bool {static var hidePreviewCardBackground:Self{Self(value:false)}}
+extension Defaults.Key where T == SpacesBarItemSize {static var spacesBarItemSize:Self{Self(value:GhostTestSettings.size)}}
+enum SpacesBarLayout {
+ static var pillHeight:CGFloat{Defaults[.spacesBarItemSize].rowHeight}
+ static var scale:CGFloat{Defaults[.spacesBarItemSize].scale}
+ static var font:Font{Defaults[.spacesBarItemSize].primaryFont}
+ static var textFont:NSFont{Defaults[.spacesBarItemSize].primaryAppKitFont}
+ static var horizontalInset:CGFloat{SpacePillMetrics(height:pillHeight).horizontalInset}
+}
+SWIFT
+bar_source = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SearchWindow.swift")
+drag_declarations += "enum MaterialPillStyle {static let horizontalInset:CGFloat=9.125}\nenum WindowStateIndicator {static let styledContentPadding:CGFloat=4}\n"
+drag_declarations += block(bar_source,'struct SpacePillMetrics {')+"\n"+block(bar_source,'private struct AppWindowCountSubscript:')+"\nextension View {\n"+block(bar_source,'    func appWindowCount(')+"\n}\n"
+discovery_source=File.read("#{root}/DockDoor/Utilities/Window Management/WindowDiscoveryShared.swift")
+drag_declarations += "enum ManagedSpacePresentation {\n"+block(discovery_source,'    static func applicationKey(')+"\n}\n"
+drag_declarations += block(bar_source,'enum SpacesBarAppLayout {')+"\n"
+drag_declarations += "enum AppIconStripFormatting {\n"+block(appearance,'    static func width(')+"\n"+block(appearance,'    static func visibleCount(total:')+"\n}\n"
+drag_declarations += block(drag_style_source,'struct PreviewDragCardStyle:')+"\nextension View {\n"+block(drag_style_source,'    func previewDragCard(')+"\n}\n"
+%w[PreviewDragApp PreviewDragIcon PreviewDragActionSymbol WindowGroupDragCard SpaceDragLabel].each{|name|drag_declarations += block(drag_style_source,"struct #{name}:")+"\n"}
+drag_checks = <<~'SWIFT'
+ @MainActor static func checkDragCards() {
+  let background=BackgroundAppearance(color:.gray)
+  let image=NSImage(size:CGSize(width:32,height:32))
+let a=NSRunningApplication(10,"a"),b=NSRunningApplication(20,"b"),alias=NSRunningApplication(21,"b")
+let n1=NSRunningApplication(30,nil),n2=NSRunningApplication(31,nil)
+let windows=[a,b,a,n1,alias,n2].map{WindowInfo(app:$0)}
+let grouped=PreviewDragApp.grouped(windows)
+precondition(grouped.map(\.id)==["a","b","pid:30","pid:31"] && grouped.map(\.windowCount)==[2,2,1,1],"Group by Space app identity in first-selected order")
+precondition(grouped[1].app === b && windows.count==6,"Grouping is presentation-only and retains the first representative app")
+precondition(PreviewDragApp.grouped(Array(repeating:WindowInfo(app:a),count:10000)).first?.windowCount==10000)
+  for size in CompactModeItemSize.allCases {
+   var settings=PreviewAppearanceSettings(compactModeItemSize:size)
+   let style=PreviewDragCardStyle.compact(appearance:settings,uniformCardRadius:true,backgroundAppearance:background)
+   precondition(style.height==size.rowHeight && style.iconSize==size.iconSize && style.textFont==size.primaryAppKitFont && style.font==size.primaryFont)
+   let pill=SpacePillMetrics(height:size.rowHeight)
+   precondition(style.spacing==pill.spacing && style.horizontalInset==pill.horizontalInset)
+   var counterSettings=PreviewAppearanceSettings(compactModeItemSize:size)
+   counterSettings.hidePreviewCardBackground=true
+   let counterStyle=PreviewDragCardStyle.compact(appearance:counterSettings,uniformCardRadius:true,backgroundAppearance:background)
+   let one=counterStyle.groupLayout(total:1,maximumWidth:1000)
+   let counterCard=WindowGroupDragCard(icons:[PreviewDragIcon(id:"a",image:image,windowCount:12)],overflow:0,width:one.width,style:counterStyle)
+   let counterRenderer=ImageRenderer(content:counterCard.environment(\.colorScheme,.light))
+   counterRenderer.scale=1
+   let pixels=NSBitmapImageRep(cgImage:counterRenderer.cgImage!)
+   let iconRight=Int(ceil((one.width+style.iconSize+style.actionWidth)/2))
+   let visibleCount=(0..<pixels.pixelsHigh).contains{y in
+    ((iconRight+1)..<pixels.pixelsWide).contains{x in pixels.colorAt(x:x,y:y)!.alphaComponent>0.1}
+   }
+   precondition(visibleCount,"Subscript must remain visible in the side padding, not be clipped at the icon boundary")
+   settings.compactModeItemSize = .xxxLarge;settings.hidePreviewCardBackground=true
+   precondition(style.height==size.rowHeight && !style.hideBackground,"Window style must be captured, not read live")
+   for total in [2,6,7,42,10000] {for maximum:CGFloat in [1,40,100,240,1000] {
+    let layout=style.groupLayout(total:total,maximumWidth:maximum)
+    precondition(layout.visible<=min(6,total) && layout.width<=maximum && layout.width>0)
+    let icons=(0..<layout.visible).map{PreviewDragIcon(id:"app-\($0)",image:image,windowCount:$0+1)}
+    precondition(Set(icons.map(\.id)).count==icons.count,"Visible app groups need stable identities")
+    let card=WindowGroupDragCard(icons:icons,overflow:total-icons.count,width:layout.width,style:style)
+    let measured=NSHostingView(rootView:card).fittingSize
+    precondition(abs(measured.width-layout.width)<0.1 && measured.height==size.rowHeight,"Group card must match source height and fitted width")
+    let room=maximum-style.horizontalInset*2-style.actionWidth
+    var expected=0
+    for count in (0...min(total,6)).reversed() {
+     let overflow=total-count
+     let suffix=overflow>0 ? ("+\(overflow)" as NSString).size(withAttributes:[.font:style.textFont]).width:0
+     let required=CGFloat(count)*style.iconSize+CGFloat(max(0,count-1))*style.spacing+suffix+(count>0 && overflow>0 ? style.spacing:0)
+     if required<=room{expected=count;break}
+    }
+    precondition(layout.visible==expected,"Overflow must measure the real primary-font +N and respect the six-icon cap")
+   }}
+  }
+  for size in SpacesBarItemSize.allCases {
+   GhostTestSettings.size=size
+   let style=PreviewDragCardStyle.spacesBar(backgroundAppearance:background)
+   precondition(style.height==size.rowHeight && style.iconSize==SpacesBarAppLayout.iconSize && style.font==size.primaryFont)
+   GhostTestSettings.size = .small
+   var measured:CGSize?
+   for symbol in ["nosign","arrow.triangle.merge","arrow.left.arrow.right","arrow.left","arrow.right"] {
+    let label=SpaceDragLabel(title:"Desktop 12",symbol:symbol,style:style,maximumWidth:600)
+    let fitting=NSHostingView(rootView:label).fittingSize
+    precondition(fitting.height==size.rowHeight && fitting.width<=600)
+    if let previous=measured{precondition(previous==fitting,"Changing target glyph must not move the label anchor")}
+    measured=fitting
+   }
+   for maximum:CGFloat in [1,40,120] {
+    let label=SpaceDragLabel(title:String(repeating:"Long Desktop ",count:10),symbol:"nosign",style:style,maximumWidth:maximum)
+    let fitting=NSHostingView(rootView:label).fittingSize
+    precondition(fitting.width<=maximum+0.1 && fitting.height==size.rowHeight,"Long Space labels must fit without shrinking card height")
+   }
+  }
+  GhostTestSettings.size = .small
+  print("PASS source-styled drag cards: all seven sizes, captured fonts/spacing/material policy, measured overflow/cap/narrow widths, merged-app counts/first-selection order, stable target glyphs and long labels; production views with deterministic material")
+ }
+SWIFT
+render_source.sub!('@main struct MaterialChecks {',drag_declarations+"\n@main struct MaterialChecks {\n"+drag_checks)
+render_source.sub!("  _=NSApplication.shared\n  var cases=0", "  _=NSApplication.shared\n  checkDragCards()\n  var cases=0")
+
 Dir.mktmpdir('dockfork-compact-opacity-') do |dir|
   File.write("#{dir}/checks.swift",render_source)
   abort 'Compact chrome fixture compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")

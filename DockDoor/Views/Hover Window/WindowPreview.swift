@@ -9,9 +9,9 @@ enum AppIconStripFormatting {
         return CGFloat(iconCount) * iconSize + CGFloat(max(0, iconCount - 1)) * spacing
     }
 
-    static func visibleCount(total: Int, availableWidth: CGFloat, iconSize: CGFloat, font: NSFont, spacing: CGFloat? = nil) -> Int? {
+    static func visibleCount(total: Int, availableWidth: CGFloat, iconSize: CGFloat, font: NSFont, spacing: CGFloat? = nil, maximumVisible: Int? = nil) -> Int? {
         guard total > 0, availableWidth > 0 else { return nil }
-        var count = min(total, Int(availableWidth / iconSize))
+        var count = min(total, max(0, maximumVisible ?? total), Int(availableWidth / iconSize))
         while count >= 0 {
             let remaining = total - count
             let suffix = remaining > 0 ? (count > 0 ? " +\(remaining)" : "+\(remaining)") : ""

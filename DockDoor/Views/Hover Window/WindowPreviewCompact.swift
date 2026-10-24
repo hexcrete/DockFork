@@ -1,6 +1,12 @@
 import Defaults
 import SwiftUI
 
+enum CompactPreviewCardLayout {
+    static let spacing: CGFloat = 10
+    static let verticalPadding: CGFloat = 8
+    static var horizontalInset: CGFloat { CardRadius.innerPadding }
+}
+
 private struct CompactRowContentClip: Shape {
     let trailingOverflow: CGFloat
 
@@ -196,7 +202,7 @@ struct WindowPreviewCompact: View, Equatable {
             controlsVisible: hasVisibleTrafficLightButtons,
             animationDuration: appearance.trafficLightTransitionDuration, animationsEnabled: appearance.showAnimations
         ) { stage, isMeasuring in compactRow(stage, appIcon: appIcon, isMeasuring: isMeasuring) }
-            .padding(.vertical, 8)
+            .padding(.vertical, CompactPreviewCardLayout.verticalPadding)
             .frame(width: rowWidth, height: appearance.compactRowHeight(hasWindowStateIndicator: hasWindowStateIndicator), alignment: .leading)
             .clipShape(CompactRowContentClip(trailingOverflow: max(0, -controlsTrailingInset)))
             // Keep body hits behind controls but in front of the decorative chrome.
@@ -231,7 +237,7 @@ struct WindowPreviewCompact: View, Equatable {
                 dragSelection: dragSelection,
                 expansionEdges: .horizontal
             )
-            .padding(.horizontal, CardRadius.innerPadding)
+            .padding(.horizontal, CompactPreviewCardLayout.horizontalInset)
             .contentShape(Rectangle())
             .onContinuousHover { phase in
                 let setHoverState: (Bool) -> Void = { newState in
@@ -289,7 +295,7 @@ struct WindowPreviewCompact: View, Equatable {
             0
         }
 
-        HStack(spacing: 10) {
+        HStack(spacing: CompactPreviewCardLayout.spacing) {
             PreviewAppIcon(
                 icon: appIcon,
                 bundleURL: windowInfo.app.bundleURL,

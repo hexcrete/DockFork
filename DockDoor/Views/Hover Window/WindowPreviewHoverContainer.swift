@@ -129,6 +129,42 @@ struct WindowPreviewHoverContainer: View {
         var consumedByShake = false
     }
 
+    private enum PreviewDropIntent {
+        case desktop
+        case space(ManagedSpaceDestination)
+        case tile(WindowInfo)
+        case invalid
+
+        var symbol: String {
+            switch self {
+            case .desktop: "arrow.up.and.down.and.arrow.left.and.right"
+            case .space: WindowAction.bringToCurrentSpace.iconName
+            case .tile: WindowAction.autoTileSelectedWindows.iconName
+            case .invalid: "nosign"
+            }
+        }
+    }
+
+    private func previewDropIntent(_ session: PreviewDragSession, at location: CGPoint) -> PreviewDropIntent {
+        let movable = session.targets.filter {
+            !$0.window.isWindowlessApp && !$0.window.app.isTerminated && $0.window.isFullscreen != true &&
+                WindowAction.bringToCurrentSpace.isSupported(for: $0.window)
+        }
+        guard !movable.isEmpty else { return .invalid }
+        if let panel = SharedPreviewWindowCoordinator.activeInstance, panel.containsSpacesBar(location) {
+            guard let destination = panel.spaceDropDestination(at: location),
+                  movable.contains(where: { $0.window.spaceID.map { CGSSpaceID(exactly: $0) != destination.space.id } ?? true })
+            else { return .invalid }
+            return .space(destination)
+        }
+        if Defaults[.enableWindowDragTiling], let target = previewStateCoordinator.dragTargetGrid?.windowForDrop(at: location) {
+            guard !target.isWindowlessApp, !target.app.isTerminated, target.isFullscreen != true,
+                  !session.draggedIdentities.contains(PreviewWindowIdentity(target)) else { return .invalid }
+            return .tile(target)
+        }
+        return .desktop
+    }
+
     @State private var dragSession: PreviewDragSession?
     @State private var isDragging = false
 
@@ -760,6 +796,7 @@ struct WindowPreviewHoverContainer: View {
             fallbackIcon: window.app.icon,
             logicalWindowSize: logicalWindowSize,
             group: session.targets.map(\.window),
+            cardStyle: .compact(appearance: resolvedAppearance, uniformCardRadius: uniformCardRadius, backgroundAppearance: backgroundAppearance),
             at: location,
             token: session.token
         )
@@ -808,13 +845,11 @@ struct WindowPreviewHoverContainer: View {
 
         let hasSpaceTargets = session.targets.contains { !$0.window.isWindowlessApp && $0.window.isFullscreen != true && WindowAction.bringToCurrentSpace.isSupported(for: $0.window) }
         previewStateCoordinator.spaceDragViewport?.updateDrag(at: hasSpaceTargets ? cursorLocation : nil)
-        let target = Defaults[.enableWindowDragTiling]
-            ? previewStateCoordinator.dragTargetGrid?.windowForDrop(at: cursorLocation) : nil
-        if let target, !target.isWindowlessApp, !target.app.isTerminated, target.isFullscreen != true,
-           !session.draggedIdentities.contains(PreviewWindowIdentity(target))
-        {
+        let intent = previewDropIntent(session, at: cursorLocation)
+        if case let .tile(target) = intent {
             previewStateCoordinator.setPreviewDragTarget(PreviewWindowIdentity(target))
         } else { previewStateCoordinator.setPreviewDragTarget(nil) }
+        DragPreviewCoordinator.shared.updateWindowSymbol(intent.symbol, token: session.token)
         DragPreviewCoordinator.shared.updatePreviewPosition(to: cursorLocation)
     }
 
@@ -829,16 +864,15 @@ struct WindowPreviewHoverContainer: View {
            !window.app.isTerminated
         {
             edgeScrollRequest = nil
-            if let panel = SharedPreviewWindowCoordinator.activeInstance, panel.containsSpacesBar(location) {
-                guard let destination = panel.spaceDropDestination(at: location) else {
-                    NSSound.beep(); cancelPreviewDrag(token: session.token); return
-                }
-                completeSpaceDrop(session, to: destination)
-            } else if Defaults[.enableWindowDragTiling],
-                      let target = previewStateCoordinator.dragTargetGrid?.windowForDrop(at: location)
-            {
-                completeTileDrop(session, on: target)
-            } else { completeGroupDrop(session, at: location) }
+            switch previewDropIntent(session, at: location) {
+            case let .space(destination): completeSpaceDrop(session, to: destination)
+            case let .tile(target): completeTileDrop(session, on: target)
+            case .desktop: completeGroupDrop(session, at: location)
+            case .invalid:
+                NSSound.beep()
+                cancelPreviewDrag(token: session.token)
+            }
+
         } else {
             cancelPreviewDrag(token: session.token)
         }

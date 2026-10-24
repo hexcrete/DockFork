@@ -332,6 +332,39 @@ class SearchWindow: NSPanel, NSSearchFieldDelegate {
     override var canBecomeMain: Bool { true }
 }
 
+struct SpacePillMetrics {
+    let height: CGFloat
+    var scale: CGFloat { height / CompactModeItemSize.small.rowHeight }
+    var horizontalInset: CGFloat { (MaterialPillStyle.horizontalInset + WindowStateIndicator.styledContentPadding) * scale }
+    var spacing: CGFloat { 6 * scale }
+    var countFontSize: CGFloat { 9 * scale }
+    var countOffset: CGFloat { 4 * scale }
+}
+
+private struct AppWindowCountSubscript: ViewModifier {
+    let count: Int
+    let metrics: SpacePillMetrics
+
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .bottomTrailing) {
+            if count > 1 {
+                Text("\(count)")
+                    .font(.system(size: metrics.countFontSize, weight: .bold))
+                    .foregroundStyle(.primary)
+                    .offset(x: metrics.countOffset, y: metrics.countOffset)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
+extension View {
+    func appWindowCount(_ count: Int, height: CGFloat) -> some View {
+        modifier(AppWindowCountSubscript(count: count, metrics: SpacePillMetrics(height: height)))
+    }
+}
+
 enum SpacesBarLayout {
     static var scale: CGFloat { Defaults[.spacesBarItemSize].scale }
     static var clearSymbolSize: CGFloat { textFont.pointSize }
@@ -385,7 +418,7 @@ enum SpacesBarLayout {
 
     static var itemSpacing: CGFloat { HoverContainerPadding.compactItemSpacing * scale }
     static var minimumPillWidth: CGFloat { ceil(max(pillHeight * WindowStateIndicator.styledMinimumAspectRatio, minimumLabelWidth + horizontalInset * 2)) }
-    static var horizontalInset: CGFloat { (MaterialPillStyle.horizontalInset + WindowStateIndicator.styledContentPadding) * scale }
+    static var horizontalInset: CGFloat { SpacePillMetrics(height: pillHeight).horizontalInset }
     static func labelWidth(_ textWidth: CGFloat, fullscreen: Bool) -> CGFloat {
         max(minimumPillWidth, max(minimumLabelWidth, ceil(textWidth)) + horizontalInset * 2 + (fullscreen ? fullscreenWidth : 0) + WindowStateIndicator.styledContentPadding * scale)
     }
@@ -433,8 +466,7 @@ enum SpacesBarLayout {
 
 enum SpacesBarAppLayout {
     static var iconSize: CGFloat { 24 * SpacesBarLayout.scale }
-    static var spacing: CGFloat { 6 * SpacesBarLayout.scale }
-    static var countFontSize: CGFloat { 9 * SpacesBarLayout.scale }
+    static var spacing: CGFloat { SpacePillMetrics(height: SpacesBarLayout.pillHeight).spacing }
 }
 
 struct SpacesBarSizing {
@@ -686,14 +718,7 @@ struct SpacesBarView: View {
                     let icon = PreviewAppIcon(icon: app.application.icon, bundleURL: app.application.bundleURL,
                                               size: SpacesBarAppLayout.iconSize, showBadge: showBadges,
                                               badgeScale: badgeScale, mockPreviewActive: false)
-                        .overlay(alignment: .bottomTrailing) {
-                            if app.windowCount > 1 {
-                                Text("\(app.windowCount)")
-                                    .font(.system(size: SpacesBarAppLayout.countFontSize, weight: .bold))
-                                    .foregroundStyle(.primary)
-                                    .offset(x: 4 * SpacesBarLayout.scale, y: 4 * SpacesBarLayout.scale)
-                            }
-                        }
+                        .appWindowCount(app.windowCount, height: SpacesBarLayout.pillHeight)
                         .accessibilityHidden(true)
                     if activateAppIcons, !app.windowIdentities.isEmpty {
                         Button { activateApp(app, entry) } label: { icon.contentShape(Rectangle()) }

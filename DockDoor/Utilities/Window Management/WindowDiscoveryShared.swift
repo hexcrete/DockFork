@@ -659,6 +659,10 @@ struct ManagedSpaceDestination {
 }
 
 enum ManagedSpacePresentation {
+    static func applicationKey(for app: NSRunningApplication) -> String {
+        app.bundleIdentifier ?? "pid:\(app.processIdentifier)"
+    }
+
     struct App {
         let application: NSRunningApplication
         let windowIdentities: [PreviewWindowIdentity]
@@ -726,7 +730,7 @@ enum ManagedSpacePresentation {
                 var identities: [String: [PreviewWindowIdentity]] = [:]
 
                 func add(_ app: NSRunningApplication, window: PreviewWindowIdentity? = nil) {
-                    let key = app.bundleIdentifier ?? "pid:\(app.processIdentifier)"
+                    let key = applicationKey(for: app)
                     if applications[key] == nil {
                         applications[key] = app
                         order.append(key)
