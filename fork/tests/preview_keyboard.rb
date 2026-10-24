@@ -17,6 +17,9 @@ end
 root = File.expand_path('../..', __dir__)
 keybinds = File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift")
 constants = File.read("#{root}/DockDoor/consts.swift")
+startup = block(keybinds, '    private func initializeWindowSwitching(')
+abort 'Fresh switcher startup must cancel pending Dock presentation before replacing its windows' unless startup.index('previewCoordinator.cancelPendingShow()') < startup.index('let windows = buildSwitcherWindows(')
+abort 'Fresh switcher startup must dismiss a visible non-switcher through shared cleanup before initializing rows' unless startup.include?('if previewCoordinator.isVisible, !previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {') && startup.index('previewCoordinator.hideWindow()') < startup.index('coordinator.initializeForWindowSwitcher(')
 handler = block(keybinds, '    private func handleEvent(')
 gate_start = handler.index('        // Keep consumed action keys suppressed') or abort 'Missing early physical-key gate'
 gate_end = handler.index('        if previewCoordinator.tapSnapshot.isPresentationSuspended') or abort 'Missing modal guard'

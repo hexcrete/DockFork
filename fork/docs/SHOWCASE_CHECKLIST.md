@@ -427,3 +427,5 @@ The user verified the outer-spacing correction. Exhaustive size/display/drop cov
 Space-content drag animation follow-up: capture gaps opening left and right around the dragged pill; compare first/middle/last sources, overflow and screen-edge constraints. Verify collapse, edge scrolling and quick drops. Not captured or manually verified yet.
 
 The user verified source-anchored expansion. Screenshot/video capture remains pending; exhaustive edge/overflow/display coverage is not claimed.
+
+Handoff regression: check windows in Dock and Cmd+Tab, then open held, persistent/menu-bar and swipe switchers. Verify selection clears and cards, summary, search and Spaces Bar align without overlap. Also test no selection and a pending Dock hover. Capture/manual verification pending.

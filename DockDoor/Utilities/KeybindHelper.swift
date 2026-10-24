@@ -295,6 +295,10 @@ private class WindowSwitchingCoordinator {
         spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil
     ) async -> Bool {
         guard previewCoordinator.canPresentPreviews else { return false }
+        previewCoordinator.cancelPendingShow()
+        if previewCoordinator.isVisible, !previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
+            previewCoordinator.hideWindow()
+        }
         HangDiagnostics.record("switcher initialization started mode=\(mode.rawValue)")
         activeLaunchSource = nil
         // Reset the immediate-select flag at start of initialization
