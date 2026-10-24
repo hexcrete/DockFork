@@ -1810,9 +1810,15 @@ class KeybindHelper {
             guard let self, previewCoordinator.canPresentPreviews else { return }
             let event = event.reversingSelection(if: Defaults[.reverseTrackpadSwipeSelectionDirection])
             switch event {
-            case .open, .cycleForward, .cycleBackward:
+            case .open, .cycleForward, .cycleBackward, .openSpaces, .cycleSpaceForward, .cycleSpaceBackward:
                 guard Defaults[.enableWindowSwitcher], !requiresSwipeSetting || Defaults[.enableTrackpadSwitcherSwipe] else { return }
-                if event == .open {
+                var openingBackward: Bool?
+                if case let .openSpaces(backward) = event { openingBackward = backward }
+                let opens = event == .open || openingBackward != nil
+                let spaces = openingBackward != nil || event == .cycleSpaceForward || event == .cycleSpaceBackward
+                let backward = openingBackward ?? (event == .cycleBackward || event == .cycleSpaceBackward)
+                guard !spaces || (Defaults[.enableSpacesBar] && Defaults[.trackpadSwitcherSwipeSpaces]) else { return }
+                if opens {
                     guard !WindowUtil.shouldIgnoreKeybindForFrontmostApp() else { return }
                     if !windowSwitchingCoordinator.isActive(previewCoordinator: previewCoordinator) {
                         lastFocusedActivationTask?.cancel()
@@ -1823,11 +1829,12 @@ class KeybindHelper {
                 }
                 await windowSwitchingCoordinator.handleWindowSwitching(
                     previewCoordinator: previewCoordinator,
-                    isModifierPressed: event == .open,
-                    isBackwardPressed: event == .cycleBackward,
+                    isModifierPressed: opens,
+                    isBackwardPressed: backward,
                     mode: currentInvocationMode,
                     launchSource: .trackpad,
-                    initializerHeld: isSwitcherModifierKeyPressed
+                    initializerHeld: isSwitcherModifierKeyPressed,
+                    spaceNavigation: spaces ? .cycle(backward: backward) : nil
                 )
             case .release:
                 guard windowSwitchingCoordinator.trackpadOpenedCurrentSession else { return }

@@ -386,3 +386,166 @@ Dir.mktmpdir('dockfork-spaces-navigation-') do |dir|
  abort 'Space navigation compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
  abort 'Space navigation checks failed' unless system("#{dir}/checks")
 end
+
+swipe = File.read("#{root}/DockDoor/Utilities/TrackpadSwipeTrigger.swift")
+swipe_source = "import Foundation\n" + block(swipe, 'struct SwipeTouch {') + "\n" + block(swipe, 'enum TrackpadSwipeEvent:') + "\n" + block(swipe, 'struct TrackpadSwipeDetector {') + "\n"
+swipe_source += block(File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift"), '    enum SpaceNavigationRequest:').gsub('CGSSpaceID','UInt64') + "\n"
+route = block(keybinds, '    private func handleTrackpadSwipe(')
+intent = route[route.index('                var openingBackward:')...route.index('                guard !spaces ||')]
+swipe_source += "func swipeIntent(_ event:TrackpadSwipeEvent)->(opens:Bool,spaces:Bool,backward:Bool) {\n" + intent + "return (opens,spaces,backward)\n}\n"
+swipe_source += <<~'SWIFT'
+func touches(_ x: CGFloat, _ y: CGFloat, _ count: Int = 3) -> [SwipeTouch] {
+ (0..<count).map { SwipeTouch(id:$0,position:CGPoint(x:0.3+x+CGFloat($0)*0.02,y:0.3+y)) }
+}
+@main struct SwipeChecks {
+ static func main() {
+  for horizontal in [false,true] {
+   for fingers in [3,4] {
+    for enabled in [false,true] {
+     for opposite in [false,true] {
+      let axis = opposite ? !horizontal : horizontal
+      var detector = TrackpadSwipeDetector()
+      precondition(detector.handle(touches(0,0,fingers),fingers:fingers,horizontal:horizontal,spacesEnabled:enabled)==nil)
+      let opened = detector.handle(touches(axis ? 0.04:0,axis ? 0:-0.04,fingers),fingers:fingers,horizontal:horizontal,spacesEnabled:enabled)
+      if opposite && !enabled { precondition(opened==nil);continue }
+      precondition(opened == (opposite ? .openSpaces(backward:false):.open))
+      let cycle = detector.handle(touches(axis ? 0.20:0,axis ? 0:-0.20,fingers),fingers:fingers,horizontal:horizontal,spacesEnabled:enabled)
+      precondition(cycle == (opposite ? .cycleSpaceForward:.cycleForward),"Right/down must preserve existing forward convention")
+      let back = detector.handle(touches(axis ? 0.14:0,axis ? 0:-0.14,fingers),fingers:fingers,horizontal:horizontal,spacesEnabled:enabled)
+      precondition(back == (opposite ? .cycleSpaceBackward:.cycleBackward))
+      precondition(detector.handle([],fingers:fingers,horizontal:horizontal,spacesEnabled:enabled)==.release)
+      precondition(!detector.isSwitching)
+     }
+    }
+   }
+  }
+  var detector=TrackpadSwipeDetector()
+  _=detector.handle(touches(0,0),fingers:3,horizontal:true,spacesEnabled:true)
+  precondition(detector.handle(touches(0.04,0.035),fingers:3,horizontal:true,spacesEnabled:true)==nil,"Ambiguous diagonal must not choose a target")
+  precondition(detector.handle(touches(0.01,-0.06),fingers:3,horizontal:true,spacesEnabled:true)==.openSpaces(backward:false))
+  precondition(detector.handle(touches(0.3,-0.07),fingers:3,horizontal:true,spacesEnabled:true)==nil,"A latched vertical gesture must ignore later dominant horizontal travel")
+  precondition(detector.handle(touches(0.3,-0.23),fingers:3,horizontal:false,spacesEnabled:false)==.cycleSpaceForward,"Axis/target remain latched through settings changes")
+  precondition(detector.handle([],fingers:3,horizontal:true,spacesEnabled:true)==.release)
+  _=detector.handle(touches(0,0),fingers:3,horizontal:true,spacesEnabled:true)
+  precondition(detector.handle(touches(0.04,0),fingers:3,horizontal:true,spacesEnabled:true)==.open,"New gesture can choose a different axis")
+  for sensitivity:CGFloat in [0.5,1,2] {
+   var d=TrackpadSwipeDetector()
+   _=d.handle(touches(0,0),fingers:3,horizontal:false,sensitivity:sensitivity,spacesEnabled:true)
+   precondition(d.handle(touches(0.031/sensitivity,0),fingers:3,horizontal:false,sensitivity:sensitivity,spacesEnabled:true)==.openSpaces(backward:false))
+  }
+  for (forward,backward) in [(TrackpadSwipeEvent.cycleForward,TrackpadSwipeEvent.cycleBackward),(.cycleSpaceForward,.cycleSpaceBackward)] {
+   precondition(forward.reversingSelection(if:true)==backward && backward.reversingSelection(if:true)==forward)
+   precondition(forward.reversingSelection(if:false)==forward)
+  }
+  for event in [TrackpadSwipeEvent.open,.release,.cancel] {precondition(event.reversingSelection(if:true)==event)}
+for configuredHorizontal in [false,true] {
+ for fingers in [3,4] {
+  for positive in [false,true] {
+   let gestureHorizontal = !configuredHorizontal
+   let delta:CGFloat = positive ? 0.04:-0.04
+   var d=TrackpadSwipeDetector()
+   _=d.handle(touches(0,0,fingers),fingers:fingers,horizontal:configuredHorizontal,spacesEnabled:true)
+   let opening=d.handle(touches(gestureHorizontal ? delta:0,gestureHorizontal ? 0:delta,fingers),fingers:fingers,horizontal:configuredHorizontal,spacesEnabled:true)!
+   let rawBackward=gestureHorizontal ? !positive:positive
+   precondition(opening == .openSpaces(backward:rawBackward),"Left/up must open backwards; right/down forwards")
+   for reverse in [false,true] {
+    let intent=swipeIntent(opening.reversingSelection(if:reverse))
+    precondition(intent.opens && intent.spaces && intent.backward == (reverse ? !rawBackward:rawBackward))
+    let request=SpaceNavigationRequest.cycle(backward:intent.backward)
+    precondition(request.targetIndex(ids:[10,20,30],current:20,highlighted:nil,startNext:false)==1,"Start-next Off must remain on the current Space")
+    precondition(request.targetIndex(ids:[10,20,30],current:20,highlighted:nil,startNext:true)==(intent.backward ? 0:2),"Start-next must follow the opening direction, including reversal")
+   }
+  }
+ }
+}
+  precondition(TrackpadSwipeEvent.openSpaces(backward:false).reversingSelection(if:true) == .openSpaces(backward:true))
+  precondition(TrackpadSwipeEvent.openSpaces(backward:true).reversingSelection(if:true) == .openSpaces(backward:false))
+  print("PASS production two-axis swipe detector: opt-in, both configured axes, three/four fingers, direction/reversal, dominant-axis recognition/latching, sensitivity, release and next-gesture reset; no input events posted")
+ }
+}
+SWIFT
+# Keep Swift's whitespace-sensitive operator lexer unambiguous.
+swipe_source = swipe_source.gsub(')==.', ') == .')
+Dir.mktmpdir('dockfork-spaces-swipe-') do |dir|
+ File.write("#{dir}/checks.swift",swipe_source)
+ abort 'Swipe detector compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Swipe detector checks failed' unless system("#{dir}/checks")
+end
+
+swipe_settings = File.read("#{root}/DockDoor/Views/Settings/Gestures/TrackpadSwitcherSwipeSection.swift")
+catalog = File.read("#{root}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
+reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")
+abort 'Opposite-axis swipe setting wiring/default is missing' unless constants.include?('Key<Bool>("trackpadSwitcherSwipeSpaces", default: false)') && swipe_settings.include?('if enableSpacesBar {') && swipe_settings.include?('.settingsSearchTarget("gestures.trackpadSwitcherSwipeSpaces")') && catalog.include?('id: "gestures.trackpadSwitcherSwipeSpaces"') && reset.include?('Defaults[.trackpadSwitcherSwipeSpaces] = Defaults.Keys.trackpadSwitcherSwipeSpaces.defaultValue')
+abort 'Axis label must follow configured direction' unless swipe_settings.include?('Text(trackpadSwitcherSwipeDirection.spacesBarNavigationTitle)') && constants.include?('case .horizontal: String(localized: "Use up/down for Spaces Bar")') && constants.include?('case .vertical: String(localized: "Use left/right for Spaces Bar")')
+abort 'Keep a single gated trackpad detector/tap' unless swipe.scan('CGEvent.tapCreate(').size==1 && swipe.include?('Defaults[.enableSpacesBar] && Defaults[.trackpadSwitcherSwipeSpaces]')
+routing = block(keybinds, '    private func handleTrackpadSwipe(')
+abort 'Spaces swipe must share session ownership, pending launch and modifier rules' unless routing.include?('spaceNavigation: spaces ? .cycle(backward: backward) : nil') && routing.include?('initializerHeld: isSwitcherModifierKeyPressed') && routing.include?('TrackpadSwipeReleasePolicy.shouldSelect(') && routing.include?('selectOnSwitcherRelease()')
+puts 'PASS Spaces swipe integration: default-off/search/reset, dynamic opposite-axis label, existing event tap, shared session ownership, held-initializer precedence and common pending/release selection'
+
+ownership_source = <<~'SWIFT'
+import Foundation
+enum Key {case selectWindowOnPersistentSwitcherSwipe, useClassicWindowOrdering, persistentSwitcherStartsUnfocused, instantWindowSwitcher, focusSearchOnWindowSwitcherOpen}
+enum Defaults {static var takeover = true;static subscript(_ key:Key)->Bool {key == .selectWindowOnPersistentSwitcherSwipe ? takeover:false}}
+enum SwitcherInvocationMode {case allWindows}
+final class PreviewStateCoordinator {
+ enum SpaceNavigationRequest: Equatable {case current, cycle(backward:Bool)}
+ var isKeybindSessionActive = true, hasMovedSinceOpen = true
+ var initialHoverLocation: CGPoint? = CGPoint(x:0,y:0)
+ var clears = 0, forward = 0, backward = 0
+ func clearCheckedWindows(resetOwnership:Bool) {clears += 1}
+ func cycleForward() {forward += 1}
+ func cycleBackward() {backward += 1}
+}
+final class SharedPreviewWindowCoordinator {
+ let windowSwitcherCoordinator = PreviewStateCoordinator()
+ var searchUnfocused = 0
+ func unfocusSearchWindow() {searchUnfocused += 1}
+}
+SWIFT
+ownership_source += block(keybinds,'enum WindowSwitcherLaunchSource:')+"\n"+block(keybinds,'enum TrackpadSwipeReleasePolicy {')+"\n"
+ownership_source += <<~'SWIFT'
+@MainActor final class SwitchingProbe {
+ var isProcessingSwitcher = false, currentSessionId = UUID(), activeLaunchSource: WindowSwitcherLaunchSource? = .keyboard
+ var trackpadSessionId: UUID?, trackpadTookOverKeepOpenSession = false
+ var spaceRequests: [PreviewStateCoordinator.SpaceNavigationRequest] = [], initializations = 0
+ func takeKeyboardOwnership() {activeLaunchSource = .keyboard; trackpadSessionId = nil}
+ func navigateSpaces(previewCoordinator:SharedPreviewWindowCoordinator,request:PreviewStateCoordinator.SpaceNavigationRequest) {spaceRequests.append(request)}
+ func initializeWindowSwitching(previewCoordinator:SharedPreviewWindowCoordinator,mode:SwitcherInvocationMode,launchSource:WindowSwitcherLaunchSource,spaceNavigation:PreviewStateCoordinator.SpaceNavigationRequest?) async -> Bool {
+  initializations += 1; activeLaunchSource = launchSource
+  trackpadSessionId = launchSource == .trackpad ? currentSessionId:nil
+  if let spaceNavigation {spaceRequests.append(spaceNavigation)}
+  return true
+ }
+SWIFT
+ownership_source += block(keybinds,'    func handleWindowSwitching(')+"\n}\n"
+ownership_source += <<~'SWIFT'
+@main struct OwnershipChecks {
+ @MainActor static func main() async {
+  let panel = SharedPreviewWindowCoordinator(), state = SwitchingProbe()
+  _ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:.trackpad,initializerHeld:true,spaceNavigation:.cycle(backward:false))
+  precondition(state.activeLaunchSource == .keyboard && state.trackpadSessionId == nil && panel.windowSwitcherCoordinator.clears == 0 && state.spaceRequests.count == 1,"Held initializer retains ownership while navigating Spaces")
+  state.activeLaunchSource = .persistent
+  _ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:.trackpad,spaceNavigation:.current)
+  precondition(state.activeLaunchSource == .trackpad && state.trackpadSessionId == state.currentSessionId && state.trackpadTookOverKeepOpenSession && panel.searchUnfocused == 1)
+  _ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:false,isBackwardPressed:true,launchSource:.trackpad,spaceNavigation:.cycle(backward:true))
+  precondition(state.spaceRequests.last == .cycle(backward:true) && panel.windowSwitcherCoordinator.forward == 0 && panel.windowSwitcherCoordinator.backward == 0)
+  _ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:false,isBackwardPressed:false,launchSource:.keyboard)
+  precondition(state.activeLaunchSource == .keyboard && state.trackpadSessionId == nil,"Keyboard navigation revokes swipe-release ownership")
+  state.activeLaunchSource = .persistent; Defaults.takeover = false
+  _ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:.trackpad,spaceNavigation:.current)
+  precondition(state.activeLaunchSource == .persistent && state.trackpadSessionId == nil)
+  panel.windowSwitcherCoordinator.isKeybindSessionActive = false
+  _ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:.trackpad,spaceNavigation:.current)
+  precondition(state.initializations == 1 && state.spaceRequests.last == .current)
+  for searchFocused in [false,true] {
+   precondition(TrackpadSwipeReleasePolicy.shouldSelect(tookOverKeepOpenSession:true,keepOpen:true,focusesSearchOnOpen:true,searchEnabled:true,searchFocused:searchFocused) == !searchFocused)
+  }
+  print("PASS production swipe ownership: held initializer, persistent takeover/preference, search unfocus, Space-only navigation, keyboard takeover, pending initialization and unchanged release policy")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-spaces-swipe-ownership-') do |dir|
+ File.write("#{dir}/checks.swift",ownership_source)
+ abort 'Swipe ownership compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Swipe ownership checks failed' unless system("#{dir}/checks")
+end

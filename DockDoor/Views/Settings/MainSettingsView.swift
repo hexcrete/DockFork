@@ -188,6 +188,7 @@ struct MainSettingsView: View {
                 Defaults[.cmdTabCycleKey] = Defaults.Keys.cmdTabCycleKey.defaultValue
                 Defaults[.enableSpacesBar] = Defaults.Keys.enableSpacesBar.defaultValue
                 Defaults[.spacesBarItemSize] = Defaults.Keys.spacesBarItemSize.defaultValue
+                Defaults[.trackpadSwitcherSwipeSpaces] = Defaults.Keys.trackpadSwitcherSwipeSpaces.defaultValue
                 Defaults[.spacesBarCycleKey] = Defaults.Keys.spacesBarCycleKey.defaultValue
                 Defaults[.spacesBarBackwardCycleKey] = Defaults.Keys.spacesBarBackwardCycleKey.defaultValue
                 Defaults[.spacesBarFilterWindows] = Defaults.Keys.spacesBarFilterWindows.defaultValue

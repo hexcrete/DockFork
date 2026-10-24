@@ -1083,6 +1083,7 @@ extension Defaults.Keys {
     static let enableTrackpadSwitcherSwipe = Key<Bool>("enableTrackpadSwitcherSwipe", default: false)
     static let trackpadSwitcherSwipeFingers = Key<Int>("trackpadSwitcherSwipeFingers", default: 3)
     static let trackpadSwitcherSwipeDirection = Key<TrackpadSwipeDirection>("trackpadSwitcherSwipeDirection", default: .horizontal)
+    static let trackpadSwitcherSwipeSpaces = Key<Bool>("trackpadSwitcherSwipeSpaces", default: false)
     static let reverseTrackpadSwipeSelectionDirection = Key<Bool>("reverseTrackpadSwipeSelectionDirection", default: false)
     static let selectWindowOnPersistentSwitcherSwipe = Key<Bool>("selectWindowOnPersistentSwitcherSwipe", default: true)
     static let trackpadSwitcherSwipeSensitivity = Key<CGFloat>("trackpadSwitcherSwipeSensitivity", default: 1)
@@ -1860,6 +1861,13 @@ enum MediaDetectionMode: String, CaseIterable, Defaults.Serializable {
 enum TrackpadSwipeDirection: String, CaseIterable, Defaults.Serializable {
     case horizontal
     case vertical
+
+    var spacesBarNavigationTitle: String {
+        switch self {
+        case .horizontal: String(localized: "Use up/down for Spaces Bar")
+        case .vertical: String(localized: "Use left/right for Spaces Bar")
+        }
+    }
 
     var localizedName: String {
         switch self {

@@ -2,6 +2,8 @@ import Defaults
 import SwiftUI
 
 struct TrackpadSwitcherSwipeSection: View {
+    @Default(.enableSpacesBar) private var enableSpacesBar
+    @Default(.trackpadSwitcherSwipeSpaces) private var trackpadSwitcherSwipeSpaces
     @Default(.enableWindowSwitcher) var enableWindowSwitcher
     @Default(.enableTrackpadSwitcherSwipe) var enableTrackpadSwitcherSwipe
     @Default(.trackpadSwitcherSwipeFingers) var trackpadSwitcherSwipeFingers
@@ -24,7 +26,7 @@ struct TrackpadSwitcherSwipeSection: View {
                 .onChange(of: enableTrackpadSwitcherSwipe) { _ in askUserToRestartApplication() }
 
                 if enableTrackpadSwitcherSwipe {
-                    Text("Swipe to open the switcher, keep your fingers down and move left or right to change the selection, then lift your fingers to switch.")
+                    Text("Swipe to open the switcher, keep your fingers down to change the selection, then lift your fingers to switch.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                         .padding(.bottom, 4)
@@ -51,6 +53,18 @@ struct TrackpadSwitcherSwipeSection: View {
                     Text("If macOS uses the same swipe for Mission Control, App Exposé or switching between full-screen apps, turn that gesture off in System Settings > Trackpad > More Gestures.")
                         .font(.caption)
                         .foregroundColor(.secondary)
+
+                    if enableSpacesBar {
+                        Toggle(isOn: $trackpadSwitcherSwipeSpaces) {
+                            Text(trackpadSwitcherSwipeDirection.spacesBarNavigationTitle)
+                        }
+                        .settingsSearchTarget("gestures.trackpadSwitcherSwipeSpaces")
+                        if trackpadSwitcherSwipeSpaces {
+                            Text("Disable conflicting macOS gestures on both axes in System Settings > Trackpad > More Gestures.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
 
                     let sensitivityBinding = Binding<Double>(
                         get: { Double(trackpadSwitcherSwipeSensitivity) },

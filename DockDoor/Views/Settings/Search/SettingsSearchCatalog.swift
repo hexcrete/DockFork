@@ -1037,7 +1037,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.trackpadSwitcherSwipe",
             title: String(localized: "Open window switcher with a trackpad swipe"),
-            description: String(localized: "Swipe to open the switcher, keep your fingers down and move left or right to change the selection, then lift your fingers to switch."),
+            description: String(localized: "Swipe to open the switcher, keep your fingers down to change the selection, then lift your fingers to switch."),
             keywords: ["trackpad", "swipe", "three finger", "four finger", "gesture", "switcher", "alt tab"],
             tab: "Gestures",
             section: String(localized: "Trackpad Swipe for Window Switcher"),
@@ -1058,6 +1058,14 @@ enum SettingsSearchCatalog {
             tab: "Gestures",
             section: String(localized: "Trackpad Swipe for Window Switcher"),
             icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "gestures.trackpadSwitcherSwipeSpaces",
+            title: TrackpadSwipeDirection.horizontal.spacesBarNavigationTitle,
+            keywords: ["trackpad", "swipe", "spaces", "opposite", "axis", "horizontal", "vertical"],
+            tab: "Gestures",
+            section: String(localized: "Trackpad Swipe for Window Switcher"),
+            icon: "arrow.up.and.down.and.arrow.left.and.right"
         ),
         SettingsSearchItem(
             id: "gestures.trackpadSwitcherSwipeSensitivity",

@@ -10,6 +10,9 @@ enum TrackpadSwipeEvent: Equatable {
     case open
     case cycleForward
     case cycleBackward
+    case openSpaces(backward: Bool)
+    case cycleSpaceForward
+    case cycleSpaceBackward
     case release
     case cancel
 
@@ -18,6 +21,9 @@ enum TrackpadSwipeEvent: Equatable {
         switch self {
         case .cycleForward: return .cycleBackward
         case .cycleBackward: return .cycleForward
+        case .cycleSpaceForward: return .cycleSpaceBackward
+        case .cycleSpaceBackward: return .cycleSpaceForward
+        case let .openSpaces(backward): return .openSpaces(backward: !backward)
         case .open, .release, .cancel: return self
         }
     }
@@ -34,9 +40,11 @@ struct TrackpadSwipeDetector {
     private var startPositions: [Int: CGPoint] = [:]
     private var isSpent = false
     private var hasCycled = false
+    private var switchingHorizontal = false
+    private var switchingSpaces = false
     private(set) var isSwitching = false
 
-    mutating func handle(_ touches: [SwipeTouch], fingers: Int, horizontal: Bool, sensitivity: CGFloat = 1) -> TrackpadSwipeEvent? {
+    mutating func handle(_ touches: [SwipeTouch], fingers: Int, horizontal: Bool, sensitivity: CGFloat = 1, spacesEnabled: Bool = false) -> TrackpadSwipeEvent? {
         let distanceScale = 1 / min(max(sensitivity, Self.sensitivityRange.lowerBound), Self.sensitivityRange.upperBound)
 
         if isSwitching {
@@ -47,13 +55,14 @@ struct TrackpadSwipeDetector {
                 return .release
             }
             guard let deltas = travel(touches) else { return nil }
-            let averageAlong = deltas.map { horizontal ? $0.x : $0.y }.reduce(0, +) / CGFloat(deltas.count)
+            let averageAlong = deltas.map { switchingHorizontal ? $0.x : $0.y }.reduce(0, +) / CGFloat(deltas.count)
             let threshold = (hasCycled ? Self.cycleDistance : Self.firstCycleDistance) * distanceScale
             guard abs(averageAlong) >= threshold else { return nil }
             hasCycled = true
             rebase(touches)
             // Trackpad Y increases upward; forward selection follows right/down.
-            let movesForward = horizontal ? averageAlong > 0 : averageAlong < 0
+            let movesForward = switchingHorizontal ? averageAlong > 0 : averageAlong < 0
+            if switchingSpaces { return movesForward ? .cycleSpaceForward : .cycleSpaceBackward }
             return movesForward ? .cycleForward : .cycleBackward
         }
 
@@ -75,8 +84,14 @@ struct TrackpadSwipeDetector {
         }
         guard let deltas = travel(touches) else { return nil }
 
-        let alongAxis = deltas.map { horizontal ? $0.x : $0.y }
-        let acrossAxis = deltas.map { horizontal ? abs($0.y) : abs($0.x) }
+        var gestureHorizontal = horizontal
+        if spacesEnabled {
+            let averageX = deltas.map(\.x).reduce(0, +)
+            let averageY = deltas.map(\.y).reduce(0, +)
+            gestureHorizontal = abs(averageX) > abs(averageY)
+        }
+        let alongAxis = deltas.map { gestureHorizontal ? $0.x : $0.y }
+        let acrossAxis = deltas.map { gestureHorizontal ? abs($0.y) : abs($0.x) }
         if acrossAxis.contains(where: { $0 >= Self.maxOffAxisDistance }) {
             isSpent = true
             return nil
@@ -87,10 +102,12 @@ struct TrackpadSwipeDetector {
         guard allPositive || allNegative else { return nil }
         guard zip(alongAxis.map(abs), acrossAxis).allSatisfy({ $0 > $1 * Self.axisDominanceRatio }) else { return nil }
 
+        switchingHorizontal = gestureHorizontal
+        switchingSpaces = spacesEnabled && gestureHorizontal != horizontal
         isSwitching = true
         hasCycled = false
         rebase(touches)
-        return .open
+        return switchingSpaces ? .openSpaces(backward: gestureHorizontal ? allNegative : allPositive) : .open
     }
 
     private mutating func travel(_ touches: [SwipeTouch]) -> [CGPoint]? {
@@ -194,7 +211,8 @@ final class TrackpadSwipeTrigger {
         let fingers = min(max(Defaults[.trackpadSwitcherSwipeFingers], 3), 4)
         let horizontal = Defaults[.trackpadSwitcherSwipeDirection] == .horizontal
         let sensitivity = Defaults[.trackpadSwitcherSwipeSensitivity]
-        guard let event = detector.handle(swipeTouches, fingers: fingers, horizontal: horizontal, sensitivity: sensitivity) else { return }
+        let spacesEnabled = Defaults[.enableSpacesBar] && Defaults[.trackpadSwitcherSwipeSpaces]
+        guard let event = detector.handle(swipeTouches, fingers: fingers, horizontal: horizontal, sensitivity: sensitivity, spacesEnabled: spacesEnabled) else { return }
 
         let onSwipe = onSwipe
         Task { @MainActor in

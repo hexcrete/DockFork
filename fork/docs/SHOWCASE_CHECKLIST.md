@@ -377,3 +377,11 @@ Stage 4 handoff: cached target geometry, native scroll conversion and fake confi
 Stage 4 dismissal retest: turn destination following Off and drop several windows/groups onto Desktop pills in succession; the switcher must remain open and update membership. Turn following On and verify the established dismiss-before-follow behavior. Compare ordinary body drops and drag-to-tile, which retain their existing dismissal policy. Manual retest pending.
 
 Stage 4 user verification passed after the dismissal correction. Review/commit and continuation are authorized. No screenshot/video capture or exhaustive display/fault coverage is inferred.
+
+Stage 5 candidate: enable the opposite-axis Spaces option beneath trackpad Direction. Test both direction configurations, 3/4 fingers, reverse selection, sensitivity and small/diagonal motions. Keep fingers down and change travel direction: the recognized axis must stay fixed until release; the next gesture can choose the other axis. Compare fresh, Persistent and held-initializer sessions, including search focus, keyboard takeover, start-next On/Off and quick release before rendering. In a held session, lifting fingers must not commit before the initializer is released. Disable the option/master bar to compare unchanged window-only swiping. Review conflicts on both axes in macOS Trackpad settings. Agent tests post no native input; physical verification and media capture remain pending.
+
+Stage 5 handoff: signed final-source development build is running and eighteen suites pass across runs. Pure touch/ownership fixtures cover both axes and three/four fingers; no physical trackpad testing or captured media is claimed. Await user verification before review/commit or Stage 6.
+
+Stage 5 opening-direction retest: with Start on next Space On, a small Left/Up opening swipe should immediately highlight the previous pill, not highlight the next then reverse. Right/Down should highlight the next. Repeat with reverse selection and Start-next Off (current pill). Compare both configured axes, fresh and Persistent/held sessions. No media captured; manual retest pending.
+
+Stage 5 user verification passed after the initial-direction correction; final review/commit authorized. No media captured and no exhaustive hardware/display coverage inferred. Desktop-content move/swap/shift demonstration belongs to Stage 6.
