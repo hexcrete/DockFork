@@ -3,7 +3,7 @@ import Defaults
 import SwiftUI
 import UniformTypeIdentifiers
 
-private struct PreviewDragTargetHighlight: View {
+struct PreviewDragTargetHighlight: View {
     let uniformCardRadius: Bool
     let paddingMultiplier: CGFloat
     let expansionEdges: Edge.Set

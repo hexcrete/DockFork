@@ -105,6 +105,8 @@ class PreviewStateCoordinator: ObservableObject {
 
     var tapStateDidChange: (() -> Void)?
     weak var actionFeedbackGrid: CardGridScrollView.Coordinator?
+    weak var spaceDragViewport: SpacesBarScroll.ViewportView?
+    var isDraggingPreview = false
     weak var dragTargetGrid: CardGridScrollView.Coordinator?
     weak var selectionGrid: CardGridScrollView.Coordinator?
 
@@ -461,7 +463,7 @@ class PreviewStateCoordinator: ObservableObject {
         }
         if hovering {
             guard mouseHighlightedSpaceID != id else { return }
-            guard !isPointerSelecting, registerMouseMovementSinceOpen() else { return }
+            guard !isDraggingPreview, !isPointerSelecting, registerMouseMovementSinceOpen() else { return }
             mouseHighlightedSpaceID = id
             guard navigationTarget != .space(id) || spaceNavigationInputSource != .mouse else { return }
             setIndex(to: -1, shouldScroll: false, source: .programmatic)

@@ -435,6 +435,7 @@ enum Defaults {
 }
 enum NSEvent { static var mouseLocation = CGPoint.zero }
 @MainActor final class HoverState {
+ var isDraggingPreview = false
  var mouseHighlightedSpaceID: CGSSpaceID?
  enum SelectionInputSource { case programmatic, keyboard, mouse }
  enum NavigationTarget: Equatable { case windows, space(CGSSpaceID) }
@@ -484,6 +485,13 @@ hover_source += <<~'SWIFT'
   state.hoverSpace(3, hovering: true)
   precondition(state.navigationTarget == .windows, "Disabling shared hover must clear mouse-owned navigation")
   state.hoverSpace(3, hovering: false)
+  state.isDraggingPreview = true
+  Defaults.hover = true
+  let beforeDrag = state.writes
+  state.hoverSpace(4, hovering: true)
+  precondition(state.writes == beforeDrag, "A window drag must not change the Space highlight/filter")
+  state.isDraggingPreview = false
+  Defaults.hover = false
   precondition(state.mouseHighlightedSpaceID == nil, "Exit must clear hover-entry tracking even while shared hover is disabled")
   state.navigationTarget = .space(4); state.spaceNavigationInputSource = .keyboard
   state.hoverSpace(4, hovering: true)
@@ -601,6 +609,8 @@ struct BlurView: View {
  var body: some View { Color.gray.clipShape(shape) }
 }
 enum SpacesBarLayout {
+ static let itemSpacing: CGFloat = 12
+ static let dividerWidth: CGFloat = 1
  static let innerPadding: CGFloat = 14
  static let headingInset: CGFloat = 20
  static let headingTextFont = NSFont.preferredFont(forTextStyle:.body)
@@ -631,6 +641,7 @@ native_source += "extension View {\n" + block(material, '    func materialPill('
 native_source += "enum AppIconStripFormatting {\n" + block(preview, '    static func width(') + "\n" + block(preview, '    static func visibleCount(total:') + "\n}\n"
 native_source += "extension SpacesBarLayout {\n" + block(bar, '    static func titleInset(') + "\n" + block(bar, '    static func pinnedTitleOffset(') + "\n}\n"
 native_source += "enum Defaults { struct Key<T> { let value:T }; static subscript<T>(_ key:Key<T>)->T {key.value} }\nextension Defaults.Key where T == SpacesBarItemSize {static var spacesBarItemSize: Self {Self(value:.small)}}\n"
+native_source += "final class PreviewStateCoordinator { weak var spaceDragViewport: SpacesBarScroll.ViewportView? }\n"
 native_source += block(bar, 'enum SpacesBarAppLayout {') + "\n"
 native_source += block(File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedHoverAppTitle.swift"), 'struct PreviewAppIcon:') + "\n"
 native_source += <<~'SWIFT'
@@ -644,6 +655,7 @@ struct AppIconBadgeOverlay: View {
 SWIFT
 native_source += <<~'SWIFT'
 enum CardRadius {
+ static let innerPadding: CGFloat = 2
  static func previewCard(uniform:Bool,paddingMultiplier:CGFloat)->Double { 8 }
 }
 extension View {
@@ -655,6 +667,7 @@ extension View {
 }
 SWIFT
 animation_source = File.read("#{root}/DockDoor/Extensions/SwiftUIUtils.swift")
+native_source += block(File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewInteractionModifier.swift"), 'struct PreviewDragTargetHighlight:') + "\n"
 native_source += block(animation_source, 'enum PreviewControlAnimation {') + "\n" + block(animation_source, 'private struct PreviewControlVisibilityAnimation:') + "\n"
 native_source += "extension View {\n" + block(animation_source, '    func previewControlVisibilityAnimation(') + "\n}\n"
 native_source += "extension SpacesBarLayout {\n" + bar.lines.grep(/static var (clearSymbolSize|minimumLabelWidth):/).join + block(bar, '    static func titleParts(') + "\n}\n"
@@ -720,6 +733,7 @@ final class CompanionProbe: NSPanel {
  deinit { NotificationCenter.default.removeObserver(self) }
 SWIFT
 native_source += block(panel, '    @objc private func positionCompanionWindows()').sub('panelAnchor?.screen ?? screen','screen') + "\n}\n"
+native_source += "struct PillFrameProbe {\n struct Item { let id: UInt64 }\n struct Section { let spaces: [Item] }\n let sections: [Section]\n let widths: [UInt64: CGFloat]\n    var dropFrames: [CGSSpaceID: CGRect] {\n        var x = SpacesBarLayout.innerPadding\n        let y = SpacesBarLayout.innerPadding + (sections.count > 1 ? SpacesBarLayout.headingHeight + 4 * SpacesBarLayout.scale : 0)\n        var frames: [CGSSpaceID: CGRect] = [:]\n        for (index, display) in sections.enumerated() {\n            if index > 0 { x += SpacesBarLayout.itemSpacing + SpacesBarLayout.dividerWidth }\n            for entry in display.spaces {\n                let width = widths[entry.id] ?? SpacesBarLayout.pillHeight\n                frames[entry.id] = CGRect(x: x, y: y, width: width, height: SpacesBarLayout.pillHeight)\n                x += width + SpacesBarLayout.itemSpacing\n            }\n        }\n        return frames\n    }\n\n\n}\n"
 native_source += "extension CompanionProbe {\n" + block(panel, '    private func anchoredOrigin(').sub('private func','func') + "\n}\n"
 native_source += <<~'SWIFT'
 enum SlideSamples { static var values: [CGFloat] = [] }
@@ -735,6 +749,15 @@ struct SlideProbe: AnimatableModifier {
  @MainActor static func main() {
   _ = NSApplication.shared
   guard !NSScreen.screens.isEmpty else { print("SKIP native Space viewport: no display access"); return }
+let firstSection = PillFrameProbe.Section(spaces:[.init(id:1),.init(id:2)])
+let lastSection = PillFrameProbe.Section(spaces:[.init(id:3)])
+let itemWidths: [UInt64:CGFloat] = [1:100,2:200,3:120]
+let singleFrames = PillFrameProbe(sections:[firstSection],widths:itemWidths).dropFrames
+precondition(singleFrames[1] == CGRect(x:SpacesBarLayout.innerPadding,y:SpacesBarLayout.innerPadding,width:100,height:SpacesBarLayout.pillHeight))
+precondition(singleFrames[2]!.minX == singleFrames[1]!.maxX + SpacesBarLayout.itemSpacing)
+let multiFrames = PillFrameProbe(sections:[firstSection,lastSection],widths:itemWidths).dropFrames
+precondition(multiFrames[3]!.minX == multiFrames[2]!.maxX + SpacesBarLayout.itemSpacing*2 + SpacesBarLayout.dividerWidth)
+precondition(multiFrames[3]!.minY == SpacesBarLayout.innerPadding + SpacesBarLayout.headingHeight + 4*SpacesBarLayout.scale)
   let animationPanel = NSPanel(contentRect:CGRect(x:20,y:20,width:160,height:40),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
   animationPanel.ignoresMouseEvents = true
   let animationViewport = SpacesBarScroll.ViewportView(frame:CGRect(x:0,y:0,width:160,height:40))
@@ -900,6 +923,28 @@ let moved=NSEvent.mouseEvent(with:.mouseMoved,location:NSPoint(x:895,y:20),modif
   precondition(view.scroller.offset==stopped,"Disabled edge scrolling must not start a timer")
   view.scroller.contentSize=CGSize(width:900,height:56)
   precondition(view.scroller.maxOffset==0 && view.scroller.offset==0)
+window.ignoresMouseEvents = true
+window.orderFront(nil)
+view.edgeScrolling = false
+view.dropFrames = [1:CGRect(x:100,y:8,width:200,height:40),2:CGRect(x:320,y:8,width:200,height:40)]
+view.desktopDropIDs = [1]
+var dropID: UInt64?
+view.onDropTargetChanged = { dropID = $0 }
+func screenPoint(_ x: CGFloat, _ y: CGFloat = 20) -> CGPoint { window.convertPoint(toScreen:view.scroller.convert(CGPoint(x:x,y:y),to:nil)) }
+view.updateDrag(at:screenPoint(150))
+precondition(dropID==1 && view.spaceForDrop(at:screenPoint(150))==1)
+view.updateDrag(at:screenPoint(400))
+precondition(dropID==nil && view.spaceForDrop(at:screenPoint(400))==2,"Fullscreen pill remains a refusal hit, not an ordinary placement")
+view.updateDrag(at:screenPoint(310));precondition(dropID==nil,"Pill gaps cannot receive window moves")
+view.scroller.contentSize=CGSize(width:1600,height:56)
+view.scroller.onOffsetChange = { [weak view] _ in view?.refreshDragTarget() }
+view.updateDrag(at:screenPoint(150));precondition(dropID==1)
+view.scroller.scroll(to:220,animated:false)
+precondition(dropID==nil && view.spaceForDrop(at:screenPoint(150))==2,"Stationary drag must track live scroll offset")
+view.updateDrag(at:nil);precondition(dropID==nil)
+window.orderOut(nil)
+precondition(view.spaceForDrop(at:screenPoint(150))==nil,"Hidden bar has no live drop targets")
+print("PASS native Space drop hits: Desktop/fullscreen distinction, gaps, live scroll offsets, stationary pointer refresh and hidden/cancelled cleanup; test-owned panel only")
   view.scroller.stopEdgeScroll()
   window.orderOut(nil)
   print("PASS native Spaces viewport: measured production-pill dimensions, full-width layout, initial centering, shared edge scrolling, exit/disable cleanup and nonoverflow clamping; no user-window events")
@@ -947,3 +992,110 @@ end
 abort 'Hidden Space icons must reserve no app width or render overflow' unless panel.include?('CGFloat(Defaults[.spacesBarShowAppIcons] ? entry.apps.count : 0)') && bar.include?('let apps = showAppIcons ? entry.apps : []') && bar.include?('total: apps.count, availableWidth: iconRoom') && bar.include?('count < apps.count')
 abort 'Icon activation setting must remain editable with a visibility explanation' unless settings.include?('if !spacesBarShowAppIcons {') && settings.include?('Enable \"Appearance > Spaces Bar > Show app icons in the Spaces Bar\" to use this.') && !settings.include?('.disabled(!spacesBarShowAppIcons)')
 puts 'PASS Space icon visibility: default-on preference wiring, Appearance search/reset, no hidden icon width/overflow and gated activation'
+
+# Exercise the shared dropdown/drop executor with fake confirmed moves, never live windows.
+util = File.read("#{root}/DockDoor/Utilities/Window Management/WindowUtil.swift")
+drop_source = <<~'SWIFT'
+import Foundation
+struct PreviewWindowIdentity: Hashable { let id: Int; init(_ w: WindowInfo) { id = w.id } }
+final class App { var isHidden = false; let processIdentifier = 1 }
+struct WindowInfo {
+ let id: Int; let app: App; var isMinimized = false
+ @MainActor func bringToFrontConfirmed() async -> Bool { Model.focus.append(id); return true }
+}
+struct Space { let id: Int; let kind = Kind.desktop; enum Kind { case desktop, fullscreen } }
+struct ManagedSpaceDestination { let space: Space }
+final class WindowActionRequest { var allowed: Set<Int>; var mayForeground = true
+ init(_ ids: [Int]) { allowed = Set(ids) }
+ func contains(_ id: PreviewWindowIdentity) -> Bool { allowed.contains(id.id) }
+}
+enum Outcome: Equatable { case completed, failed, cancelled }
+final class ActionFeedbackHandle {
+ var results: [Int: Outcome] = [:]
+ func finish(_ id: PreviewWindowIdentity, _ result: Outcome) { if results[id.id] == nil { results[id.id] = result } }
+ func finishRemaining(_ result: Outcome) {}
+}
+@MainActor enum Model {
+ static var members: [Int: Set<Int>] = [:], invalid = Set<Int>(), failures = Set<Int>(), pending = Set<Int>()
+ static var issued: [Int] = [], focus: [Int] = [], cancels = 0, active = true, afterMove: (() -> Void)?
+ static func reset() { members = [:]; invalid = []; failures = []; pending = []; issued = []; focus = []; cancels = 0; active = true; afterMove = nil }
+}
+@MainActor enum WindowSpaces {
+ static func managedDisplays() -> [Int] { [1] }
+ static func validateMoveSourceConfirmed(_ w: WindowInfo, in displays: [Int]) async -> Int? { Model.invalid.contains(w.id) ? 1 : nil }
+ static func sourceSpaceIDs(for w: WindowInfo) -> Set<Int> { Model.members[w.id] ?? [1] }
+}
+@MainActor enum WindowUtil {
+ struct PreviewBatchResult { var succeeded: [WindowInfo] = []; var failed: [PreviewWindowIdentity] = [] }
+ static func readCachedWindows(for pid: Int) -> [WindowInfo] { [] }
+ static func setHiddenStateConfirmed(for app: App, isHidden: Bool) async -> Bool { app.isHidden = isHidden; return true }
+ static func setMinimizedWindowsConfirmed(_ ws: [WindowInfo], isMinimized: Bool) async -> [WindowInfo] { ws }
+ static func performConfirmedSpaceMove(_ w: WindowInfo, to d: ManagedSpaceDestination, dismissPreviews: (() -> Void)?,
+                                      switchToDestination: Bool, isRequestActive: @escaping () -> Bool,
+                                      completion: @escaping (Bool) -> Void) -> (() -> Void)? {
+  precondition(!switchToDestination)
+  Model.issued.append(w.id)
+  let task = Task { @MainActor in
+   try? await Task.sleep(nanoseconds: UInt64(w.id == 1 ? 30_000_000 : 5_000_000))
+   guard !Task.isCancelled, isRequestActive(), !Model.pending.contains(w.id) else { return }
+   let success = !Model.failures.contains(w.id) && !Model.invalid.contains(w.id)
+   if success { Model.members[w.id] = [d.space.id] }
+   completion(success); Model.afterMove?()
+  }
+  return { Model.cancels += 1; task.cancel() }
+ }
+SWIFT
+drop_source += block(util, '    static func movePreviewWindows(') + "\n}\n"
+drop_source += <<~'SWIFT'
+@main struct Checks {
+ @MainActor static func main() async {
+  let app = App(), windows = [1,2,3].map { WindowInfo(id: $0, app: app) }, destination = ManagedSpaceDestination(space: Space(id: 2))
+  func run(_ ids: [Int], follows: Bool = false, mayFollow: Bool = true, feedback: ActionFeedbackHandle? = nil) async -> WindowUtil.PreviewBatchResult {
+   await WindowUtil.movePreviewWindows(windows, to: destination, request: WindowActionRequest(ids), followsDestination: follows,
+                                      dismissPreviews: nil, mayFollow: { mayFollow }, isRequestActive: { Model.active }, feedback: feedback)
+  }
+  Model.reset(); let feedback = ActionFeedbackHandle()
+  let partial = await run([1,3], feedback: feedback)
+  precondition(Set(partial.succeeded.map(\.id)) == [1,3] && partial.failed.map(\.id) == [2])
+  precondition(Model.issued == [1,3] && Model.focus.isEmpty && feedback.results[2] == .failed && Model.cancels == 2)
+  Model.reset(); Model.failures = [2]
+  let mixed = await run([1,2,3], follows: true)
+  precondition(mixed.failed.map(\.id) == [2] && Model.focus == [1], "Follow selected order, not callback order")
+  Model.reset(); app.isHidden = true
+  _ = await run([1,2,3], follows: false)
+  precondition(app.isHidden && Model.focus.isEmpty, "No-follow preserves hidden state")
+  Model.reset(); _ = await run([1,2,3], follows: true, mayFollow: false)
+  precondition(Model.focus.isEmpty, "Dropdown stale-presentation follow guard")
+  Model.reset(); Model.members[1] = [2]
+  let sameAndMoved = await run([1,2,3])
+  precondition(Model.issued == [2,3] && sameAndMoved.failed.isEmpty && sameAndMoved.succeeded.count == 3)
+  Model.reset(); Model.members = [1:[2],2:[2],3:[2]]
+  let noop = await run([1,2,3]); precondition(noop.failed.count == 3 && Model.issued.isEmpty)
+  Model.reset(); Model.invalid = [2]
+  let invalid = await run([1,2,3]); precondition(invalid.failed.map(\.id) == [2])
+  Model.reset(); Model.active = false
+  _ = await run([1,2,3]); precondition(Model.issued.isEmpty)
+  Model.reset(); Model.pending = [1,2,3]
+  let task = Task { @MainActor in await run([1,2,3]) }
+  try? await Task.sleep(nanoseconds: 20_000_000); task.cancel(); _ = await task.value
+  precondition(Model.cancels == 3 && Model.focus.isEmpty, "Cancellation closes pending moves without foregrounding")
+  print("PASS shared Space batch executor: admission, partial failure, stable follow order, no-follow state, stale dropdown guard, existing-destination handling, invalid source, inactive request and cancellation cleanup; fake operations only")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-drops-') do |dir|
+ File.write("#{dir}/checks.swift", drop_source)
+ abort 'Shared Space move compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Shared Space move checks failed' unless system("#{dir}/checks")
+end
+
+container = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift")
+drop = block(container, '    private func completeSpaceDrop(')
+finish = block(container, '    private func finishPreviewDrag(')
+abort 'Space bar drops must take precedence over tiling and ordinary pointer placement' unless finish.index('containsSpacesBar(location)') < finish.index('completeTileDrop') && finish.include?('cancelPreviewDrag(token: session.token); return')
+abort 'Drops must reuse released lifetime, ownership, shared move, target filtering and follow preference' unless %w[completeDrop movePreviewWindows beginPreviewActionRequest previewTargets switchToDestinationSpaceAfterMoving].all? { |term| drop.include?(term) } && !drop.include?('placeDraggedWindows') && !drop.include?('setWindowFrame')
+abort 'Dropdown groups must use the same Space executor' unless block(panel, '    func performCheckedSpaceMove(').include?('WindowUtil.movePreviewWindows')
+puts 'PASS Space drop route: bar-first refusal, common group move, ordered targets, ownership, retained operation lifetime, follow setting and no geometry placement'
+
+abort 'Successful Space pill drops must keep previews open unless destination following dismisses them' if drop.include?('onWindowTap?()')
+puts 'PASS Space drop dismissal: no ordinary drop/activation callback; only shared destination-follow dismissal'

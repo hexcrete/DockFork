@@ -566,6 +566,18 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         WindowUtil.switchToManagedSpace(entry.destination) { success in if !success { NSSound.beep() } }
     }
 
+    func containsSpacesBar(_ point: CGPoint) -> Bool {
+        guard let panel = spacesBarWindow, panel.isVisible else { return false }
+        return panel.frame.contains(point)
+    }
+
+    func spaceDropDestination(at point: CGPoint) -> ManagedSpaceDestination? {
+        guard containsSpacesBar(point),
+              let id = windowSwitcherCoordinator.spaceDragViewport?.spaceForDrop(at: point),
+              let entry = spacesBarSections.flatMap(\.spaces).first(where: { $0.id == id && !$0.isFullscreen }) else { return nil }
+        return entry.destination
+    }
+
     var spacesBarReservation: CGFloat {
         spacesBarSections.isEmpty ? 0 : SpacesBarLayout.reservation(displayCount: spacesBarSections.count, search: Defaults[.enableWindowSwitcherSearch])
     }
@@ -631,6 +643,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     private func removeSpacesBar(keepTopologyObserver: Bool = false) {
+        windowSwitcherCoordinator.spaceDragViewport?.updateDrag(at: nil)
+        windowSwitcherCoordinator.spaceDragViewport = nil
         windowSwitcherCoordinator.mouseHighlightedSpaceID = nil
         windowSwitcherCoordinator.navigationTarget = .windows
         windowSwitcherCoordinator.setSpaceFilter(nil)
@@ -694,7 +708,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         panel.sharingType = sharingType
         let barView = SpacesBarView(
             viewport: panel.viewport, viewportWidth: max(1, width - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2), screen: screen, sections: spacesBarSections, widths: Dictionary(uniqueKeysWithValues: zip(entries.map(\.id), sizes)),
-            initialSpace: current, highlightedSpace: windowSwitcherCoordinator.spaceNavigationInputSource == .mouse ? nil : highlightedSpaceID, labels: labels,
+            initialSpace: current, highlightedSpace: windowSwitcherCoordinator.spaceNavigationInputSource == .mouse ? nil : highlightedSpaceID, previewCoordinator: windowSwitcherCoordinator, labels: labels,
             hover: { [weak self] id, hovering in self?.windowSwitcherCoordinator.hoverSpace(id, hovering: hovering) },
             filteredSpace: windowSwitcherCoordinator.activeSpaceFilterID,
             clearFilter: { [weak self] in
@@ -2355,72 +2369,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             defer {
                 if previewBatchToken == token { previewBatchTask = nil; previewBatchToken = nil }
             }
-            var succeeded: [WindowInfo] = []
-            var failed: [PreviewWindowIdentity] = []
-            var pending = Set<PreviewWindowIdentity>()
-            var cancellations: [@MainActor () -> Void] = []
-            var requestedMove = false
-            defer { for cancel in cancellations {
-                cancel()
-            } }
-            let topology = WindowSpaces.managedDisplays()
-            for window in targets {
-                let identity = PreviewWindowIdentity(window)
-                guard request.contains(identity) else { failed.append(identity); feedback?.finish(identity, .failed); continue }
-                let sourceError = await WindowSpaces.validateMoveSourceConfirmed(window, in: topology)
-                guard !Task.isCancelled else { return }
-                if sourceError == nil,
-                   WindowSpaces.sourceSpaceIDs(for: window).contains(destination.space.id), destination.space.kind == .desktop
-                {
-                    succeeded.append(window)
-                    continue
-                }
-                requestedMove = true
-                pending.insert(identity)
-                let cancel = WindowUtil.performConfirmedSpaceMove(window, to: destination, dismissPreviews: nil,
-                                                                  switchToDestination: false,
-                                                                  isRequestActive: { request.contains(identity) })
-                { success in
-                    pending.remove(identity)
-                    feedback?.finish(identity, success ? .completed : .failed)
-                    if success { succeeded.append(window) } else { failed.append(identity) }
-                }
-                if let cancel { cancellations.append(cancel) }
-            }
-            guard requestedMove else {
-                feedback?.finishRemaining(.failed)
-                reportBatchFailures(targets.map(PreviewWindowIdentity.init), action: "moveToCurrentDestination")
-                return
-            }
-            for window in succeeded {
-                feedback?.finish(PreviewWindowIdentity(window), .completed)
-            }
-            for _ in 0 ..< 25 where !pending.isEmpty {
-                do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return }
-            }
-            guard !Task.isCancelled else { return }
-            failed.append(contentsOf: pending)
-            for identity in pending {
-                feedback?.finish(identity, .failed)
-            }
-            reportBatchFailures(failed, action: "moveToSpace")
-            let succeededIdentities = Set(succeeded.map(PreviewWindowIdentity.init))
-            if request.mayForeground, previewBatchToken == token, followsDestination, !succeeded.isEmpty, isVisible, contentView === originalContent,
-               let first = targets.first(where: { succeededIdentities.contains(PreviewWindowIdentity($0)) })
-            {
-                dismissPreviews?()
-                var moved = WindowUtil.readCachedWindows(for: first.app.processIdentifier).first { $0.id == first.id } ?? first
-                var canFocus = true
-                if moved.app.isHidden { canFocus = await WindowUtil.setHiddenStateConfirmed(for: moved.app, isHidden: false) }
-                if canFocus, moved.isMinimized {
-                    canFocus = await !(WindowUtil.setMinimizedWindowsConfirmed([moved], isMinimized: false)).isEmpty
-                    if canFocus { moved.isMinimized = false }
-                }
-                guard !Task.isCancelled else { return }
-                if canFocus { canFocus = await moved.bringToFrontConfirmed() }
-                if !canFocus { reportBatchFailures([PreviewWindowIdentity(first)], action: "followSpace") }
-            }
-            guard !Task.isCancelled else { return }
+            let result = await WindowUtil.movePreviewWindows(targets, to: destination, request: request,
+                                                             followsDestination: followsDestination, dismissPreviews: dismissPreviews,
+                                                             mayFollow: { self.previewBatchToken == token && self.isVisible && self.contentView === originalContent },
+                                                             isRequestActive: { !Task.isCancelled }, feedback: feedback)
+            reportBatchFailures(result.failed, action: "moveToSpace")
         } }
         previewActionTasks[token] = (request, task)
         request.onSuperseded { task.cancel() }

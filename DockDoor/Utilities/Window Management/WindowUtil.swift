@@ -1108,6 +1108,83 @@ extension WindowUtil {
     }
 
     @MainActor
+    static func movePreviewWindows(_ targets: [WindowInfo], to destination: ManagedSpaceDestination,
+                                   request: WindowActionRequest, followsDestination: Bool,
+                                   dismissPreviews: (() -> Void)?, mayFollow: () -> Bool,
+                                   isRequestActive: @escaping @MainActor () -> Bool,
+                                   feedback: ActionFeedbackHandle? = nil) async -> PreviewBatchResult
+    {
+        defer { feedback?.finishRemaining(.cancelled) }
+        var succeeded: [WindowInfo] = []
+        var failed: [PreviewWindowIdentity] = []
+        var pending = Set<PreviewWindowIdentity>()
+        var cancellations: [@MainActor () -> Void] = []
+        var requestedMove = false
+        defer { for cancel in cancellations {
+            cancel()
+        } }
+        let topology = WindowSpaces.managedDisplays()
+        for window in targets {
+            guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult(succeeded: succeeded, failed: failed) }
+            let identity = PreviewWindowIdentity(window)
+            guard request.contains(identity) else { failed.append(identity); feedback?.finish(identity, .failed); continue }
+            let sourceError = await WindowSpaces.validateMoveSourceConfirmed(window, in: topology)
+            guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult(succeeded: succeeded, failed: failed) }
+            if sourceError == nil,
+               WindowSpaces.sourceSpaceIDs(for: window).contains(destination.space.id), destination.space.kind == .desktop
+            {
+                succeeded.append(window)
+                continue
+            }
+            requestedMove = true
+            pending.insert(identity)
+            let cancel = WindowUtil.performConfirmedSpaceMove(window, to: destination, dismissPreviews: nil,
+                                                              switchToDestination: false,
+                                                              isRequestActive: { isRequestActive() && request.contains(identity) })
+            { success in
+                pending.remove(identity)
+                feedback?.finish(identity, success ? .completed : .failed)
+                if success { succeeded.append(window) } else { failed.append(identity) }
+            }
+            if let cancel { cancellations.append(cancel) }
+        }
+        guard requestedMove else {
+            feedback?.finishRemaining(.failed)
+            return PreviewBatchResult(failed: targets.map(PreviewWindowIdentity.init))
+        }
+        for window in succeeded {
+            feedback?.finish(PreviewWindowIdentity(window), .completed)
+        }
+        for _ in 0 ..< 25 where !pending.isEmpty {
+            do { try await Task.sleep(nanoseconds: 100_000_000) } catch { return PreviewBatchResult(succeeded: succeeded, failed: failed) }
+        }
+        guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult(succeeded: succeeded, failed: failed) }
+        failed.append(contentsOf: pending)
+        for identity in pending {
+            feedback?.finish(identity, .failed)
+        }
+
+        let succeededIdentities = Set(succeeded.map(PreviewWindowIdentity.init))
+        if request.mayForeground, followsDestination, !succeeded.isEmpty, mayFollow(),
+           let first = targets.first(where: { succeededIdentities.contains(PreviewWindowIdentity($0)) })
+        {
+            dismissPreviews?()
+            var moved = WindowUtil.readCachedWindows(for: first.app.processIdentifier).first { $0.id == first.id } ?? first
+            var canFocus = true
+            if moved.app.isHidden { canFocus = await WindowUtil.setHiddenStateConfirmed(for: moved.app, isHidden: false) }
+            if canFocus, moved.isMinimized {
+                canFocus = await !(WindowUtil.setMinimizedWindowsConfirmed([moved], isMinimized: false)).isEmpty
+                if canFocus { moved.isMinimized = false }
+            }
+            guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult(succeeded: succeeded, failed: failed) }
+            if canFocus { canFocus = await moved.bringToFrontConfirmed() }
+            if !canFocus { failed.append(PreviewWindowIdentity(first)) }
+        }
+        guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult(succeeded: succeeded, failed: failed) }
+        return PreviewBatchResult(succeeded: succeeded, failed: failed)
+    }
+
+    @MainActor
     static func placeDraggedWindows(_ targets: [PreviewDragTarget], at pointer: CGPoint, on screen: NSScreen,
                                     destination: ManagedSpaceDestination,
                                     isRequestActive: @escaping @MainActor () -> Bool, feedback: ActionFeedbackHandle? = nil) async -> PreviewBatchResult

@@ -445,6 +445,7 @@ struct SpacesBarView: View {
     let widths: [CGSSpaceID: CGFloat]
     let initialSpace: CGSSpaceID?
     let highlightedSpace: CGSSpaceID?
+    var previewCoordinator: PreviewStateCoordinator? = nil
     let labels: SpaceMenuDisplayMode
     let hover: (CGSSpaceID, Bool) -> Void
     let filteredSpace: CGSSpaceID?
@@ -469,6 +470,8 @@ struct SpacesBarView: View {
                                 let halfWidth = (widths[id] ?? 0) / 2
                                 return (center - halfWidth) ... (center + halfWidth)
                             } }, viewport: viewport,
+                            dropFrames: dropFrames, desktopDropIDs: Set(entries.filter { !$0.isFullscreen }.map(\.id)),
+                            previewCoordinator: previewCoordinator,
                             filteredSpace: filteredSpace,
                             contentAnimation: PreviewControlAnimation.animation(duration: controlAnimationDuration, animationsEnabled: showAnimations, reduceMotion: reduceMotion),
                             edgeScrolling: edgeScrolling, speed: scrollSpeed)
@@ -477,6 +480,21 @@ struct SpacesBarView: View {
                 .fadeOnEdges(axis: .horizontal, fadeLength: HoverContainerPadding.edgeFadeLength, disableLeading: !viewport.fromStart, disableTrailing: viewport.toEnd)
                 .clipShape(CardRadius.containerContentClip)
         }, backgroundAppearance: .resolve())
+    }
+
+    private var dropFrames: [CGSSpaceID: CGRect] {
+        var x = SpacesBarLayout.innerPadding
+        let y = SpacesBarLayout.innerPadding + (sections.count > 1 ? SpacesBarLayout.headingHeight + 4 * SpacesBarLayout.scale : 0)
+        var frames: [CGSSpaceID: CGRect] = [:]
+        for (index, display) in sections.enumerated() {
+            if index > 0 { x += SpacesBarLayout.itemSpacing + SpacesBarLayout.dividerWidth }
+            for entry in display.spaces {
+                let width = widths[entry.id] ?? SpacesBarLayout.pillHeight
+                frames[entry.id] = CGRect(x: x, y: y, width: width, height: SpacesBarLayout.pillHeight)
+                x += width + SpacesBarLayout.itemSpacing
+            }
+        }
+        return frames
     }
 
     private var displayHeadings: [SpacesBarDisplayHeading] {
@@ -601,6 +619,11 @@ struct SpacesBarView: View {
                 hover(entry.id, false)
             }
         }
+        .overlay {
+            if viewport.dropTargetID == entry.id {
+                PreviewDragTargetHighlight(uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier, expansionEdges: [])
+            }
+        }
         .accessibilityElement(children: .contain)
     }
 }
@@ -632,6 +655,7 @@ final class SpacesBarViewport: ObservableObject {
     @Published var fromStart = false
     @Published var toEnd = true
     @Published var hoveredSpaceID: CGSSpaceID?
+    @Published var dropTargetID: CGSSpaceID?
 }
 
 final class SpacesBarHostedState: ObservableObject {
@@ -650,6 +674,9 @@ struct SpacesBarScroll: NSViewRepresentable {
     let initialCenter: CGFloat?
     var revealRange: ClosedRange<CGFloat>? = nil
     let viewport: SpacesBarViewport
+    var dropFrames: [CGSSpaceID: CGRect] = [:]
+    var desktopDropIDs: Set<CGSSpaceID> = []
+    var previewCoordinator: PreviewStateCoordinator? = nil
     var filteredSpace: CGSSpaceID? = nil
     var contentAnimation: Animation? = nil
     let edgeScrolling: Bool
@@ -658,6 +685,12 @@ struct SpacesBarScroll: NSViewRepresentable {
     func makeNSView(context: Context) -> ViewportView { ViewportView() }
 
     func updateNSView(_ view: ViewportView, context: Context) {
+        view.dropFrames = dropFrames
+        view.desktopDropIDs = desktopDropIDs
+        previewCoordinator?.spaceDragViewport = view
+        view.onDropTargetChanged = { [weak viewport] id in
+            if viewport?.dropTargetID != id { viewport?.dropTargetID = id }
+        }
         view.updateContent(content, filteredSpace: filteredSpace, animation: contentAnimation)
         let contentFrame = CGRect(origin: .zero, size: contentSize)
         if view.hosting.frame != contentFrame { view.hosting.frame = contentFrame }
@@ -677,7 +710,7 @@ struct SpacesBarScroll: NSViewRepresentable {
         view.edgeScrolling = edgeScrolling
         view.speed = speed
         view.updateHeadings(headings)
-        view.scroller.onOffsetChange = { [weak view] _ in view?.positionHeadings() }
+        view.scroller.onOffsetChange = { [weak view] _ in view?.positionHeadings(); view?.refreshDragTarget() }
         view.scroller.onScrollStateChange = { [weak viewport] fromStart, toEnd in
             guard let viewport, viewport.fromStart != fromStart || viewport.toEnd != toEnd else { return }
             DispatchQueue.main.async { [weak viewport] in
@@ -692,6 +725,8 @@ struct SpacesBarScroll: NSViewRepresentable {
     static func dismantleNSView(_ view: ViewportView, coordinator: ()) {
         view.scroller.onOffsetChange = nil
         view.scroller.onScrollStateChange = nil
+        view.updateDrag(at: nil)
+        view.onDropTargetChanged = nil
         view.scroller.stopEdgeScroll()
     }
 
@@ -720,6 +755,28 @@ struct SpacesBarScroll: NSViewRepresentable {
         var speed: CGFloat = 0
         private var centered = false
         private var pointer: CGPoint?
+        private var dragPointer: CGPoint?
+        var dropFrames: [CGSSpaceID: CGRect] = [:]
+        var desktopDropIDs: Set<CGSSpaceID> = []
+        var onDropTargetChanged: ((CGSSpaceID?) -> Void)?
+
+        func spaceForDrop(at screenPoint: CGPoint) -> CGSSpaceID? {
+            guard let window, window.isVisible,
+                  let point = scroller.contentPoint(for: scroller.convert(window.convertPoint(fromScreen: screenPoint), from: nil)) else { return nil }
+            return dropFrames.first { $0.value.contains(point) }?.key
+        }
+
+        func updateDrag(at screenPoint: CGPoint?) {
+            dragPointer = screenPoint
+            refreshDragTarget()
+            updateScroll()
+        }
+
+        func refreshDragTarget() {
+            let id = dragPointer.flatMap { spaceForDrop(at: $0) }
+            onDropTargetChanged?(id.flatMap { desktopDropIDs.contains($0) ? $0 : nil })
+        }
+
         private var hoverArea: NSTrackingArea?
 
         override init(frame: NSRect) {
@@ -807,7 +864,8 @@ struct SpacesBarScroll: NSViewRepresentable {
 
         func updateScroll() {
             let request: CardGridScrollView.EdgeScrollRequest?
-            if edgeScrolling, let pointer, bounds.contains(pointer), scroller.maxOffset > 1 {
+            let activePointer = dragPointer.flatMap { point in window.map { convert($0.convertPoint(fromScreen: point), from: nil) } } ?? pointer
+            if edgeScrolling, let pointer = activePointer, bounds.contains(pointer), scroller.maxOffset > 1 {
                 let zone = min(CardGridScrollView.edgeScrollZoneSize, bounds.width / 2)
                 request = pointer.x < zone ? .backward : (pointer.x > bounds.width - zone ? .forward : nil)
             } else {
