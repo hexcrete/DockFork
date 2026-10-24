@@ -257,3 +257,14 @@ Global Shift is user-verified and approved for commit. Final review replaces tar
 Search-trigger follow-up: share dependency/conflict resolution with Space cycling; add the standard settings warning and effective modifier-side display/runtime matching, retaining bare-key focus. Existing routes take priority, with no new setting or resource. Implemented pending manual conflict/side/session verification; automated suites remain skipped. No release/push.
 
 Search-trigger follow-up is approved for commit after glyph revision and final source review. Shared nonrecursive conflict checks, active dependent-side matching and retained bare-key behavior passed review; signed development validation stands. Automated suites and exhaustive input combinations remain unrun. No release or push.
+
+## Timing-assumption follow-up, October 24
+
+The menu-bar switcher toggle no longer relies on the 50 ms event-tap/local-monitor handshake introduced in c46bfae0. The user verified the direct button-bounds ownership fix. A source scan of delayed scheduling and timestamp comparisons identified these separate candidates, not proven reproductions:
+
+- AppDelegate's normal menu-dismissal duplicate-click guard also accepts timestamps within 10 ms, alongside event-number identity. Investigate whether exact event identity can replace the tolerance without regressing native menu tracking.
+- DockObserver's Shift-click New Window path hides previews after 150 ms without a session/generation check. Review whether a later session can be dismissed by that old callback.
+- BlurView schedules backdrop setup/refresh after 50 ms. Investigate layer-readiness notifications before replacing these private-layer settling waits.
+- WindowUtil waits 300 ms between activation and requesting a new window. Characterize affected app behavior before replacing this activation-readiness assumption.
+
+These paths are unchanged. Hover/spring-load delays, key repeat/double-tap recognition, debounce/coalescing, feedback/animation durations and bounded OS-state confirmation retries serve different purposes and are not evidence of the same input-ownership race. This was a source-level scan, not an exhaustive runtime timing audit.

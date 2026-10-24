@@ -293,6 +293,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func isWindowSwitcherMenuBarClick(at location: NSPoint) -> Bool {
+        guard Defaults[.openWindowSwitcherFromMenuBarIcon],
+              Defaults[.menuBarIconWindowSwitcherClick] == .leftClick,
+              let button = statusBarItem?.button,
+              let window = button.window, window.isVisible
+        else { return false }
+
+        return window.convertToScreen(button.convert(button.bounds, to: nil)).contains(location)
+    }
+
     private func installMenuBarClickMonitor(
         leftClickOpensWindowSwitcher: Bool,
         rightClickOpensWindowSwitcher: Bool
@@ -314,9 +324,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 ? leftClickOpensWindowSwitcher
                 : rightClickOpensWindowSwitcher
             if opensWindowSwitcher {
-                keybindHelper?.toggleWindowSwitcherFromMenuBar(
-                    mouseDownTimestamp: event.type == .leftMouseDown ? event.cgEvent?.timestamp : nil
-                )
+                keybindHelper?.toggleWindowSwitcherFromMenuBar()
             } else if let statusBarMenu {
                 let isDismissalEvent = event.eventNumber == statusBarMenuDismissalEventNumber ||
                     statusBarMenuDismissalTimestamp.map { abs(event.timestamp - $0) < 0.01 } == true

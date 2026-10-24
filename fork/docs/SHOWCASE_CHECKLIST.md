@@ -461,3 +461,5 @@ The user verified the indicator-width correction. Media capture and exhaustive n
 Outside-click regression: open WS+SB with search Off/On and a bar wider/narrower than the grid. Click immediately outside each bar edge and in empty gaps/side areas: dismiss both. Click pills, headers, scroll controls, search and the grid: keep open or perform their normal action. Check different alignments and native context-menu tracking. Capture/manual verification pending.
 
 Search presentation check: search no longer waits an extra main-queue turn. The user observed it appearing before the grid and Spaces Bar; fully synchronized rendering is not claimed and further layout/performance work is deferred. Check repeated invocation, focus/typing and placement with Spaces Bar On/Off. Exhaustive verification and recording pending.
+
+Menu-bar toggle regression: with left-click configured to open the switcher, repeat open/close at ordinary and rapid rates, including after keyboard/swipe invocation and with search/Spaces Bar enabled or disabled. Check outside dismissal, the normal context menu and the right-click toggle configuration. Manual verification and recording pending.

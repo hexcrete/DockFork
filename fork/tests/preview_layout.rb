@@ -516,3 +516,9 @@ end
 
 initial_layout = block(panel, '    private func updateContentViewSizeAndPosition(')
 abort 'Search must be shown in the same presentation turn after applying the grid frame' unless initial_layout.index('applyWindowFrame(finalFrame,') < initial_layout.index('searchWindow?.showSearch(relativeTo: self)') && !initial_layout.include?('DispatchQueue.main.async')
+
+keybind_source = File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift")
+app_delegate_source = File.read("#{root}/DockDoor/AppDelegate.swift")
+menu_bar_hit = block(app_delegate_source, '    func isWindowSwitcherMenuBarClick(')
+abort 'Only the visible left-click switcher button may bypass outside dismissal' unless menu_bar_hit.include?('Defaults[.openWindowSwitcherFromMenuBarIcon]') && menu_bar_hit.include?('Defaults[.menuBarIconWindowSwitcherClick] == .leftClick') && menu_bar_hit.include?('window.isVisible') && menu_bar_hit.include?('window.convertToScreen(button.convert(button.bounds, to: nil)).contains(location)')
+abort 'Outside dismissal must defer ownership to the actual status button, not a timestamp race' unless keybind_source.include?('isWindowSwitcherMenuBarClick(at: clickLocation)') && !keybind_source.include?('menuBarWindowSwitcherMouseDownTimestamp') && !keybind_source.include?('waitsForMenuBarToggle')
