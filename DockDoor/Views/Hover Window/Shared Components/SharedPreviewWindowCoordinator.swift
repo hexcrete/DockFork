@@ -1435,13 +1435,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         // Now that the main panel has a valid frame, position the search window (if active)
         if windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableWindowSwitcherSearch] {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                if searchWindow == nil { setupSearchWindow() }
-                searchWindow?.showSearch(relativeTo: self)
-                positionSpacesBar(relativeTo: frame)
-                publishTapSnapshot()
-            }
+            if searchWindow == nil { setupSearchWindow() }
+            searchWindow?.showSearch(relativeTo: self)
+            publishTapSnapshot()
         }
     }
 

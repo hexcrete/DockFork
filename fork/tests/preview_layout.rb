@@ -513,3 +513,6 @@ Dir.mktmpdir('dockfork-outside-click-') do |dir|
  abort 'Outside-click fixture compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
  abort 'Outside-click checks failed' unless system("#{dir}/checks")
 end
+
+initial_layout = block(panel, '    private func updateContentViewSizeAndPosition(')
+abort 'Search must be shown in the same presentation turn after applying the grid frame' unless initial_layout.index('applyWindowFrame(finalFrame,') < initial_layout.index('searchWindow?.showSearch(relativeTo: self)') && !initial_layout.include?('DispatchQueue.main.async')
