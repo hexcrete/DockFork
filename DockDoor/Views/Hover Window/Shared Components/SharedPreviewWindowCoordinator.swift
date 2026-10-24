@@ -560,6 +560,18 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @MainActor
+    private func exitSpaceFullScreen(_ entry: ManagedSpacePresentation.Entry) {
+        guard isVisible, windowSwitcherCoordinator.windowSwitcherActive,
+              let current = spacesBarSections.flatMap(\.spaces).first(where: { $0.id == entry.id && $0.isFullscreen })
+        else { return }
+        let identities = Set(current.apps.flatMap(\.windowIdentities))
+        let windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters().filter {
+            identities.contains(PreviewWindowIdentity($0)) && $0.isFullscreen == true && !$0.app.isTerminated
+        }
+        guard let initiator = windows.first else { NSSound.beep(); return }
+        _ = performPreviewBatchAction(.toggleFullScreen, on: windows, initiator: initiator, usePreviews: false)
+    }
+
     private func activateSpace(_ entry: ManagedSpacePresentation.Entry) {
         guard contentsDragSession == nil else { return }
         if let appDelegate = NSApp.delegate as? AppDelegate { appDelegate.dismissPreviews() } else { hideWindow() }
@@ -837,6 +849,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             activate: { [weak self] entry in Task { @MainActor in self?.activateSpace(entry) } },
             dragContents: { [weak self] id, point, ended in self?.updateContentsDrag(from: id, at: point, ended: ended) },
             contentsAction: { [weak self] source, target, action in self?.performContentsAction(from: source, to: target, action: action) },
+            exitFullScreen: { [weak self] entry in self?.exitSpaceFullScreen(entry) },
             allowedGaps: Set(contentsDragSession.flatMap { session in
                 guard !Defaults[.spacesBarRecentlyUsed] else { return nil as [SpaceContentsGap]? }
                 return spacesBarSections.flatMap { display in

@@ -245,3 +245,7 @@ Post-feature test-workflow audit: completed by source inspection only. Retain ei
 Space drag expansion follow-up: implement source-centered native panel/scroll compensation within the existing gap animation, preserving screen clamping and collapse. No new animation driver, setting or input resource. Manual verification pending; no release or push.
 
 Source-anchored expansion is user-verified and approved for commit after final review. No new animation driver, mutation path or resource handler. Broad display/overflow/fault coverage remains unclaimed; automated suites were deliberately skipped for this revision.
+
+Space-pill menus follow-up: implemented native whole-pill capture, shared Space-indicator destination styling, drag-action symbols and fullscreen-only exit through the shared executor. No new settings, resources or operation pipeline. Await manual verification before final review/commit; no release or publication.
+
+Space-pill menu follow-up is user-verified and approved for commit after final source review. Reuse and exit-only ownership checks passed review; existing signed development validation stands. No release/push or automated suite run; broad native mutation/accessibility coverage remains unclaimed.

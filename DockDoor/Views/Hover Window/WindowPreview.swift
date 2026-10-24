@@ -183,7 +183,10 @@ final class SpaceMoveMenuController: NSObject {
     }
 
     func present(for window: WindowInfo, dismissPreviews: (() -> Void)?) {
-        let menu = makeMenu(for: window, dismissPreviews: dismissPreviews)
+        present(makeMenu(for: window, dismissPreviews: dismissPreviews))
+    }
+
+    func present(_ menu: NSMenu, event: NSEvent? = nil, sourceView: NSView? = nil) {
         guard !menu.items.isEmpty else { return }
 
         activeMenu?.cancelTracking()
@@ -194,8 +197,8 @@ final class SpaceMoveMenuController: NSObject {
             }
         }
 
-        if let event = NSApp.currentEvent,
-           let contentView = event.window?.contentView
+        if let event = event ?? NSApp.currentEvent,
+           let contentView = sourceView ?? event.window?.contentView
         {
             NSMenu.popUpContextMenu(menu, with: event, for: contentView)
         } else {
@@ -240,6 +243,26 @@ final class SpaceMoveMenuController: NSObject {
             displays: displays,
             orderedWindows: cachedWindows
         )
+        return makeDestinationMenu(title: menu.title, presentation: presentation, showShortcutHints: showShortcutHints,
+                                   isSource: { presentedSpace in
+                                       targets.count > 1
+                                           ? targets.allSatisfy { WindowSpaces.sourceSpaceIDs(for: $0).contains(presentedSpace.id) }
+                                           : sourceSpaceIDs.contains(presentedSpace.id)
+                                   }, select: { [weak self] presentedSpace in
+                                       self?.moveWindow(MoveRequest(window: window, destination: presentedSpace.destination,
+                                                                    dismissPreviews: dismissPreviews, usesCheckedSelection: showShortcutHints))
+                                   })
+    }
+
+    private struct DestinationRequest {
+        let select: () -> Void
+    }
+
+    func makeDestinationMenu(title: String, presentation: [ManagedSpacePresentation.Display], showShortcutHints: Bool = false,
+                             isSource: (ManagedSpacePresentation.Entry) -> Bool,
+                             select: @escaping (ManagedSpacePresentation.Entry) -> Void) -> NSMenu
+    {
+        let menu = NSMenu(title: title)
         let showUnavailable = Defaults[.showUnavailableSpacesInMenu]
         let visibleDisplays = presentation.compactMap { display -> (String, [ManagedSpacePresentation.Entry])? in
             let spaces = display.spaces.filter { entry in
@@ -282,20 +305,13 @@ final class SpaceMoveMenuController: NSObject {
                 }
 
                 if space.kind == .desktop {
-                    let isCurrent = targets.count > 1
-                        ? targets.allSatisfy { WindowSpaces.sourceSpaceIDs(for: $0).contains(space.id) }
-                        : sourceSpaceIDs.contains(space.id)
+                    let isCurrent = isSource(presentedSpace)
                     item.state = isCurrent ? .on : .off
                     item.isEnabled = !isCurrent
                     if !isCurrent {
-                        item.action = #selector(moveWindow(_:))
+                        item.action = #selector(selectDestination(_:))
                         item.target = self
-                        item.representedObject = MoveRequest(
-                            window: window,
-                            destination: destination,
-                            dismissPreviews: dismissPreviews,
-                            usesCheckedSelection: showShortcutHints
-                        )
+                        item.representedObject = DestinationRequest(select: { select(presentedSpace) })
                     }
                 } else {
                     item.isEnabled = false
@@ -316,6 +332,39 @@ final class SpaceMoveMenuController: NSObject {
             )
         }
         return menu
+    }
+
+    func makeContentsMenu(for source: ManagedSpacePresentation.Entry, presentation: [ManagedSpacePresentation.Display],
+                          contentsAction: ((CGSSpaceID, CGSSpaceID, SpaceContentsAction) -> Void)?,
+                          exitFullScreen: @escaping () -> Void) -> NSMenu
+    {
+        let menu = NSMenu()
+        if source.isFullscreen {
+            let item = NSMenuItem(title: String(localized: "Exit Full Screen"), action: #selector(selectDestination(_:)), keyEquivalent: "")
+            item.target = self
+            item.image = NSImage(systemSymbolName: "arrow.down.right.and.arrow.up.left", accessibilityDescription: nil)
+            WindowActionMenuBuilder.shared.forceImageVisibility(for: item)
+            item.representedObject = DestinationRequest(select: exitFullScreen)
+            menu.addItem(item)
+            return menu
+        }
+        guard let contentsAction else { return menu }
+        for action in [SpaceContentsAction.move, .swap, .shift] {
+            let item = NSMenuItem(title: action.menuTitle, action: nil, keyEquivalent: "")
+            item.image = NSImage(systemSymbolName: action.symbol, accessibilityDescription: nil)
+            WindowActionMenuBuilder.shared.forceImageVisibility(for: item)
+            let destinations = action == .shift
+                ? presentation.filter { $0.id == source.destination.display.identifier } : presentation
+            item.submenu = makeDestinationMenu(title: action.menuTitle, presentation: destinations,
+                                               isSource: { $0.id == source.id },
+                                               select: { target in contentsAction(source.id, target.id, action) })
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    @objc private func selectDestination(_ sender: NSMenuItem) {
+        (sender.representedObject as? DestinationRequest)?.select()
     }
 
     private func attributedTitle(
@@ -371,8 +420,7 @@ final class SpaceMoveMenuController: NSObject {
         item.keyEquivalentModifierMask = WindowSwitcherShortcutResolver.appKitModifierMask(for: keybind)
     }
 
-    @objc private func moveWindow(_ sender: NSMenuItem) {
-        guard let request = sender.representedObject as? MoveRequest else { return }
+    private func moveWindow(_ request: MoveRequest) {
         if request.usesCheckedSelection,
            SharedPreviewWindowCoordinator.activeInstance?.performCheckedSpaceMove(request.window, to: request.destination, dismissPreviews: request.dismissPreviews) == true
         { return }

@@ -146,11 +146,12 @@ Dir.mktmpdir('dockfork-filter-publication-') do |dir|
 end
 view = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview.swift")
 menu = block(view, '    func makeMenu(for window:')
+destination_menu = block(view, '    func makeDestinationMenu(')
 abort 'Menu must share one model and one native-tab collapse' unless menu.scan('ManagedSpacePresentation.snapshot(').size == 1 && menu.scan('WindowUtil.collapseNativeTabsIfNeeded(').size == 1
 abort 'All menus must use configured Window sort order without session branching' unless menu.include?('WindowUtil.getAllWindowsIgnoringSwitcherFilters()') && !menu.include?('windowSwitcherActive') && !shared.include?('usesWindowOrder')
 
 abort 'Old presentation builders must be removed' if view.include?('private func apps(on space:') || view.include?('private func menuTitle(for space:')
-abort 'Menu must preserve fullscreen availability and current badges' unless menu.include?('!entry.isFullscreen || showUnavailable') && menu.include?('if presentedSpace.isCurrent,')
+abort 'Menu must preserve fullscreen availability and current badges' unless destination_menu.include?('!entry.isFullscreen || showUnavailable') && destination_menu.include?('if presentedSpace.isCurrent,')
 abort 'Menu must keep native shared icon formatting' unless view.include?('AppIconStripFormatting.attributedIcons(appIcons, maximumVisible: max(0, 5 - attachmentCount)')
 bar = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SearchWindow.swift")
 abort 'Space labels must share Compact Mode primary typography and measurement' unless bar.include?('Defaults[.spacesBarItemSize].primaryFont') && bar.include?('Defaults[.spacesBarItemSize].primaryAppKitFont') && bar.include?('let font = SpacesBarLayout.textFont')
@@ -666,6 +667,14 @@ native_source += "enum AppIconStripFormatting {\n" + block(preview, '    static 
 native_source += "extension SpacesBarLayout {\n" + block(bar, '    static func titleInset(') + "\n" + block(bar, '    static func pinnedTitleOffset(') + "\n}\n"
 native_source += "enum Defaults { struct Key<T> { let value:T }; static var size = SpacesBarItemSize.small; static subscript<T>(_ key:Key<T>)->T {key.value} }\nextension Defaults.Key where T == SpacesBarItemSize {static var spacesBarItemSize: Self {Self(value:Defaults.size)}}\n"
 native_source += "final class PreviewStateCoordinator { weak var spaceDragViewport: SpacesBarScroll.ViewportView?; var mouseHighlightedSpaceID: CGSSpaceID? }\n"
+native_source += block(File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewInteractionModifier.swift"), 'struct NativeContextMenuCapture:') + "\n"
+native_source += <<~'SWIFT'
+@MainActor final class SpaceMoveMenuController {
+ static let shared = SpaceMoveMenuController()
+ func makeContentsMenu(for source:ManagedSpacePresentation.Entry,presentation:[ManagedSpacePresentation.Display],contentsAction:((UInt64,UInt64,SpaceContentsAction)->Void)?,exitFullScreen:@escaping ()->Void)->NSMenu { NSMenu() }
+ func present(_ menu:NSMenu,event:NSEvent,sourceView:NSView) {}
+}
+SWIFT
 native_source += block(bar, 'struct SpacePillMetrics {')+"\n"+block(bar, 'private struct AppWindowCountSubscript:')+"\nextension View {\n"+block(bar, '    func appWindowCount(')+"\n}\n"
 native_source += block(bar, 'enum SpacesBarAppLayout {') + "\n"
 native_source += block(File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedHoverAppTitle.swift"), 'struct PreviewAppIcon:') + "\n"
@@ -699,6 +708,7 @@ native_source += "extension SpacesBarLayout {\n" + bar.lines.grep(/static var (c
 native_source += <<~'SWIFT'
 enum SpacePillEvents { static var activations = 0, changes = 0, ends = 0, iconActivations = 0, clears = 0 }
 struct PillProbe: View {
+ var exitFullScreen: ((ManagedSpacePresentation.Entry)->Void)? = nil
  var previewCoordinator: PreviewStateCoordinator? = nil
  var dragContents: ((UInt64,CGPoint,Bool)->Void)? = nil
  let contentsAction: ((UInt64,UInt64,SpaceContentsAction)->Void)? = nil
@@ -1473,3 +1483,11 @@ abort 'Shared subscript must be reused by Space pills and group ghosts' unless b
 abort 'Drag clipping must precede shared chrome, not cut its edges' unless block(drag_ghost,'    func previewDragCard(').index('.clipped()') < block(drag_ghost,'    func previewDragCard(').index('.previewCardChrome(')
 abort 'Window and Space cards must suppress native window shadow' unless %w[startDragging startSpaceDragging].all? { |name| block(drag_ghost, "    func #{name}(").include?('at: location, hasShadow: false)') }
 puts 'PASS Space-pill drag polish: shared height-based padding/spacing/subscript, app aggregation, content-only clipping and shadow-free card ghosts'
+
+contents_menu = block(view, '    func makeContentsMenu(')
+abort 'Space contents menus must reuse native destination styling and shared action glyphs' unless contents_menu.include?('makeDestinationMenu(') && contents_menu.include?('action.symbol') && contents_menu.include?('forceImageVisibility(for: item)') && !contents_menu.include?('showShortcutHints: true')
+abort 'Whole Space pills must share native right-click capture rather than a background-button menu' unless pill_style.include?('NativeContextMenuCapture { event, sourceView in') && !pill_style.include?('.contextMenu {')
+fullscreen_menu = contents_menu[contents_menu.index('if source.isFullscreen {')...contents_menu.index('guard let contentsAction')]
+abort 'Fullscreen Space menu must contain only exit, before content operations' unless fullscreen_menu.include?('String(localized: "Exit Full Screen")') && fullscreen_menu.include?('return menu')
+fullscreen_exit = block(panel, '    private func exitSpaceFullScreen(')
+abort 'Space fullscreen exit must resolve cached resident identities and use shared exit-only execution' unless fullscreen_exit.include?('current.apps.flatMap(\.windowIdentities)') && fullscreen_exit.include?('$0.isFullscreen == true') && fullscreen_exit.include?('performPreviewBatchAction(.toggleFullScreen, on: windows, initiator: initiator, usePreviews: false)') && !fullscreen_exit.include?('allowFullscreenEntry: true')

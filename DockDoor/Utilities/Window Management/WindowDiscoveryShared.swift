@@ -937,6 +937,18 @@ struct SpaceVisitHistory {
 enum SpaceContentsAction {
     case move, swap, shift
 
+    var symbol: String {
+        switch self {
+        case .move: "arrow.triangle.merge"
+        case .swap: "arrow.left.arrow.right"
+        case .shift: "arrow.left.and.right"
+        }
+    }
+
+    func symbol(sourceIndex: Int, destinationIndex: Int) -> String {
+        self == .shift ? (sourceIndex < destinationIndex ? "arrow.left" : "arrow.right") : symbol
+    }
+
     var menuTitle: String {
         switch self {
         case .move: String(localized: "Move Contents")
@@ -1024,12 +1036,12 @@ enum SpaceContentsLayout {
         switch target {
         case let .space(id):
             guard id != source, displays.contains(where: { $0.spaces.contains { $0.id == id && $0.kind == .desktop } }) else { return "nosign" }
-            return swapping ? "arrow.left.arrow.right" : "arrow.triangle.merge"
+            return (swapping ? SpaceContentsAction.swap : .move).symbol
         case let .gap(gap):
             guard let target = destination(for: gap, source: source, displays: displays),
                   let spaces = displays.first(where: { $0.identifier == gap.displayID })?.spaces,
                   let first = spaces.firstIndex(where: { $0.id == source }), let last = spaces.firstIndex(where: { $0.id == target }) else { return "nosign" }
-            return first < last ? "arrow.left" : "arrow.right"
+            return SpaceContentsAction.shift.symbol(sourceIndex: first, destinationIndex: last)
         case nil: return "nosign"
         }
     }

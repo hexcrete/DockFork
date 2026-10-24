@@ -533,6 +533,7 @@ struct SpacesBarView: View {
     let activate: (ManagedSpacePresentation.Entry) -> Void
     var dragContents: ((CGSSpaceID, CGPoint, Bool) -> Void)? = nil
     var contentsAction: ((CGSSpaceID, CGSSpaceID, SpaceContentsAction) -> Void)? = nil
+    var exitFullScreen: ((ManagedSpacePresentation.Entry) -> Void)? = nil
     var allowedGaps: Set<SpaceContentsGap> = []
     var contentsTargetChanged: ((SpaceContentsDropTarget?) -> Void)? = nil
 
@@ -677,17 +678,6 @@ struct SpacesBarView: View {
         let count = fittedCount ?? 0
         return ZStack {
             Button { activate(entry) } label: { Color.clear.contentShape(Rectangle()) }
-                .contextMenu {
-                    if !entry.isFullscreen, let contentsAction {
-                        ForEach([SpaceContentsAction.move, .swap, .shift], id: \.title) { action in
-                            Menu(action.menuTitle) {
-                                ForEach(sections.flatMap(\.spaces).filter { !$0.isFullscreen && $0.id != entry.id && (action != .shift || $0.destination.display.identifier == entry.destination.display.identifier) }) { target in
-                                    Button(target.title(mode: labels)) { contentsAction(entry.id, target.id, action) }
-                                }
-                            }
-                        }
-                    }
-                }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("\(title), \(entry.apps.reduce(0) { $0 + $1.windowCount }) windows"))
                 .accessibilityValue(entry.isCurrent ? Text("Current") : Text(""))
@@ -764,6 +754,15 @@ struct SpacesBarView: View {
         .overlay {
             if viewport.dropTargetID == entry.id || viewport.contentsDropTarget == .space(entry.id) {
                 PreviewDragTargetHighlight(uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier, expansionEdges: [])
+            }
+        }
+        .overlay {
+            NativeContextMenuCapture { event, sourceView in
+                let menu = SpaceMoveMenuController.shared.makeContentsMenu(
+                    for: entry, presentation: sections, contentsAction: contentsAction,
+                    exitFullScreen: { exitFullScreen?(entry) }
+                )
+                SpaceMoveMenuController.shared.present(menu, event: event, sourceView: sourceView)
             }
         }
         .accessibilityElement(children: .contain)

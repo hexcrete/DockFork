@@ -433,3 +433,7 @@ Handoff regression: check windows in Dock and Cmd+Tab, then open held, persisten
 Opening-hover regression: open regular/Compact switchers with the pointer over a Space pill, with filtering Off/On. Verify no mouse highlight/filter appears while stationary or moving within that pill, and moving directly to the window grid leaves it unfiltered. Exit/re-enter the pill to enable normal hover. Also check keyboard/held-release, overflow and repeat openings. Capture/manual verification pending.
 
 The user verified the revised opening-pill exit/re-entry behavior. Media capture and exhaustive display/overflow/keyboard/drop coverage remain unclaimed.
+
+Space-pill menu follow-up: capture Desktop Move/Swap/Shift glyphs and native destination icons/headings/Current badge; right-click label, background and app icon with icon activation enabled. Verify left click/drag remain normal, Shift excludes other displays, source/fullscreen destinations are unavailable, and a fullscreen pill shows only Exit Full Screen. Recheck original window Space-indicator menus and preview context menus after renderer/capture sharing. Capture and manual verification pending.
+
+The user verified the Space-pill menus. Media capture and exhaustive original-menu/fullscreen-operation/accessibility coverage remain pending.

@@ -631,7 +631,7 @@ final class WindowActionMenuBuilder: NSObject {
         return nil
     }
 
-    private func forceImageVisibility(for item: NSMenuItem) {
+    func forceImageVisibility(for item: NSMenuItem) {
         if #available(macOS 27.0, *) {
             item.preferredImageVisibility = .visible
         }
@@ -737,25 +737,17 @@ final class PreviewContextMenuController: NSObject {
     }
 }
 
-private struct PreviewContextMenuCapture: NSViewRepresentable {
-    let windowInfo: WindowInfo
-    let handleWindowAction: (WindowAction) -> Void
-    let dismissPreviews: (() -> Void)?
+struct NativeContextMenuCapture: NSViewRepresentable {
+    let present: (NSEvent, NSView) -> Void
 
-    func makeNSView(context: Context) -> ContextMenuView {
-        ContextMenuView()
-    }
+    func makeNSView(context: Context) -> ContextMenuView { ContextMenuView() }
 
     func updateNSView(_ nsView: ContextMenuView, context: Context) {
-        nsView.windowInfo = windowInfo
-        nsView.handleWindowAction = handleWindowAction
-        nsView.dismissPreviews = dismissPreviews
+        nsView.present = present
     }
 
     final class ContextMenuView: NSView {
-        var windowInfo: WindowInfo?
-        var handleWindowAction: ((WindowAction) -> Void)?
-        var dismissPreviews: (() -> Void)?
+        var present: ((NSEvent, NSView) -> Void)?
 
         override func hitTest(_ point: NSPoint) -> NSView? {
             guard bounds.contains(point), NSApp.currentEvent?.type == .rightMouseDown else { return nil }
@@ -763,14 +755,7 @@ private struct PreviewContextMenuCapture: NSViewRepresentable {
         }
 
         override func rightMouseDown(with event: NSEvent) {
-            guard let windowInfo, let handleWindowAction else { return }
-            PreviewContextMenuController.shared.present(
-                for: windowInfo,
-                event: event,
-                sourceView: self,
-                handleWindowAction: handleWindowAction,
-                dismissPreviews: dismissPreviews
-            )
+            present?(event, self)
         }
     }
 }
@@ -782,11 +767,12 @@ extension View {
         dismissPreviews: (() -> Void)? = nil
     ) -> some View {
         overlay {
-            PreviewContextMenuCapture(
-                windowInfo: windowInfo,
-                handleWindowAction: handleWindowAction,
-                dismissPreviews: dismissPreviews
-            )
+            NativeContextMenuCapture { event, sourceView in
+                PreviewContextMenuController.shared.present(
+                    for: windowInfo, event: event, sourceView: sourceView,
+                    handleWindowAction: handleWindowAction, dismissPreviews: dismissPreviews
+                )
+            }
         }
     }
 }
