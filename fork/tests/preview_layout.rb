@@ -476,3 +476,40 @@ end
 
 indicator = block(appearance, 'struct WindowStateIndicator:')
 abort 'Shared Space/state indicator must keep its intrinsic width instead of compressing on control reveal' unless indicator.include?('.fixedSize(horizontal: true, vertical: false)')
+
+snapshot_publication = block(panel, '    @objc private func publishTapSnapshot(')
+abort 'Companion click bounds must be separate, without a rectangular union across empty space' unless snapshot_publication.include?('searchFrame: searchWindowFrame,') && snapshot_publication.include?('spacesBarFrame: spacesBarWindow.flatMap') && snapshot_publication.include?('insetBy(dx: SpacesBarLayout.outerPadding, dy: SpacesBarLayout.outerPadding)') && !snapshot_publication.include?('.union(')
+snapshot_source = "import Foundation\nenum HoverContainerPadding {static let container:CGFloat=24}\nenum Harness {\n" + block(panel, '    struct TapSnapshot {') + "\n}\n"
+snapshot_source += <<~'SWIFT'
+@main struct OutsideClickChecks {
+ static func main() {
+  var state=Harness.TapSnapshot()
+  state.isVisible=true
+  state.frame=CGRect(x:200,y:100,width:240,height:200)
+  state.interactionFrame=state.frame.insetBy(dx:24,dy:24)
+  state.searchFrame=CGRect(x:150,y:310,width:300,height:40)
+  state.spacesBarFrame=CGRect(x:50,y:380,width:500,height:80)
+  for point in [CGPoint(x:225,y:125),CGPoint(x:160,y:320),CGPoint(x:60,y:400)] {
+   precondition(!state.shouldDismissForOutsideClick(at:point),"Actual controls must stay inside")
+  }
+  for point in [CGPoint(x:60,y:200),CGPoint(x:300,y:370),CGPoint(x:49.9,y:400),CGPoint(x:40,y:400),CGPoint(x:300,y:460.1)] {
+   precondition(state.shouldDismissForOutsideClick(at:point),"Empty gaps and padding outside visible containers must dismiss")
+  }
+  state.searchFrame=nil
+  precondition(state.shouldDismissForOutsideClick(at:CGPoint(x:160,y:320)))
+  precondition(!state.shouldDismissForOutsideClick(at:CGPoint(x:60,y:400)))
+  state.spacesBarFrame=nil
+  precondition(state.shouldDismissForOutsideClick(at:CGPoint(x:60,y:400)))
+  state.isNativeMenuTracking=true
+  precondition(!state.shouldDismissForOutsideClick(at:.zero))
+  state.isNativeMenuTracking=false;state.isVisible=false
+  precondition(!state.shouldDismissForOutsideClick(at:.zero))
+  print("PASS production outside-click bounds: separate panels, padding, gaps, hidden companions and menu tracking")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-outside-click-') do |dir|
+ File.write("#{dir}/checks.swift",snapshot_source)
+ abort 'Outside-click fixture compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Outside-click checks failed' unless system("#{dir}/checks")
+end

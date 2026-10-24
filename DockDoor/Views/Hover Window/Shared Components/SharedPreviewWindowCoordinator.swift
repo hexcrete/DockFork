@@ -131,6 +131,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         var interactionFrame: CGRect?
         var fullPreviewFrame: CGRect?
         var searchFrame: CGRect?
+        var spacesBarFrame: CGRect?
         var isSearchFocused = false
         var isWindowSwitcherActive = false
         var isCmdTabPreview = false
@@ -146,7 +147,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         func shouldDismissForOutsideClick(at location: CGPoint) -> Bool {
             isVisible && !isNativeMenuTracking &&
                 !(interactionFrame ?? frame.insetBy(dx: HoverContainerPadding.container, dy: HoverContainerPadding.container)).contains(location) &&
-                !(searchFrame?.contains(location) ?? false)
+                !(searchFrame?.contains(location) ?? false) &&
+                !(spacesBarFrame?.contains(location) ?? false)
         }
     }
 
@@ -250,7 +252,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 return convertToScreen(view.convert(view.bounds, to: nil))
             },
             fullPreviewFrame: fullPreviewWindow.flatMap { $0.isVisible ? $0.frame : nil },
-            searchFrame: spacesBarWindow.flatMap { $0.isVisible ? $0.frame.union(searchWindowFrame ?? frame) : nil } ?? searchWindowFrame,
+            searchFrame: searchWindowFrame,
+            spacesBarFrame: spacesBarWindow.flatMap {
+                $0.isVisible ? $0.frame.insetBy(dx: SpacesBarLayout.outerPadding, dy: SpacesBarLayout.outerPadding) : nil
+            },
             isSearchFocused: isSearchWindowFocused,
             isWindowSwitcherActive: windowSwitcherCoordinator.windowSwitcherActive,
             isCmdTabPreview: !windowSwitcherCoordinator.windowSwitcherActive && currentDockPosition == .cmdTab,
@@ -975,7 +980,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let appKitPoint = DockObserver.nsPointFromCGPoint(point, forScreen: screen)
         let hitSlop: CGFloat = 2
 
-        return [snapshot.frame, snapshot.fullPreviewFrame, snapshot.searchFrame]
+        return [snapshot.frame, snapshot.fullPreviewFrame, snapshot.searchFrame, snapshot.spacesBarFrame]
             .compactMap { $0 }
             .contains { $0.insetBy(dx: -hitSlop, dy: -hitSlop).contains(appKitPoint) }
     }
