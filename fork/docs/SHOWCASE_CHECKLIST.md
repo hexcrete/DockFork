@@ -419,3 +419,7 @@ Stage 3 drag capture extension (existing drag-card capture): show desktop-placem
 Single-window drag-overlay follow-up: verify/capture the card centered on the miniature, including portrait and landscape windows. Existing drag capture remains pending.
 
 The user verified centered single-window overlay placement. Screenshot/recording capture remains pending.
+
+Spacing follow-up: compare Spaces Bar and Compact Mode outer gaps/insets at matching sizes with Spacing Scale 0.5, 1 and 2. Verify horizontal overflow and animated drop targets still line up. Smaller Space icons/internal proportions are intentional. Capture remains pending.
+
+The user verified the outer-spacing correction. Exhaustive size/display/drop coverage and media capture are still unclaimed.

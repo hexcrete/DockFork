@@ -394,10 +394,12 @@ enum SpacesBarLayout {
     static var fullscreenWidth: CGFloat { 20 * scale }
     static let gap: CGFloat = 8
     static var searchGap: CGFloat { SearchWindow.panelEdgeOffset + HoverContainerPadding.dockStyleOuter }
-    static var innerPadding: CGFloat {
+    private static var compactMetrics: WindowPreviewHoverContainer.PreviewLayoutMetrics {
         WindowPreviewHoverContainer.PreviewLayoutMetrics.resolve(compact: true, onlyWindowlessDockLikeRows: false,
-                                                                 paddingMultiplier: Defaults[.globalPaddingMultiplier]).contentInset * scale
+                                                                 paddingMultiplier: Defaults[.globalPaddingMultiplier])
     }
+
+    static var innerPadding: CGFloat { compactMetrics.contentInset }
 
     static var dropGapWidth: CGFloat { pillHeight * 0.55 }
     static func rowSpacing(spaceCount: Int, displayCount: Int, gapProgress: CGFloat) -> CGFloat {
@@ -416,7 +418,7 @@ enum SpacesBarLayout {
             + CGFloat(max(0, widths.count - 1)) * gapWidth(progress: gapProgress, boundary: false)
     }
 
-    static var itemSpacing: CGFloat { HoverContainerPadding.compactItemSpacing * scale }
+    static var itemSpacing: CGFloat { compactMetrics.itemSpacing }
     static var minimumPillWidth: CGFloat { ceil(max(pillHeight * WindowStateIndicator.styledMinimumAspectRatio, minimumLabelWidth + horizontalInset * 2)) }
     static var horizontalInset: CGFloat { SpacePillMetrics(height: pillHeight).horizontalInset }
     static func labelWidth(_ textWidth: CGFloat, fullscreen: Bool) -> CGFloat {

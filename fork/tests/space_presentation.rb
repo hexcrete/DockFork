@@ -262,6 +262,7 @@ extension Defaults.Key where T == CGFloat { static var globalPaddingMultiplier: 
 extension Defaults.Key where T == SpacesBarItemSize { static var spacesBarItemSize: Self { Self(value:Defaults.size) } }
 enum WindowPreviewHoverContainer {
  struct PreviewLayoutMetrics {
+  let itemSpacing = HoverContainerPadding.compactItemSpacing
   let contentInset: CGFloat
   static func resolve(compact:Bool, onlyWindowlessDockLikeRows:Bool,paddingMultiplier:CGFloat)->Self { Self(contentInset:14 * paddingMultiplier) }
  }
@@ -307,6 +308,7 @@ source += <<~'SWIFT'
   for size in SpacesBarItemSize.allCases {
    Defaults.size = size
    let scale = size.scale
+   precondition(SpacesBarLayout.itemSpacing == HoverContainerPadding.compactItemSpacing && SpacesBarLayout.innerPadding == 14, "Outer compact spacing must not scale again with item height")
    precondition(abs(SpacesBarLayout.pillHeight - 40 * scale) < 0.001)
    precondition(abs(SpacesBarAppLayout.iconSize - 24 * scale) < 0.001)
    precondition(abs(SpacePillMetrics(height:SpacesBarLayout.pillHeight).countFontSize - 9 * scale) < 0.001)
