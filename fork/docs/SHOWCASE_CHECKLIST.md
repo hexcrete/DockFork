@@ -437,3 +437,7 @@ The user verified the revised opening-pill exit/re-entry behavior. Media capture
 Space-pill menu follow-up: capture Desktop Move/Swap/Shift glyphs and native destination icons/headings/Current badge; right-click label, background and app icon with icon activation enabled. Verify left click/drag remain normal, Shift excludes other displays, source/fullscreen destinations are unavailable, and a fullscreen pill shows only Exit Full Screen. Recheck original window Space-indicator menus and preview context menus after renderer/capture sharing. Capture and manual verification pending.
 
 The user verified the Space-pill menus. Media capture and exhaustive original-menu/fullscreen-operation/accessibility coverage remain pending.
+
+Cross-display Shift: drag left-to-right and right-to-left into gaps on another display and use Shift Contents from its native menu. Verify global sequential rotation, arrows, equivalent end/start display-boundary gaps, fullscreen-adjacent refusal and unchanged window state/geometry policy. Check the shared AppleScript command with a destination on another display. Use disposable windows; no capture or native mutation test is claimed yet.
+
+The user verified cross-display Shift. Final review additionally hardened stale topology against inserted displays/slots; native fault injection, script-specific execution and media capture remain unclaimed.

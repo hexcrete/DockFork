@@ -1358,11 +1358,22 @@ contents_source += <<~'SWIFT'
   precondition(try SpaceContentsLayout.destinations(from:1,to:4,action:.shift,displays:topology)==[1:4,3:1,4:3])
   precondition(try SpaceContentsLayout.destinations(from:4,to:1,action:.shift,displays:topology)==[4:1,1:3,3:4])
   for (a,b) in [(UInt64(1),UInt64(1)),(1,2),(2,1),(1,999)]{do{_=try SpaceContentsLayout.destinations(from:a,to:b,action:.move,displays:topology);preconditionFailure()}catch{}}
-  do{_=try SpaceContentsLayout.destinations(from:1,to:5,action:.shift,displays:topology);preconditionFailure()}catch{}
+  precondition(try SpaceContentsLayout.destinations(from:1,to:5,action:.shift,displays:topology)==[1:5,3:1,4:3,5:4])
+  precondition(try SpaceContentsLayout.destinations(from:5,to:1,action:.shift,displays:topology)==[5:1,1:3,3:4,4:5])
   precondition(SpaceContentsLayout.destination(for:.init(displayID:"a",beforeSpaceID:2),source:4,displays:topology)==nil)
   precondition(SpaceContentsLayout.destination(for:.init(displayID:"a",beforeSpaceID:nil),source:1,displays:topology)==4)
   precondition(SpaceContentsLayout.destination(for:.init(displayID:"a",beforeSpaceID:1),source:4,displays:topology)==1)
-  precondition(SpaceContentsLayout.destination(for:.init(displayID:"b",beforeSpaceID:6),source:1,displays:topology)==nil)
+  precondition(SpaceContentsLayout.destination(for:.init(displayID:"b",beforeSpaceID:6),source:1,displays:topology)==5)
+  precondition(SpaceContentsLayout.destination(for:.init(displayID:"b",beforeSpaceID:5),source:1,displays:topology)==4)
+  precondition(SpaceContentsLayout.destination(for:.init(displayID:"a",beforeSpaceID:nil),source:6,displays:topology)==5)
+  precondition(SpaceContentsLayout.destination(for:.init(displayID:"b",beforeSpaceID:nil),source:1,displays:topology)==6)
+  precondition(SpaceContentsLayout.destination(for:.init(displayID:"a",beforeSpaceID:5),source:1,displays:topology)==nil,"A gap must belong to its declared display")
+  precondition(SpaceContentsLayout.dragSymbol(for:.gap(.init(displayID:"b",beforeSpaceID:6)),source:1,swapping:false,displays:topology)=="arrow.left")
+  precondition(SpaceContentsLayout.dragSymbol(for:.gap(.init(displayID:"a",beforeSpaceID:1)),source:6,swapping:false,displays:topology)=="arrow.right")
+  let fullscreenBoundary=[ManagedDisplayDescriptor(identifier:"left",spaces:[.init(id:80),.init(id:81,kind:.fullscreen)]),ManagedDisplayDescriptor(identifier:"right",spaces:[.init(id:20),.init(id:21)])]
+  precondition(SpaceContentsLayout.destination(for:.init(displayID:"right",beforeSpaceID:20),source:80,displays:fullscreenBoundary)==nil,"Do not search past an adjacent fullscreen boundary slot")
+  precondition(SpaceContentsLayout.destination(for:.init(displayID:"left",beforeSpaceID:nil),source:21,displays:fullscreenBoundary)==20)
+  precondition(SpaceContentsLayout.dragSymbol(for:.gap(.init(displayID:"right",beforeSpaceID:nil)),source:80,swapping:false,displays:fullscreenBoundary)=="arrow.left","Global slot order, not IDs, controls direction")
   precondition(SpaceContentsLayout.destination(for:.init(displayID:"a",beforeSpaceID:3),source:1,displays:topology)==nil,"Adjacent no-op gap")
   let directional=[ManagedDisplayDescriptor(identifier:"direction",currentSpaceID:10,spaces:[
    ManagedSpaceDescriptor(id:10,kind:.desktop),ManagedSpaceDescriptor(id:11,kind:.desktop),
@@ -1406,12 +1417,29 @@ precondition(SpaceContentsLayout.dragSymbol(for:.gap(.init(displayID:"a",beforeS
 precondition(SpaceContentsLayout.dragSymbol(for:.gap(.init(displayID:"a",beforeSpaceID:2)),source:4,swapping:false,displays:topology)=="nosign")
   var currentOnly=topology;currentOnly[0].currentSpaceID=3
   precondition(SpaceContentsTopology(currentOnly)==SpaceContentsTopology(topology))
+  precondition(SpaceContentsTopology(Array(topology.reversed())) != SpaceContentsTopology(topology),"Cross-display topology includes display order")
   var reordered=topology;reordered[0].spaces.swapAt(0,2)
   precondition(SpaceContentsTopology(reordered) != SpaceContentsTopology(topology))
   World.windows += [WindowInfo(id:4,app:World.a,isWindowlessApp:true),WindowInfo(id:5,app:World.a,isFullscreen:true),WindowInfo(id:6,app:World.b),World.windows[0],WindowInfo(id:7,app:World.a,supported:false)]
   World.memberships[4]=[1];World.memberships[5]=[1];World.memberships[6]=[1,3];World.memberships[7]=[1]
   let filtered=try WindowUtil.planSpaceContents(from:1,to:3,action:.swap)
   precondition(filtered.moves.map(\.window.id)==[1,2] && World.reads==0,"Plan must exclude windowless/fullscreen/multi-Desktop/unsupported entries and deduplicate, without AX reads")
+  World.reset();World.windows.append(WindowInfo(id:4,app:World.b));World.memberships[4]=[5]
+  let globalPlan=try WindowUtil.planSpaceContents(from:1,to:5,action:.shift)
+  precondition(globalPlan.moves.map(\.window.id)==[1,2,3,4] && World.reads==0)
+  let globalResult=try await WindowUtil.moveSpaceContents(globalPlan)
+  precondition(globalResult.failed.isEmpty && World.memberships[1]==[5] && World.memberships[2]==[1] && World.memberships[3]==[3] && World.memberships[4]==[4])
+  World.reset();let staleGlobal=try WindowUtil.planSpaceContents(from:1,to:5,action:.shift);World.displays.reverse()
+  do{_=try await WindowUtil.moveSpaceContents(staleGlobal);preconditionFailure()}catch{}
+  precondition(World.issued.isEmpty,"Display-order changes invalidate a queued global shift")
+  World.reset();let insertedDisplayPlan=try WindowUtil.planSpaceContents(from:1,to:5,action:.shift)
+  World.displays.insert(ManagedDisplayDescriptor(identifier:"new",spaces:[.init(id:90)]),at:1)
+  do{_=try await WindowUtil.moveSpaceContents(insertedDisplayPlan);preconditionFailure()}catch{}
+  precondition(World.issued.isEmpty,"New displays between source and target invalidate a queued global shift")
+  World.reset();let insertedDesktopPlan=try WindowUtil.planSpaceContents(from:1,to:3,action:.shift)
+  World.displays[1].spaces.append(.init(id:91))
+  do{_=try await WindowUtil.moveSpaceContents(insertedDesktopPlan);preconditionFailure()}catch{}
+  precondition(World.issued.isEmpty,"Every content entry route shares full-topology validation")
   World.reset();World.a.isHidden=true;World.windows[0].isMinimized=true
   let plan=try WindowUtil.planSpaceContents(from:1,to:3,action:.swap), feedback=ActionFeedbackHandle()
   var protectedChecks=0
@@ -1444,7 +1472,7 @@ precondition(World.issued.isEmpty,"Topology must be rechecked after predecessor 
   let t=Task{@MainActor in try await WindowUtil.moveSpaceContents(cancelled)}
   try? await Task.sleep(nanoseconds:30_000_000);t.cancel();_=try await t.value
   let clean=WindowActionOwnership.shared.begin(cancelled.moves.map{PreviewWindowIdentity($0.window)});precondition(clean.rejected.isEmpty);clean.finish()
-  print("PASS production Desktop contents: move/swap/shift mappings, fullscreen gaps, display limits, topology, eligible snapshots/dedup, shared ownership/busy targets, partial failure, state preservation, popup settlement and cancellation; fake windows only")
+  print("PASS production Desktop contents: move/swap/shift mappings, fullscreen gaps, global display boundaries/order, topology, eligible snapshots/dedup, shared ownership/busy targets, partial failure, state preservation, popup settlement and cancellation; fake windows only")
  }
 }
 SWIFT

@@ -409,7 +409,7 @@ enum DockDoorCommands {
         lines.append("  Single IDs and lists share action failure reporting and the move/resize foreground preference. Fullscreen toggles a text ID; lists only exit fullscreen.")
         lines.append("  toggle window selection \"active\" -- requires an open preview and multi-window selection enabled")
         lines.append("  move space contents 1 to space 3 -- optional with swapping")
-        lines.append("  shift space contents 1 to space 3 -- final Desktop slot, same display")
+        lines.append("  shift space contents 1 to space 3 -- final Desktop slot in global Space order")
         lines.append("  Content commands preserve window state and geometry, not native Space order, wallpaper or app assignments.")
         lines.append("  list spaces")
         lines.append("  show switcher with spaces focused -- requires Window Switcher and Spaces Bar enabled")

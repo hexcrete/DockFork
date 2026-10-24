@@ -977,13 +977,12 @@ enum SpaceContentsDropTarget: Equatable {
 }
 
 enum SpaceContentsError: LocalizedError {
-    case invalidDestination, sameSpace, differentDisplays, topologyChanged
+    case invalidDestination, sameSpace, topologyChanged
 
     var errorDescription: String? {
         switch self {
         case .invalidDestination: String(localized: "Only existing Desktop Spaces can exchange contents.")
         case .sameSpace: String(localized: "Choose a different Desktop Space.")
-        case .differentDisplays: String(localized: "Content shifting requires Desktops on the same display.")
         case .topologyChanged: String(localized: "Spaces changed before the operation began. Try again.")
         }
     }
@@ -994,13 +993,8 @@ struct SpaceContentsTopology: Equatable {
     struct Display: Equatable { let id: String; let slots: [Slot] }
     let displays: [Display]
 
-    init(_ displays: [ManagedDisplayDescriptor], involving ids: Set<CGSSpaceID>? = nil) {
-        self.displays = displays.filter { display in
-            guard let ids else { return true }
-            return display.spaces.contains { ids.contains($0.id) }
-        }
-        .map { Display(id: $0.identifier, slots: $0.spaces.map { Slot(id: $0.id, kind: $0.kind?.rawValue) }) }
-        .sorted { $0.id < $1.id }
+    init(_ displays: [ManagedDisplayDescriptor]) {
+        self.displays = displays.map { Display(id: $0.identifier, slots: $0.spaces.map { Slot(id: $0.id, kind: $0.kind?.rawValue) }) }
     }
 }
 
@@ -1008,15 +1002,15 @@ enum SpaceContentsLayout {
     static func destinations(from source: CGSSpaceID, to target: CGSSpaceID, action: SpaceContentsAction,
                              displays: [ManagedDisplayDescriptor]) throws -> [CGSSpaceID: CGSSpaceID]
     {
-        guard let first = displays.first(where: { $0.spaces.contains { $0.id == source && $0.kind == .desktop } }),
-              let last = displays.first(where: { $0.spaces.contains { $0.id == target && $0.kind == .desktop } }) else { throw SpaceContentsError.invalidDestination }
+        let spaces = displays.flatMap(\.spaces)
+        guard spaces.contains(where: { $0.id == source && $0.kind == .desktop }),
+              spaces.contains(where: { $0.id == target && $0.kind == .desktop }) else { throw SpaceContentsError.invalidDestination }
         guard source != target else { throw SpaceContentsError.sameSpace }
         switch action {
         case .move: return [source: target]
         case .swap: return [source: target, target: source]
         case .shift:
-            guard first.identifier == last.identifier else { throw SpaceContentsError.differentDisplays }
-            let ids = first.spaces.filter { $0.kind == .desktop }.map(\.id)
+            let ids = spaces.filter { $0.kind == .desktop }.map(\.id)
             guard let start = ids.firstIndex(of: source), let end = ids.firstIndex(of: target) else { throw SpaceContentsError.invalidDestination }
             var mapping = [source: target]
             if start < end {
@@ -1038,8 +1032,8 @@ enum SpaceContentsLayout {
             guard id != source, displays.contains(where: { $0.spaces.contains { $0.id == id && $0.kind == .desktop } }) else { return "nosign" }
             return (swapping ? SpaceContentsAction.swap : .move).symbol
         case let .gap(gap):
+            let spaces = displays.flatMap(\.spaces)
             guard let target = destination(for: gap, source: source, displays: displays),
-                  let spaces = displays.first(where: { $0.identifier == gap.displayID })?.spaces,
                   let first = spaces.firstIndex(where: { $0.id == source }), let last = spaces.firstIndex(where: { $0.id == target }) else { return "nosign" }
             return SpaceContentsAction.shift.symbol(sourceIndex: first, destinationIndex: last)
         case nil: return "nosign"
@@ -1047,16 +1041,20 @@ enum SpaceContentsLayout {
     }
 
     static func destination(for gap: SpaceContentsGap, source: CGSSpaceID, displays: [ManagedDisplayDescriptor]) -> CGSSpaceID? {
-        guard let display = displays.first(where: { $0.identifier == gap.displayID }),
-              let sourceIndex = display.spaces.firstIndex(where: { $0.id == source && $0.kind == .desktop }) else { return nil }
+        let spaces = displays.flatMap(\.spaces)
+        guard let displayIndex = displays.firstIndex(where: { $0.identifier == gap.displayID }),
+              !displays[displayIndex].spaces.isEmpty,
+              let sourceIndex = spaces.firstIndex(where: { $0.id == source && $0.kind == .desktop }) else { return nil }
+        let display = displays[displayIndex]
+        let start = displays.prefix(displayIndex).reduce(0) { $0 + $1.spaces.count }
         let boundary: Int
         if let before = gap.beforeSpaceID {
             guard let index = display.spaces.firstIndex(where: { $0.id == before }) else { return nil }
-            boundary = index
-        } else { boundary = display.spaces.count }
+            boundary = start + index
+        } else { boundary = start + display.spaces.count }
         let targetIndex = sourceIndex < boundary ? boundary - 1 : boundary
-        guard display.spaces.indices.contains(targetIndex) else { return nil }
-        let target = display.spaces[targetIndex]
+        guard spaces.indices.contains(targetIndex) else { return nil }
+        let target = spaces[targetIndex]
         guard target.kind == .desktop, target.id != source else { return nil }
         return target.id
     }
@@ -1070,7 +1068,6 @@ struct SpaceContentsPlan {
     }
 
     let topology: SpaceContentsTopology
-    let involvedIDs: Set<CGSSpaceID>
     let moves: [Move]
 }
 

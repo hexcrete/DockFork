@@ -1111,7 +1111,6 @@ extension WindowUtil {
     static func planSpaceContents(from source: CGSSpaceID, to target: CGSSpaceID, action: SpaceContentsAction) throws -> SpaceContentsPlan {
         let displays = WindowSpaces.managedDisplays()
         let mapping = try SpaceContentsLayout.destinations(from: source, to: target, action: action, displays: displays)
-        let involved = Set(mapping.keys).union(mapping.values)
         let windows = collapseNativeTabsIfNeeded(sortWindowsForSwitcher(getAllWindowsIgnoringSwitcherFilters()))
         let sections = ManagedSpacePresentation.snapshot(displays: displays, orderedWindows: windows)
         var memberships: [PreviewWindowIdentity: Set<CGSSpaceID>] = [:]
@@ -1126,7 +1125,7 @@ extension WindowUtil {
                   let destinationID = mapping[sourceID], let destination = WindowSpaces.destination(forSpaceID: destinationID, in: displays) else { return nil }
             return SpaceContentsPlan.Move(window: window, sourceID: sourceID, destination: destination)
         }
-        return SpaceContentsPlan(topology: SpaceContentsTopology(displays, involving: involved), involvedIDs: involved, moves: moves)
+        return SpaceContentsPlan(topology: SpaceContentsTopology(displays), moves: moves)
     }
 
     @MainActor
@@ -1136,7 +1135,7 @@ extension WindowUtil {
         defer { feedback?.finishRemaining(.cancelled) }
         let ids = plan.moves.map { PreviewWindowIdentity($0.window) }
         func validateTopology() -> Bool {
-            plan.topology == SpaceContentsTopology(WindowSpaces.managedDisplays(), involving: plan.involvedIDs)
+            plan.topology == SpaceContentsTopology(WindowSpaces.managedDisplays())
         }
         guard validateTopology() else { feedback?.finishRemaining(.failed); throw SpaceContentsError.topologyChanged }
         guard let first = plan.moves.first else { return PreviewBatchResult() }

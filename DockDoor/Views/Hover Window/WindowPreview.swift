@@ -353,9 +353,7 @@ final class SpaceMoveMenuController: NSObject {
             let item = NSMenuItem(title: action.menuTitle, action: nil, keyEquivalent: "")
             item.image = NSImage(systemSymbolName: action.symbol, accessibilityDescription: nil)
             WindowActionMenuBuilder.shared.forceImageVisibility(for: item)
-            let destinations = action == .shift
-                ? presentation.filter { $0.id == source.destination.display.identifier } : presentation
-            item.submenu = makeDestinationMenu(title: action.menuTitle, presentation: destinations,
+            item.submenu = makeDestinationMenu(title: action.menuTitle, presentation: presentation,
                                                isSource: { $0.id == source.id },
                                                select: { target in contentsAction(source.id, target.id, action) })
             menu.addItem(item)
