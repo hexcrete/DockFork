@@ -28,6 +28,35 @@ enum PreviewDragLayout {
     }
 }
 
+enum PreviewDragCardStyle {
+    static let padding: CGFloat = 10
+    static let spacing: CGFloat = 8
+}
+
+extension View {
+    func previewDragCard() -> some View {
+        padding(PreviewDragCardStyle.padding)
+            .dockStyle(backgroundAppearance: .resolve(), cornerRadius: 12)
+    }
+}
+
+struct SpaceDragLabel: View, Equatable {
+    let title: String
+    let symbol: String
+
+    var body: some View {
+        HStack(spacing: PreviewDragCardStyle.spacing) {
+            Image(systemName: symbol)
+                .foregroundStyle(.secondary)
+                .frame(width: SpacesBarLayout.textFont.pointSize)
+            Text(title)
+        }
+        .font(SpacesBarLayout.font)
+        .previewDragCard()
+        .fixedSize()
+    }
+}
+
 @MainActor
 final class DragPreviewCoordinator {
     static let shared = DragPreviewCoordinator()
@@ -36,6 +65,8 @@ final class DragPreviewCoordinator {
     private var sessionToken: UUID?
     private var dropToken: UUID?
     private var dropTask: Task<Void, Never>?
+    private var spaceLabel: SpaceDragLabel?
+    private var spaceLabelView: NSHostingView<SpaceDragLabel>?
     private var initialWindowFrame: CGRect?
     private var dragStartLocation: CGPoint?
     private let previewScale: CGFloat = 0.2
@@ -51,29 +82,24 @@ final class DragPreviewCoordinator {
         at location: CGPoint,
         token: UUID
     ) {
-        cancelPendingDrop()
-        endDragging()
-
-        sessionToken = token
-        dragStartLocation = location
+        beginDragging(at: location, token: token)
 
         if group.count > 1 {
             let visible = Array(group.prefix(6))
             let overflow = group.count - visible.count
             let iconsWidth = CGFloat(visible.count) * iconPreviewSize.width
-            let spacingWidth = CGFloat(visible.count - 1) * 8
+            let spacingWidth = CGFloat(visible.count - 1) * PreviewDragCardStyle.spacing
             let overflowWidth: CGFloat = overflow > 0 ? 40 : 0
-            let size = CGSize(width: iconsWidth + spacingWidth + 20 + overflowWidth, height: 65)
-            let row = HStack(spacing: 8) {
+            let size = CGSize(width: iconsWidth + spacingWidth + PreviewDragCardStyle.padding * 2 + overflowWidth, height: 65)
+            let row = HStack(spacing: PreviewDragCardStyle.spacing) {
                 ForEach(visible, id: \.id) { window in
                     Image(nsImage: window.app.icon ?? NSImage())
                         .resizable().frame(width: 45, height: 45)
                 }
                 if overflow > 0 { Text("+\(overflow)").font(.caption).foregroundStyle(.secondary) }
             }
-            .padding(10)
-            .frame(width: size.width, height: size.height)
-            .dockStyle(backgroundAppearance: .resolve(), cornerRadius: 12)
+            .frame(width: size.width - PreviewDragCardStyle.padding * 2, height: size.height - PreviewDragCardStyle.padding * 2)
+            .previewDragCard()
             showGhost(NSHostingView(rootView: row), size: size, at: location)
             return
         }
@@ -95,6 +121,40 @@ final class DragPreviewCoordinator {
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.alphaValue = previewOpacity
         showGhost(imageView, size: scaledSize, at: location)
+    }
+
+    private func beginDragging(at location: CGPoint, token: UUID) {
+        cancelPendingDrop()
+        endDragging()
+        sessionToken = token
+        dragStartLocation = location
+    }
+
+    func startSpaceDragging(title: String, at location: CGPoint, token: UUID) {
+        beginDragging(at: location, token: token)
+        let content = SpaceDragLabel(title: title, symbol: "nosign")
+        let hosting = NSHostingView(rootView: content)
+        let size = hosting.fittingSize
+        spaceLabel = content
+        spaceLabelView = hosting
+        showGhost(hosting, size: CGSize(width: ceil(size.width), height: ceil(size.height)), at: location)
+    }
+
+    func updateSpaceLabel(title: String, symbol: String, token: UUID) {
+        guard sessionToken == token, let hosting = spaceLabelView, let window = previewWindow,
+              let initialFrame = initialWindowFrame else { return }
+        let content = SpaceDragLabel(title: title, symbol: symbol)
+        guard spaceLabel != content else { return }
+        spaceLabel = content
+        hosting.rootView = content
+        let size = hosting.fittingSize
+        let roundedSize = CGSize(width: ceil(size.width), height: ceil(size.height))
+        guard roundedSize != initialFrame.size else { return }
+        initialWindowFrame = CGRect(x: initialFrame.midX - roundedSize.width / 2, y: initialFrame.midY - roundedSize.height / 2,
+                                    width: roundedSize.width, height: roundedSize.height)
+        let frame = window.frame
+        window.setFrame(CGRect(x: frame.midX - roundedSize.width / 2, y: frame.midY - roundedSize.height / 2,
+                               width: roundedSize.width, height: roundedSize.height), display: true)
     }
 
     private func showGhost(_ content: NSView, size: CGSize, at location: CGPoint) {
@@ -198,6 +258,8 @@ final class DragPreviewCoordinator {
         if let token, sessionToken != token { return }
 
         sessionToken = nil
+        spaceLabel = nil
+        spaceLabelView = nil
         dragStartLocation = nil
         initialWindowFrame = nil
 

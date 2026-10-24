@@ -222,7 +222,7 @@ SWIFT
 source = block(info, 'enum WindowFrameTransactions {') + "\n" + stubs + block(util, '    static func autoTileTargets(') + "\n" + block(util, '    struct PreviewBatchResult') + "\n" + block(util, '    @MainActor\n    static func tilePreviewWindows('.gsub('\\n', "\n")) + "\n" + block(util, '    @MainActor\n    private static func performWindowGroupPlacement('.gsub('\\n', "\n")) + "\n}\n" + registry + "\n" + block(info, 'enum PreviewTilingLayout {') + "\n" + block(info, 'enum WindowFramePlacementResult {')
 drag = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/DragPreviewCoordinator.swift")
 source += "\n"+block(drag,'struct PreviewDragTarget {')+"\n"+block(drag,'enum PreviewDragLayout {')+"\nextension WindowUtil {\n@MainActor\n"+block(util,'    static func placeDraggedWindows(')+"\n}\n"
-abort 'A new drag must cancel the prior released drop' unless block(drag, '    func startDragging(').include?('cancelPendingDrop()')
+abort 'Every new drag must cancel the prior released drop' unless %w[startDragging startSpaceDragging].all? { |name| block(drag, "    func #{name}(").include?('beginDragging(at: location, token: token)') } && block(drag, '    private func beginDragging(').include?('cancelPendingDrop()')
 abort 'Ghost cleanup must not cancel a released drop' if block(drag, '    func endDragging(').include?('cancelPendingDrop()')
 source += "\n@MainActor final class DragPreviewCoordinator {\nprivate var dropToken: UUID?\nprivate var dropTask: Task<Void, Never>?\n"
 %w[isCompletingDrop completeDrop].each { |name| source += block(drag, "    func #{name}(") + "\n" }

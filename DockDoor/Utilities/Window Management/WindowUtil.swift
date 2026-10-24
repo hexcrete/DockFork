@@ -1108,11 +1108,58 @@ extension WindowUtil {
     }
 
     @MainActor
+    static func planSpaceContents(from source: CGSSpaceID, to target: CGSSpaceID, action: SpaceContentsAction) throws -> SpaceContentsPlan {
+        let displays = WindowSpaces.managedDisplays()
+        let mapping = try SpaceContentsLayout.destinations(from: source, to: target, action: action, displays: displays)
+        let involved = Set(mapping.keys).union(mapping.values)
+        let windows = collapseNativeTabsIfNeeded(sortWindowsForSwitcher(getAllWindowsIgnoringSwitcherFilters()))
+        let sections = ManagedSpacePresentation.snapshot(displays: displays, orderedWindows: windows)
+        var memberships: [PreviewWindowIdentity: Set<CGSSpaceID>] = [:]
+        for entry in sections.flatMap(\.spaces) where !entry.isFullscreen {
+            for identity in entry.apps.flatMap(\.windowIdentities) {
+                memberships[identity, default: []].insert(entry.id)
+            }
+        }
+        let moves = WindowAction.bringToCurrentSpace.previewTargets(from: windows).compactMap { window -> SpaceContentsPlan.Move? in
+            guard !window.isWindowlessApp, !window.app.isTerminated, window.isFullscreen != true,
+                  let ids = memberships[PreviewWindowIdentity(window)], ids.count == 1, let sourceID = ids.first,
+                  let destinationID = mapping[sourceID], let destination = WindowSpaces.destination(forSpaceID: destinationID, in: displays) else { return nil }
+            return SpaceContentsPlan.Move(window: window, sourceID: sourceID, destination: destination)
+        }
+        return SpaceContentsPlan(topology: SpaceContentsTopology(displays, involving: involved), involvedIDs: involved, moves: moves)
+    }
+
+    @MainActor
+    static func moveSpaceContents(_ plan: SpaceContentsPlan, feedback: ActionFeedbackHandle? = nil,
+                                  isRequestActive: @escaping @MainActor () -> Bool = { true }) async throws -> PreviewBatchResult
+    {
+        defer { feedback?.finishRemaining(.cancelled) }
+        let ids = plan.moves.map { PreviewWindowIdentity($0.window) }
+        func validateTopology() -> Bool {
+            plan.topology == SpaceContentsTopology(WindowSpaces.managedDisplays(), involving: plan.involvedIDs)
+        }
+        guard validateTopology() else { feedback?.finishRemaining(.failed); throw SpaceContentsError.topologyChanged }
+        guard let first = plan.moves.first else { return PreviewBatchResult() }
+        let outcome = await WindowActionRequest.run(ids) { request -> Result<PreviewBatchResult, SpaceContentsError> in
+            guard !Task.isCancelled, isRequestActive() else { return .success(PreviewBatchResult(failed: ids)) }
+            guard validateTopology() else { feedback?.finishRemaining(.failed); return .failure(.topologyChanged) }
+            let assignments = Dictionary(uniqueKeysWithValues: plan.moves.map { (PreviewWindowIdentity($0.window), $0) })
+            return await .success(movePreviewWindows(plan.moves.map(\.window), to: first.destination, request: request,
+                                                     followsDestination: false, dismissPreviews: nil, mayFollow: { false },
+                                                     isRequestActive: isRequestActive, feedback: feedback, assignments: assignments))
+        }
+        let result = try outcome?.get() ?? PreviewBatchResult(failed: ids)
+        feedback?.finish(result)
+        return result
+    }
+
+    @MainActor
     static func movePreviewWindows(_ targets: [WindowInfo], to destination: ManagedSpaceDestination,
                                    request: WindowActionRequest, followsDestination: Bool,
                                    dismissPreviews: (() -> Void)?, mayFollow: () -> Bool,
                                    isRequestActive: @escaping @MainActor () -> Bool,
-                                   feedback: ActionFeedbackHandle? = nil) async -> PreviewBatchResult
+                                   feedback: ActionFeedbackHandle? = nil,
+                                   assignments: [PreviewWindowIdentity: SpaceContentsPlan.Move] = [:]) async -> PreviewBatchResult
     {
         defer { feedback?.finishRemaining(.cancelled) }
         var succeeded: [WindowInfo] = []
@@ -1128,17 +1175,23 @@ extension WindowUtil {
             guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult(succeeded: succeeded, failed: failed) }
             let identity = PreviewWindowIdentity(window)
             guard request.contains(identity) else { failed.append(identity); feedback?.finish(identity, .failed); continue }
+            let assignment = assignments[identity]
+            let targetDestination = assignment?.destination ?? destination
             let sourceError = await WindowSpaces.validateMoveSourceConfirmed(window, in: topology)
             guard !Task.isCancelled, isRequestActive() else { return PreviewBatchResult(succeeded: succeeded, failed: failed) }
+            let sources = sourceError == nil ? WindowSpaces.sourceSpaceIDs(for: window) : []
+            if let expected = assignment?.sourceID, !sources.contains(expected) {
+                failed.append(identity); feedback?.finish(identity, .failed); continue
+            }
             if sourceError == nil,
-               WindowSpaces.sourceSpaceIDs(for: window).contains(destination.space.id), destination.space.kind == .desktop
+               sources.contains(targetDestination.space.id), targetDestination.space.kind == .desktop
             {
                 succeeded.append(window)
                 continue
             }
             requestedMove = true
             pending.insert(identity)
-            let cancel = WindowUtil.performConfirmedSpaceMove(window, to: destination, dismissPreviews: nil,
+            let cancel = WindowUtil.performConfirmedSpaceMove(window, to: targetDestination, dismissPreviews: nil,
                                                               switchToDestination: false,
                                                               isRequestActive: { isRequestActive() && request.contains(identity) })
             { success in

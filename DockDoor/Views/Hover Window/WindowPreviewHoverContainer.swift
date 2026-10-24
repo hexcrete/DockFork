@@ -448,7 +448,7 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func handleHoverIndexChange(_ hoveredIndex: Int?, _ location: CGPoint?) -> Bool {
-        guard !previewStateCoordinator.isPointerSelecting else { return false }
+        guard !previewStateCoordinator.isDraggingPreview, !previewStateCoordinator.isPointerSelecting else { return false }
         let isWindowSwitcher = previewStateCoordinator.windowSwitcherActive
         let isCmdTabPreview = !isWindowSwitcher && dockPosition == .cmdTab
         let isDockPreview = !isWindowSwitcher && !isCmdTabPreview
@@ -521,7 +521,7 @@ struct WindowPreviewHoverContainer: View {
         }
         .padding(.top, (effectiveShouldShowHeader && effectiveAppNameStyle == .popover) ? PreviewHeaderLayout.contentReservation(for: .popover) : 0)
         .overlay {
-            if !mockPreviewActive, !isDragging {
+            if !mockPreviewActive, !isDragging, !previewStateCoordinator.isDraggingPreview {
                 WindowDismissalContainer(appName: appName,
                                          bestGuessMonitor: bestGuessMonitor,
                                          dockPosition: dockPosition,

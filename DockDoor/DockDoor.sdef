@@ -83,6 +83,20 @@
 
         <!-- Window Action Commands -->
 
+        <command name="move space contents" code="DKDRmvsc" description="Move known eligible windows between numbered Desktops; optionally swap original contents. Preserve geometry, hidden/minimized state and native Space order. Empty contents are a successful no-op; partial successes are retained.">
+            <cocoa class="SpaceContentsCommand"/>
+            <direct-parameter type="integer" description="Positive global source Desktop number from list spaces."/>
+            <parameter name="to space" code="spnm" type="integer" description="Positive global destination Desktop number."><cocoa key="spaceNumber"/></parameter>
+            <parameter name="swapping" code="swap" type="boolean" optional="yes" description="Swap original eligible contents, default false."><cocoa key="swapping"/></parameter>
+            <result type="text" description="ok or error: with validation or failed window details. Successful changes are retained."/>
+        </command>
+        <command name="shift space contents" code="DKDRshsc" description="Shift original eligible Desktop contents within one display. Destination is the final sequential Desktop slot, skipping fullscreen slots. Native Spaces, wallpaper and app assignments do not move.">
+            <cocoa class="SpaceContentsCommand"/>
+            <direct-parameter type="integer" description="Positive global source Desktop number."/>
+            <parameter name="to space" code="spnm" type="integer" description="Positive global final Desktop slot number on the same display."><cocoa key="spaceNumber"/></parameter>
+            <result type="text" description="ok or error: with validation or failed window details. Successful changes are retained."/>
+        </command>
+
         <command name="move window" code="DKDRmvwn" description="Move a window to a numbered Desktop and wait for confirmation. Returns ok or error: followed by an explanation.">
             <cocoa class="MoveWindowCommand"/>
             <direct-parameter description="Window ID or ordered nonempty list of window IDs; use 'active' for the frontmost window.">

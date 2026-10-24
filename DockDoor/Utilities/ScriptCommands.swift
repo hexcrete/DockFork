@@ -408,6 +408,9 @@ enum DockDoorCommands {
         lines.append("  Position lists follow the Fill actions Auto Tile setting; explicit tile windows always uses Auto Tile. Overflow follows Tile only what fits.")
         lines.append("  Single IDs and lists share action failure reporting and the move/resize foreground preference. Fullscreen toggles a text ID; lists only exit fullscreen.")
         lines.append("  toggle window selection \"active\" -- requires an open preview and multi-window selection enabled")
+        lines.append("  move space contents 1 to space 3 -- optional with swapping")
+        lines.append("  shift space contents 1 to space 3 -- final Desktop slot, same display")
+        lines.append("  Content commands preserve window state and geometry, not native Space order, wallpaper or app assignments.")
         lines.append("  list spaces")
         lines.append("  show switcher with spaces focused -- requires Window Switcher and Spaces Bar enabled")
         lines.append("  switch to space 3")
@@ -820,6 +823,29 @@ class MoveWindowCommand: AsyncWindowCommand {
             if !revealed { result.failed.append(PreviewWindowIdentity(first)) }
         }
         return DockDoorCommands.batchResult(result)
+    }
+}
+
+@objc(SpaceContentsCommand)
+class SpaceContentsCommand: AsyncWindowCommand {
+    override func performDefaultImplementation() -> Any? {
+        guard let sourceNumber = directParameter as? Int, sourceNumber > 0,
+              let targetNumber = evaluatedArguments?["spaceNumber"] as? Int, targetNumber > 0
+        else {
+            return "error: Space numbers must be positive integers"
+        }
+        let action: SpaceContentsAction = commandDescription.commandName == "shift space contents" ? .shift :
+            ((evaluatedArguments?["swapping"] as? Bool ?? false) ? .swap : .move)
+        return execute {
+            let displays = WindowSpaces.managedDisplays()
+            guard let source = WindowSpaces.destination(forSpaceNumber: sourceNumber, in: displays),
+                  let target = WindowSpaces.destination(forSpaceNumber: targetNumber, in: displays)
+            else {
+                return "error: Space does not exist"
+            }
+            let plan = try WindowUtil.planSpaceContents(from: source.space.id, to: target.space.id, action: action)
+            return try await DockDoorCommands.batchResult(WindowUtil.moveSpaceContents(plan))
+        }
     }
 }
 

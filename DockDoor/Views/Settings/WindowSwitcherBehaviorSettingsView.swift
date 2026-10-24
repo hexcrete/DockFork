@@ -39,6 +39,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.spacesBarFilterWindows) private var spacesBarFilterWindows
     @Default(.spacesBarStartOnNext) private var spacesBarStartOnNext
     @Default(.spacesBarRecentlyUsed) private var spacesBarRecentlyUsed
+    @Default(.spacesBarSwapContents) private var spacesBarSwapContents
     @Default(.spacesBarShowAppIcons) private var spacesBarShowAppIcons
     @Default(.spacesBarActivateAppIcons) private var spacesBarActivateAppIcons
     @Default(.spacesBarHideWhenSingle) private var spacesBarHideWhenSingle
@@ -223,6 +224,14 @@ struct WindowSwitcherBehaviorSettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+                    Picker("Dragging a Space onto another Space", selection: $spacesBarSwapContents) {
+                        Text("Moves all eligible windows to the target Space").tag(false)
+                        Text("Swaps windows between the two Spaces").tag(true)
+                    }
+                    .settingsSearchTarget("windowSwitcher.spacesBarSwapContents")
+                    Text("Dragging moves Desktop contents, not Spaces, wallpapers or app assignments. Gaps shift contents within a display in Sequential order only.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Toggle("Hide when only one Space exists", isOn: $spacesBarHideWhenSingle)
                         .settingsSearchTarget("windowSwitcher.spacesBarHideWhenSingle")
                 }

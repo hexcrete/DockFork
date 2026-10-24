@@ -561,6 +561,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     private func activateSpace(_ entry: ManagedSpacePresentation.Entry) {
+        guard contentsDragSession == nil else { return }
         if let appDelegate = NSApp.delegate as? AppDelegate { appDelegate.dismissPreviews() } else { hideWindow() }
         guard !entry.isCurrent else { return }
         WindowUtil.switchToManagedSpace(entry.destination) { success in if !success { NSSound.beep() } }
@@ -576,6 +577,109 @@ final class SharedPreviewWindowCoordinator: NSPanel {
               let id = windowSwitcherCoordinator.spaceDragViewport?.spaceForDrop(at: point),
               let entry = spacesBarSections.flatMap(\.spaces).first(where: { $0.id == id && !$0.isFullscreen }) else { return nil }
         return entry.destination
+    }
+
+    private struct ContentsDragSession {
+        let token = UUID()
+        let source: CGSSpaceID
+        let title: String
+        let displays: [ManagedDisplayDescriptor]
+    }
+
+    private var contentsDragSession: ContentsDragSession?
+
+    private func cancelContentsDrag() {
+        guard let session = contentsDragSession else { return }
+        contentsDragSession = nil
+        windowSwitcherCoordinator.isDraggingPreview = false
+        windowSwitcherCoordinator.spaceDragViewport?.contentSourceID = nil
+        windowSwitcherCoordinator.spaceDragViewport?.updateDrag(at: nil)
+        spacesBarWindow?.viewport.draggedSpaceID = nil
+        spacesBarWindow?.viewport.contentsDropTarget = nil
+        DragPreviewCoordinator.shared.endDragging(token: session.token)
+    }
+
+    private func updateContentsDragSymbol(_ target: SpaceContentsDropTarget?) {
+        guard let session = contentsDragSession else { return }
+        let symbol = SpaceContentsLayout.dragSymbol(for: target, source: session.source, swapping: Defaults[.spacesBarSwapContents], displays: session.displays)
+        DragPreviewCoordinator.shared.updateSpaceLabel(title: session.title, symbol: symbol, token: session.token)
+    }
+
+    private func updateContentsDrag(from source: CGSSpaceID, at pointer: CGPoint, ended: Bool) {
+        guard windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar], let panel = spacesBarWindow else { return }
+        if contentsDragSession == nil {
+            guard !ended, let entry = spacesBarSections.flatMap(\.spaces).first(where: { $0.id == source && !$0.isFullscreen }) else { return }
+            contentsDragSession = ContentsDragSession(source: source, title: entry.title(mode: Defaults[.spacesBarLabels]), displays: WindowSpaces.managedDisplays())
+            windowSwitcherCoordinator.endSelectionRange()
+            windowSwitcherCoordinator.isDraggingPreview = true
+            panel.viewport.draggedSpaceID = source
+            if let session = contentsDragSession {
+                DragPreviewCoordinator.shared.startSpaceDragging(title: session.title, at: pointer, token: session.token)
+            }
+            positionSpacesBar(relativeTo: frame)
+        }
+        guard let session = contentsDragSession, session.source == source else { return }
+        if !ended {
+            windowSwitcherCoordinator.spaceDragViewport?.updateDrag(at: pointer)
+            updateContentsDragSymbol(windowSwitcherCoordinator.spaceDragViewport?.contentsTarget(at: pointer))
+            DragPreviewCoordinator.shared.updatePreviewPosition(to: pointer)
+            return
+        }
+        let target = windowSwitcherCoordinator.spaceDragViewport?.contentsTarget(at: pointer)
+        cancelContentsDrag()
+        positionSpacesBar(relativeTo: frame)
+        let current = WindowSpaces.managedDisplays()
+        guard SpaceContentsTopology(current) == SpaceContentsTopology(session.displays), let target else { NSSound.beep(); return }
+        switch target {
+        case let .space(id):
+            performContentsAction(from: source, to: id, action: Defaults[.spacesBarSwapContents] ? .swap : .move, token: session.token)
+        case let .gap(gap):
+            guard !Defaults[.spacesBarRecentlyUsed], let id = SpaceContentsLayout.destination(for: gap, source: source, displays: current) else { NSSound.beep(); return }
+            performContentsAction(from: source, to: id, action: .shift, token: session.token)
+        }
+    }
+
+    private func performContentsAction(from source: CGSSpaceID, to target: CGSSpaceID, action: SpaceContentsAction, token: UUID? = nil) {
+        do {
+            let plan = try WindowUtil.planSpaceContents(from: source, to: target, action: action)
+            let windows = plan.moves.map(\.window)
+            let feedback = ActionFeedbackController.begin(.bringToCurrentSpace, windows: windows, usePreviews: false, title: action.title, resolvedTargets: windows)
+            let request = WindowUtil.beginPreviewActionRequest(.bringToCurrentSpace, windows: windows, resolvedTargets: windows)
+            let drag = DragPreviewCoordinator.shared
+            let operation: @MainActor () async -> WindowUtil.PreviewBatchResult = {
+                defer { request.finish() }
+                await request.waitForPredecessors()
+                do {
+                    return try await WindowActionRequest.$current.withValue(request) {
+                        try await WindowUtil.moveSpaceContents(plan, feedback: feedback, isRequestActive: {
+                            token.map { drag.isCompletingDrop(token: $0) } ?? !Task.isCancelled
+                        })
+                    }
+                } catch {
+                    feedback?.finishRemaining(.failed)
+                    DebugLogger.log("SpaceContents", details: error.localizedDescription)
+                    if windows.isEmpty { NSSound.beep() }
+                    return WindowUtil.PreviewBatchResult(failed: windows.map(PreviewWindowIdentity.init))
+                }
+            }
+            let completion: @MainActor (WindowUtil.PreviewBatchResult) -> Void = { result in
+                if !result.failed.isEmpty { NSSound.beep() }
+            }
+            if let token {
+                drag.completeDrop(token: token, operation: operation, completion: completion)
+            } else {
+                let task = Task { @MainActor [weak self] in
+                    defer { self?.previewActionTasks.removeValue(forKey: request.token) }
+                    let result = await operation()
+                    if !Task.isCancelled { completion(result) }
+                }
+                previewActionTasks[request.token] = (request, task)
+                request.onSuperseded { task.cancel() }
+            }
+        } catch {
+            DebugLogger.log("SpaceContents", details: error.localizedDescription)
+            NSSound.beep()
+        }
     }
 
     var spacesBarReservation: CGFloat {
@@ -602,6 +706,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
         }
         let displays = WindowSpaces.managedDisplays(includeOwners: true)
+        if let session = contentsDragSession, SpaceContentsTopology(displays) != SpaceContentsTopology(session.displays) {
+            cancelContentsDrag()
+        }
         WindowSpaces.recordBarSpaceVisits(displays)
 
         let windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters()
@@ -643,6 +750,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     private func removeSpacesBar(keepTopologyObserver: Bool = false) {
+        cancelContentsDrag()
         windowSwitcherCoordinator.spaceDragViewport?.updateDrag(at: nil)
         windowSwitcherCoordinator.spaceDragViewport = nil
         windowSwitcherCoordinator.mouseHighlightedSpaceID = nil
@@ -687,7 +795,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let requestedMinimum = Defaults[.spacesBarMinimumWidth]
         let minimum = requestedMinimum.isFinite ? min(600, max(10, requestedMinimum)) : 160
         let available = max(1, screen.visibleFrame.width)
-        let spacing = CGFloat(max(0, entries.count - 1)) * SpacesBarLayout.itemSpacing + SpacesBarLayout.sectionExtraWidth(displayCount: spacesBarSections.count) + SpacesBarLayout.innerPadding * 2 + (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2
+        let showDropGaps = contentsDragSession != nil && !Defaults[.spacesBarRecentlyUsed]
+        let spacing = SpacesBarLayout.rowSpacing(spaceCount: entries.count, displayCount: spacesBarSections.count, dropGaps: showDropGaps) + SpacesBarLayout.innerPadding * 2 + (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2
         let labels = Defaults[.spacesBarLabels]
         let font = SpacesBarLayout.textFont
         let labelWidths = entries.map { entry in
@@ -718,7 +827,17 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 self?.windowSwitcherCoordinator.setSpaceFilter(nil)
             },
             activateApp: { [weak self] app, entry in Task { @MainActor in await self?.activateSpaceApp(app, in: entry) } },
-            activate: { [weak self] entry in Task { @MainActor in self?.activateSpace(entry) } }
+            activate: { [weak self] entry in Task { @MainActor in self?.activateSpace(entry) } },
+            dragContents: { [weak self] id, point, ended in self?.updateContentsDrag(from: id, at: point, ended: ended) },
+            contentsAction: { [weak self] source, target, action in self?.performContentsAction(from: source, to: target, action: action) },
+            allowedGaps: Set(contentsDragSession.flatMap { session in
+                guard !Defaults[.spacesBarRecentlyUsed] else { return nil as [SpaceContentsGap]? }
+                return spacesBarSections.flatMap { display in
+                    (display.spaces.map { SpaceContentsGap(displayID: display.id, beforeSpaceID: $0.id) } + [SpaceContentsGap(displayID: display.id, beforeSpaceID: nil)])
+                        .filter { SpaceContentsLayout.destination(for: $0, source: session.source, displays: session.displays) != nil }
+                }
+            } ?? []),
+            contentsTargetChanged: { [weak self] target in self?.updateContentsDragSymbol(target) }
         )
         if let hosting = panel.contentView as? NSHostingView<SpacesBarView> {
             hosting.rootView = barView

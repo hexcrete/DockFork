@@ -195,6 +195,7 @@ struct MainSettingsView: View {
                 Defaults[.spacesBarStartOnNext] = Defaults.Keys.spacesBarStartOnNext.defaultValue
                 Defaults[.spacesBarRecentlyUsed] = Defaults.Keys.spacesBarRecentlyUsed.defaultValue
                 Defaults[.spacesBarCycleOpensSwitcher] = Defaults.Keys.spacesBarCycleOpensSwitcher.defaultValue
+                Defaults[.spacesBarSwapContents] = Defaults.Keys.spacesBarSwapContents.defaultValue
                 Defaults[.spacesBarShowAppIcons] = Defaults.Keys.spacesBarShowAppIcons.defaultValue
                 Defaults[.spacesBarActivateAppIcons] = Defaults.Keys.spacesBarActivateAppIcons.defaultValue
                 Defaults[.spacesBarLabels] = Defaults.Keys.spacesBarLabels.defaultValue

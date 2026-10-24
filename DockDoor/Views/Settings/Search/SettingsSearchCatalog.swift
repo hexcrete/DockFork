@@ -395,6 +395,7 @@ enum SettingsSearchCatalog {
     // MARK: - Window Switcher
 
     private static let windowSwitcherItems: [SettingsSearchItem] = [
+        SettingsSearchItem(id: "windowSwitcher.spacesBarSwapContents", title: String(localized: "Dragging a Space onto another Space"), description: String(localized: "Dragging moves Desktop contents, not Spaces, wallpapers or app assignments. Gaps shift contents within a display in Sequential order only."), keywords: ["spaces", "contents", "drag", "swap", "shift"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "arrow.left.arrow.right"),
         SettingsSearchItem(id: "windowSwitcher.spacesBarFilterWindows", title: String(localized: "Filter windows by highlighted Space"), keywords: ["spaces", "bar", "filter"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "line.3.horizontal.decrease.circle"),
         SettingsSearchItem(id: "windowSwitcher.spacesBarStartOnNext", title: String(localized: "Start on next Space"), keywords: ["spaces", "bar", "cycle"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "keyboard"),
         SettingsSearchItem(id: "gestures.spacesBarCycleOpensSwitcher", title: String(localized: "Allow Space-cycle shortcuts to open the switcher"), keywords: ["spaces", "bar", "cycle", "launch", "open", "shortcut"], tab: "Keybinds", section: String(localized: "Spaces"), icon: "keyboard"),

@@ -106,7 +106,7 @@ class PreviewStateCoordinator: ObservableObject {
     var tapStateDidChange: (() -> Void)?
     weak var actionFeedbackGrid: CardGridScrollView.Coordinator?
     weak var spaceDragViewport: SpacesBarScroll.ViewportView?
-    var isDraggingPreview = false
+    @Published var isDraggingPreview = false
     weak var dragTargetGrid: CardGridScrollView.Coordinator?
     weak var selectionGrid: CardGridScrollView.Coordinator?
 
