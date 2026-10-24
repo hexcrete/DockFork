@@ -429,3 +429,7 @@ Space-content drag animation follow-up: capture gaps opening left and right arou
 The user verified source-anchored expansion. Screenshot/video capture remains pending; exhaustive edge/overflow/display coverage is not claimed.
 
 Handoff regression: check windows in Dock and Cmd+Tab, then open held, persistent/menu-bar and swipe switchers. Verify selection clears and cards, summary, search and Spaces Bar align without overlap. Also test no selection and a pending Dock hover. Capture/manual verification pending.
+
+Opening-hover regression: open regular/Compact switchers with the pointer over a Space pill, with filtering Off/On. Verify no mouse highlight/filter appears while stationary or moving within that pill, and moving directly to the window grid leaves it unfiltered. Exit/re-enter the pill to enable normal hover. Also check keyboard/held-release, overflow and repeat openings. Capture/manual verification pending.
+
+The user verified the revised opening-pill exit/re-entry behavior. Media capture and exhaustive display/overflow/keyboard/drop coverage remain unclaimed.

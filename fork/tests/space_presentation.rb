@@ -191,6 +191,7 @@ abort 'Filter label must slide within its reserved slot using shared animation p
 abort 'Bar refresh must not recommit unchanged native scroll geometry' unless bar.include?('if view.scroller.contentSize != contentSize') && bar.include?('if view.hosting.frame != contentFrame')
 abort 'Space cards must share preview-card styling and centered labels' unless pill_style.include?('.previewCardChrome(') && pill_style.include?('hideBackground: hideCardBackground') && pill_style.include?('uniformCardRadius: uniformCardRadius') && !pill_style.include?('.materialPill(') && pill_style.include?('frame(width: titleWidth, height:')
 abort 'Space cards must honor active-border visibility and actual hover independently' unless bar.include?('@Default(.showActiveWindowBorder)') && pill_style.include?('isHighlighted: (enableMouseHoverInSwitcher && viewport.hoveredSpaceID == entry.id) || highlightedSpace == entry.id, isActiveWindow: showActiveWindowBorder && entry.isCurrent') && pill_style.include?('highlightColor: highlightColor ?? Color(nsColor: .controlAccentColor)') && pill_style.include?('.onContinuousHover { phase in')
+abort 'Space visual hover must wait for initial-pill admission and accepted coordinator hover' unless pill_style.index('allowsSpaceHover(entry.id)') < pill_style.index('hover(entry.id, true)') && pill_style.include?('previewCoordinator?.mouseHighlightedSpaceID == entry.id')
 abort 'Companions must follow actual native frames without content rebuilding' unless panel.include?('if spacesBarWindow != nil { positionCompanionWindows() }') && !panel.include?('positionSpacesBar(relativeTo: targetFrame)')
 model = block(shared, 'enum ManagedSpacePresentation {')
 abort 'Space model must not retain screenshots or discover windows' if model.match?(/let \w+: (?:\[)?WindowInfo|\.image\b|\.axElement\b|Task\b|Timer\b|\.addObserver\b|getAllWindows/)
@@ -664,7 +665,7 @@ native_source += "extension View {\n" + block(material, '    func materialPill('
 native_source += "enum AppIconStripFormatting {\n" + block(preview, '    static func width(') + "\n" + block(preview, '    static func visibleCount(total:') + "\n}\n"
 native_source += "extension SpacesBarLayout {\n" + block(bar, '    static func titleInset(') + "\n" + block(bar, '    static func pinnedTitleOffset(') + "\n}\n"
 native_source += "enum Defaults { struct Key<T> { let value:T }; static var size = SpacesBarItemSize.small; static subscript<T>(_ key:Key<T>)->T {key.value} }\nextension Defaults.Key where T == SpacesBarItemSize {static var spacesBarItemSize: Self {Self(value:Defaults.size)}}\n"
-native_source += "final class PreviewStateCoordinator { weak var spaceDragViewport: SpacesBarScroll.ViewportView? }\n"
+native_source += "final class PreviewStateCoordinator { weak var spaceDragViewport: SpacesBarScroll.ViewportView?; var mouseHighlightedSpaceID: CGSSpaceID? }\n"
 native_source += block(bar, 'struct SpacePillMetrics {')+"\n"+block(bar, 'private struct AppWindowCountSubscript:')+"\nextension View {\n"+block(bar, '    func appWindowCount(')+"\n}\n"
 native_source += block(bar, 'enum SpacesBarAppLayout {') + "\n"
 native_source += block(File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedHoverAppTitle.swift"), 'struct PreviewAppIcon:') + "\n"
@@ -698,6 +699,7 @@ native_source += "extension SpacesBarLayout {\n" + bar.lines.grep(/static var (c
 native_source += <<~'SWIFT'
 enum SpacePillEvents { static var activations = 0, changes = 0, ends = 0, iconActivations = 0, clears = 0 }
 struct PillProbe: View {
+ var previewCoordinator: PreviewStateCoordinator? = nil
  var dragContents: ((UInt64,CGPoint,Bool)->Void)? = nil
  let contentsAction: ((UInt64,UInt64,SpaceContentsAction)->Void)? = nil
  let sections: [ManagedSpacePresentation.Display] = []

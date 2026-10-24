@@ -751,8 +751,11 @@ struct SpacesBarView: View {
         .onContinuousHover { phase in
             switch phase {
             case .active:
-                if viewport.hoveredSpaceID != entry.id { viewport.hoveredSpaceID = entry.id }
+                guard previewCoordinator?.spaceDragViewport?.allowsSpaceHover(entry.id) == true else { return }
                 hover(entry.id, true)
+                if previewCoordinator?.mouseHighlightedSpaceID == entry.id, viewport.hoveredSpaceID != entry.id {
+                    viewport.hoveredSpaceID = entry.id
+                }
             case .ended:
                 if viewport.hoveredSpaceID == entry.id { viewport.hoveredSpaceID = nil }
                 hover(entry.id, false)
@@ -935,6 +938,9 @@ struct SpacesBarScroll: NSViewRepresentable {
         private var centered = false
         private var pointer: CGPoint?
         private var dragPointer: CGPoint?
+        private let openingHoverLocation = NSEvent.mouseLocation
+        private var capturedOpeningHover = false
+        private var suppressedOpeningSpaceID: CGSSpaceID?
         var gapFrames: [SpaceContentsGap: CGRect] = [:]
         var allowedGaps: Set<SpaceContentsGap> = []
         var contentSourceID: CGSSpaceID?
@@ -943,6 +949,15 @@ struct SpacesBarScroll: NSViewRepresentable {
         var dropFrames: [CGSSpaceID: CGRect] = [:]
         var desktopDropIDs: Set<CGSSpaceID> = []
         var onDropTargetChanged: ((CGSSpaceID?) -> Void)?
+
+        func allowsSpaceHover(_ id: CGSSpaceID) -> Bool {
+            if !capturedOpeningHover {
+                guard spaceForDrop(at: NSEvent.mouseLocation) == id else { return false }
+                suppressedOpeningSpaceID = spaceForDrop(at: openingHoverLocation)
+                capturedOpeningHover = true
+            }
+            return suppressedOpeningSpaceID != id
+        }
 
         func spaceForDrop(at screenPoint: CGPoint) -> CGSSpaceID? {
             guard let window, window.isVisible,
@@ -1056,11 +1071,17 @@ struct SpacesBarScroll: NSViewRepresentable {
 
         override func mouseMoved(with event: NSEvent) {
             pointer = convert(event.locationInWindow, from: nil)
+            if let id = suppressedOpeningSpaceID, let window,
+               spaceForDrop(at: window.convertPoint(toScreen: event.locationInWindow)) != id
+            {
+                suppressedOpeningSpaceID = nil
+            }
             updateScroll()
         }
 
         override func mouseExited(with event: NSEvent) {
             pointer = nil
+            suppressedOpeningSpaceID = nil
             scroller.stopEdgeScroll()
         }
 
