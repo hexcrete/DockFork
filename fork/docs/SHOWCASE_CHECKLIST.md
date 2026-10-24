@@ -445,3 +445,7 @@ The user verified cross-display Shift. Final review additionally hardened stale 
 Search shortcut follow-up: collide Search Trigger Key with a preview action, a Space-cycle key and a numbered-Space shortcut; capture the standard warning and verify the existing route wins. Change each binding back and verify the warning clears. In a persistent switcher, compare Left/Right modifier behavior with Ignore modifier key side Off/On; compare an alternate initializer and bare-key focus. Verify normal typing/navigation remain unchanged. Capture/manual verification pending.
 
 The user verified the search shortcut's glyph presentation. Exhaustive conflict/physical-side/alternate-session combinations and media capture remain unclaimed.
+
+Fullscreen Space-pill regression: exit an unfocused fullscreen Space and verify WS+SB stay visible, focus does not move, topology refreshes and the next switcher invocation works. Compare an active fullscreen exit, where a real Space change should close through normal session cleanup; immediately invoke the switcher again. Include held and persistent sessions. Media/manual verification pending.
+
+The user verified fullscreen-exit preservation and approved the fix. Media capture and exhaustive focused/background/multi-display/session combinations remain pending.

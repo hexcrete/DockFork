@@ -569,7 +569,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             identities.contains(PreviewWindowIdentity($0)) && $0.isFullscreen == true && !$0.app.isTerminated
         }
         guard let initiator = windows.first else { NSSound.beep(); return }
-        _ = performPreviewBatchAction(.toggleFullScreen, on: windows, initiator: initiator, usePreviews: false)
+        _ = performPreviewBatchAction(.toggleFullScreen, on: windows, initiator: initiator, preservePreviews: true, usePreviews: false)
     }
 
     private func activateSpace(_ entry: ManagedSpacePresentation.Entry) {
