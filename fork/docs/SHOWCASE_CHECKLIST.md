@@ -449,3 +449,7 @@ The user verified the search shortcut's glyph presentation. Exhaustive conflict/
 Fullscreen Space-pill regression: exit an unfocused fullscreen Space and verify WS+SB stay visible, focus does not move, topology refreshes and the next switcher invocation works. Compare an active fullscreen exit, where a real Space change should close through normal session cleanup; immediately invoke the switcher again. Include held and persistent sessions. Media/manual verification pending.
 
 The user verified fullscreen-exit preservation and approved the fix. Media capture and exhaustive focused/background/multi-display/session combinations remain pending.
+
+Fullscreen-menu consistency: compare a fullscreen window's Space-indicator dropdown with the fullscreen Space-pill context menu. Each should contain only Exit Full Screen with the same glyph. Verify the indicator's single/checked scope and the pill's resident scope stay unchanged, and background exit preserves previews. Capture/manual verification pending.
+
+The user verified the unified fullscreen menus. Media capture and exhaustive single/checked/resident scope combinations remain unclaimed.

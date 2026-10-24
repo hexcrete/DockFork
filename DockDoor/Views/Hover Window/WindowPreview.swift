@@ -177,11 +177,6 @@ final class SpaceMoveMenuController: NSObject {
         let usesCheckedSelection: Bool
     }
 
-    private struct FullscreenExitRequest {
-        let window: WindowInfo
-        let usesCheckedSelection: Bool
-    }
-
     func present(for window: WindowInfo, dismissPreviews: (() -> Void)?) {
         present(makeMenu(for: window, dismissPreviews: dismissPreviews))
     }
@@ -219,15 +214,7 @@ final class SpaceMoveMenuController: NSObject {
         let targets = showShortcutHints ? SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(for: window) ?? [window] : [window]
 
         if sourceValidation == .fullscreen {
-            let item = NSMenuItem(
-                title: String(localized: "Exit Full Screen to move this window", comment: "Action that exits fullscreen before moving a window between Spaces"),
-                action: #selector(exitFullScreen(_:)),
-                keyEquivalent: ""
-            )
-            item.target = self
-            item.representedObject = FullscreenExitRequest(window: window, usesCheckedSelection: showShortcutHints)
-            menu.addItem(item)
-            return menu
+            return makeFullscreenExitMenu { [weak self] in self?.exitFullScreen(window, usesCheckedSelection: showShortcutHints) }
         }
 
         if sourceValidation == .multipleDesktopSpaces {
@@ -334,20 +321,23 @@ final class SpaceMoveMenuController: NSObject {
         return menu
     }
 
+    private func makeFullscreenExitMenu(_ action: @escaping () -> Void) -> NSMenu {
+        let menu = NSMenu()
+        let item = NSMenuItem(title: String(localized: "Exit Full Screen"), action: #selector(selectDestination(_:)), keyEquivalent: "")
+        item.target = self
+        item.image = NSImage(systemSymbolName: "arrow.down.right.and.arrow.up.left", accessibilityDescription: nil)
+        WindowActionMenuBuilder.shared.forceImageVisibility(for: item)
+        item.representedObject = DestinationRequest(select: action)
+        menu.addItem(item)
+        return menu
+    }
+
     func makeContentsMenu(for source: ManagedSpacePresentation.Entry, presentation: [ManagedSpacePresentation.Display],
                           contentsAction: ((CGSSpaceID, CGSSpaceID, SpaceContentsAction) -> Void)?,
                           exitFullScreen: @escaping () -> Void) -> NSMenu
     {
         let menu = NSMenu()
-        if source.isFullscreen {
-            let item = NSMenuItem(title: String(localized: "Exit Full Screen"), action: #selector(selectDestination(_:)), keyEquivalent: "")
-            item.target = self
-            item.image = NSImage(systemSymbolName: "arrow.down.right.and.arrow.up.left", accessibilityDescription: nil)
-            WindowActionMenuBuilder.shared.forceImageVisibility(for: item)
-            item.representedObject = DestinationRequest(select: exitFullScreen)
-            menu.addItem(item)
-            return menu
-        }
+        if source.isFullscreen { return makeFullscreenExitMenu(exitFullScreen) }
         guard let contentsAction else { return menu }
         for action in [SpaceContentsAction.move, .swap, .shift] {
             let item = NSMenuItem(title: action.menuTitle, action: nil, keyEquivalent: "")
@@ -432,14 +422,13 @@ final class SpaceMoveMenuController: NSObject {
         )
     }
 
-    @objc private func exitFullScreen(_ sender: NSMenuItem) {
-        guard let request = sender.representedObject as? FullscreenExitRequest else { return }
-        if request.usesCheckedSelection,
-           SharedPreviewWindowCoordinator.activeInstance?.performCheckedWindowAction(.toggleFullScreen, on: request.window, preservePreviews: true) != nil
+    private func exitFullScreen(_ window: WindowInfo, usesCheckedSelection: Bool) {
+        if usesCheckedSelection,
+           SharedPreviewWindowCoordinator.activeInstance?.performCheckedWindowAction(.toggleFullScreen, on: window, preservePreviews: true) != nil
         { return }
-        let feedback = ActionFeedbackController.begin(.toggleFullScreen, windows: [request.window], keyboard: NSApp.currentEvent?.type == .keyDown, usePreviews: request.usesCheckedSelection)
+        let feedback = ActionFeedbackController.begin(.toggleFullScreen, windows: [window], keyboard: NSApp.currentEvent?.type == .keyDown, usePreviews: usesCheckedSelection)
         Task { @MainActor in
-            let confirmed = await WindowUtil.exitFullScreenWithoutActivation(request.window)
+            let confirmed = await WindowUtil.exitFullScreenWithoutActivation(window)
             feedback?.finishRemaining(Task.isCancelled ? .cancelled : (confirmed ? .completed : .failed))
             if !confirmed, !Task.isCancelled { NSSound.beep() }
         }
