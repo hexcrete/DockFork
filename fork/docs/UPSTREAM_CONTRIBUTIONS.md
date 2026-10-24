@@ -128,3 +128,7 @@ Stage 6 boundary: Desktop-content operations depend on shared Space presentation
 Stage 6 drag polish intentionally allows Space-pill controls to initiate a content drag while preserving their clicks. Keep that exception separate from window-preview drag-origin rules. The target-aware label shares group-drag chrome; unrelated group sizing/overflow typography is deferred. Gap animation is not included because visual and hit geometry must remain consistent. Include the icon/filter drag-versus-click regressions when extracting this behavior.
 
 Stage 6 user verification and final review passed October 24. This does not remove the need for upstream's focused issue/PR scope, human disclosure/submission text, Xcode validation or native coverage appropriate to an extracted change. No upstream submission is made.
+
+Gap-animation follow-up must include the shared interpolated layout/hit geometry, existing bridge migration and native intermediate-frame regressions together. Do not extract only a visual animation that leaves drop targets at final coordinates. Preserve shared animation/Reduce Motion gating; fork-only records remain excluded.
+
+Include endpoint sizing and native panel-frame adaptation too: the review found that animating gaps alone left container/reflowed-pill widths jumping. Keep existing placement/anchoring and native rendering tolerances. No new settings or app identity changes belong to this animation change.

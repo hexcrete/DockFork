@@ -596,6 +596,8 @@ native_source += block(bar, 'final class SpacesBarHeadingOverlay:') + "\n"
 native_source += block(bar, 'final class SpacesBarViewport:') + "\n"
 native_source += block(bar, 'final class SpacesBarWindow:') + "\n"
 native_source += block(bar, 'final class SpacesBarHostedState:') + "\n" + block(bar, 'struct SpacesBarHostedContent:') + "\n"
+native_source += block(bar, 'struct SpacesBarSizing {')+"\n"
+native_source += block(bar, 'struct SpacesBarGapAnimation<')+"\n"
 native_source += block(bar, 'struct SpacesBarScroll:') + "\n"
 material = File.read("#{root}/DockDoor/Components/MaterialPill.swift")
 view_extensions = File.read("#{root}/DockDoor/Extensions/View.swift")
@@ -707,7 +709,7 @@ struct PillProbe: View {
  func activate(_ entry: ManagedSpacePresentation.Entry) { SpacePillEvents.activations += 1 }
  func hover(_ id: UInt64, _ hovering: Bool) {}
  func activateApp(_ app: ManagedSpacePresentation.App, _ entry: ManagedSpacePresentation.Entry) { SpacePillEvents.iconActivations += 1 }
- var body: some View { pill(ManagedSpacePresentation.Entry(label:label,apps:apps)).fixedSize() }
+ var body: some View { pill(ManagedSpacePresentation.Entry(label:label,apps:apps),width:width).fixedSize() }
 SWIFT
 native_source += block(bar, '    private func pill(') + "\n}\n"
 native_source += "struct AppSlotProbe: View {\n let count: Int\n let showBadges = false\n let badgeScale: CGFloat = 1\n var body: some View {\n  let app = ManagedSpacePresentation.App(application:NSRunningApplication.current,windowCount:count)\n"
@@ -742,8 +744,37 @@ final class CompanionProbe: NSPanel {
  deinit { NotificationCenter.default.removeObserver(self) }
 SWIFT
 native_source += block(panel, '    @objc private func positionCompanionWindows()').sub('panelAnchor?.screen ?? screen','screen') + "\n}\n"
-native_source += "extension SpacesBarLayout {\n" + bar.lines.grep(/static var dropGapWidth:/).join + bar.lines.grep(/static func sectionExtraWidth/).join + "\n" + block(bar, '    static func rowSpacing(') + "\n" + block(bar, '    static func sectionWidth(') + "\n}\n"
-native_source += "struct PillFrameProbe {\n struct Item { let id: UInt64 }\n struct Section { var id: String = \"display\"; let spaces: [Item] }\n let sections: [Section]\n let widths: [UInt64: CGFloat]\n var showDropGaps = false\n" + block(bar, '    private var dropFrames:').sub('private var','var') + "\n" + block(bar, '    private var gapFrames:').sub('private var','var') + "\n}\n"
+native_source += "extension SpacesBarLayout {\n" + bar.lines.grep(/static var dropGapWidth:/).join + bar.lines.grep(/static func sectionExtraWidth/).join + "\n" + block(bar, '    static func gapWidth(') + "\n" + block(bar, '    static func rowSpacing(') + "\n" + block(bar, '    static func sectionWidth(') + "\n}\n"
+native_source += "struct PillFrameProbe: View {\n struct Item: Identifiable { let id: UInt64 }\n struct Section: Identifiable { var id: String = \"display\"; let spaces: [Item] }\n let sections: [Section]\n let widths: [UInt64: CGFloat]\n var gapProgress: CGFloat = 0\n" + block(bar, '    private func dropFrames(').sub('private func','func') + "\n" + block(bar, '    private func gapFrames(').sub('private func','func') + "\n" + block(bar, '    private func spaceContents(').sub('private func','func') + "\n" + <<~'SWIFT'
+ var body: some View { spaceContents(gapProgress:gapProgress,widths:widths) }
+func dropFrames(gapProgress:CGFloat)->[UInt64:CGRect] {dropFrames(gapProgress:gapProgress,widths:widths)}
+func gapFrames(gapProgress:CGFloat)->[SpaceContentsGap:CGRect] {gapFrames(gapProgress:gapProgress,pills:dropFrames(gapProgress:gapProgress))}
+ func pill(_ entry: Item,width:CGFloat) -> some View { GapMarker(id:entry.id).frame(width:width,height:SpacesBarLayout.pillHeight) }
+ func landingZone(_ gap:SpaceContentsGap,width:CGFloat,progress:CGFloat) -> some View { Color.clear.frame(width:width,height:SpacesBarLayout.pillHeight) }
+}
+enum GapMarkers { static var views: [UInt64:NSView] = [:] }
+struct GapMarker: NSViewRepresentable {
+ let id: UInt64
+ func makeNSView(context:Context)->NSView { let view=NSView();GapMarkers.views[id]=view;return view }
+ func updateNSView(_ view:NSView,context:Context) {}
+}
+final class GapAnimationState: ObservableObject { @Published var progress: CGFloat = 0 }
+struct AnimatedGapProbe: View {
+ @ObservedObject var state: GapAnimationState
+ @ObservedObject var viewport: SpacesBarViewport
+ var animation: Animation? = .linear(duration:0.4)
+ var body: some View {
+  SpacesBarGapAnimation(progress:state.progress) { p in
+let sizing=SpacesBarSizing(widths:[1:120,2:120],width:300).interpolated(to:SpacesBarSizing(widths:[1:100,2:100],width:360),progress:p)
+let layout=PillFrameProbe(sections:[.init(spaces:[.init(id:1),.init(id:2)])],widths:sizing.widths,gapProgress:p)
+   let width=SpacesBarLayout.innerPadding*2+sizing.widths.values.reduce(0,+)+SpacesBarLayout.rowSpacing(spaceCount:2,displayCount:1,gapProgress:p)
+   return SpacesBarScroll(content:AnyView(layout),contentSize:CGSize(width:width,height:68),initialCenter:nil,viewport:viewport,
+                  panelFrame:CGRect(x:200-sizing.width/2,y:20,width:sizing.width,height:68),gapFrames:layout.gapFrames(gapProgress:p),allowedGaps:[.init(displayID:"display",beforeSpaceID:2)],contentSourceID:1,
+                  dropFrames:layout.dropFrames(gapProgress:p),desktopDropIDs:[1,2],edgeScrolling:false,speed:0)
+  }.animation(animation,value:state.progress)
+ }
+}
+SWIFT
 native_source += "extension CompanionProbe {\n" + block(panel, '    private func anchoredOrigin(').sub('private func','func') + "\n}\n"
 native_source += <<~'SWIFT'
 enum SlideSamples { static var values: [CGFloat] = [] }
@@ -762,18 +793,26 @@ struct SlideProbe: AnimatableModifier {
 let firstSection = PillFrameProbe.Section(spaces:[.init(id:1),.init(id:2)])
 let lastSection = PillFrameProbe.Section(id:"other",spaces:[.init(id:3)])
 let itemWidths: [UInt64:CGFloat] = [1:100,2:200,3:120]
-let singleFrames = PillFrameProbe(sections:[firstSection],widths:itemWidths).dropFrames
+let singleFrames = PillFrameProbe(sections:[firstSection],widths:itemWidths).dropFrames(gapProgress:0)
 precondition(singleFrames[1] == CGRect(x:SpacesBarLayout.innerPadding,y:SpacesBarLayout.innerPadding,width:100,height:SpacesBarLayout.pillHeight))
 precondition(singleFrames[2]!.minX == singleFrames[1]!.maxX + SpacesBarLayout.itemSpacing)
-let multiFrames = PillFrameProbe(sections:[firstSection,lastSection],widths:itemWidths).dropFrames
+let multiFrames = PillFrameProbe(sections:[firstSection,lastSection],widths:itemWidths).dropFrames(gapProgress:0)
 precondition(multiFrames[3]!.minX == multiFrames[2]!.maxX + SpacesBarLayout.itemSpacing*2 + SpacesBarLayout.dividerWidth)
 precondition(multiFrames[3]!.minY == SpacesBarLayout.innerPadding + SpacesBarLayout.headingHeight + 4*SpacesBarLayout.scale)
-let gapLayout=PillFrameProbe(sections:[firstSection,lastSection],widths:itemWidths,showDropGaps:true)
-let gapRects=gapLayout.gapFrames
-precondition(gapRects.count==5 && gapLayout.dropFrames[1]!.minX==SpacesBarLayout.innerPadding+SpacesBarLayout.dropGapWidth)
-precondition(gapLayout.dropFrames[2]!.minX==gapLayout.dropFrames[1]!.maxX+SpacesBarLayout.dropGapWidth)
-let extras=SpacesBarLayout.rowSpacing(spaceCount:3,displayCount:2,dropGaps:true)
-precondition(gapLayout.dropFrames[3]!.maxX+SpacesBarLayout.dropGapWidth+SpacesBarLayout.innerPadding==SpacesBarLayout.innerPadding*2+420+extras,"Rendered drop gaps, heading widths and container arithmetic must agree")
+let gapLayout=PillFrameProbe(sections:[firstSection,lastSection],widths:itemWidths)
+let gapRects=gapLayout.gapFrames(gapProgress:1)
+precondition(gapRects.count==5 && gapLayout.dropFrames(gapProgress:1)[1]!.minX==SpacesBarLayout.innerPadding+SpacesBarLayout.dropGapWidth)
+precondition(gapLayout.dropFrames(gapProgress:1)[2]!.minX==gapLayout.dropFrames(gapProgress:1)[1]!.maxX+SpacesBarLayout.dropGapWidth)
+let extras=SpacesBarLayout.rowSpacing(spaceCount:3,displayCount:2,gapProgress:1)
+precondition(gapLayout.dropFrames(gapProgress:1)[3]!.maxX+SpacesBarLayout.dropGapWidth+SpacesBarLayout.innerPadding==SpacesBarLayout.innerPadding*2+420+extras,"Rendered drop gaps, heading widths and container arithmetic must agree")
+for progress:CGFloat in [0,0.1,0.5,0.9,1] {
+ let frames=gapLayout.dropFrames(gapProgress:progress)
+ let spacing=SpacesBarLayout.rowSpacing(spaceCount:3,displayCount:2,gapProgress:progress)
+ precondition(abs(frames[3]!.maxX+SpacesBarLayout.gapWidth(progress:progress,boundary:true)+SpacesBarLayout.innerPadding-(SpacesBarLayout.innerPadding*2+420+spacing))<0.001,"Intermediate multi-display width must match rendered geometry")
+ for gap in gapLayout.gapFrames(gapProgress:progress).values {
+  precondition(frames.values.allSatisfy{$0.intersection(gap).width<0.001},"Intermediate gap targets must not overlap pills")
+ }
+}
   let animationPanel = NSPanel(contentRect:CGRect(x:20,y:20,width:160,height:40),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
   animationPanel.ignoresMouseEvents = true
   let animationViewport = SpacesBarScroll.ViewportView(frame:CGRect(x:0,y:0,width:160,height:40))
@@ -796,6 +835,53 @@ precondition(gapLayout.dropFrames[3]!.maxX+SpacesBarLayout.dropGapWidth+SpacesBa
   precondition(!SlideSamples.values.contains { $0>0 && $0<40 }, "Disabled motion must update the hosting root immediately")
   animationPanel.orderOut(nil)
   print("PASS native hosted content animation: real intermediate frames and immediate disabled-motion update")
+let gapState=GapAnimationState(),gapViewport=SpacesBarViewport()
+let gapPanel=NSPanel(contentRect:CGRect(x:20,y:20,width:400,height:68),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+gapPanel.ignoresMouseEvents=true
+gapPanel.contentView=NSHostingView(rootView:AnimatedGapProbe(state:gapState,viewport:gapViewport))
+gapPanel.orderFront(nil)
+RunLoop.main.run(until:Date().addingTimeInterval(0.15))
+func nativeViewport(_ view:NSView)->SpacesBarScroll.ViewportView? {
+ if let found=view as? SpacesBarScroll.ViewportView{return found}
+ return view.subviews.compactMap{nativeViewport($0)}.first
+}
+var gapNative=nativeViewport(gapPanel.contentView!)!
+var intermediate=0
+func checkGapFrame() {
+ gapPanel.contentView?.layoutSubtreeIfNeeded()
+ let cached=gapNative.dropFrames[2]!
+ let marker=GapMarkers.views[2]!
+ let actual=marker.convert(marker.bounds,to:gapNative.scroller.contentView)
+ precondition(abs(cached.minX-actual.minX)<1 && abs(cached.width-actual.width)<1,"Animated hit frame must match the actual rendered pill: \(cached.minX) versus \(actual.minX)")
+ let first=gapNative.dropFrames[1]!
+precondition(abs(first.width-actual.width)<1,"All pill widths must interpolate together")
+let progress=(120-first.width)/20
+precondition(abs(gapPanel.frame.width-(300+60*progress))<=1,"Native panel width must use the same progress")
+if progress>0.01 && progress<0.99{intermediate+=1}
+ let center=gapNative.scroller.contentView.convert(CGPoint(x:actual.midX,y:actual.midY),to:nil)
+ precondition(gapNative.contentsTarget(at:gapPanel.convertPoint(toScreen:center)) == .space(2),"A quick drop must target the visible pill during animation")
+ gapNative.updateDrag(at:gapPanel.convertPoint(toScreen:center))
+ if let gap=gapNative.gapFrames[.init(displayID:"display",beforeSpaceID:2)] {
+  let point=gapNative.scroller.contentView.convert(CGPoint(x:gap.midX,y:gap.midY),to:nil)
+  precondition(gapNative.contentsTarget(at:gapPanel.convertPoint(toScreen:point)) == .gap(.init(displayID:"display",beforeSpaceID:2)))
+ }
+}
+gapState.progress=1
+for _ in 0..<5{RunLoop.main.run(until:Date().addingTimeInterval(0.035));checkGapFrame()}
+gapState.progress=0
+for _ in 0..<16{RunLoop.main.run(until:Date().addingTimeInterval(0.035));checkGapFrame()}
+precondition(intermediate>1,"Expansion/reversal must produce actual intermediate frames")
+precondition(abs(gapNative.dropFrames[2]!.minX-(SpacesBarLayout.innerPadding+120+SpacesBarLayout.itemSpacing))<0.1)
+precondition(PreviewControlAnimation.animation(duration:0.3,animationsEnabled:true,reduceMotion:true)==nil)
+precondition(PreviewControlAnimation.animation(duration:0.3,animationsEnabled:false,reduceMotion:false)==nil)
+gapPanel.contentView=NSHostingView(rootView:AnimatedGapProbe(state:gapState,viewport:gapViewport,animation:nil))
+RunLoop.main.run(until:Date().addingTimeInterval(0.05))
+gapNative=nativeViewport(gapPanel.contentView!)!
+gapState.progress=1
+RunLoop.main.run(until:Date().addingTimeInterval(0.05));checkGapFrame()
+precondition(abs(gapNative.dropFrames[2]!.minX-(SpacesBarLayout.innerPadding+100+SpacesBarLayout.dropGapWidth*2))<0.1)
+gapPanel.orderOut(nil)
+print("PASS native Space gap animation: intermediate/reversed panel and pill widths, visual-hit agreement, quick pill/gap drops and immediate disabled-motion layout; test-owned panels only")
   for size in SpacesBarItemSize.allCases {
    let text = "Desktop 12"
    let hosted = NSHostingView(rootView: Text(text).font(size.primaryFont).fixedSize())
@@ -930,6 +1016,10 @@ print("PASS native Space pill input: body, actionable icon and filter-control dr
   view.layout()
   precondition(view.scroller.bounds.width==900 && view.scroller.maxOffset==700)
   precondition(view.scroller.offset==500,"Initial current Space must center in the full viewport")
+view.updateHeadings([SpacesBarDisplayHeading(name:"Display",start:14,width:1200)])
+let headingIdentity=view.headingOverlay.subviews[0]
+view.updateHeadings([SpacesBarDisplayHeading(name:"Display",start:18,width:1250)])
+precondition(view.headingOverlay.subviews[0] === headingIdentity,"Animation geometry changes must reuse native heading labels")
 view.updateHeadings([SpacesBarDisplayHeading(name:"Display",start:14,width:1200)])
 view.scroller.onOffsetChange = { [weak view] _ in view?.positionHeadings() }
 for offset: CGFloat in [100,200,500] {

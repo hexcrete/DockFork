@@ -796,7 +796,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let minimum = requestedMinimum.isFinite ? min(600, max(10, requestedMinimum)) : 160
         let available = max(1, screen.visibleFrame.width)
         let showDropGaps = contentsDragSession != nil && !Defaults[.spacesBarRecentlyUsed]
-        let spacing = SpacesBarLayout.rowSpacing(spaceCount: entries.count, displayCount: spacesBarSections.count, dropGaps: showDropGaps) + SpacesBarLayout.innerPadding * 2 + (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2
         let labels = Defaults[.spacesBarLabels]
         let font = SpacesBarLayout.textFont
         let labelWidths = entries.map { entry in
@@ -807,16 +806,24 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
         let availablePillWidth = max(1, available - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter + SpacesBarLayout.innerPadding) * 2)
         let maximum = fixed || preferDetails ? min(availablePillWidth, max(SpacesBarLayout.minimumPillWidth, requestedWidth.isFinite ? min(600, max(10, requestedWidth)) : 240)) : availablePillWidth
-        let sizes = SpacesBarLayout.widths(ideal: ideal, labels: labelWidths, maximum: maximum, available: max(1, available - spacing), fixed: fixed,
-                                           minimum: fixed || preferDetails ? 0 : minimum, preferDetails: preferDetails)
-        let width = min(available, sizes.reduce(0, +) + spacing)
+        func sizing(gapProgress: CGFloat) -> SpacesBarSizing {
+            let spacing = SpacesBarLayout.rowSpacing(spaceCount: entries.count, displayCount: spacesBarSections.count, gapProgress: gapProgress) + SpacesBarLayout.innerPadding * 2 + (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2
+            let sizes = SpacesBarLayout.widths(ideal: ideal, labels: labelWidths, maximum: maximum, available: max(1, available - spacing), fixed: fixed,
+                                               minimum: fixed || preferDetails ? 0 : minimum, preferDetails: preferDetails)
+            return SpacesBarSizing(widths: Dictionary(uniqueKeysWithValues: zip(entries.map(\.id), sizes)), width: min(available, sizes.reduce(0, +) + spacing))
+        }
+        let restingSizing = sizing(gapProgress: 0)
+        let expandedSizing = sizing(gapProgress: 1)
+        let width = showDropGaps ? expandedSizing.width : restingSizing.width
         let target = spacesBarFrame(relativeTo: grid, size: CGSize(width: width, height: SpacesBarLayout.height(displayCount: spacesBarSections.count)), screen: screen)
         let current = spacesBarSections.first(where: { WindowSpaces.screen(forDisplayIdentifier: $0.id) == screen })?
             .spaces.first(where: \.isCurrent)?.id
         panel.level = level
         panel.sharingType = sharingType
         let barView = SpacesBarView(
-            viewport: panel.viewport, viewportWidth: max(1, width - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2), screen: screen, sections: spacesBarSections, widths: Dictionary(uniqueKeysWithValues: zip(entries.map(\.id), sizes)),
+            viewport: panel.viewport, restingSizing: restingSizing, expandedSizing: expandedSizing,
+            frameForSize: { [weak self] size in self?.spacesBarFrame(relativeTo: grid, size: size, screen: screen) ?? target },
+            screen: screen, sections: spacesBarSections,
             initialSpace: current, highlightedSpace: windowSwitcherCoordinator.spaceNavigationInputSource == .mouse ? nil : highlightedSpaceID, previewCoordinator: windowSwitcherCoordinator, labels: labels,
             hover: { [weak self] id, hovering in self?.windowSwitcherCoordinator.hoverSpace(id, hovering: hovering) },
             filteredSpace: windowSwitcherCoordinator.activeSpaceFilterID,
@@ -846,7 +853,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             hosting.sizingOptions = []
             panel.contentView = hosting
         }
-        if panel.frame != target { panel.setFrame(target, display: false) }
+        if !panel.isVisible, panel.frame != target { panel.setFrame(target, display: false) }
         if panel.parent !== self { addChildWindow(panel, ordered: .above) }
         panel.orderFront(nil)
     }
