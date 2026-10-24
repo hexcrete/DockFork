@@ -423,3 +423,7 @@ The user verified centered single-window overlay placement. Screenshot/recording
 Spacing follow-up: compare Spaces Bar and Compact Mode outer gaps/insets at matching sizes with Spacing Scale 0.5, 1 and 2. Verify horizontal overflow and animated drop targets still line up. Smaller Space icons/internal proportions are intentional. Capture remains pending.
 
 The user verified the outer-spacing correction. Exhaustive size/display/drop coverage and media capture are still unclaimed.
+
+Space-content drag animation follow-up: capture gaps opening left and right around the dragged pill; compare first/middle/last sources, overflow and screen-edge constraints. Verify collapse, edge scrolling and quick drops. Not captured or manually verified yet.
+
+The user verified source-anchored expansion. Screenshot/video capture remains pending; exhaustive edge/overflow/display coverage is not claimed.

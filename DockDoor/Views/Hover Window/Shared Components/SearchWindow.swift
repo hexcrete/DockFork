@@ -831,6 +831,10 @@ struct SpacesBarScroll: NSViewRepresentable {
 
     func updateNSView(_ view: ViewportView, context: Context) {
         let geometryChanged = view.gapFrames != gapFrames || view.dropFrames != dropFrames
+        if let contentSourceID { view.gapAnchorID = contentSourceID }
+        let previousAnchor = view.gapAnchorID.flatMap { view.dropFrames[$0]?.midX }
+        let nextAnchor = view.gapAnchorID.flatMap { dropFrames[$0]?.midX }
+        let previousOffset = view.scroller.offset
         view.gapFrames = gapFrames
         view.allowedGaps = allowedGaps
         view.contentSourceID = contentSourceID
@@ -848,7 +852,7 @@ struct SpacesBarScroll: NSViewRepresentable {
         if view.hosting.frame != contentFrame { view.hosting.frame = contentFrame }
         if view.scroller.contentSize != contentSize { view.scroller.contentSize = contentSize }
         view.initialCenter = initialCenter
-        if view.lastRevealRange != revealRange {
+        if view.gapAnchorID == nil, view.lastRevealRange != revealRange {
             view.lastRevealRange = revealRange
             if let revealRange {
                 let inset = SpacesBarLayout.innerPadding
@@ -871,10 +875,26 @@ struct SpacesBarScroll: NSViewRepresentable {
                 if viewport.toEnd != toEnd { viewport.toEnd = toEnd }
             }
         }
-        if let panelFrame, let window = view.window, window.frame != panelFrame {
-            window.setFrame(panelFrame, display: true)
+        var anchoredOffset: CGFloat?
+        if var panelFrame, let window = view.window {
+            var anchorPlacement: (offset: CGFloat, desiredX: CGFloat, maximumOffset: CGFloat)?
+            if let previousAnchor, let nextAnchor, let screen = window.screen {
+                let viewportWidth = max(1, panelFrame.width - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2)
+                let maximumOffset = max(0, contentSize.width - viewportWidth)
+                let offset = min(max(0, previousOffset), maximumOffset)
+                // Keep the source pill still; screen limits transfer any remaining shift to the clip view.
+                let desiredX = window.frame.minX + previousAnchor - previousOffset - nextAnchor + offset
+                panelFrame.origin.x = min(max(desiredX, screen.visibleFrame.minX), max(screen.visibleFrame.minX, screen.visibleFrame.maxX - panelFrame.width))
+                anchorPlacement = (offset, desiredX, maximumOffset)
+            }
+            if window.frame != panelFrame { window.setFrame(panelFrame, display: true) }
+            if let anchorPlacement {
+                anchoredOffset = min(max(0, anchorPlacement.offset + window.frame.minX - anchorPlacement.desiredX), anchorPlacement.maximumOffset)
+            }
         }
         view.updateScroll()
+        if let anchoredOffset { view.scroller.scroll(to: anchoredOffset, animated: false) }
+        if contentSourceID == nil, gapFrames.isEmpty { view.gapAnchorID = nil }
         if geometryChanged {
             DispatchQueue.main.async { [weak view] in view?.refreshDragTarget() }
         }
@@ -918,6 +938,7 @@ struct SpacesBarScroll: NSViewRepresentable {
         var gapFrames: [SpaceContentsGap: CGRect] = [:]
         var allowedGaps: Set<SpaceContentsGap> = []
         var contentSourceID: CGSSpaceID?
+        var gapAnchorID: CGSSpaceID?
         var onContentsTargetChanged: ((SpaceContentsDropTarget?) -> Void)?
         var dropFrames: [CGSSpaceID: CGRect] = [:]
         var desktopDropIDs: Set<CGSSpaceID> = []
