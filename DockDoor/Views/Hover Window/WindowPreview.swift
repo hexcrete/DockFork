@@ -853,6 +853,7 @@ struct WindowStateIndicator: View {
                 )
             }
         }
+        .fixedSize(horizontal: true, vertical: false)
         .accessibilityLabel(Text(number.map { "Space \($0), window state" } ?? "Window state"))
     }
 }

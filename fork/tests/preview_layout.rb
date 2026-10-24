@@ -473,3 +473,6 @@ Dir.mktmpdir('dockfork-compact-opacity-') do |dir|
   abort 'Compact chrome fixture compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
   abort 'Compact chrome checks failed' unless system("#{dir}/checks")
 end
+
+indicator = block(appearance, 'struct WindowStateIndicator:')
+abort 'Shared Space/state indicator must keep its intrinsic width instead of compressing on control reveal' unless indicator.include?('.fixedSize(horizontal: true, vertical: false)')

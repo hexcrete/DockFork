@@ -453,3 +453,7 @@ The user verified fullscreen-exit preservation and approved the fix. Media captu
 Fullscreen-menu consistency: compare a fullscreen window's Space-indicator dropdown with the fullscreen Space-pill context menu. Each should contain only Exit Full Screen with the same glyph. Verify the indicator's single/checked scope and the pill's resident scope stay unchanged, and background exit preserves previews. Capture/manual verification pending.
 
 The user verified the unified fullscreen menus. Media capture and exhaustive single/checked/resident scope combinations remain unclaimed.
+
+Indicator width regression: use a narrow Compact row with Space number and several state symbols, then reveal hover traffic lights. Check both styled/unstyled indicators and larger fonts: the indicator should retain natural width while existing toolbar overflow adapts. Compare regular previews and verify More menus/click targets. Capture/manual verification pending.
+
+The user verified the indicator-width correction. Media capture and exhaustive narrow/font/state/style combinations remain pending.
