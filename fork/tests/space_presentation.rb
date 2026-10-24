@@ -1328,6 +1328,38 @@ contents_source += <<~'SWIFT'
   precondition(SpaceContentsLayout.destination(for:.init(displayID:"a",beforeSpaceID:1),source:4,displays:topology)==1)
   precondition(SpaceContentsLayout.destination(for:.init(displayID:"b",beforeSpaceID:6),source:1,displays:topology)==nil)
   precondition(SpaceContentsLayout.destination(for:.init(displayID:"a",beforeSpaceID:3),source:1,displays:topology)==nil,"Adjacent no-op gap")
+  let directional=[ManagedDisplayDescriptor(identifier:"direction",currentSpaceID:10,spaces:[
+   ManagedSpaceDescriptor(id:10,kind:.desktop),ManagedSpaceDescriptor(id:11,kind:.desktop),
+   ManagedSpaceDescriptor(id:12,kind:.fullscreen),ManagedSpaceDescriptor(id:15,kind:.fullscreen),
+   ManagedSpaceDescriptor(id:13,kind:.desktop),ManagedSpaceDescriptor(id:14,kind:.fullscreen)])]
+  let gapCases:[(UInt64,UInt64?,UInt64?)]=[
+   (10,12,11),(10,15,nil),(10,13,nil),(10,14,13),(10,nil,nil),
+   (13,12,nil),(13,15,nil),(13,13,nil),(13,11,11),(13,10,10),
+   (10,11,nil),(13,14,nil),(13,nil,nil),(12,11,nil),(10,999,nil)]
+  for (source,before,expected) in gapCases {
+   let gap=SpaceContentsGap(displayID:"direction",beforeSpaceID:before)
+   precondition(SpaceContentsLayout.destination(for:gap,source:source,displays:directional)==expected,"Reject the adjacent destination slot, not a fixed side of fullscreen Spaces")
+   let symbol=expected.map{source<$0 ? "arrow.left":"arrow.right"} ?? "nosign"
+   precondition(SpaceContentsLayout.dragSymbol(for:.gap(gap),source:source,swapping:false,displays:directional)==symbol)
+   if before == nil || directional[0].spaces.contains(where:{$0.id==before}) {
+    let boundary=before.flatMap{id in directional[0].spaces.firstIndex{$0.id==id}} ?? directional[0].spaces.count
+    let reversedSpaces=Array(directional[0].spaces.reversed())
+    let mirroredBoundary=reversedSpaces.count-boundary
+    let mirroredGap=SpaceContentsGap(displayID:"direction",beforeSpaceID:mirroredBoundary<reversedSpaces.count ? reversedSpaces[mirroredBoundary].id:nil)
+    let mirrored=[ManagedDisplayDescriptor(identifier:"direction",currentSpaceID:10,spaces:reversedSpaces)]
+    precondition(SpaceContentsLayout.destination(for:mirroredGap,source:source,displays:mirrored)==expected,"Mirroring order and direction must preserve destination eligibility")
+    let mirroredSymbol=symbol=="nosign" ? symbol:(symbol=="arrow.left" ? "arrow.right":"arrow.left")
+    precondition(SpaceContentsLayout.dragSymbol(for:.gap(mirroredGap),source:source,swapping:false,displays:mirrored)==mirroredSymbol)
+   }
+  }
+  let nonsequential=[ManagedDisplayDescriptor(identifier:"ids",spaces:[.init(id:80),.init(id:3,kind:.fullscreen),.init(id:20),.init(id:7)])]
+  precondition(SpaceContentsLayout.dragSymbol(for:.gap(.init(displayID:"ids",beforeSpaceID:nil)),source:80,swapping:false,displays:nonsequential)=="arrow.left","Direction follows slot order, not numeric IDs")
+  precondition(SpaceContentsLayout.dragSymbol(for:.gap(.init(displayID:"ids",beforeSpaceID:80)),source:7,swapping:false,displays:nonsequential)=="arrow.right")
+  let unknown=[ManagedDisplayDescriptor(identifier:"unknown",spaces:[.init(id:1),.init(id:2,kind:nil),.init(id:3)])]
+  precondition(SpaceContentsLayout.destination(for:.init(displayID:"unknown",beforeSpaceID:3),source:1,displays:unknown)==nil)
+  precondition(SpaceContentsLayout.destination(for:.init(displayID:"unknown",beforeSpaceID:2),source:3,displays:unknown)==nil)
+  let directionalShift = try SpaceContentsLayout.destinations(from:10,to:13,action:.shift,displays:directional)
+  precondition(directionalShift==[10:13,11:10,13:11],"Skip fullscreen slots along the shifting path")
 precondition(SpaceContentsLayout.dragSymbol(for:nil,source:1,swapping:false,displays:topology)=="nosign")
 precondition(SpaceContentsLayout.dragSymbol(for:.space(2),source:1,swapping:false,displays:topology)=="nosign")
 precondition(SpaceContentsLayout.dragSymbol(for:.space(1),source:1,swapping:false,displays:topology)=="nosign")

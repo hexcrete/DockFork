@@ -1035,12 +1035,14 @@ enum SpaceContentsLayout {
               let sourceIndex = display.spaces.firstIndex(where: { $0.id == source && $0.kind == .desktop }) else { return nil }
         let boundary: Int
         if let before = gap.beforeSpaceID {
-            guard let index = display.spaces.firstIndex(where: { $0.id == before && $0.kind == .desktop }) else { return nil }
+            guard let index = display.spaces.firstIndex(where: { $0.id == before }) else { return nil }
             boundary = index
         } else { boundary = display.spaces.count }
-        let candidates = sourceIndex < boundary ? Array(display.spaces[..<boundary]).reversed().map { $0 } : Array(display.spaces[boundary...])
-        guard let target = candidates.first(where: { $0.kind == .desktop })?.id, target != source else { return nil }
-        return target
+        let targetIndex = sourceIndex < boundary ? boundary - 1 : boundary
+        guard display.spaces.indices.contains(targetIndex) else { return nil }
+        let target = display.spaces[targetIndex]
+        guard target.kind == .desktop, target.id != source else { return nil }
+        return target.id
     }
 }
 

@@ -132,3 +132,7 @@ Stage 6 user verification and final review passed October 24. This does not remo
 Gap-animation follow-up must include the shared interpolated layout/hit geometry, existing bridge migration and native intermediate-frame regressions together. Do not extract only a visual animation that leaves drop targets at final coordinates. Preserve shared animation/Reduce Motion gating; fork-only records remain excluded.
 
 Include endpoint sizing and native panel-frame adaptation too: the review found that animating gaps alone left container/reflowed-pill widths jumping. Keep existing placement/anchoring and native rendering tolerances. No new settings or app identity changes belong to this animation change.
+
+Fullscreen gap-validity follow-up belongs in the shared resolver, not separate UI/execution guards. Include directional adjacency and ghost-symbol regressions. Preserve fullscreen-skipping content mappings and no-op refusal; no preference or native-Space reordering change is required.
+
+Directional-fix review confirms the shared boundary is sufficient; keep mirrored-order and nonsequential-ID regressions with an extracted fix. No additional UI-side exception or unrelated change is required.
