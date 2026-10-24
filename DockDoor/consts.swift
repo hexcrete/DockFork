@@ -2359,29 +2359,29 @@ enum CompactModeItemSize: Int, CaseIterable, Defaults.Serializable, Identifiable
 }
 
 enum SpacesBarItemSize: Int, CaseIterable, Defaults.Serializable, Identifiable {
-    case xxxSmall, xxSmall, xSmall, small, medium, large, xLarge, xxLarge, xxxLarge
+    case xSmall = 2, small, medium, large, xLarge, xxLarge, xxxLarge
 
     var id: Int { rawValue }
 
-    var localizedName: String {
-        if let size = CompactModeItemSize(rawValue: rawValue - 2) { return size.localizedName }
-        return self == .xxxSmall ? String(localized: "3X-Small") : String(localized: "2X-Small")
+    var compactSize: CompactModeItemSize {
+        switch self {
+        case .xSmall: .xSmall
+        case .small: .small
+        case .medium: .medium
+        case .large: .large
+        case .xLarge: .xLarge
+        case .xxLarge: .xxLarge
+        case .xxxLarge: .xxxLarge
+        }
     }
 
-    var scale: CGFloat {
-        let step = CompactModeItemSize(rawValue: rawValue)?.iconSize ?? (self == .xxLarge ? 64 : 72)
-        return step / CompactModeItemSize.large.iconSize
-    }
+    var localizedName: String { compactSize.localizedName }
+    var rowHeight: CGFloat { compactSize.rowHeight }
+    var scale: CGFloat { rowHeight / CompactModeItemSize.small.rowHeight }
 
-    var primaryFont: Font {
-        if let size = CompactModeItemSize(rawValue: rawValue) { return size.primaryFont }
-        return Font(primaryAppKitFont)
-    }
+    var primaryFont: Font { compactSize.primaryFont }
 
-    var primaryAppKitFont: NSFont {
-        if let size = CompactModeItemSize(rawValue: rawValue) { return size.primaryAppKitFont }
-        return self == .xxLarge ? .preferredFont(forTextStyle: .largeTitle) : .systemFont(ofSize: 32)
-    }
+    var primaryAppKitFont: NSFont { compactSize.primaryAppKitFont }
 }
 
 enum AppAppearanceMode: String, CaseIterable, Defaults.Serializable, Identifiable {

@@ -438,3 +438,11 @@ Directional-fix validation: focused Space suite, format/syntax/diff checks and s
 Directional-fix review: user verification passed. All callers share cached resolver policy; no separate side-specific validation or resource handler needs changing. Review adds test-only mirror/ID/unknown-slot coverage, with the prior production build's signature/source/running-path match confirmed again. No additional AX reads, observers or profiling are introduced.
 
 Final directional-fix validation: all eighteen suites pass in one complete run, superseding the focused-only status above. Format/syntax/diff checks and unchanged-production signed/running verification pass. Resource profiling remains unperformed.
+
+## Shared Size Metrics Candidate, October 24
+
+Spaces Bar delegates its seven surviving sizes to Compact Mode height/font metrics. Existing layout and drop-animation consumers reuse the corrected values; icon/count/spacing scales remain proportional to height. No new observer, singleton, polling, AX read, discovery/capture or operation retry. The enum retains surviving raw values and relies on the existing Defaults fallback for removed values; no migration or live-preference write. Tests use an isolated volatile domain and owned panels. No resource profiling or broad native certification is inferred. Compact opacity and drag-card work remain later stages.
+
+Stage 1 validation: eighteen suites, format/syntax/diff checks and signed development build/relaunch pass. Strict installed signature, binary/source comparisons and exact running-path checks pass. Tests cover nominal heights, typography, smaller icon proportions and read-only fallback resolution; the pinned Defaults bridge/getter was source-audited separately. No live preference change, working-window mutation or profiling. Manual verification remains pending before commit/continuation.
+
+Stage 1 user verification and final source review passed October 24. The tested source/signature/running-path match is confirmed again; no additional resource or production change is needed before commit. Stage 2 remains a separate presentation-only change.

@@ -4,6 +4,8 @@ require 'tmpdir'
 
 def block(source, signature)
   start = source.index(signature) or abort "Missing #{signature}"
+  line = source[start..].lines.first.rstrip
+  return line if line.include?('{') && line.count('{') == line.count('}')
   opening = source.index(/\{\n/, start)
   depth = 0
   (opening...source.length).each do |i|
@@ -317,14 +319,26 @@ source += <<~'SWIFT'
    precondition(SpacesBarLayout.height(displayCount:2).rounded() == SpacesBarLayout.height(displayCount:2), "Reservation and native panel height must use the same integral size")
    precondition(SpacesBarLayout.widths(ideal:[800], labels:[48], maximum:240, available:500, fixed:true)==[240])
   }
-  precondition(SpacesBarItemSize.medium.localizedName == CompactModeItemSize.medium.localizedName)
-  precondition(abs(SpacesBarItemSize.medium.scale - CompactModeItemSize.xLarge.iconSize / CompactModeItemSize.large.iconSize)<0.001)
-  for old in CompactModeItemSize.allCases {
-   let preserved = SpacesBarItemSize(rawValue:old.rawValue)!
-   precondition(preserved.scale == old.iconSize / CompactModeItemSize.large.iconSize)
-  }
-  precondition(SpacesBarItemSize.xxxLarge.scale > SpacesBarItemSize.xxLarge.scale)
-  precondition(SpacesBarItemSize.xxLarge.scale > SpacesBarItemSize.xLarge.scale)
+precondition(SpacesBarItemSize.allCases.count==CompactModeItemSize.allCases.count)
+precondition(SpacesBarItemSize.allCases.map(\.rawValue)==Array(2...8),"Preserve stored values of surviving choices")
+precondition(SpacesBarItemSize.allCases.map(\.rowHeight)==[36,40,48,52,56,64,72])
+for (space,compact) in zip(SpacesBarItemSize.allCases,CompactModeItemSize.allCases) {
+ precondition(space.compactSize==compact && space.localizedName==compact.localizedName)
+ precondition(space.rowHeight==compact.rowHeight && space.primaryAppKitFont==compact.primaryAppKitFont)
+ precondition(space.scale==compact.rowHeight/CompactModeItemSize.small.rowHeight)
+}
+let suiteName="DockFork-SizeFixture-\(UUID().uuidString)"
+let suite=UserDefaults(suiteName:suiteName)!
+defer{suite.removeVolatileDomain(forName:UserDefaults.registrationDomain)}
+for raw in [0,1,2,3,4,5,6,7,8,99] {
+ suite.setVolatileDomain(["spacesBarItemSize":raw],forName:UserDefaults.registrationDomain)
+ let stored=suite.object(forKey:"spacesBarItemSize") as! Int
+ let decoded=SpacesBarItemSize(rawValue:stored)
+ let resolved=decoded ?? .small
+ if !(2...8).contains(raw){precondition(decoded==nil && resolved == .small)}
+ else{precondition(resolved.rawValue==raw)}
+ precondition(suite.object(forKey:"spacesBarItemSize") as! Int==raw,"Reading/fallback must not migrate saved values")
+}
   Defaults.size = .small
 precondition(abs(SpacesBarLayout.widths(ideal:[400,500], labels:[100,120], maximum:600, available:500, fixed:false, minimum:160).reduce(0,+)-500)<0.001)
 precondition(SpacesBarLayout.widths(ideal:[400,500], labels:[100,120], maximum:600, available:100, fixed:false, minimum:160)==[160,160], "Screen preference scrolls only after reaching minimum widths")
@@ -618,11 +632,11 @@ enum SpacesBarLayout {
  static let headingInset: CGFloat = 20
  static let headingTextFont = NSFont.preferredFont(forTextStyle:.body)
  static let headingHeight: CGFloat = 16
- static let scale: CGFloat = 1
- static let font = Font.headline
- static let textFont = NSFont.preferredFont(forTextStyle:.headline)
- static let fullscreenWidth: CGFloat = 20
- static let pillHeight: CGFloat = 40
+ static var scale: CGFloat { Defaults.size.scale }
+ static var font: Font { Defaults.size.primaryFont }
+ static var textFont: NSFont { Defaults.size.primaryAppKitFont }
+ static var fullscreenWidth: CGFloat { 20 * scale }
+ static var pillHeight: CGFloat { Defaults.size.rowHeight }
  static var horizontalInset: CGFloat { MaterialPillStyle.horizontalInset + WindowStateIndicator.styledContentPadding }
 }
 enum WindowStateIndicator { static let styledContentPadding: CGFloat = 4 }
@@ -646,7 +660,7 @@ native_source += block(material, 'struct MaterialPillStyle:') + "\n"
 native_source += "extension View {\n" + block(material, '    func materialPill(') + "\n}\n"
 native_source += "enum AppIconStripFormatting {\n" + block(preview, '    static func width(') + "\n" + block(preview, '    static func visibleCount(total:') + "\n}\n"
 native_source += "extension SpacesBarLayout {\n" + block(bar, '    static func titleInset(') + "\n" + block(bar, '    static func pinnedTitleOffset(') + "\n}\n"
-native_source += "enum Defaults { struct Key<T> { let value:T }; static subscript<T>(_ key:Key<T>)->T {key.value} }\nextension Defaults.Key where T == SpacesBarItemSize {static var spacesBarItemSize: Self {Self(value:.small)}}\n"
+native_source += "enum Defaults { struct Key<T> { let value:T }; static var size = SpacesBarItemSize.small; static subscript<T>(_ key:Key<T>)->T {key.value} }\nextension Defaults.Key where T == SpacesBarItemSize {static var spacesBarItemSize: Self {Self(value:Defaults.size)}}\n"
 native_source += "final class PreviewStateCoordinator { weak var spaceDragViewport: SpacesBarScroll.ViewportView? }\n"
 native_source += block(bar, 'enum SpacesBarAppLayout {') + "\n"
 native_source += block(File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedHoverAppTitle.swift"), 'struct PreviewAppIcon:') + "\n"
@@ -883,11 +897,15 @@ precondition(abs(gapNative.dropFrames[2]!.minX-(SpacesBarLayout.innerPadding+100
 gapPanel.orderOut(nil)
 print("PASS native Space gap animation: intermediate/reversed panel and pill widths, visual-hit agreement, quick pill/gap drops and immediate disabled-motion layout; test-owned panels only")
   for size in SpacesBarItemSize.allCases {
+   Defaults.size=size
+   let card=NSHostingView(rootView:PillProbe(width:240,label:"Desktop 12")).fittingSize
+   precondition(card.height==size.compactSize.rowHeight,"Native Space card height must match the corresponding Compact Mode card")
    let text = "Desktop 12"
    let hosted = NSHostingView(rootView: Text(text).font(size.primaryFont).fixedSize())
    let measured = (text as NSString).size(withAttributes:[.font:size.primaryAppKitFont]).width
    precondition(abs(hosted.fittingSize.width - measured) < 2, "Primary SwiftUI font and AppKit measurement must agree: \(size)")
   }
+  Defaults.size = .small
   let testFont = NSFont.systemFont(ofSize:13,weight:.semibold)
 for total in 1...8 {
  for room: CGFloat in [20,40,90,140,500] {
@@ -1435,3 +1453,7 @@ abort 'Space label and window group must share the card styling implementation' 
 abort 'Space drag label updates must be token-owned and measured only on content changes' unless block(drag_ghost,'    func updateSpaceLabel(').include?('guard spaceLabel != content else { return }') && block(drag_ghost,'    func endDragging(').include?('spaceLabelView = nil')
 abort 'Symbols must follow both pointer and cached-target changes without discovery' unless panel.include?('contentsTargetChanged: { [weak self] target in self?.updateContentsDragSymbol(target) }') && block(panel,'    private func updateContentsDragSymbol(').include?('displays: session.displays')
 puts 'PASS Space drag label: common group chrome, token cleanup, change-only sizing and cached target glyph updates'
+
+abort 'Space item size default/key must remain unchanged' unless File.read("#{root}/DockDoor/consts.swift").include?('Key<SpacesBarItemSize>("spacesBarItemSize", default: .small)')
+abort 'Space pill height must share Compact Mode row-height metrics directly' unless bar.include?('static var pillHeight: CGFloat { Defaults[.spacesBarItemSize].rowHeight }')
+puts 'PASS Space size parity: seven shared heights/fonts, smaller icon proportions, stable stored values and read-only removed-value fallback'

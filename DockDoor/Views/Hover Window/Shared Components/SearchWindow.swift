@@ -391,7 +391,7 @@ enum SpacesBarLayout {
     }
 
     static func searchY(gridTop: CGFloat) -> CGFloat { gridTop.rounded() - outerPadding + searchGap }
-    static var pillHeight: CGFloat { 40 * scale }
+    static var pillHeight: CGFloat { Defaults[.spacesBarItemSize].rowHeight }
     static var outerPadding: CGFloat { HoverContainerPadding.styledPanelInset }
 
     static func height(displayCount: Int) -> CGFloat {

@@ -136,3 +136,5 @@ Include endpoint sizing and native panel-frame adaptation too: the review found 
 Fullscreen gap-validity follow-up belongs in the shared resolver, not separate UI/execution guards. Include directional adjacency and ghost-symbol regressions. Preserve fullscreen-skipping content mappings and no-op refusal; no preference or native-Space reordering change is required.
 
 Directional-fix review confirms the shared boundary is sufficient; keep mirrored-order and nonsequential-ID regressions with an extracted fix. No additional UI-side exception or unrelated change is required.
+
+Shared card-size work must remain three focused changes: Space size parity, Compact content-versus-chrome opacity, then source-styled drag ghosts. Preserve Defaults keys/defaults and surviving raw values; removed fork-only Space sizes use normal fallback, without migration. Keep shared metrics and their measurement/geometry tests together rather than copying numeric tables into Space rendering. Fork records/presets/identity remain excluded; no upstream submission is made.
