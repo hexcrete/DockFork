@@ -415,3 +415,7 @@ Stage 3 drag-card candidate: drag checked groups from Dock, Cmd+Tab and standalo
 Stage 3 revision: expect merged app icons with selected-window subscripts, +N additional apps, matching-height Space-pill padding/spacing, and no card-only native shadow. Check the last subscript is not clipped and the reported jagged edge is gone. Execution still moves every original selected window. Candidate is built; no physical sign-off/media yet.
 
 Stage 3 drag capture extension (existing drag-card capture): show desktop-placement, tile, Space-move and invalid glyphs for both grouped windows and the card overlay on a single screenshot miniature. Include repeated-app subscripts and a narrow +N strip. Capture remains pending; no media is marked recorded or approved. Final revision's automated checks are skipped by user request.
+
+Single-window drag-overlay follow-up: verify/capture the card centered on the miniature, including portrait and landscape windows. Existing drag capture remains pending.
+
+The user verified centered single-window overlay placement. Screenshot/recording capture remains pending.

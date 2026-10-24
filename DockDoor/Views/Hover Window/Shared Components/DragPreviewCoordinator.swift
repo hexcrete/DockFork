@@ -171,7 +171,7 @@ struct WindowDragGhost: View {
     let imageOpacity: CGFloat
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             if let image {
                 Image(nsImage: image).resizable().aspectRatio(contentMode: .fit)
                     .frame(width: imageSize.width, height: imageSize.height).opacity(imageOpacity)
