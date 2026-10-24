@@ -210,3 +210,23 @@ The committed-source candidate `6d3eb4707c7db4446c78786e8df6ceec279be7b2` is rea
 [DockFork 0.3.0](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) was published at 2026-10-20T20:15:17Z with explicit user authorization. Tag `v0.3.0` points to exact source `6d3eb4707c7db4446c78786e8df6ceec279be7b2`. The audited candidate was uploaded without rebuilding. All ten draft downloads and all ten anonymous public downloads match the local package byte-for-byte. The release is marked prerelease, uses the approved public body and omits logs, development builds and signing material. Previous release assets are unchanged.
 
 No application installation, launch, live settings import or media capture accompanied publication. Manual candidate upgrade/import, browser quarantine/Gatekeeper approval, older OSes and broader display coverage remain unverified. Command-line downloads do not establish those results. See the [full publication record](docs/RELEASE_NOTES_0.3.0.md#publication-record).
+
+## Development Validation
+
+`./fork/package.sh --dev --clean-old-builds` builds, signs, installs and relaunches; it does **not** run the Ruby regression suites. Run focused checks separately when testing is authorized. A feature being complete does not make its regressions obsolete.
+
+| Changed behavior | Focused checks under `fork/tests/` |
+|---|---|
+| Card layout, drag ghosts, Spaces presentation | `preview_layout.rb`, `space_presentation.rb` |
+| Selection or keyboard/session routing | `selection_ranges.rb`, `preview_keyboard.rb` |
+| Ownership, worker scheduling or frame transactions | `action_ownership.rb`, `action_responsiveness.rb`, `frame_placement.rb` |
+| Auto Tile, linked resize or tiling settings | `linked_tiling.rb`, `tiling_settings.rb` |
+| Native-tab discovery or Close | `native_tab_grouping.rb`, `native_tab_close.rb` |
+| Popup execution, styling or lifetime | `action_feedback.rb` |
+| Cmd+Tab app actions, Quit or scripting | `cmd_tab_close.rb`, `quit_actions.rb`, `script_actions.rb` |
+| Title-bar hit classification or Wine discovery | `window_gesture_zones.rb`, `wine_discovery.rb` |
+| Curated preset changes | `showcase_preset.rb` |
+
+Use `ruby fork/tests/<name>.rb` for an applicable check; include related rows when shared behavior changes. Packaging/version/preset asset validation remains separate from application regressions. Full-suite runs are appropriate for broad shared-operation changes, merges with a broad impact, or release preparation, not every cosmetic rebuild. Builds and source assertions do not replace manual interaction or downloaded-installation testing.
+
+October 24 source-only test audit: all eighteen suites still cover active behavior. None is deleted solely because its feature shipped. Obsolete source-location assertions were updated for the shared drop-intent resolver and the new single-window card-shadow policy. Test execution is explicitly skipped in this pass. The previously intermittent native popup fade-in assertion remains unresolved; do not remove it or declare it fixed to obtain a passing run. Native render/timing fixtures need WindowServer access and can be affected by machine load; retain those limits when reporting results.

@@ -56,6 +56,10 @@ Before completing a feature, fix, merge, packaging, or documentation change, rev
 - Keep `fork/README.md` and `fork/packaging/INSTALL.md` consistent with packaging and testing status. Review preset privacy again before changing or publishing `fork/presets/DockFork-Showcase.json`; never auto-import it or silently overwrite the curated preset with a fresh export.
 - Separate verified builds, signatures, launches, manual tests, downloaded installation tests, and publication. Never infer unperformed validation from a successful build. In the completion report, identify records updated and any deliberate coverage/testing gaps.
 
+## Focused Regression Checks
+
+The build script does not run regression suites. Select checks for the affected behavior using [the fork validation guide](fork/README.md#development-validation); do not run every suite after each cosmetic rebuild. Keep full-suite checks for broad/shared changes or release preparation. Retain completed-feature regressions; remove only demonstrably obsolete or duplicate checks, and respect explicit requests to skip tests.
+
 ## Adding Files to the Project
 
 Every new `.swift` file must be registered in `DockDoor.xcodeproj/project.pbxproj`:

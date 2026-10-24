@@ -1258,7 +1258,9 @@ end
 container = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift")
 drop = block(container, '    private func completeSpaceDrop(')
 finish = block(container, '    private func finishPreviewDrag(')
-abort 'Space bar drops must take precedence over tiling and ordinary pointer placement' unless finish.index('containsSpacesBar(location)') < finish.index('completeTileDrop') && finish.include?('cancelPreviewDrag(token: session.token); return')
+intent = block(container, '    private func previewDropIntent(')
+abort 'Space bar drops must take precedence over tiling and ordinary pointer placement' unless intent.index('containsSpacesBar(location)') < intent.index('enableWindowDragTiling') && intent.index('enableWindowDragTiling') < intent.index('return .desktop')
+abort 'Release and displayed glyph must share drop intent, including invalid targets' unless finish.include?('switch previewDropIntent(session, at: location)') && finish.include?('case .invalid:') && block(container, '    private func updatePreviewDrag(').include?('previewDropIntent(session, at: cursorLocation)')
 abort 'Drops must reuse released lifetime, ownership, shared move, target filtering and follow preference' unless %w[completeDrop movePreviewWindows beginPreviewActionRequest previewTargets switchToDestinationSpaceAfterMoving].all? { |term| drop.include?(term) } && !drop.include?('placeDraggedWindows') && !drop.include?('setWindowFrame')
 abort 'Dropdown groups must use the same Space executor' unless block(panel, '    func performCheckedSpaceMove(').include?('WindowUtil.movePreviewWindows')
 puts 'PASS Space drop route: bar-first refusal, common group move, ordered targets, ownership, retained operation lifetime, follow setting and no geometry placement'
@@ -1465,5 +1467,5 @@ abort 'Space symbol updates must use the captured style, not live settings' unle
 puts 'PASS drag presentation wiring: mode-resolved immutable style, shared card chrome, first-seen app grouping, visible-only icon loading, no screenshot payload and token-owned Space label snapshots'
 abort 'Shared subscript must be reused by Space pills and group ghosts' unless bar.include?('.appWindowCount(app.windowCount, height: SpacesBarLayout.pillHeight)') && drag_ghost.include?('.appWindowCount(icon.windowCount, height: style.height)')
 abort 'Drag clipping must precede shared chrome, not cut its edges' unless block(drag_ghost,'    func previewDragCard(').index('.clipped()') < block(drag_ghost,'    func previewDragCard(').index('.previewCardChrome(')
-abort 'Card ghosts must suppress native window shadow without changing image ghosts' unless drag_ghost.scan('at: location, hasShadow: false)').size==2 && drag_ghost.include?('at location: CGPoint, hasShadow: Bool = true)')
+abort 'Window and Space cards must suppress native window shadow' unless %w[startDragging startSpaceDragging].all? { |name| block(drag_ghost, "    func #{name}(").include?('at: location, hasShadow: false)') }
 puts 'PASS Space-pill drag polish: shared height-based padding/spacing/subscript, app aggregation, content-only clipping and shadow-free card ghosts'
