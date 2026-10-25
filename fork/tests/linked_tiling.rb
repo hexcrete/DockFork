@@ -240,7 +240,7 @@ dispatch = block(coordinator, '    private func performPreviewBatchAction(')
 consume = dispatch.index('windowSwitcherCoordinator.consumeWindowlessSelection(in: admittedTargets)')
 abort 'Consume windowless checks at dispatch, not in a late completion' unless consume && consume < dispatch.index('let task = Task')
 action_guard = block(coordinator, '    func performCheckedWindowAction(').split('        if action == .bringToCurrentSpace').first
-space_guard = block(coordinator, '    func performCheckedSpaceMove(').split('        let request = WindowUtil.beginPreviewActionRequest').first
+space_guard = block(coordinator, '    func performCheckedSpaceMove(').split('        performSpaceMove(').first
 source += "@MainActor final class ActionHarness { let windowSwitcherCoordinator: SelectionHarness; init(_ selection: SelectionHarness) { windowSwitcherCoordinator = selection }\n"
 source += action_guard + "return true\n}\n" + space_guard + "return true\n}\n}\n"
 selection = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift")
@@ -256,7 +256,7 @@ source += block(selection, 'struct PreviewSelectionRange {') + "\n"
 source += "struct SelectionState { var checkedWindows = OrderedPreviewSelection() }\n"
 source += "@MainActor final class SelectionHarness { var retainedWindowlessSelectionRows: [WindowInfo] = []; var selection = SelectionState(); var windows: [WindowInfo] = []; var windowSwitcherActive = true; var checkedWindowCount = 0; var visibleIndices: [Int]?\nfunc filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }\nfunc publishCheckedSelection() { checkedWindowCount = selection.checkedWindows.identities.count }\n"
 source += "var selectionAnchor: PreviewWindowIdentity?; var selectionRange: PreviewSelectionRange?\nenum RangeInput {case keyboard(PreviewSelectionKeyPress)}\nfunc endSelectionRange() {selectionRange = nil}\nfunc beginSelectionRange(at:PreviewWindowIdentity,input:RangeInput)->Bool {preconditionFailure(\"Range execution is tested in selection_ranges.rb\")}\n"
-%w[canSelectWindow toggleCheckedWindow selectAllDisplayedWindows consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows checkedActionTargets].each do |name|
+%w[canSelectWindow toggleCheckedWindow selectAllDisplayedWindows selectWindows consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows checkedActionTargets].each do |name|
   source += block(selection, "    func #{name}(") + "\n"
 end
 source += "}\n"
@@ -318,7 +318,14 @@ checks = <<~'SWIFT'
   }
   print("PASS action routing: each Fill direction opts into group Auto Tile; explicit Auto Tile and single-window actions remain independent")
   let selectionModel = SelectionHarness()
-  let selectedReal = windows(1)[0]
+let selectedReal = windows(1)[0]
+let outsideSelection = SelectionHarness()
+let residents = windows(3)
+outsideSelection.windows = [residents[1]]
+WindowUtil.cachedWindows = residents
+outsideSelection.selectWindows([residents[1]])
+outsideSelection.selectWindows([residents[2], residents[0], residents[1]])
+precondition(outsideSelection.checkedActionTargets()?.map(\.id) == [residents[1].id, residents[2].id, residents[0].id], "Space selection must add outside-view residents without replacing existing order")
   let emptyApp = App(50000)
   let empty = WindowInfo(id: 0, app: emptyApp, axElement: FakeAX(50000, 0, .zero), isWindowlessApp: true)
   selectionModel.windows = [selectedReal, empty]

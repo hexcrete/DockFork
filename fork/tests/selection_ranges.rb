@@ -86,7 +86,7 @@ final class Selection { var checkedWindows = OrderedPreviewSelection() }
 SWIFT
 source += block(state, '    private enum SelectionRangeInput:') + "\n"
 source += block(state, '    var keyboardSelectionPress:') + "\n"
-%w[setSpaceFilter displayedSelectionIdentities endSelectionRange endKeyboardSelectionRange endPointerSelectionRange reconcileSelectionRange beginSelectionRange extendSelectionRange toggleSelectionCheckbox canSelectWindow toggleCheckedWindow selectAllDisplayedWindows pinCheckedSelectionIfNeeded clearCheckedWindows publishCheckedSelection consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows updateSelectionIndex setIndex].each do |name|
+%w[setSpaceFilter displayedSelectionIdentities endSelectionRange endKeyboardSelectionRange endPointerSelectionRange reconcileSelectionRange beginSelectionRange extendSelectionRange toggleSelectionCheckbox canSelectWindow toggleCheckedWindow selectAllDisplayedWindows selectWindows pinCheckedSelectionIfNeeded clearCheckedWindows publishCheckedSelection consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows updateSelectionIndex setIndex].each do |name|
   signature = state.include?("    private func #{name}(") ? "    private func #{name}(" : "    func #{name}("
   source += "@MainActor\n" + block(state, signature) + "\n"
 end

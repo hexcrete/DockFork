@@ -271,6 +271,66 @@ extension WindowAction {
             (!window.isWindowlessApp && [.openAppWindow, .close].contains(self))
     }
 
+    static let spaceMenuActions: [WindowAction] = [
+        .close, .minimize, .autoTileSelectedWindows, .bringToCurrentSpace, .hide,
+        .quit, .forceQuit, .openNewWindow, .selectAllWindows, .toggleFullScreen,
+    ]
+
+    func spaceTargets(from residents: [WindowInfo]) -> [WindowInfo] {
+        guard self != .openAppWindow, self != .toggleWindowSelection, self != .none else { return [] }
+        let targets = previewTargets(from: residents)
+        if self == .bringToCurrentSpace {
+            return targets.filter { WindowSpaces.sourceSpaceIDs(for: $0).count == 1 }
+        }
+        return targets
+    }
+
+    func spaceMenuTitle(for targets: [WindowInfo]) -> String {
+        let singular = targets.count == 1
+        let oneApp = Set(targets.map(\.app.processIdentifier)).count == 1
+        switch self {
+        case .close:
+            return singular ? String(localized: "Close Window on This Space") : String(localized: "Close All Windows on This Space")
+        case .minimize:
+            if batchTargetState(for: targets) == false {
+                return singular ? String(localized: "Un-minimize Window on This Space") : String(localized: "Un-minimize All Windows on This Space")
+            }
+            return singular ? String(localized: "Minimize Window on This Space") : String(localized: "Minimize All Windows on This Space")
+        case .autoTileSelectedWindows:
+            return singular ? String(localized: "Auto Tile Window on This Space") : String(localized: "Auto Tile Windows on This Space")
+        case .bringToCurrentSpace:
+            return singular ? String(localized: "Bring Window to Current Space") : String(localized: "Bring All Windows to Current Space")
+        case .hide:
+            if batchTargetState(for: targets) == false {
+                return oneApp ? String(localized: "Unhide App on This Space") : String(localized: "Unhide Apps on This Space")
+            }
+            return oneApp ? String(localized: "Hide App on This Space") : String(localized: "Hide Apps on This Space")
+        case .quit:
+            return oneApp ? String(localized: "Quit App on This Space") : String(localized: "Quit Apps on This Space")
+        case .forceQuit:
+            return oneApp ? String(localized: "Force Quit App on This Space") : String(localized: "Force Quit Apps on This Space")
+        case .openNewWindow:
+            return oneApp ? String(localized: "Open New Window for App on This Space") : String(localized: "Open New Window for Apps on This Space")
+        case .selectAllWindows:
+            return singular ? String(localized: "Select Window on This Space") : String(localized: "Select All Windows on This Space")
+        case .toggleFullScreen:
+            return String(localized: "Exit Full Screen")
+        default:
+            return localizedName
+        }
+    }
+
+    var spaceMenuHelp: String? {
+        switch self {
+        case .hide, .quit, .forceQuit:
+            String(localized: "This action affects these apps, including their windows on other Spaces.")
+        case .openNewWindow:
+            String(localized: "Requests one new window per app. Apps decide where new windows open.")
+        default:
+            nil
+        }
+    }
+
     func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> PreviewTilingLayout.Direction? {
         guard self == .autoTileSelectedWindows || (windowCount > 1 && fillActionsAutoTile) else { return nil }
         return tilingDirection

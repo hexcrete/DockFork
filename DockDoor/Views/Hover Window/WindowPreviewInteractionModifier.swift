@@ -593,19 +593,68 @@ final class WindowActionMenuBuilder: NSObject {
         displayedShortcuts: inout [UInt16: WindowAction],
         handler: @escaping (WindowAction) -> Void
     ) {
+        add(actions, to: menu, shortcutKeybind: shortcutKeybind, shortcutByAction: shortcutByAction,
+            displayedShortcuts: &displayedShortcuts, handler: handler,
+            title: { $0.menuTitle(for: window, batchTargets: batchTargets) },
+            icon: { $0.menuIcon(for: window, batchTargets: batchTargets) })
+    }
+
+    func addSpaceActions(for space: ManagedSpacePresentation.Entry, residents: [WindowInfo], to menu: NSMenu,
+                         shortcutKeybind: UserKeyBind, handler: @escaping (WindowAction) -> Void)
+    {
+        menu.title = space.title(mode: Defaults[.spacesBarLabels])
+        let targets = Dictionary(uniqueKeysWithValues: WindowAction.spaceMenuActions.map { ($0, $0.spaceTargets(from: residents)) })
+        let actions = WindowAction.spaceMenuActions.filter { action in
+            let candidates = targets[action] ?? []
+            return !candidates.isEmpty && candidates.contains { action.isAvailable(for: $0) }
+        }
+        guard !actions.isEmpty else { return }
+        let shortcuts = WindowSwitcherShortcutResolver.resolvedPreviewShortcuts(
+            Defaults[.cmdShortcuts], previewKeybind: shortcutKeybind,
+            mainKeybind: SharedPreviewWindowCoordinator.activeInstance?.effectivePreviewShortcutKeybind(forSpaces: true) ?? Defaults[.UserKeybind]
+        )
+        var shortcutByAction: [WindowAction: CmdShortcut] = [:]
+        for shortcut in shortcuts where shortcutByAction[shortcut.action] == nil {
+            shortcutByAction[shortcut.action] = shortcut
+        }
+        var displayedShortcuts: [UInt16: WindowAction] = [:]
+        for group in WindowAction.Group.allCases {
+            let groupedActions = group.actions.filter { actions.contains($0) }
+            guard !groupedActions.isEmpty else { continue }
+            if group != .arrange { addSeparatorIfNeeded(to: menu) }
+            add(groupedActions, to: menu, shortcutKeybind: shortcutKeybind, shortcutByAction: shortcutByAction,
+                displayedShortcuts: &displayedShortcuts, handler: handler,
+                title: { $0.spaceMenuTitle(for: targets[$0] ?? []) },
+                icon: { action in
+                    guard let first = targets[action]?.first else { return action.iconName }
+                    return action.menuIcon(for: first, batchTargets: targets[action])
+                }, help: { action in
+                    let sharedWindows = (targets[action] ?? []).contains { WindowSpaces.sourceSpaceIDs(for: $0).count > 1 }
+                    return [action.spaceMenuHelp, sharedWindows ? String(localized: "Windows available on multiple Spaces may also be affected elsewhere.") : nil]
+                        .compactMap { $0 }.joined(separator: " ")
+                })
+        }
+    }
+
+    private func add(_ actions: [WindowAction], to menu: NSMenu, shortcutKeybind: UserKeyBind,
+                     shortcutByAction: [WindowAction: CmdShortcut], displayedShortcuts: inout [UInt16: WindowAction],
+                     handler: @escaping (WindowAction) -> Void, title: (WindowAction) -> String,
+                     icon: (WindowAction) -> String, help: (WindowAction) -> String? = { _ in nil })
+    {
         for action in actions {
             let item = NSMenuItem(
-                title: action.menuTitle(for: window, batchTargets: batchTargets),
+                title: title(action),
                 action: #selector(performAction(_:)),
                 keyEquivalent: ""
             )
             item.target = self
             item.representedObject = ActionRequest(action: action, handler: handler)
             item.image = NSImage(
-                systemSymbolName: action.menuIcon(for: window, batchTargets: batchTargets),
+                systemSymbolName: icon(action),
                 accessibilityDescription: nil
             )
             forceImageVisibility(for: item)
+            item.toolTip = help(action)
             if let shortcut = shortcutByAction[action],
                let keyEquivalent = KeyboardLabel.menuKeyEquivalent(for: shortcut.keyCode)
             {

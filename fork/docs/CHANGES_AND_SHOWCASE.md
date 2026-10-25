@@ -1290,3 +1290,25 @@ Space-pill resident action rows and Space-targeted shortcuts are later stages, n
 Stage 1 development validation completed with `DockFork-2b03dcd-working-x6pY2T`: signed build, relaunch, installed signature, matching executable/debug library, working-source patch and exact running path verified. Automated suites remain unrun. Manual verification pending; changes remain uncommitted and later stages have not started.
 
 The user verified Stage 1 fullscreen/mixed-selection behavior and approved commit after source review. Automated suites and exhaustive native combinations remain unrun.
+
+### Space-pill resident actions (Stage 2)
+
+Space-pill context menus now append applicable resident-window and represented-app actions after the existing Move/Swap/Shift section and a native separator. Auto Tile is a direct row; there is no Arrange submenu. Fill, Maximize, Center, original app-wide Close All/Minimize All, Open Window and selection toggling are not added as menu rows. Fullscreen pills expose applicable actions including exit, rather than only exit.
+
+Shared native rows provide symbols, destructive styling, effective shortcut hints, singular/plural titles and toggle intent. Hide/Quit/Force Quit help explains app-wide effects beyond the Space; New Window is one request per app without promising placement. Shared-window help avoids implying effects are isolated to one Space.
+
+Targets are all known real residents in shared cached window-sort/native-tab order, not the search results or checked selection. The Space is resolved again by stable ID when invoked; deleted IDs refuse instead of substituting a destination. Select All adds eligible residents through shared selection publication, preserving existing order and session preferences. Other actions leave checks unchanged. Existing confirmed batch ownership, results, aggregate feedback and keep-open/foreground preferences are reused. Auto Tile passes the source Space/display to the existing tiler; no navigation is forced merely by targeting another Space. Bring to Current Space reuses confirmed group movement. Fullscreen exit retains preview preservation.
+
+Stage 3 highlighted/menu-pinned shortcut routing and shortcut-only commands are not yet implemented. Fixture syntax, formatter/diff and development artifact checks are tracked separately from pending native/manual verification. Automated suites remain unrun; no release or push.
+
+Stage 2 development validation: final build `DockFork-60c22a4-working-f6RW9X` is signed and running from the expected development path; installed signature, executable/debug library and source snapshot match. Fixture syntax, formatter lint and diff checks pass. Automated suites and native/manual action coverage remain unrun. Stage 2 remains uncommitted pending user verification; Stage 3 has not started.
+
+Stage 2 menu-order correction: Space resident rows now derive order and section boundaries from the regular menu's shared Window/Arrange/Application action groups. Empty groups add no divider; Auto Tile remains a direct row in the arrangement position, without an Arrange submenu. Existing Space-content controls remain first. The user verified the underlying Stage 2 actions; this ordering revision awaits verification.
+
+The ordering revision is running from the verified development path (`DockFork-60c22a4-working-ZECpkE`), with matching signature/source/binaries after retrying the system's failed initial launch. Automated suites remain unrun; revised ordering awaits manual verification.
+
+Space-menu grouping refinement: Auto Tile joins the preceding window-action section without its own divider. The divider before Close/Quit/Force Quit remains; regular window menus are unchanged.
+
+The joined Auto Tile grouping is running in verified build `DockFork-60c22a4-working-6JFg9b`. Development signature/source/binaries/running path match; automated suites remain unrun and manual grouping verification is pending.
+
+The user verified Stage 2 actions and final grouping. Source review and development artifact checks passed; automated suites and exhaustive fault/display coverage remain unrun. Known deferred issue: quitting the app for the highlighted fullscreen Space can collapse the switcher; this is not fixed by resident actions.

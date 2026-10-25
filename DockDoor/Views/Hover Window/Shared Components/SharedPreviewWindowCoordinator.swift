@@ -566,16 +566,49 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @MainActor
-    private func exitSpaceFullScreen(_ entry: ManagedSpacePresentation.Entry) {
+    private func spaceActionContext(_ id: CGSSpaceID) -> (entry: ManagedSpacePresentation.Entry, residents: [WindowInfo])? {
+        let windows = WindowUtil.collapseNativeTabsIfNeeded(WindowUtil.getAllWindowsIgnoringSwitcherFilters())
+        let presentation = ManagedSpacePresentation.snapshot(displays: WindowSpaces.managedDisplays(), orderedWindows: windows)
+        guard let entry = presentation.flatMap(\.spaces).first(where: { $0.id == id }) else { return nil }
+        let identities = Set(entry.apps.flatMap(\.windowIdentities))
+        return (entry, windows.filter { identities.contains(PreviewWindowIdentity($0)) })
+    }
+
+    @MainActor
+    private func makeSpaceMenu(_ entry: ManagedSpacePresentation.Entry) -> NSMenu {
+        guard let context = spaceActionContext(entry.id) else { return NSMenu() }
+        let menu = SpaceMoveMenuController.shared.makeContentsMenu(
+            for: context.entry, presentation: spacesBarSections,
+            contentsAction: { [weak self] source, target, action in self?.performContentsAction(from: source, to: target, action: action) }
+        )
+        WindowActionMenuBuilder.shared.addSpaceActions(
+            for: context.entry, residents: context.residents, to: menu,
+            shortcutKeybind: effectivePreviewShortcutKeybind(),
+            handler: { [weak self] action in self?.performSpaceWindowAction(action, spaceID: entry.id) }
+        )
+        return menu
+    }
+
+    @MainActor
+    func performSpaceWindowAction(_ action: WindowAction, spaceID: CGSSpaceID, keyboard: Bool = false) {
         guard isVisible, windowSwitcherCoordinator.windowSwitcherActive,
-              let current = spacesBarSections.flatMap(\.spaces).first(where: { $0.id == entry.id && $0.isFullscreen })
-        else { return }
-        let identities = Set(current.apps.flatMap(\.windowIdentities))
-        let windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters().filter {
-            identities.contains(PreviewWindowIdentity($0)) && $0.isFullscreen == true && !$0.app.isTerminated
+              let context = spaceActionContext(spaceID)
+        else { NSSound.beep(); return }
+        let targets = action.spaceTargets(from: context.residents)
+        guard let initiator = targets.first else { NSSound.beep(); return }
+        if action == .selectAllWindows {
+            windowSwitcherCoordinator.selectWindows(targets)
+        } else if action == .bringToCurrentSpace {
+            let displays = WindowSpaces.managedDisplays()
+            guard let id = WindowSpaces.currentManagedSpaceID(mouseLocation: NSEvent.mouseLocation),
+                  let destination = WindowSpaces.destination(forSpaceID: id, in: displays)
+            else { NSSound.beep(); return }
+            performSpaceMove(targets, to: destination, dismissPreviews: { [weak self] in self?.hideWindow() }, keyboard: keyboard, usePreviews: false)
+        } else {
+            _ = performPreviewBatchAction(action, on: targets, initiator: initiator,
+                                          preservePreviews: action == .toggleFullScreen, keyboard: keyboard, usePreviews: false,
+                                          tilingDestination: context.entry.destination)
         }
-        guard let initiator = windows.first else { NSSound.beep(); return }
-        _ = performPreviewBatchAction(.toggleFullScreen, on: windows, initiator: initiator, preservePreviews: true, usePreviews: false)
     }
 
     private func activateSpace(_ entry: ManagedSpacePresentation.Entry) {
@@ -855,8 +888,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             activateApp: { [weak self] app, entry in Task { @MainActor in await self?.activateSpaceApp(app, in: entry) } },
             activate: { [weak self] entry in Task { @MainActor in self?.activateSpace(entry) } },
             dragContents: { [weak self] id, point, ended in self?.updateContentsDrag(from: id, at: point, ended: ended) },
-            contentsAction: { [weak self] source, target, action in self?.performContentsAction(from: source, to: target, action: action) },
-            exitFullScreen: { [weak self] entry in self?.exitSpaceFullScreen(entry) },
+            spaceMenu: { [weak self] entry in self?.makeSpaceMenu(entry) ?? NSMenu() },
             allowedGaps: Set(contentsDragSession.flatMap { session in
                 guard !Defaults[.spacesBarRecentlyUsed] else { return nil as [SpaceContentsGap]? }
                 return spacesBarSections.flatMap { display in
@@ -2394,7 +2426,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     @MainActor
     private func performPreviewBatchAction(_ action: WindowAction, on targets: [WindowInfo], initiator: WindowInfo,
                                            preservePreviews: Bool = false, keyboard: Bool = false, usePreviews: Bool = true,
-                                           allowFullscreenEntry: Bool = false) -> Bool
+                                           allowFullscreenEntry: Bool = false, tilingDestination: ManagedSpaceDestination? = nil) -> Bool
     {
         let resolvedTargets = action.previewTargets(from: targets, allowFullscreenEntry: allowFullscreenEntry)
         let targetState = action.batchTargetState(for: resolvedTargets)
@@ -2450,6 +2482,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
             let result = await WindowUtil.performPreviewBatchAction(action, on: targets, allowFullscreenEntry: allowFullscreenEntry, feedback: feedback,
                                                                     request: request, targetState: targetState, resolvedTargets: resolvedTargets,
+                                                                    tilingDestination: tilingDestination,
                                                                     beforeActionChange: beforeChange)
             guard !Task.isCancelled, let self, previewBatchToken == token else { return }
             let succeededIdentities = Set(result.succeeded.map(PreviewWindowIdentity.init))
@@ -2500,9 +2533,18 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         guard let targets = windowSwitcherCoordinator.checkedActionTargets(for: initiator) else { return false }
         guard !targets.isEmpty else { return true }
         guard targets.count > 1 || initiator.isWindowlessApp || windowSwitcherCoordinator.checkedWindowCount > targets.count else { return false }
-        let request = WindowUtil.beginPreviewActionRequest(.bringToCurrentSpace, windows: targets)
-        let feedback = ActionFeedbackController.begin(.bringToCurrentSpace, windows: targets, keyboard: keyboard || NSApp.currentEvent?.type == .keyDown, title: String(localized: "Move to Space \(destination.space.number)"))
-        guard !request.admitted.isEmpty else { feedback?.finishRemaining(.failed); return true }
+        performSpaceMove(targets, to: destination, dismissPreviews: dismissPreviews, keyboard: keyboard)
+        return true
+    }
+
+    @MainActor
+    private func performSpaceMove(_ targets: [WindowInfo], to destination: ManagedSpaceDestination,
+                                  dismissPreviews: (() -> Void)?, keyboard: Bool, usePreviews: Bool = true)
+    {
+        let targets = WindowAction.bringToCurrentSpace.previewTargets(from: targets)
+        let request = WindowUtil.beginPreviewActionRequest(.bringToCurrentSpace, windows: targets, resolvedTargets: targets)
+        let feedback = ActionFeedbackController.begin(.bringToCurrentSpace, windows: targets, keyboard: keyboard || NSApp.currentEvent?.type == .keyDown, usePreviews: usePreviews, title: String(localized: "Move to Space \(destination.space.number)"), resolvedTargets: targets)
+        guard !request.admitted.isEmpty else { feedback?.finishRemaining(.failed); return }
         previewBatchTask?.cancel()
         let token = UUID()
         previewBatchToken = token
@@ -2523,7 +2565,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         } }
         previewActionTasks[token] = (request, task)
         request.onSuperseded { task.cancel() }
-        return true
     }
 
     private func reportBatchFailures(_ failures: [PreviewWindowIdentity], action: String) {

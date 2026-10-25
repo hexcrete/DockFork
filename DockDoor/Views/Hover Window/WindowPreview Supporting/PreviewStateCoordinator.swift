@@ -275,12 +275,14 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func selectAllDisplayedWindows() {
+        selectWindows(filteredWindowIndices().map { windows[$0] })
+    }
+
+    @MainActor
+    func selectWindows(_ candidates: [WindowInfo]) {
         endSelectionRange()
         guard Defaults[.enableMultiWindowSelection] else { return }
-        let identities = filteredWindowIndices().compactMap { index -> PreviewWindowIdentity? in
-            let window = windows[index]
-            return canSelectWindow(window) ? PreviewWindowIdentity(window) : nil
-        }
+        let identities = candidates.filter { canSelectWindow($0) }.map(PreviewWindowIdentity.init)
         var updated = selection.checkedWindows
         updated.select(identities)
         guard updated != selection.checkedWindows else { return }

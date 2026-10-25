@@ -689,6 +689,7 @@ extension WindowUtil {
     static func performPreviewBatchAction(_ action: WindowAction, on windows: [WindowInfo],
                                           allowFullscreenEntry: Bool = false, feedback: ActionFeedbackHandle? = nil,
                                           request: WindowActionRequest? = nil, targetState: Bool? = nil, resolvedTargets: [WindowInfo]? = nil,
+                                          tilingDestination: ManagedSpaceDestination? = nil,
                                           beforeActionChange: (@MainActor (Bool) -> Bool)? = nil) async -> PreviewBatchResult
     {
         defer { feedback?.finishRemaining(.cancelled) }
@@ -718,11 +719,11 @@ extension WindowUtil {
             await request.waitForPredecessors()
             guard !Task.isCancelled else { return PreviewBatchResult() }
             return await executePreviewAction(action, windows: windows, allowFullscreenEntry: allowFullscreenEntry,
-                                              feedback: feedback, request: request, targetState: resolvedState, autoTile: autoTile, beforeActionChange: beforeActionChange)
+                                              feedback: feedback, request: request, targetState: resolvedState, autoTile: autoTile, tilingDestination: tilingDestination, beforeActionChange: beforeActionChange)
         }
         let task = Task { @MainActor in
             await executePreviewAction(action, windows: windows, allowFullscreenEntry: allowFullscreenEntry,
-                                       feedback: feedback, request: request, targetState: resolvedState, autoTile: autoTile, beforeActionChange: beforeActionChange)
+                                       feedback: feedback, request: request, targetState: resolvedState, autoTile: autoTile, tilingDestination: tilingDestination, beforeActionChange: beforeActionChange)
         }
         request.onSuperseded { task.cancel() }
         var result = await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
@@ -736,6 +737,7 @@ extension WindowUtil {
     @MainActor
     private static func executePreviewAction(_ action: WindowAction, windows: [WindowInfo], allowFullscreenEntry: Bool,
                                              feedback: ActionFeedbackHandle?, request: WindowActionRequest, targetState: Bool?, autoTile: Bool,
+                                             tilingDestination: ManagedSpaceDestination?,
                                              beforeActionChange: (@MainActor (Bool) -> Bool)?) async -> PreviewBatchResult
     {
         if WindowActionRequest.current?.token != request.token {
@@ -743,7 +745,7 @@ extension WindowUtil {
             guard !Task.isCancelled else { return PreviewBatchResult() }
             return await WindowActionRequest.$current.withValue(request) {
                 await executePreviewAction(action, windows: windows, allowFullscreenEntry: allowFullscreenEntry,
-                                           feedback: feedback, request: request, targetState: targetState, autoTile: autoTile, beforeActionChange: beforeActionChange)
+                                           feedback: feedback, request: request, targetState: targetState, autoTile: autoTile, tilingDestination: tilingDestination, beforeActionChange: beforeActionChange)
             }
         }
         guard !Task.isCancelled else { return PreviewBatchResult() }
@@ -756,7 +758,7 @@ extension WindowUtil {
         let windows = windows.filter { request.contains(PreviewWindowIdentity($0)) }
         guard !windows.isEmpty else { feedback?.finish(result); return result }
         if autoTile, let direction = action.tilingDirection {
-            let tiled = await tilePreviewWindows(windows, direction: direction, feedback: feedback)
+            let tiled = await tilePreviewWindows(windows, direction: direction, destination: tilingDestination, feedback: feedback)
             result.succeeded = tiled.succeeded
             result.failed += tiled.failed
             return result

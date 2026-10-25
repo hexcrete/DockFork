@@ -40,6 +40,11 @@ end
 source = <<~'SWIFT'
 import Foundation
 typealias pid_t = Int32
+struct ManagedSpaceDestination { let id: Int }
+enum WindowSpaces {
+ static var sources: [Int: Set<Int>] = [:]
+ static func sourceSpaceIDs(for window: WindowInfo) -> Set<Int> { sources[window.id] ?? [1] }
+}
 struct Key<T> { let value: T }
 enum Defaults { static var autoFill=false, limited=false, foreground=false, rows=2, columns=3; static subscript<T>(_ key: Key<T>) -> T { key.value } }
 extension Key where T == Bool {
@@ -88,7 +93,8 @@ source += "enum WindowAction { case #{cases.join(', ')}\n var positionRect:Int? 
 source += block(catalog, '    enum TargetScope:') + "\n" + block(catalog, '    var targetScope:') + "\n" + block(catalog, '    func selectedPreviewTargets(') + "\n"
 source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    var isAppWidePreviewAction:')]
 %w[isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }
-%w[isSupported appliesToSelectedWindow previewTargets batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
+%w[isSupported appliesToSelectedWindow previewTargets batchTargets spaceTargets spaceMenuTitle].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
+source += catalog[catalog.index('    static let spaceMenuActions:')...catalog.index('    func spaceTargets(')] + "\n"
 source += <<~'SWIFT'
  var tilingDirection: Int? { self == .fillLeftHalf || self == .autoTileSelectedWindows ? 0 : nil }
  /* Auto Tile policy */
@@ -152,8 +158,8 @@ enum WindowUtil {
  static func revealWindowConfirmed(_ window: WindowInfo) async -> Bool { true }
  static func changeFullscreenConfirmed(_ window: WindowInfo, toggle: Bool, beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { true }
  static func setMinimizedWindowsConfirmed(_ windows: [WindowInfo], isMinimized: Bool, isTargetActive: @escaping @Sendable (PreviewWindowIdentity) -> Bool = { _ in true }, progress: ((WindowInfo, Bool) -> Void)?) async -> [WindowInfo] { minimizedRequests.append(isMinimized); if let pending=await pendingMinimize { await MainActor.run {pendingMinimize=nil}; await pending.wait() }; return Task.isCancelled ? [] : windows }
- static var tileCalls:[[Int]]=[]
- static func tilePreviewWindows(_ windows: [WindowInfo], direction: Int, feedback: ActionFeedbackHandle?) async -> PreviewBatchResult { tileCalls.append(windows.map(\.id)); return PreviewBatchResult(succeeded:windows) }
+ static var tileCalls:[[Int]]=[]; static var tileDestinations:[Int?]=[]
+ static func tilePreviewWindows(_ windows: [WindowInfo], direction: Int, destination: ManagedSpaceDestination? = nil, feedback: ActionFeedbackHandle?) async -> PreviewBatchResult { tileCalls.append(windows.map(\.id)); tileDestinations.append(destination?.id); return PreviewBatchResult(succeeded:windows) }
  static func closeWindows(_ windows: [WindowInfo], feedback: ActionFeedbackHandle?) async -> PreviewBatchResult { PreviewBatchResult(succeeded: windows) }
 SWIFT
 source += block(util, '    static func beginPreviewActionRequest(') + "\n"
@@ -170,6 +176,19 @@ source += <<~'SWIFT'
   var native = WindowInfo(id: 78, app: nativeApp); native.isMinimized = true
   let normal = WindowInfo(id: 81, app: nativeApp)
   let full = WindowInfo(id: 82, app: nativeApp, isFullscreen: true)
+  precondition(!WindowAction.spaceMenuActions.contains(.maximize) && !WindowAction.spaceMenuActions.contains(.center) && !WindowAction.spaceMenuActions.contains(.fillLeftHalf))
+  precondition(!WindowAction.spaceMenuActions.contains(.closeAllWindows) && !WindowAction.spaceMenuActions.contains(.minimizeAllWindows), "Original app-wide commands are shortcut-only, not aliases of resident-only commands")
+  precondition(WindowAction.spaceMenuActions.contains(.autoTileSelectedWindows))
+  precondition(WindowAction.openAppWindow.spaceTargets(from: [normal]).isEmpty && WindowAction.toggleWindowSelection.spaceTargets(from: [normal]).isEmpty)
+  precondition(WindowAction.minimize.spaceMenuTitle(for: [normal, native]) == "Minimize All Windows on This Space")
+  precondition(WindowAction.minimize.spaceMenuTitle(for: [native]) == "Un-minimize Window on This Space")
+  precondition(WindowAction.quit.spaceMenuTitle(for: [normal, native]) == "Quit App on This Space")
+  precondition(WindowAction.quit.spaceMenuTitle(for: [normal, wine]) == "Quit Apps on This Space")
+  precondition(WindowAction.openNewWindow.batchTargets(from: WindowAction.openNewWindow.spaceTargets(from: [normal, native])).count == 1)
+  WindowSpaces.sources[normal.id] = [1, 2]
+  precondition(WindowAction.bringToCurrentSpace.spaceTargets(from: [normal]).isEmpty, "Shared windows must retain their Space-move exclusion")
+  precondition(WindowAction.close.spaceTargets(from: [normal]).map(\.id) == [normal.id], "Shared windows may still receive non-movement actions")
+  WindowSpaces.sources = [:]
   let fullscreenUnsupported: [WindowAction] = [.minimize, .minimizeAllWindows, .maximize, .center, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf, .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .autoTileSelectedWindows, .bringToCurrentSpace]
   WindowUtil.cached[78] = [normal, full]
   for action in fullscreenUnsupported {
@@ -343,6 +362,8 @@ let capped=await WindowUtil.performPreviewBatchAction(.fillLeftHalf,on:[capOne,c
 precondition(WindowUtil.tileCalls.last == [201] && capped.succeeded.map(\.id)==[201] && capped.failed.isEmpty,"Tiling exclusion changed original group intent")
 let mixed=await WindowUtil.performPreviewBatchAction(.fillLeftHalf,on:[unsupported,capTwo])
 precondition(WindowUtil.tileCalls.last == [202] && mixed.succeeded.map(\.id)==[202] && mixed.failed.isEmpty,"Fullscreen exclusion must precede capacity without changing Fill-to-Auto-Tile intent")
+let sourceTile=await WindowUtil.performPreviewBatchAction(.autoTileSelectedWindows,on:[capTwo],tilingDestination:ManagedSpaceDestination(id:9))
+precondition(sourceTile.succeeded.map(\.id)==[202] && WindowUtil.tileDestinations.last! == 9, "Source-Space destination must pass through the shared batch executor")
 let beforeEmpty=WindowUtil.tileCalls.count
 let allFullscreen=await WindowUtil.performPreviewBatchAction(.autoTileSelectedWindows,on:[unsupported])
 precondition(allFullscreen.failed.isEmpty && allFullscreen.succeeded.isEmpty && WindowUtil.tileCalls.count==beforeEmpty)

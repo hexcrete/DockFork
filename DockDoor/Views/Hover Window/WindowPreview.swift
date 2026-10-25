@@ -341,11 +341,10 @@ final class SpaceMoveMenuController: NSObject {
     }
 
     func makeContentsMenu(for source: ManagedSpacePresentation.Entry, presentation: [ManagedSpacePresentation.Display],
-                          contentsAction: ((CGSSpaceID, CGSSpaceID, SpaceContentsAction) -> Void)?,
-                          exitFullScreen: @escaping () -> Void) -> NSMenu
+                          contentsAction: ((CGSSpaceID, CGSSpaceID, SpaceContentsAction) -> Void)?) -> NSMenu
     {
         let menu = NSMenu()
-        if source.isFullscreen { return makeFullscreenExitMenu(exitFullScreen) }
+        guard !source.isFullscreen else { return menu }
         guard let contentsAction else { return menu }
         for action in [SpaceContentsAction.move, .swap, .shift] {
             let item = NSMenuItem(title: action.menuTitle, action: nil, keyEquivalent: "")
