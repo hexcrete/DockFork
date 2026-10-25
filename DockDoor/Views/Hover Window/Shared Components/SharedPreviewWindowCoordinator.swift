@@ -64,6 +64,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private var spacesBarFingerprint: [String] = []
     private var spacesBarSpaceChangeSnapshot: [ManagedDisplayDescriptor]?
     private var spacesBarScreenObserver: NSObjectProtocol?
+    private var pendingSpacesBarRefresh: (token: UUID, session: UInt, metadataOnly: Bool)?
 
     private var appName: String = ""
     var currentlyDisplayedPID: pid_t?
@@ -756,7 +757,28 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         return preserve
     }
 
+    func requestSpacesBarRefresh(metadataOnly: Bool = false) {
+        guard windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar] else {
+            pendingSpacesBarRefresh = nil
+            return
+        }
+        let session = windowSwitcherCoordinator.pointerInteractionSessionID
+        if let pending = pendingSpacesBarRefresh, pending.session == session {
+            pendingSpacesBarRefresh?.metadataOnly = pending.metadataOnly && metadataOnly
+            return
+        }
+        let token = UUID()
+        pendingSpacesBarRefresh = (token, session, metadataOnly)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, let pending = pendingSpacesBarRefresh, pending.token == token else { return }
+            pendingSpacesBarRefresh = nil
+            guard windowSwitcherCoordinator.pointerInteractionSessionID == pending.session else { return }
+            refreshSpacesBar(metadataOnly: pending.metadataOnly)
+        }
+    }
+
     func refreshSpacesBar(metadataOnly: Bool = false, displays snapshot: [ManagedDisplayDescriptor]? = nil) {
+        pendingSpacesBarRefresh = nil
         guard windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar] else {
             removeSpacesBar()
             return
@@ -818,6 +840,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     private func removeSpacesBar(keepTopologyObserver: Bool = false) {
+        pendingSpacesBarRefresh = nil
         cancelContentsDrag()
         windowSwitcherCoordinator.spaceDragViewport?.updateDrag(at: nil)
         windowSwitcherCoordinator.spaceDragViewport = nil
@@ -973,7 +996,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             positionSpacesBar(relativeTo: frame)
         }
         windowSwitcherCoordinator.onFrameRefreshNeeded = { [weak self] in
-            self?.refreshSpacesBar()
+            self?.requestSpacesBarRefresh()
             self?.schedulePanelFrameRefresh()
         }
     }
@@ -1068,6 +1091,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             }
         }
         windowSwitcherCoordinator.pendingSpaceNavigation = nil
+        pendingSpacesBarRefresh = nil
         externalDragTargetToken = nil
         ActionFeedbackController.existing?.previewWillDisappear(self)
         windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)

@@ -1336,3 +1336,11 @@ Development build `DockFork-e426e35-working-YiiV1r` is signed and running from t
 The user confirmed the fullscreen-app Quit fix. Final review also restored the original disabled/inactive-bar query behavior; no topology fetch is added to that idle notification path. Shared preservation behavior for related Space-removal interactions is supported by source inspection, not additional native tests. Existing action-dismissal preferences remain effective.
 
 Final reviewed development build `DockFork-e426e35-working-frpaQp` passed signed build/relaunch and exact source/installed-binary/running-path verification. Formatter/diff and fixture syntax checks passed; automated suites remain unrun. The fix is approved after user verification and source review.
+
+### Spaces Bar refresh coalescing (Stage 1, awaiting manual verification)
+
+Cache-batch and frame-triggered metadata requests now merge into one next-main-turn refresh, with full presentation requests taking precedence over metadata-only requests. Initial opening and topology reconciliation remain immediate and reuse supplied snapshots. Teardown/disabled-state guards and existing session IDs prevent old queued work from refreshing a newer or closed session. No timer or fixed-delay debounce is added.
+
+The deterministic production-source fixture reduced the six-request sequence to one deferred refresh; ten same-turn cache requests also merge into one. This is an operation-count result, not a wall-clock performance claim. Focused Spaces, layout and keyboard/session suites pass after repairing stale fixture-only menu/geometry declarations. The signed development build/source/installed-binary/running path are verified. Manual behavior verification remains pending; stages 2 (presentation-only query removal) and 3 (measurement reuse) are not implemented yet. No release or push.
+
+Stage 1 refresh coalescing is user-verified and approved after final source review. The three focused suites and exact signed development/source/binary/running-path checks passed. Stages 2 and 3 remain separate pending work; no native wall-clock speedup is claimed.

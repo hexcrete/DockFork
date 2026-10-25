@@ -479,7 +479,7 @@ abort 'Shared Space/state indicator must keep its intrinsic width instead of com
 
 snapshot_publication = block(panel, '    @objc private func publishTapSnapshot(')
 abort 'Companion click bounds must be separate, without a rectangular union across empty space' unless snapshot_publication.include?('searchFrame: searchWindowFrame,') && snapshot_publication.include?('spacesBarFrame: spacesBarWindow.flatMap') && snapshot_publication.include?('insetBy(dx: SpacesBarLayout.outerPadding, dy: SpacesBarLayout.outerPadding)') && !snapshot_publication.include?('.union(')
-snapshot_source = "import Foundation\nenum HoverContainerPadding {static let container:CGFloat=24}\nenum Harness {\n" + block(panel, '    struct TapSnapshot {') + "\n}\n"
+snapshot_source = "import Foundation\nimport CoreGraphics\nenum HoverContainerPadding {static let container:CGFloat=24}\nenum Harness {\n" + block(panel, '    struct TapSnapshot {') + "\n}\n"
 snapshot_source += <<~'SWIFT'
 @main struct OutsideClickChecks {
  static func main() {

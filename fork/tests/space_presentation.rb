@@ -17,6 +17,102 @@ def block(source, signature)
 end
 
 root = File.expand_path('../..', __dir__)
+
+# Production coalescer with an explicitly drained main queue and inert metadata work.
+refresh_panel = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
+refresh_source = <<~'SWIFT'
+import Foundation
+struct ManagedDisplayDescriptor {}
+enum Key { case enableSpacesBar }
+@MainActor enum Defaults { static var enabled = true; static subscript(_ key:Key)->Bool { enabled } }
+@MainActor enum DispatchQueue {
+ static var work: [@MainActor ()->Void] = []
+ static let main = Queue()
+ @MainActor struct Queue { func async(_ action:@escaping @MainActor ()->Void) { DispatchQueue.work.append(action) } }
+ static func drain() { let actions=work;work=[];for action in actions {action()} }
+}
+@MainActor final class RefreshState {
+ var windowSwitcherActive = true
+ var pointerInteractionSessionID: UInt = 1
+ var onNavigationTargetChanged:(()->Void)?
+ var onFrameRefreshNeeded:(()->Void)?
+}
+@MainActor final class RefreshProbe {
+ let windowSwitcherCoordinator = RefreshState()
+ var pendingSpacesBarRefresh:(token:UUID,session:UInt,metadataOnly:Bool)?
+ var queries=0,builds=0,frameRequests=0
+ var modes:[Bool]=[]
+ var dirty=true
+ let frame=0
+ func updateSpaceFilter() {}
+ func positionSpacesBar(relativeTo:Int) {}
+ func schedulePanelFrameRefresh() {frameRequests+=1}
+SWIFT
+refresh_source += block(refresh_panel, '    func requestSpacesBarRefresh(') + "\n"
+refresh_source += block(refresh_panel, '    private func setupFrameRefreshObserver(').sub('private func', 'func') + "\n"
+refresh_source += block(refresh_panel, '    private func removeSpacesBar(').split('        cancelContentsDrag()',2).first.sub('private func','func') + "    }\n"
+refresh_source += block(refresh_panel, '    func refreshSpacesBar(').split('        if spacesBarScreenObserver == nil',2).first
+refresh_source += <<~'SWIFT'
+  if snapshot == nil {queries+=1}
+  modes.append(metadataOnly)
+  if metadataOnly && !dirty {return}
+  dirty=false;builds+=1
+ }
+}
+@main struct RefreshChecks {
+ @MainActor static func main() {
+  let combined=RefreshProbe();combined.setupFrameRefreshObserver()
+  for _ in 0..<5 {combined.windowSwitcherCoordinator.onFrameRefreshNeeded?()}
+  combined.requestSpacesBarRefresh(metadataOnly:true)
+  precondition(DispatchQueue.work.count==1 && combined.queries==0)
+  DispatchQueue.drain()
+  precondition(combined.queries==1 && combined.builds==1 && combined.modes == [false], "Five frame requests plus a cache request must merge into one full refresh")
+  precondition(combined.frameRequests==5 && combined.pendingSpacesBarRefresh==nil)
+  let cache=RefreshProbe()
+  for _ in 0..<10 {cache.requestSpacesBarRefresh(metadataOnly:true)}
+  DispatchQueue.drain()
+  precondition(cache.queries==1 && cache.builds==1 && cache.modes == [true])
+  cache.requestSpacesBarRefresh(metadataOnly:true);DispatchQueue.drain()
+  precondition(cache.queries==2 && cache.builds==1, "Unchanged metadata retains the existing no-rebuild fast path")
+  let immediate=RefreshProbe()
+  immediate.requestSpacesBarRefresh()
+  immediate.refreshSpacesBar(displays:[ManagedDisplayDescriptor()]);DispatchQueue.drain()
+  precondition(immediate.queries==0 && immediate.builds==1 && immediate.pendingSpacesBarRefresh==nil, "Immediate topology reconciliation reuses its snapshot and supersedes queued work")
+  let opening=RefreshProbe();opening.requestSpacesBarRefresh(metadataOnly:true)
+  opening.refreshSpacesBar();DispatchQueue.drain()
+  precondition(opening.queries==1 && opening.builds==1, "Opening refresh must not be repeated by an older queued request")
+  let stale=RefreshProbe();stale.requestSpacesBarRefresh()
+  stale.windowSwitcherCoordinator.pointerInteractionSessionID+=1;DispatchQueue.drain()
+  precondition(stale.queries==0 && stale.pendingSpacesBarRefresh==nil)
+  stale.requestSpacesBarRefresh(metadataOnly:true)
+  stale.windowSwitcherCoordinator.pointerInteractionSessionID+=1
+  stale.requestSpacesBarRefresh();DispatchQueue.drain()
+  precondition(stale.queries==1 && stale.modes == [false], "Old session work must not consume or execute a newer request")
+  let teardown=RefreshProbe();teardown.requestSpacesBarRefresh();teardown.removeSpacesBar();DispatchQueue.drain()
+  precondition(teardown.queries==0 && teardown.pendingSpacesBarRefresh==nil)
+  let disabled=RefreshProbe();disabled.requestSpacesBarRefresh()
+  Defaults.enabled=false;DispatchQueue.drain()
+  disabled.requestSpacesBarRefresh()
+  precondition(disabled.queries==0 && disabled.pendingSpacesBarRefresh==nil && DispatchQueue.work.isEmpty)
+  Defaults.enabled=true;disabled.requestSpacesBarRefresh();DispatchQueue.drain()
+  precondition(disabled.queries==1)
+  let inactive=RefreshProbe();inactive.windowSwitcherCoordinator.windowSwitcherActive=false
+  inactive.requestSpacesBarRefresh();precondition(DispatchQueue.work.isEmpty && inactive.queries==0)
+  var released:RefreshProbe?=RefreshProbe();weak var weakProbe=released
+  released!.requestSpacesBarRefresh();released=nil;precondition(weakProbe==nil);DispatchQueue.drain()
+  precondition(DispatchQueue.work.isEmpty)
+  print("PASS production refresh coalescing: 6 former callback entries -> 1 deferred query/build; 10 cache requests -> 1; strongest request, no-op metadata, supplied snapshots, opening, stale sessions, teardown, disable/re-enable and weak lifetime")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-refresh-') do |dir|
+ File.write("#{dir}/checks.swift",refresh_source)
+ abort 'Refresh scheduling compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Refresh scheduling checks failed' unless system("#{dir}/checks")
+end
+abort 'Frame fitting must not reenter metadata refresh' if block(refresh_panel,'    private func schedulePanelFrameRefresh(').include?('SpacesBarRefresh') || block(refresh_panel,'    private func schedulePanelFrameRefresh(').include?('refreshSpacesBar')
+abort 'Terminal hiding must invalidate pending metadata before its early visibility return' unless block(refresh_panel,'    func hideWindow(').index('pendingSpacesBarRefresh = nil') < block(refresh_panel,'    func hideWindow(').index('guard isVisible else')
+
 util = File.read("#{root}/DockDoor/Utilities/Window Management/WindowUtil.swift")
 ordering_source = <<~'SWIFT'
 import Foundation
@@ -157,7 +253,7 @@ bar = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SearchWin
 abort 'Space labels must share Compact Mode primary typography and measurement' unless bar.include?('Defaults[.spacesBarItemSize].primaryFont') && bar.include?('Defaults[.spacesBarItemSize].primaryAppKitFont') && bar.include?('let font = SpacesBarLayout.textFont')
 panel = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
 cache = File.read("#{root}/DockDoor/Utilities/Window Management/SpaceWindowCacheManager.swift")
-abort 'Bar must refresh with cache metadata and display topology' unless block(cache, '    private func flushCoordinatorChanges()').include?('preview.refreshSpacesBar(metadataOnly: true)') && panel.include?('spacesBarScreenObserver = NotificationCenter.default.addObserver(') && panel.include?('spacesBarScreenObserver = nil') && panel.include?('if metadataOnly, fingerprint == spacesBarFingerprint { return }') && block(cache, '    private func flushCoordinatorChanges()').include?('preview.windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar]')
+abort 'Bar must refresh with cache metadata and display topology' unless block(cache, '    private func flushCoordinatorChanges()').include?('preview.requestSpacesBarRefresh(metadataOnly: true)') && panel.include?('spacesBarScreenObserver = NotificationCenter.default.addObserver(') && panel.include?('spacesBarScreenObserver = nil') && panel.include?('if metadataOnly, fingerprint == spacesBarFingerprint { return }') && block(cache, '    private func flushCoordinatorChanges()').include?('preview.windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar]')
 settings = File.read("#{root}/DockDoor/Views/Settings/WindowSwitcherBehaviorSettingsView.swift") + File.read("#{root}/DockDoor/Views/Settings/AppearanceSettingsView.swift")
 catalog = File.read("#{root}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
 reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")
@@ -719,6 +815,7 @@ native_source += "extension SpacesBarLayout {\n" + bar.lines.grep(/static var (c
 native_source += <<~'SWIFT'
 enum SpacePillEvents { static var activations = 0, changes = 0, ends = 0, iconActivations = 0, clears = 0 }
 struct PillProbe: View {
+ var spaceMenu: ((ManagedSpacePresentation.Entry, NSEvent, NSView)->Void)? = nil
  var exitFullScreen: ((ManagedSpacePresentation.Entry)->Void)? = nil
  var previewCoordinator: PreviewStateCoordinator? = nil
  var dragContents: ((UInt64,CGPoint,Bool)->Void)? = nil
@@ -755,7 +852,7 @@ SWIFT
 native_source += block(bar, '    private func pill(') + "\n}\n"
 native_source += "struct AppSlotProbe: View {\n let count: Int\n let showBadges = false\n let badgeScale: CGFloat = 1\n var body: some View {\n  let app = ManagedSpacePresentation.App(application:NSRunningApplication.current,windowCount:count)\n"
 native_source += " PreviewAppIcon(icon:app.application.icon,bundleURL:app.application.bundleURL,size:SpacesBarAppLayout.iconSize,showBadge:showBadges,badgeScale:badgeScale,mockPreviewActive:false).appWindowCount(app.windowCount,height:SpacesBarLayout.pillHeight)\n }\n}\n"
-native_source += "enum HoverContainerPadding { static let container: CGFloat = 24; static let dockStyleOuter: CGFloat = 2 }\n"
+native_source += block(File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/BaseHoverContainer.swift"), 'enum HoverContainerPadding {') + "\n"
 native_source += "enum SharedPreviewWindowCoordinator { struct Instance { let spacesBarReservation: CGFloat = 1 }; static let activeInstance: Instance? = Instance() }\n"
 native_source += "class SearchWindow: NSPanel { static let searchWidth: CGFloat = 300; static let searchHeight: CGFloat = 40; static let panelEdgeOffset: CGFloat = -4\n" + block(bar, '    func targetFrame(relativeTo frame:') + "\n}\n"
 native_source += "extension SpacesBarLayout { static let outerPadding: CGFloat = 26; static let gap: CGFloat = 8\n"
