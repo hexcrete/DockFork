@@ -774,8 +774,8 @@ final class CompanionProbe: NSPanel {
  deinit { NotificationCenter.default.removeObserver(self) }
 SWIFT
 native_source += block(panel, '    @objc private func positionCompanionWindows()').sub('panelAnchor?.screen ?? screen','screen') + "\n}\n"
-native_source += "extension SpacesBarLayout {\n" + bar.lines.grep(/static var dropGapWidth:/).join + bar.lines.grep(/static func sectionExtraWidth/).join + "\n" + block(bar, '    static func gapWidth(') + "\n" + block(bar, '    static func rowSpacing(') + "\n" + block(bar, '    static func sectionWidth(') + "\n}\n"
-native_source += "struct PillFrameProbe: View {\n struct Item: Identifiable { let id: UInt64 }\n struct Section: Identifiable { var id: String = \"display\"; let spaces: [Item] }\n let sections: [Section]\n let widths: [UInt64: CGFloat]\n var gapProgress: CGFloat = 0\n" + block(bar, '    private func dropFrames(').sub('private func','func') + "\n" + block(bar, '    private func gapFrames(').sub('private func','func') + "\n" + block(bar, '    private func spaceContents(').sub('private func','func') + "\n" + <<~'SWIFT'
+native_source += "extension SpacesBarLayout {\n" + bar.lines.grep(/static var dropGapWidth:/).join + bar.lines.grep(/static func sectionExtraWidth/).join + "\n" + block(bar, '    static func gapWidth(') + "\n" + block(bar, '    static func rowSpacing(') + "\n" + block(bar, '    static func boundaryGaps(') + "\n" + block(bar, '    static func sectionWidth(') + "\n}\n"
+native_source += "struct PillFrameProbe: View {\n struct Item: Identifiable { let id: UInt64 }\n struct Section: Identifiable { var id: String = \"display\"; let spaces: [Item] }\n let sections: [Section]\n let widths: [UInt64: CGFloat]\n var gapProgress: CGFloat = 0\n var sourceDisplayIndex: Int? = nil\n" + block(bar, '    private func dropFrames(').sub('private func','func') + "\n" + block(bar, '    private func gapFrames(').sub('private func','func') + "\n" + block(bar, '    private func spaceContents(').sub('private func','func') + "\n" + <<~'SWIFT'
  var body: some View { spaceContents(gapProgress:gapProgress,widths:widths) }
 func dropFrames(gapProgress:CGFloat)->[UInt64:CGRect] {dropFrames(gapProgress:gapProgress,widths:widths)}
 func gapFrames(gapProgress:CGFloat)->[SpaceContentsGap:CGRect] {gapFrames(gapProgress:gapProgress,pills:dropFrames(gapProgress:gapProgress))}
@@ -841,6 +841,30 @@ for progress:CGFloat in [0,0.1,0.5,0.9,1] {
  precondition(abs(frames[3]!.maxX+SpacesBarLayout.gapWidth(progress:progress,boundary:true)+SpacesBarLayout.innerPadding-(SpacesBarLayout.innerPadding*2+420+spacing))<0.001,"Intermediate multi-display width must match rendered geometry")
  for gap in gapLayout.gapFrames(gapProgress:progress).values {
   precondition(frames.values.allSatisfy{$0.intersection(gap).width<0.001},"Intermediate gap targets must not overlap pills")
+ }
+}
+for source in 0..<2 {
+ let directional=PillFrameProbe(sections:[firstSection,lastSection],widths:itemWidths,sourceDisplayIndex:source)
+ let targets=directional.gapFrames(gapProgress:1)
+ precondition(targets.count==4,"A display divider must expose only one boundary gap")
+ precondition((targets[SpaceContentsGap(displayID:firstSection.id,beforeSpaceID:nil)] != nil) == (source==0))
+ precondition((targets[SpaceContentsGap(displayID:lastSection.id,beforeSpaceID:lastSection.spaces.first!.id)] != nil) == (source==1))
+ for progress:CGFloat in [0,0.1,0.5,0.9,1] {
+  let frames=directional.dropFrames(gapProgress:progress)
+  let tail=SpacesBarLayout.gapWidth(progress:progress,boundary:true)
+  let total=SpacesBarLayout.innerPadding*2+420+SpacesBarLayout.rowSpacing(spaceCount:3,displayCount:2,gapProgress:progress,sourceDisplayIndex:source)
+  precondition(abs(frames[3]!.maxX+tail+SpacesBarLayout.innerPadding-total)<0.001,"Directional geometry must match animated panel width")
+  for gap in directional.gapFrames(gapProgress:progress).values {
+   precondition(frames.values.allSatisfy{$0.intersection(gap).width<0.001})
+  }
+ }
+}
+for source in 0..<3 {
+ for boundary in 1..<3 {
+  let left=SpacesBarLayout.boundaryGaps(displayIndex:boundary-1,displayCount:3,sourceDisplayIndex:source)
+  let right=SpacesBarLayout.boundaryGaps(displayIndex:boundary,displayCount:3,sourceDisplayIndex:source)
+  precondition(left.trailing != right.leading,"Every divider needs exactly one drop zone")
+  precondition(left.trailing == (source<boundary),"Keep the zone on the source side")
  }
 }
   let animationPanel = NSPanel(contentRect:CGRect(x:20,y:20,width:160,height:40),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)

@@ -813,6 +813,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let minimum = requestedMinimum.isFinite ? min(600, max(10, requestedMinimum)) : 160
         let available = max(1, screen.visibleFrame.width)
         let showDropGaps = contentsDragSession != nil && !Defaults[.spacesBarRecentlyUsed]
+        let sourceDisplayIndex = spacesBarSections.firstIndex { display in display.spaces.contains { $0.id == panel.viewport.gapSourceSpaceID } }
         let labels = Defaults[.spacesBarLabels]
         let font = SpacesBarLayout.textFont
         let labelWidths = entries.map { entry in
@@ -824,7 +825,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let availablePillWidth = max(1, available - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter + SpacesBarLayout.innerPadding) * 2)
         let maximum = fixed || preferDetails ? min(availablePillWidth, max(SpacesBarLayout.minimumPillWidth, requestedWidth.isFinite ? min(600, max(10, requestedWidth)) : 240)) : availablePillWidth
         func sizing(gapProgress: CGFloat) -> SpacesBarSizing {
-            let spacing = SpacesBarLayout.rowSpacing(spaceCount: entries.count, displayCount: spacesBarSections.count, gapProgress: gapProgress) + SpacesBarLayout.innerPadding * 2 + (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2
+            let spacing = SpacesBarLayout.rowSpacing(spaceCount: entries.count, displayCount: spacesBarSections.count, gapProgress: gapProgress, sourceDisplayIndex: sourceDisplayIndex) + SpacesBarLayout.innerPadding * 2 + (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2
             let sizes = SpacesBarLayout.widths(ideal: ideal, labels: labelWidths, maximum: maximum, available: max(1, available - spacing), fixed: fixed,
                                                minimum: fixed || preferDetails ? 0 : minimum, preferDetails: preferDetails)
             return SpacesBarSizing(widths: Dictionary(uniqueKeysWithValues: zip(entries.map(\.id), sizes)), width: min(available, sizes.reduce(0, +) + spacing))
