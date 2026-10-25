@@ -230,6 +230,7 @@ source += block(drag, '    private func cancelPendingDrop(') + "\n}\n"
 catalog = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
 source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize, quit, forceQuit, openAppWindow, openNewWindow, hide, close, closeAllWindows, minimizeAllWindows, toggleFullScreen, toggleWindowSelection, selectAllWindows, maximize, center, bringToCurrentSpace, none\n"
 source += block(catalog, '    enum TargetScope:') + "\n" + block(catalog, '    var targetScope:') + "\n" + block(catalog, '    func selectedPreviewTargets(') + "\n"
+source += "var positionRect:Int? {[.center,.maximize,.fillLeftHalf,.fillRightHalf,.fillTopHalf,.fillBottomHalf,.fillTopLeftQuarter,.fillTopRightQuarter,.fillBottomLeftQuarter,.fillBottomRightQuarter].contains(self) ? 0 : nil}\n"
 source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    var isAppWidePreviewAction:')]
 %w[tilingDirection isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }
 %w[isSupported autoTilingDirection appliesToSelectedWindow batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }

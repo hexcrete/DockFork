@@ -83,7 +83,7 @@ SWIFT
 source += block(info, '    func quit(force:') + "\n}\n"
 case_start = util.index('    // Existing actions')
 cases = util[case_start...util.index('    var localizedName:', case_start)].scan(/^    case (\w+)$/).flatten
-source += "enum WindowAction { case #{cases.join(', ')}\n var positionRect:Int? {[.center,.maximize,.fillLeftHalf].contains(self) ? 0 : nil}\n"
+source += "enum WindowAction { case #{cases.join(', ')}\n var positionRect:Int? {[.center,.maximize,.fillLeftHalf,.fillRightHalf,.fillTopHalf,.fillBottomHalf,.fillTopLeftQuarter,.fillTopRightQuarter,.fillBottomLeftQuarter,.fillBottomRightQuarter].contains(self) ? 0 : nil}\n"
 %w[localizedName iconName].each { |name| source += block(util[case_start..], "    var #{name}:") + "\n" }
 source += block(catalog, '    enum TargetScope:') + "\n" + block(catalog, '    var targetScope:') + "\n" + block(catalog, '    func selectedPreviewTargets(') + "\n"
 source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    var isAppWidePreviewAction:')]
@@ -170,6 +170,22 @@ source += <<~'SWIFT'
   var native = WindowInfo(id: 78, app: nativeApp); native.isMinimized = true
   let normal = WindowInfo(id: 81, app: nativeApp)
   let full = WindowInfo(id: 82, app: nativeApp, isFullscreen: true)
+  let fullscreenUnsupported: [WindowAction] = [.minimize, .minimizeAllWindows, .maximize, .center, .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf, .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter, .autoTileSelectedWindows, .bringToCurrentSpace]
+  WindowUtil.cached[78] = [normal, full]
+  for action in fullscreenUnsupported {
+   precondition(!action.isSupported(for: full) && !action.isAvailable(for: full), "Fullscreen-only menus must omit unsupported actions")
+   precondition(action.previewTargets(from: [full, normal]).map(\.id) == [normal.id], "Mixed groups must exclude fullscreen targets before execution and feedback")
+   precondition(action.isAvailable(for: full, batchTargets: [full, normal]), "A fullscreen initiator must not hide actions supported by selected peers")
+  }
+  precondition(WindowAction.toggleFullScreen.isSupported(for: full) && WindowAction.toggleFullScreen.isAvailable(for: full))
+  WindowUtil.cached[78] = [full]
+  precondition(!WindowAction.hide.isAvailable(for: full), "A visible fullscreen-only app cannot be hidden")
+  nativeApp.isHidden = true
+  precondition(WindowAction.hide.isAvailable(for: full), "Unhide must remain available")
+  nativeApp.isHidden = false
+  WindowUtil.cached[78] = [normal, full]
+  precondition(WindowAction.hide.isAvailable(for: full), "App-wide Hide remains available when other app windows support it")
+  WindowUtil.cached = [:]
   precondition(WindowAction.openAppWindow.targetScope == .initiator)
   precondition(WindowAction.openAppWindow.selectedPreviewTargets(for: native, from: [native, wine]) == nil)
   precondition(WindowAction.autoTileSelectedWindows.selectedPreviewTargets(for: normal, from: [native, wine]) == nil, "Unchecked initiators must not tile an unrelated selection")

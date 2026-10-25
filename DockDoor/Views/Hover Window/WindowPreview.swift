@@ -211,10 +211,12 @@ final class SpaceMoveMenuController: NSObject {
         let sourceValidation = WindowSpaces.validateMoveSource(window, in: displays)
         let sourceSpaceIDs = WindowSpaces.sourceSpaceIDs(for: window)
         let selected = showShortcutHints ? SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(for: window) : nil
-        let targets = selected ?? [window]
+        let targets = WindowAction.bringToCurrentSpace.previewTargets(from: selected ?? [window]).filter {
+            sourceValidation != .fullscreen || PreviewWindowIdentity($0) != PreviewWindowIdentity(window)
+        }
         let menu = NSMenu(title: WindowAction.spaceMoveMenuTitle(for: window, batchTargets: selected))
 
-        if sourceValidation == .fullscreen {
+        if sourceValidation == .fullscreen, targets.isEmpty {
             let exitsSelection = selected?.contains { WindowAction.toggleFullScreen.isSupported(for: $0) && $0.isFullscreen == true } == true
             let title = exitsSelection ? WindowAction.toggleFullScreen.menuTitle(for: window, batchTargets: selected) : String(localized: "Exit Full Screen")
             return makeFullscreenExitMenu(title: title) {
@@ -237,9 +239,10 @@ final class SpaceMoveMenuController: NSObject {
         )
         return makeDestinationMenu(title: menu.title, presentation: presentation, showShortcutHints: showShortcutHints,
                                    isSource: { presentedSpace in
-                                       targets.count > 1
-                                           ? targets.allSatisfy { WindowSpaces.sourceSpaceIDs(for: $0).contains(presentedSpace.id) }
-                                           : sourceSpaceIDs.contains(presentedSpace.id)
+                                       if targets.count == 1, let target = targets.first,
+                                          PreviewWindowIdentity(target) == PreviewWindowIdentity(window)
+                                       { return sourceSpaceIDs.contains(presentedSpace.id) }
+                                       return !targets.isEmpty && targets.allSatisfy { WindowSpaces.sourceSpaceIDs(for: $0).contains(presentedSpace.id) }
                                    }, select: { [weak self] presentedSpace in
                                        self?.moveWindow(MoveRequest(window: window, destination: presentedSpace.destination,
                                                                     dismissPreviews: dismissPreviews, usesCheckedSelection: showShortcutHints))

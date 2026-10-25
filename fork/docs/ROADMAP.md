@@ -284,3 +284,16 @@ Stage 1 is user-verified, reviewed and committed as 2a0ea222. Stage 2 scope/elig
 Stage 2 is user-verified, reviewed and committed as 6526da0f. Stage 3 displayed names, scope-aware menu/Space titles, traffic-light help, app-header wording and brief feedback separation are implemented pending final build/manual verification and review/commit. Stored identifiers, scripting interfaces and action execution remain unchanged. No release/push.
 
 Stage 3 is user-verified and approved for commit after final review. The three-stage implementation is complete: terminal dismissal/session cleanup, shared action scope/eligibility and scope-aware names/help with short feedback. Automated suites and exhaustive layout/localization coverage remain deliberately unrun. No release or publication is included; the next ledger update must record this stage's exact commit hash.
+
+## Space-Pill Window Actions and Shortcuts (October 25, 2026)
+
+Approved, separately gated stages:
+1. Share cached fullscreen capability restrictions across regular/More menus and batch resolution. Preserve valid mixed-selection peers and fullscreen exit. Implemented; build and manual verification pending.
+2. Add applicable resident-window/app actions below existing Space-content actions. Auto Tile is direct; omit Arrange. Target ordered cached residents independently of search/checks and tile on the source Space/display.
+3. Route actions to the highlighted/menu-pinned Space before window navigation. Fill/Maximize/Center and original app-wide Close All/Minimize All remain shortcut-only. Preserve effective modifiers, repeat suppression and empty-grid sessions.
+
+No new settings, discovery, live AX preflight, scripting interface changes or release work. Automated suites remain unrun unless separately authorized. Each stage requires a development build, manual verification and review before commit/continuation.
+
+Stage 1 validation: signed Debug build `DockFork-2b03dcd-working-x6pY2T` completed and launched at `fork/dist/dev/DockFork.app`. Installed signature, executable/debug-library equality and exact working-source patch were verified. Formatter/diff and four fixture syntax checks pass; automated suites unrun. Manual verification remains the gate before review/commit and Stage 2.
+
+Stage 1 sign-off: user verified fullscreen/mixed-selection behavior. Final source review found no blocking issue; the shared cached filter preserves app-wide expansion, explicit invalid single-action feedback and eligible peer movement without new AX reads. Commit approved. Stage 2 follows separately.

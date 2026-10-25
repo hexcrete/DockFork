@@ -73,6 +73,7 @@ struct WindowInfo { enum WindowPositionRect: Equatable { case test }; let id: UI
 enum WindowAction { case bringToCurrentSpace, maximize, center, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, openNewWindow, quit, forceQuit, none, toggleWindowSelection, selectAllWindows, openAppWindow, close, closeAllWindows, minimize, minimizeAllWindows, hide, toggleFullScreen, autoTileSelectedWindows
  /* Action names */
  /* Shared target eligibility */
+ var positionRect: WindowInfo.WindowPositionRect? { [.center,.maximize,.fillLeftHalf,.fillRightHalf,.fillTopHalf,.fillBottomHalf,.fillTopLeftQuarter,.fillTopRightQuarter,.fillBottomLeftQuarter,.fillBottomRightQuarter].contains(self) ? .test : nil }
  func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> Int? { self == .autoTileSelectedWindows ? 0 : nil }
  func menuTitle(for w: WindowInfo, batchTargets: [WindowInfo]?) -> String {
   switch self { case .close: "Close Window"; case .closeAllWindows: "Close All Windows"; case .minimizeAllWindows: "Minimize All Windows"; default: "Other Action" }

@@ -250,6 +250,9 @@ extension WindowAction {
     }
 
     func isSupported(for window: WindowInfo) -> Bool {
+        if window.isFullscreen == true,
+           positionRect != nil || [.minimize, .minimizeAllWindows, .autoTileSelectedWindows, .bringToCurrentSpace].contains(self)
+        { return false }
         guard window.isWineWindow else { return true }
         switch self {
         case .quit, .forceQuit, .hide, .bringToCurrentSpace, .openAppWindow,
@@ -304,7 +307,6 @@ extension WindowAction {
         }
         var seen = Set<PreviewWindowIdentity>()
         targets = targets.filter { isSupported(for: $0) && seen.insert(PreviewWindowIdentity($0)).inserted }
-        if self == .minimize || self == .minimizeAllWindows { targets.removeAll { $0.isFullscreen == true } }
         if self == .toggleFullScreen, !allowFullscreenEntry || targets.count > 1 { targets.removeAll { $0.isFullscreen != true } }
         if self == .hide {
             let eligibleApps = Set(batchTargets(from: targets).map(\.app.processIdentifier))
@@ -412,6 +414,8 @@ extension WindowAction {
             return true
         case .close:
             return window.closeButton != nil
+        case .hide:
+            return !batchTargets(from: [window]).isEmpty
         case .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
              .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
              .center, .maximize, .toggleFullScreen:

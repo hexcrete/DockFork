@@ -555,6 +555,20 @@ final class WindowActionMenuBuilder: NSObject {
             menu.addItem(item)
         }
         guard allowsSpaceMoving, !window.isWindowlessApp else { return }
+        let selected = WindowAction.bringToCurrentSpace.selectedPreviewTargets(for: window, from: batchTargets)
+        let targets = WindowAction.bringToCurrentSpace.previewTargets(from: selected ?? [window])
+        let spaceMenu = SpaceMoveMenuController.shared.makeMenu(
+            for: window, dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints
+        )
+        if targets.isEmpty {
+            if actionRequest(for: .toggleFullScreen, in: menu) == nil {
+                for item in spaceMenu.items {
+                    spaceMenu.removeItem(item)
+                    menu.addItem(item)
+                }
+            }
+            return
+        }
         let moveItem = NSMenuItem(
             title: WindowAction.spaceMoveMenuTitle(for: window, batchTargets: batchTargets),
             action: nil,
@@ -565,11 +579,7 @@ final class WindowActionMenuBuilder: NSObject {
             accessibilityDescription: nil
         )
         forceImageVisibility(for: moveItem)
-        moveItem.submenu = SpaceMoveMenuController.shared.makeMenu(
-            for: window,
-            dismissPreviews: dismissPreviews,
-            showShortcutHints: showShortcutHints
-        )
+        moveItem.submenu = spaceMenu
         menu.addItem(moveItem)
     }
 
