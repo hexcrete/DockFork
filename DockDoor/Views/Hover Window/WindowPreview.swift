@@ -207,14 +207,19 @@ final class SpaceMoveMenuController: NSObject {
     }
 
     func makeMenu(for window: WindowInfo, dismissPreviews: (() -> Void)?, showShortcutHints: Bool = true) -> NSMenu {
-        let menu = NSMenu(title: String(localized: "Move to Space", comment: "Space destination menu title"))
         let displays = WindowSpaces.managedDisplays(includeOwners: true)
         let sourceValidation = WindowSpaces.validateMoveSource(window, in: displays)
         let sourceSpaceIDs = WindowSpaces.sourceSpaceIDs(for: window)
-        let targets = showShortcutHints ? SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(for: window) ?? [window] : [window]
+        let selected = showShortcutHints ? SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(for: window) : nil
+        let targets = selected ?? [window]
+        let menu = NSMenu(title: WindowAction.spaceMoveMenuTitle(for: window, batchTargets: selected))
 
         if sourceValidation == .fullscreen {
-            return makeFullscreenExitMenu { [weak self] in self?.exitFullScreen(window, usesCheckedSelection: showShortcutHints) }
+            let exitsSelection = selected?.contains { WindowAction.toggleFullScreen.isSupported(for: $0) && $0.isFullscreen == true } == true
+            let title = exitsSelection ? WindowAction.toggleFullScreen.menuTitle(for: window, batchTargets: selected) : String(localized: "Exit Full Screen")
+            return makeFullscreenExitMenu(title: title) {
+                [weak self] in self?.exitFullScreen(window, usesCheckedSelection: showShortcutHints)
+            }
         }
 
         if sourceValidation == .multipleDesktopSpaces {
@@ -321,9 +326,9 @@ final class SpaceMoveMenuController: NSObject {
         return menu
     }
 
-    private func makeFullscreenExitMenu(_ action: @escaping () -> Void) -> NSMenu {
+    private func makeFullscreenExitMenu(title: String = String(localized: "Exit Full Screen"), _ action: @escaping () -> Void) -> NSMenu {
         let menu = NSMenu()
-        let item = NSMenuItem(title: String(localized: "Exit Full Screen"), action: #selector(selectDestination(_:)), keyEquivalent: "")
+        let item = NSMenuItem(title: title, action: #selector(selectDestination(_:)), keyEquivalent: "")
         item.target = self
         item.image = NSImage(systemSymbolName: "arrow.down.right.and.arrow.up.left", accessibilityDescription: nil)
         WindowActionMenuBuilder.shared.forceImageVisibility(for: item)
@@ -1176,7 +1181,8 @@ extension TrafficLightButtons {
         pillStyling: Bool? = nil,
         mockPreviewActive: Bool,
         enabledButtons: Set<WindowAction>,
-        backgroundAppearance: BackgroundAppearance
+        backgroundAppearance: BackgroundAppearance,
+        windowInfo: WindowInfo? = nil
     ) {
         self.init(
             displayMode: appearance.trafficLightVisibility,
@@ -1187,7 +1193,8 @@ extension TrafficLightButtons {
             enabledButtons: enabledButtons,
             useMonochrome: appearance.useMonochromeTrafficLights,
             buttonScale: appearance.trafficLightButtonScale,
-            backgroundAppearance: backgroundAppearance
+            backgroundAppearance: backgroundAppearance,
+            windowInfo: windowInfo
         )
     }
 }
@@ -1926,7 +1933,7 @@ struct WindowPreview: View, Equatable {
                         onWindowAction: handleWindowAction,
                         mockPreviewActive: mockPreviewActive,
                         enabledButtons: stage.visibleActions(in: effectiveTrafficLightButtons),
-                        backgroundAppearance: backgroundAppearance
+                        backgroundAppearance: backgroundAppearance, windowInfo: windowInfo
                     )
                 } replacement: {
                     overflowButton(stage: stage)
@@ -2090,7 +2097,7 @@ struct WindowPreview: View, Equatable {
                         onWindowAction: handleWindowAction,
                         mockPreviewActive: mockPreviewActive,
                         enabledButtons: stage.visibleActions(in: effectiveTrafficLightButtons),
-                        backgroundAppearance: backgroundAppearance
+                        backgroundAppearance: backgroundAppearance, windowInfo: windowInfo
                     )
                 } replacement: {
                     overflowButton(stage: stage)

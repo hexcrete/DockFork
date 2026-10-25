@@ -20,44 +20,51 @@ struct TrafficLightButtons: View {
     let useMonochrome: Bool
     var buttonScale: CGFloat = 1.0
     let backgroundAppearance: BackgroundAppearance
+    var windowInfo: WindowInfo? = nil
     @State private var isHovering = false
 
     var body: some View {
+        let selectedTargets = !mockPreviewActive && (hoveringOverParentWindow || isHovering)
+            ? windowInfo.flatMap { SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.checkedActionTargets(for: $0, includingWindowlessApps: true) }
+            : nil
         Group {
             if displayMode != .never {
                 HStack(spacing: Self.buttonSpacing) {
                     ForEach(Self.actionOrder.filter(enabledButtons.contains), id: \.self) { action in
-                        switch action {
-                        case .quit:
-                            buttonFor(action: .quit, symbol: "power",
-                                      color: Color(red: 0.29, green: 0.01, blue: 0.10),
-                                      fillColor: Color(red: 0.88, green: 0.22, blue: 0.42))
-                        case .close:
-                            buttonFor(action: .close, symbol: "xmark",
-                                      color: Color(red: 0.49, green: 0.02, blue: 0.04),
-                                      fillColor: Color(red: 1.00, green: 0.30, blue: 0.28))
-                        case .minimize:
-                            buttonFor(action: .minimize, symbol: "minus",
-                                      color: Color(red: 0.60, green: 0.34, blue: 0.07),
-                                      fillColor: Color(red: 1.00, green: 0.80, blue: 0.20))
-                        case .toggleFullScreen:
-                            buttonFor(action: .toggleFullScreen, symbol: "arrow.up.left.and.arrow.down.right",
-                                      color: Color(red: 0.05, green: 0.40, blue: 0.05),
-                                      fillColor: Color(red: 0.26, green: 0.84, blue: 0.36))
-                        case .maximize:
-                            buttonFor(action: .maximize, symbol: "arrow.up.to.line",
-                                      color: Color(red: 0.07, green: 0.22, blue: 0.32),
-                                      fillColor: Color(red: 0.25, green: 0.52, blue: 0.72))
-                        case .bringToCurrentSpace:
-                            buttonFor(action: .bringToCurrentSpace, symbol: "arrow.right",
-                                      color: Color(red: 0.02, green: 0.24, blue: 0.32),
-                                      fillColor: Color(red: 0.08, green: 0.62, blue: 0.86))
-                        case .openNewWindow:
-                            buttonFor(action: .openNewWindow, symbol: "plus",
-                                      color: Color(red: 0.04, green: 0.16, blue: 0.40),
-                                      fillColor: Color(red: 0.42, green: 0.60, blue: 0.98))
-                        default: EmptyView()
+                        Group {
+                            switch action {
+                            case .quit:
+                                buttonFor(action: .quit, symbol: "power",
+                                          color: Color(red: 0.29, green: 0.01, blue: 0.10),
+                                          fillColor: Color(red: 0.88, green: 0.22, blue: 0.42))
+                            case .close:
+                                buttonFor(action: .close, symbol: "xmark",
+                                          color: Color(red: 0.49, green: 0.02, blue: 0.04),
+                                          fillColor: Color(red: 1.00, green: 0.30, blue: 0.28))
+                            case .minimize:
+                                buttonFor(action: .minimize, symbol: "minus",
+                                          color: Color(red: 0.60, green: 0.34, blue: 0.07),
+                                          fillColor: Color(red: 1.00, green: 0.80, blue: 0.20))
+                            case .toggleFullScreen:
+                                buttonFor(action: .toggleFullScreen, symbol: "arrow.up.left.and.arrow.down.right",
+                                          color: Color(red: 0.05, green: 0.40, blue: 0.05),
+                                          fillColor: Color(red: 0.26, green: 0.84, blue: 0.36))
+                            case .maximize:
+                                buttonFor(action: .maximize, symbol: "arrow.up.to.line",
+                                          color: Color(red: 0.07, green: 0.22, blue: 0.32),
+                                          fillColor: Color(red: 0.25, green: 0.52, blue: 0.72))
+                            case .bringToCurrentSpace:
+                                buttonFor(action: .bringToCurrentSpace, symbol: "arrow.right",
+                                          color: Color(red: 0.02, green: 0.24, blue: 0.32),
+                                          fillColor: Color(red: 0.08, green: 0.62, blue: 0.86))
+                            case .openNewWindow:
+                                buttonFor(action: .openNewWindow, symbol: "plus",
+                                          color: Color(red: 0.04, green: 0.16, blue: 0.40),
+                                          fillColor: Color(red: 0.42, green: 0.60, blue: 0.98))
+                            default: EmptyView()
+                            }
                         }
+                        .help(windowInfo.map { action.menuTitle(for: $0, batchTargets: selectedTargets) } ?? action.localizedName)
                     }
                 }
                 .padding(Self.contentPadding)

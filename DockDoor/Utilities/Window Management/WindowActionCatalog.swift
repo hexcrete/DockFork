@@ -444,44 +444,105 @@ extension WindowAction {
             return batchTargetState(for: batchTargets ?? [window]) == false
                 ? String(localized: "Un-minimize") : String(localized: "Minimize")
         }
-        if let batchTargets, batchTargets.count > 1 {
-            switch self {
-            case .hide:
-                return batchTargetState(for: batchTargets) == false
-                    ? String(localized: "Unhide App") : String(localized: "Hide App")
-            case .toggleFullScreen:
-                return batchTargets.contains { $0.isFullscreen == true }
-                    ? String(localized: "Exit Full Screen") : String(localized: "Enter Full Screen")
-            default: break
-            }
+        if self == .hide {
+            return batchTargetState(for: batchTargets ?? [window]) == false
+                ? String(localized: "Unhide App") : String(localized: "Hide App")
         }
-        return menuTitle(for: window, batchTargets: batchTargets)
+        if self == .toggleFullScreen {
+            return (batchTargets ?? [window]).contains { isSupported(for: $0) && $0.isFullscreen == true }
+                ? String(localized: "Exit Full Screen") : String(localized: "Enter Full Screen")
+        }
+        if self == .openAppWindow, window.isWindowlessApp { return String(localized: "Activate App") }
+        return localizedName
     }
 
     func menuTitle(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> String {
         if self == .toggleWindowSelection {
             return batchTargets == nil ? String(localized: "Add to Selection") : String(localized: "Remove from Selection")
         }
-        if self == .autoTileSelectedWindows {
-            return (batchTargets?.count ?? 0) > 1 ? localizedName : String(localized: "Auto Tile Window")
+        let hasSelection = batchTargets?.contains { PreviewWindowIdentity($0) == PreviewWindowIdentity(window) } == true
+        if self == .openAppWindow {
+            if window.isWindowlessApp { return String(localized: "Activate App") }
+            return hasSelection ? String(localized: "Open Window (This Window)") : localizedName
         }
-        if let batchTargets, batchTargets.count > 1 {
+        let selected = selectedPreviewTargets(for: window, from: batchTargets)
+        if self == .toggleFullScreen, selected == nil {
+            if window.isFullscreen == true { return String(localized: "Exit Full Screen") }
+            return hasSelection ? String(localized: "Enter Full Screen (This Window)") : String(localized: "Enter Full Screen")
+        }
+        if let selected {
+            let targets = previewTargets(from: selected, allowFullscreenEntry: false)
+            let singleWindow = targets.count == 1
+            let singleApp = Set(targets.map(\.app.processIdentifier)).count == 1
+            if self != .autoTileSelectedWindows,
+               autoTilingDirection(windowCount: selected.filter { appliesToSelectedWindow($0) }.count,
+                                   fillActionsAutoTile: Defaults[.fillActionsAutoTileSelection]) != nil
+            {
+                return singleWindow
+                    ? String(localized: "Auto Tile Selected Window (\(localizedName))")
+                    : String(localized: "Auto Tile Selected Windows (\(localizedName))")
+            }
             switch self {
+            case .close:
+                return singleWindow ? String(localized: "Close Selected Window") : String(localized: "Close Selected Windows")
             case .minimize:
-                return batchTargetState(for: batchTargets) == false
-                    ? String(localized: "Un-minimize Selected Windows") : String(localized: "Minimize Selected Windows")
+                if batchTargetState(for: selected) == false {
+                    return singleWindow ? String(localized: "Un-minimize Selected Window") : String(localized: "Un-minimize Selected Windows")
+                }
+                return singleWindow ? String(localized: "Minimize Selected Window") : String(localized: "Minimize Selected Windows")
             case .hide:
-                return batchTargetState(for: batchTargets) == false
-                    ? String(localized: "Unhide Selected Apps") : String(localized: "Hide Selected Apps")
+                if batchTargetState(for: selected) == false {
+                    return singleApp ? String(localized: "Unhide Selected App") : String(localized: "Unhide Selected Apps")
+                }
+                return singleApp ? String(localized: "Hide Selected App") : String(localized: "Hide Selected Apps")
+            case .quit:
+                return singleApp ? String(localized: "Quit Selected App") : String(localized: "Quit Selected Apps")
+            case .forceQuit:
+                return singleApp ? String(localized: "Force Quit Selected App") : String(localized: "Force Quit Selected Apps")
+            case .openNewWindow:
+                return singleApp ? String(localized: "Open New Window for Selected App") : String(localized: "Open New Window for Selected Apps")
+            case .closeAllWindows:
+                return singleApp ? String(localized: "Close All Windows of Selected App") : String(localized: "Close All Windows of Selected Apps")
+            case .minimizeAllWindows:
+                if batchTargetState(for: selected) == false {
+                    return singleApp ? String(localized: "Un-minimize All Windows of Selected App") : String(localized: "Un-minimize All Windows of Selected Apps")
+                }
+                return singleApp ? String(localized: "Minimize All Windows of Selected App") : String(localized: "Minimize All Windows of Selected Apps")
             case .toggleFullScreen:
-                return batchTargets.contains { $0.isFullscreen == true }
-                    ? String(localized: "Exit Full Screen for Selected Windows") : String(localized: "Enter Full Screen (This Window)")
+                return singleWindow ? String(localized: "Exit Full Screen for Selected Window") : String(localized: "Exit Full Screen for Selected Windows")
+            case .maximize:
+                return singleWindow ? String(localized: "Maximize Selected Window") : String(localized: "Maximize Selected Windows")
+            case .center:
+                return singleWindow ? String(localized: "Center Selected Window") : String(localized: "Center Selected Windows")
+            case .autoTileSelectedWindows:
+                return singleWindow ? String(localized: "Auto Tile Selected Window") : String(localized: "Auto Tile Selected Windows")
+            case .bringToCurrentSpace:
+                return singleWindow ? String(localized: "Bring Selected Window to Current Space") : String(localized: "Bring Selected Windows to Current Space")
+            case .fillLeftHalf:
+                return singleWindow ? String(localized: "Fill Left Half for Selected Window") : String(localized: "Fill Left Half for Selected Windows")
+            case .fillRightHalf:
+                return singleWindow ? String(localized: "Fill Right Half for Selected Window") : String(localized: "Fill Right Half for Selected Windows")
+            case .fillTopHalf:
+                return singleWindow ? String(localized: "Fill Top Half for Selected Window") : String(localized: "Fill Top Half for Selected Windows")
+            case .fillBottomHalf:
+                return singleWindow ? String(localized: "Fill Bottom Half for Selected Window") : String(localized: "Fill Bottom Half for Selected Windows")
+            case .fillTopLeftQuarter:
+                return singleWindow ? String(localized: "Fill Top Left for Selected Window") : String(localized: "Fill Top Left for Selected Windows")
+            case .fillTopRightQuarter:
+                return singleWindow ? String(localized: "Fill Top Right for Selected Window") : String(localized: "Fill Top Right for Selected Windows")
+            case .fillBottomLeftQuarter:
+                return singleWindow ? String(localized: "Fill Bottom Left for Selected Window") : String(localized: "Fill Bottom Left for Selected Windows")
+            case .fillBottomRightQuarter:
+                return singleWindow ? String(localized: "Fill Bottom Right for Selected Window") : String(localized: "Fill Bottom Right for Selected Windows")
             default: break
             }
         }
+        if self == .autoTileSelectedWindows { return String(localized: "Auto Tile Window") }
         return switch self {
         case .minimize where window.isMinimized:
             String(localized: "Un-minimize", comment: "Window action for an already minimized window")
+        case .minimizeAllWindows where batchTargetState(for: [window]) == false:
+            String(localized: "Un-minimize All Windows")
         case .hide where window.isHidden:
             String(localized: "Unhide App", comment: "Window action for an already hidden app")
         default:
@@ -489,12 +550,20 @@ extension WindowAction {
         }
     }
 
+    static func spaceMoveMenuTitle(for window: WindowInfo, batchTargets: [WindowInfo]?) -> String {
+        guard let selected = bringToCurrentSpace.selectedPreviewTargets(for: window, from: batchTargets) else {
+            return String(localized: "Move to Space", comment: "Space destination menu title")
+        }
+        return bringToCurrentSpace.previewTargets(from: selected).count == 1
+            ? String(localized: "Move Selected Window to Space") : String(localized: "Move Selected Windows to Space")
+    }
+
     func menuIcon(for window: WindowInfo, batchTargets: [WindowInfo]? = nil) -> String {
         if self == .minimize || self == .minimizeAllWindows {
             return batchTargetState(for: batchTargets ?? [window]) == false ? "arrow.up.left.and.arrow.down.right.square" : iconName
         }
-        if let batchTargets, batchTargets.count > 1 {
-            if self == .hide { return batchTargetState(for: batchTargets) == false ? "eye" : iconName }
+        if let selected = selectedPreviewTargets(for: window, from: batchTargets) {
+            if self == .hide { return batchTargetState(for: selected) == false ? "eye" : iconName }
         }
         return switch self {
         case .hide where window.isHidden:

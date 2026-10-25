@@ -280,3 +280,7 @@ Three manually gated stages, with no release/push or subagents:
 Automated suites remain unrun unless separately authorized. After each stage, build/relaunch the signed development app, obtain manual verification, then review/commit before continuing.
 
 Stage 1 is user-verified, reviewed and committed as 2a0ea222. Stage 2 scope/eligibility is implemented pending final build/manual verification and review/commit. The action audit matches the approved scope table; initiating-only Open and unchecked Auto Tile behavior are corrected, and regular/More menus share cached group availability. Names, tooltips and short-feedback separation remain Stage 3, not started.
+
+Stage 2 is user-verified, reviewed and committed as 6526da0f. Stage 3 displayed names, scope-aware menu/Space titles, traffic-light help, app-header wording and brief feedback separation are implemented pending final build/manual verification and review/commit. Stored identifiers, scripting interfaces and action execution remain unchanged. No release/push.
+
+Stage 3 is user-verified and approved for commit after final review. The three-stage implementation is complete: terminal dismissal/session cleanup, shared action scope/eligibility and scope-aware names/help with short feedback. Automated suites and exhaustive layout/localization coverage remain deliberately unrun. No release or publication is included; the next ledger update must record this stage's exact commit hash.

@@ -1127,11 +1127,17 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func appHeaderActionButtons(glyphs: Bool) -> some View {
-        HStack(spacing: PreviewHeaderLayout.labelSpacing) {
-            PreviewHeaderActionButton(title: String(localized: "Close All"), symbol: WindowAction.closeAllWindows.iconName, glyphs: glyphs) {
+        let restores = previewStateCoordinator.windows.first.map { WindowAction.minimizeAllWindows.batchTargetState(for: [$0]) == false } ?? false
+        return HStack(spacing: PreviewHeaderLayout.labelSpacing) {
+            PreviewHeaderActionButton(title: String(localized: "Close All"), symbol: WindowAction.closeAllWindows.iconName, glyphs: glyphs,
+                                      helpTitle: String(localized: "Close All Windows for This App"))
+            {
                 handleAppHeaderAction(.closeAllWindows)
             }
-            PreviewHeaderActionButton(title: String(localized: "Minimize All"), symbol: WindowAction.minimizeAllWindows.iconName, glyphs: glyphs) {
+            PreviewHeaderActionButton(title: restores ? String(localized: "Un-minimize All") : String(localized: "Minimize All"),
+                                      symbol: WindowAction.minimizeAllWindows.iconName, glyphs: glyphs,
+                                      helpTitle: restores ? String(localized: "Un-minimize All Windows for This App") : String(localized: "Minimize All Windows for This App"))
+            {
                 handleAppHeaderAction(.minimizeAllWindows)
             }
         }
@@ -2538,6 +2544,7 @@ private struct PreviewHeaderActionButton: View {
     let title: String
     let symbol: String
     let glyphs: Bool
+    var helpTitle: String? = nil
     let action: () -> Void
 
     var body: some View {
@@ -2547,8 +2554,8 @@ private struct PreviewHeaderActionButton: View {
         }
         .font(.caption)
         .buttonStyle(AccentButtonStyle(small: true))
-        .help(title)
-        .accessibilityLabel(title)
+        .help(helpTitle ?? title)
+        .accessibilityLabel(helpTitle ?? title)
         .fixedSize()
     }
 }

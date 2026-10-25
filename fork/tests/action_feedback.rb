@@ -71,6 +71,7 @@ struct PreviewWindowIdentity: Hashable { let pid: Int32; let windowID: UInt32; i
 struct TestApp { let processIdentifier: Int32; let isHidden: Bool }
 struct WindowInfo { enum WindowPositionRect: Equatable { case test }; let id: UInt32; var pid: Int32 = 1; var isFullscreen: Bool? = false; var isMinimized = false; var isHidden = false; var isWindowlessApp = false; var isWineWindow = false; var app: TestApp { TestApp(processIdentifier: pid, isHidden: isHidden) } }
 enum WindowAction { case bringToCurrentSpace, maximize, center, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, openNewWindow, quit, forceQuit, none, toggleWindowSelection, selectAllWindows, openAppWindow, close, closeAllWindows, minimize, minimizeAllWindows, hide, toggleFullScreen, autoTileSelectedWindows
+ /* Action names */
  /* Shared target eligibility */
  func autoTilingDirection(windowCount: Int, fillActionsAutoTile: Bool) -> Int? { self == .autoTileSelectedWindows ? 0 : nil }
  func menuTitle(for w: WindowInfo, batchTargets: [WindowInfo]?) -> String {
@@ -136,7 +137,8 @@ stubs.sub!('/* Popup content */', source[source.index('    struct Content: Equat
 actions = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
 util_source = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowUtil.swift")
 stubs.sub!('/* Auto Tile eligibility */', util_source[util_source.index('    static func autoTileTargets(')...util_source.index("    @MainActor\n    static func tilePreviewWindows(")])
-stubs.sub!('/* Shared target eligibility */', block(actions, '    enum TargetScope:') + "\n" + block(actions, '    var targetScope:') + "\n" + actions[actions.index('    func isSupported(')...actions.index('    func usesConfirmedSingleWindowAction(')] + actions[actions.index('    func appliesToSelectedWindow(')...actions.index('    func batchTargets(')])
+stubs.sub!('/* Action names */', block(util_source[util_source.index('    // Existing actions')..], '    var localizedName:'))
+stubs.sub!('/* Shared target eligibility */', block(actions, '    enum TargetScope:') + "\n" + block(actions, '    var targetScope:') + "\n" + block(actions, '    func selectedPreviewTargets(') + "\n" + actions[actions.index('    func isSupported(')...actions.index('    func usesConfirmedSingleWindowAction(')] + actions[actions.index('    func appliesToSelectedWindow(')...actions.index('    func batchTargets(')])
 stubs.sub!('/* Shared batch targets */', actions[actions.index('    func batchTargets(')...actions.index('    func batchTargetState(')] + actions[actions.index('    var isAppWidePreviewAction:')...actions.index('    enum Group:')])
 stubs << actions[actions.index('enum PreviewBatchTogglePolicy {')...actions.index('struct WindowActionGroup:')]
 stubs.sub!('/* Batch target state */', actions[actions.index('    func batchTargetState(')...actions.index('    var isAppWidePreviewAction:')])

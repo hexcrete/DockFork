@@ -99,6 +99,7 @@ source.sub!('/* Action availability */', block(catalog, '    func isAvailable(fo
 source.sub!('/* Auto Tile policy */', block(catalog, '    func autoTilingDirection(').sub('PreviewTilingLayout.Direction?', 'Int?'))
 source += block(catalog, '    func batchTargetState(') + "\n"
 source += block(catalog, '    func menuTitle(') + "\n" + block(catalog, '    func feedbackTitle(') + "\n"
+source += block(catalog, '    static func spaceMoveMenuTitle(') + "\n"
 source += <<~'SWIFT'
  enum ActionResult { case noChange, dismissed }
  func perform(on window: WindowInfo, keepPreviewOnQuit: Bool = false, preferredWindows: [WindowInfo]? = nil, feedback: ActionFeedbackHandle? = nil) -> ActionResult {
@@ -185,6 +186,26 @@ source += <<~'SWIFT'
   precondition(WindowAction.toggleFullScreen.isAvailable(for: wine, batchTargets: [wine, full]))
   precondition(WindowAction.openNewWindow.targetScope == .selectedApps && WindowAction.closeAllWindows.targetScope == .allWindowsOfSelectedApps)
   precondition(WindowAction.openNewWindow.batchTargets(from: [normal, full]).map(\.id) == [normal.id], "New Window must remain one request per app")
+  precondition(WindowAction.openAppWindow.localizedName == "Open Window")
+  precondition(WindowAction.openAppWindow.menuTitle(for: normal) == "Open Window")
+  precondition(WindowAction.openAppWindow.menuTitle(for: normal, batchTargets: [normal, full]) == "Open Window (This Window)")
+  precondition(WindowAction.openAppWindow.menuTitle(for: emptySource, batchTargets: [emptySource, normal]) == "Activate App")
+  precondition(WindowAction.close.menuTitle(for: normal, batchTargets: [normal, full]) == "Close Selected Windows")
+  precondition(WindowAction.quit.menuTitle(for: normal, batchTargets: [normal, full]) == "Quit Selected App")
+  precondition(WindowAction.quit.menuTitle(for: normal, batchTargets: [normal, wine]) == "Quit Selected Apps")
+  precondition(WindowAction.forceQuit.menuTitle(for: normal, batchTargets: [normal, full]) == "Force Quit Selected App")
+  precondition(WindowAction.openNewWindow.menuTitle(for: normal, batchTargets: [normal, full]) == "Open New Window for Selected App")
+  precondition(WindowAction.closeAllWindows.menuTitle(for: normal, batchTargets: [normal, full]) == "Close All Windows of Selected App")
+  precondition(WindowAction.toggleFullScreen.menuTitle(for: normal, batchTargets: [normal, wine]) == "Enter Full Screen (This Window)")
+  precondition(WindowAction.toggleFullScreen.menuTitle(for: normal, batchTargets: [normal, full]) == "Exit Full Screen for Selected Window")
+  precondition(WindowAction.spaceMoveMenuTitle(for: normal, batchTargets: [normal, full]) == "Move Selected Windows to Space")
+  precondition(WindowAction.spaceMoveMenuTitle(for: normal, batchTargets: nil) == "Move to Space")
+  precondition(WindowAction.quit.feedbackTitle(for: normal, batchTargets: [normal, wine]) == "Quit App")
+  precondition(WindowAction.close.feedbackTitle(for: normal, batchTargets: [normal, full]) == "Close")
+  precondition(WindowAction.fillLeftHalf.menuTitle(for: normal, batchTargets: [normal, wine]) == "Fill Left Half for Selected Windows")
+  Defaults.autoFill = true
+  precondition(WindowAction.fillLeftHalf.menuTitle(for: normal, batchTargets: [normal, wine]) == "Auto Tile Selected Windows (Fill Left Half)")
+  Defaults.autoFill = false
   let unsupportedWineActions: [WindowAction] = [.close, .closeAllWindows, .minimize, .minimizeAllWindows, .toggleFullScreen, .openNewWindow]
   for action in unsupportedWineActions {
    precondition(!action.isSupported(for: wine) && action.isSupported(for: native))

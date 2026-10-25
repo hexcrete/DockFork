@@ -177,7 +177,7 @@ struct WindowPreviewCompact: View, Equatable {
                 onWindowAction: handleWindowAction,
                 mockPreviewActive: mockPreviewActive,
                 enabledButtons: stage.visibleActions(in: effectiveTrafficLightButtons),
-                backgroundAppearance: backgroundAppearance
+                backgroundAppearance: backgroundAppearance, windowInfo: windowInfo
             )
         }
     }

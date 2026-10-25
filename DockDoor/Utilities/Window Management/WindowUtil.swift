@@ -190,7 +190,7 @@ enum WindowAction: String, Hashable, CaseIterable, Defaults.Serializable {
         case .hide:
             String(localized: "Hide App", comment: "Window action")
         case .openAppWindow:
-            String(localized: "Open App Window", comment: "Window action")
+            String(localized: "Open Window", comment: "Reveal and focus an existing window; does not create a window")
         case .openNewWindow:
             String(localized: "Open New Window", comment: "Window action")
         case .closeAllWindows:

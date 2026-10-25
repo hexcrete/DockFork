@@ -473,7 +473,7 @@ final class WindowActionMenuBuilder: NSObject {
                 addSeparatorIfNeeded(to: menu)
                 addSpaceControls(for: window, spaceNumber: overflow.spaceNumber,
                                  allowsSpaceMoving: overflow.allowsSpaceMoving, to: menu,
-                                 dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints)
+                                 dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints, batchTargets: batchTargets)
             }
             return menu
         }
@@ -496,7 +496,7 @@ final class WindowActionMenuBuilder: NSObject {
         if !window.isWindowlessApp {
             addSeparatorIfNeeded(to: menu)
             addSpaceControls(for: window, spaceNumber: window.spaceNumber, allowsSpaceMoving: true,
-                             to: menu, dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints)
+                             to: menu, dismissPreviews: dismissPreviews, showShortcutHints: showShortcutHints, batchTargets: batchTargets)
             if let actions = groups.first(where: { $0.id == .arrange })?.actions {
                 let arrangeItem = NSMenuItem(
                     title: WindowAction.Group.arrange.localizedName,
@@ -542,7 +542,7 @@ final class WindowActionMenuBuilder: NSObject {
     }
 
     private func addSpaceControls(for window: WindowInfo, spaceNumber: Int?, allowsSpaceMoving: Bool,
-                                  to menu: NSMenu, dismissPreviews: (() -> Void)?, showShortcutHints: Bool)
+                                  to menu: NSMenu, dismissPreviews: (() -> Void)?, showShortcutHints: Bool, batchTargets: [WindowInfo]?)
     {
         if let spaceNumber {
             let item = NSMenuItem(title: String(localized: "Space \(spaceNumber)"), action: nil, keyEquivalent: "")
@@ -556,7 +556,7 @@ final class WindowActionMenuBuilder: NSObject {
         }
         guard allowsSpaceMoving, !window.isWindowlessApp else { return }
         let moveItem = NSMenuItem(
-            title: String(localized: "Move to Space", comment: "Space destination submenu title"),
+            title: WindowAction.spaceMoveMenuTitle(for: window, batchTargets: batchTargets),
             action: nil,
             keyEquivalent: ""
         )
