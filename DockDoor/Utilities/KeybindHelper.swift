@@ -775,6 +775,9 @@ class KeybindHelper {
 
     init(previewCoordinator: SharedPreviewWindowCoordinator) {
         self.previewCoordinator = previewCoordinator
+        previewCoordinator.onSwitcherSessionDismissal = { [weak self] in
+            self?.cancelWindowSwitcherSession()
+        }
         previewCoordinator.windowSwitcherCoordinator.onSelectionPinned = { [weak self] in
             self?.windowSwitchingCoordinator.takeKeyboardOwnership()
         }
@@ -879,13 +882,18 @@ class KeybindHelper {
     }
 
     @MainActor
-    func dismissPreviewsForSpaceChange() {
+    func dismissPreviews() {
+        cancelWindowSwitcherSession()
+        previewCoordinator.hideWindow()
+    }
+
+    @MainActor
+    private func cancelWindowSwitcherSession() {
         switcherSessionActive = false
         cancelHeldKeyRepeatTask()
         windowSwitchingCoordinator.cancelSwitching(previewCoordinator: previewCoordinator)
         preventSwitcherHideOnRelease = false
         hasProcessedModifierRelease = true
-        previewCoordinator.hideWindow()
     }
 
     private func cleanup() {
@@ -2313,7 +2321,7 @@ class KeybindHelper {
                 cmdTabActionPerformed = true
             }
             if previewCoordinator.performCheckedSpaceMove(selectedWindow, to: destination,
-                                                          dismissPreviews: { [weak self] in self?.dismissPreviewsForSpaceChange() }, keyboard: true)
+                                                          dismissPreviews: { [weak self] in self?.dismissPreviews() }, keyboard: true)
             { return }
             preventSwitcherHideOnRelease = true
             let feedback = ActionFeedbackController.space(spaceNumber, window: selectedWindow, keyboard: true)
@@ -2321,7 +2329,7 @@ class KeybindHelper {
                 selectedWindow,
                 to: destination,
                 dismissPreviews: { [weak self] in
-                    self?.dismissPreviewsForSpaceChange()
+                    self?.dismissPreviews()
                 },
                 feedback: feedback,
                 completion: { [weak self] success in
@@ -2354,7 +2362,7 @@ class KeybindHelper {
         }
 
         let feedback = ActionFeedbackController.space(spaceNumber, keyboard: true)
-        dismissPreviewsForSpaceChange()
+        dismissPreviews()
         WindowUtil.switchToManagedSpace(destination, feedback: feedback) { success in
             feedback?.finishRemaining(success ? .completed : .failed)
             if !success {

@@ -580,3 +580,89 @@ search_section = File.read("#{root}/DockDoor/Views/Settings/Gestures/WindowSwitc
 abort 'Search settings must share dependent modifier-side resolution and conflict warnings' unless search_section.include?('ignoreModifierSide: ignoreMainModifierSideForDependentShortcuts') && search_section.include?('Text(modifierConverter.toSymbol(searchShortcutKeybind))') && search_section.include?('if let conflict = searchShortcutConflict')
 search_route = keybinds[keybinds.index('keyCode == Int64(Defaults[.searchTriggerKey])')...keybinds.index('self.previewCoordinator.focusSearchWindow()', keybinds.index('keyCode == Int64(Defaults[.searchTriggerKey])'))]
 abort 'Search trigger must share runtime conflict policy and allow bare typing or the effective side-aware modifier' unless search_route.include?('WindowSwitcherShortcutResolver.searchTriggerConflict(previewKeybind: effectivePreviewShortcutKeybind()') && search_route.include?('normalizedModifiers(Int(flags.rawValue)) == 0 || modifierFlagsMatch(effectivePreviewShortcutKeybind(), flags: flags)')
+
+# Exercise the production terminal-hide prefix and session cancellation without native panels.
+panel_source = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
+terminal_hide = block(panel_source, '    func hideWindow(')
+abort 'Terminal hiding must end the active session before clearing UI state' unless terminal_hide.index('onSwitcherSessionDismissal?()') < terminal_hide.index('windowSwitcherCoordinator.pendingSpaceNavigation = nil')
+abort 'Panel dismissal must not cancel accepted mutations' if terminal_hide.include?('cancelPreviewBatchAction(') || terminal_hide.include?('previewActionTasks')
+abort 'Session cancellation callback must be weak and installed by the session owner' unless keybinds.include?('previewCoordinator.onSwitcherSessionDismissal = { [weak self] in')
+abort 'Remove the obsolete Space-only cancellation entry point' if keybinds.include?('dismissPreviewsForSpaceChange')
+%w[scheduleWindowClosureDismissConfirmation scheduleCloseAllDismissConfirmation scheduleNewWindowDismissConfirmation].each do |name|
+ watcher = block(panel_source, "    private func #{name}(")
+ abort "#{name} must recheck cancellation after discovery returns" unless watcher.include?("await WindowUtil.updateNewWindowsForApp(app)\n                guard shouldRunDeferredWatchers else { return }")
+end
+hide_prefix = terminal_hide.split('        windowSwitcherCoordinator.pendingSpaceNavigation = nil', 2).first + "        isVisible = false\n    }\n"
+lifecycle_source = <<~'SWIFT'
+import Foundation
+@MainActor final class State {
+ var isKeybindSessionActive = true
+ var windowSwitcherActive = true
+ var fullWindowPreviewActive = false
+ func deactivateKeybindSession() { isKeybindSessionActive = false }
+}
+@MainActor final class Pending { var cancelled = false; func cancel() { cancelled = true } }
+@MainActor final class Panel {
+ let windowSwitcherCoordinator = State()
+ var onSwitcherSessionDismissal: (@MainActor () -> Void)?
+ var isVisible = true
+SWIFT
+lifecycle_source += hide_prefix + block(panel_source, '    private var shouldRunDeferredWatchers: Bool').sub('private var', 'var') + "\n}\n"
+lifecycle_source += <<~'SWIFT'
+@MainActor final class Switcher {
+ var currentSessionId = UUID()
+ var shouldSelectImmediately = true
+ var windowRefreshTask: Pending? = Pending()
+ var uiRenderingTask: Pending? = Pending()
+ var activeLaunchSource: Int? = 1
+ func relinquishTrackpadSession() {}
+SWIFT
+lifecycle_source += block(keybinds, '    func cancelSwitching(').gsub('SharedPreviewWindowCoordinator', 'Panel') + "\n}\n"
+lifecycle_source += <<~'SWIFT'
+@MainActor final class Helper {
+ let previewCoordinator: Panel
+ let windowSwitchingCoordinator = Switcher()
+ var switcherSessionActive = true
+ var preventSwitcherHideOnRelease = true
+ var hasProcessedModifierRelease = false
+ var repeatCancelled = false
+ init(_ panel: Panel) { previewCoordinator = panel }
+ func cancelHeldKeyRepeatTask() { repeatCancelled = true }
+SWIFT
+lifecycle_source += block(keybinds, '    private func cancelWindowSwitcherSession(').sub('private func', 'func') + "\n}\n"
+lifecycle_source += <<~'SWIFT'
+@main struct SessionDismissalChecks {
+ @MainActor static func main() async {
+  let panel = Panel(), helper = Helper(Panel())
+  // Install on the helper's panel, as production initialization does.
+  let owned = helper.previewCoordinator
+  owned.onSwitcherSessionDismissal = { [weak helper] in helper?.cancelWindowSwitcherSession() }
+  let original = helper.windowSwitchingCoordinator.currentSessionId
+  owned.hideWindow()
+  precondition(!owned.isVisible && !owned.windowSwitcherCoordinator.isKeybindSessionActive)
+  precondition(!helper.switcherSessionActive && helper.repeatCancelled && helper.hasProcessedModifierRelease)
+  precondition(helper.windowSwitchingCoordinator.currentSessionId != original)
+  precondition(helper.windowSwitchingCoordinator.windowRefreshTask!.cancelled && helper.windowSwitchingCoordinator.uiRenderingTask!.cancelled)
+  let ended = helper.windowSwitchingCoordinator.currentSessionId
+  owned.hideWindow()
+  precondition(helper.windowSwitchingCoordinator.currentSessionId == ended, "Already-ended sessions must not be cancelled twice")
+  owned.isVisible = true; owned.windowSwitcherCoordinator.isKeybindSessionActive = true
+  owned.hideWindow()
+  precondition(!owned.windowSwitcherCoordinator.isKeybindSessionActive, "A reopened session must dismiss normally")
+  panel.hideWindow()
+  precondition(!panel.windowSwitcherCoordinator.isKeybindSessionActive, "Missing owners must still clear the session flag")
+  owned.isVisible = true
+  precondition(owned.shouldRunDeferredWatchers)
+  await Task { @MainActor in
+   withUnsafeCurrentTask { $0?.cancel() }
+   precondition(!owned.shouldRunDeferredWatchers, "Cancelled watchers cannot act on a reopened visible panel")
+  }.value
+  print("PASS production dismissal: session flags, queued rendering, idempotence, reopen, fallback and cancelled watchers")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-session-dismissal-') do |dir|
+ File.write("#{dir}/checks.swift", lifecycle_source)
+ abort 'Session dismissal compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Session dismissal checks failed' unless system("#{dir}/checks")
+end

@@ -345,7 +345,7 @@ struct WindowPreviewHoverContainer: View {
 
     @MainActor
     private var shouldRunDeferredWatchers: Bool {
-        hasAppeared
+        !Task.isCancelled && hasAppeared
     }
 
     @MainActor

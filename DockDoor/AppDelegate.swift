@@ -103,7 +103,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 previewCoordinator: currentPreviewCoordinator,
                 dismissPreviewsForSpaceChange: { [weak self, weak currentPreviewCoordinator] in
                     if let keybindHelper = self?.keybindHelper {
-                        keybindHelper.dismissPreviewsForSpaceChange()
+                        keybindHelper.dismissPreviews()
                     } else {
                         currentPreviewCoordinator?.windowSwitcherCoordinator.deactivateKeybindSession()
                         currentPreviewCoordinator?.hideWindow()
@@ -183,7 +183,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor
     func dismissPreviews() {
         if let keybindHelper {
-            keybindHelper.dismissPreviewsForSpaceChange()
+            keybindHelper.dismissPreviews()
         } else {
             previewCoordinator?.windowSwitcherCoordinator.deactivateKeybindSession()
             previewCoordinator?.hideWindow()

@@ -55,6 +55,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     let windowSwitcherCoordinator = PreviewStateCoordinator()
+    var onSwitcherSessionDismissal: (@MainActor () -> Void)?
     private let dockManager = DockAutoHideManager()
     private var searchWindow: SearchWindow?
     private var isPositioningCompanions = false
@@ -1014,6 +1015,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     func hideWindow(cancelPendingShow shouldCancelPendingShow: Bool = true) {
+        if windowSwitcherCoordinator.isKeybindSessionActive {
+            onSwitcherSessionDismissal?()
+            if windowSwitcherCoordinator.isKeybindSessionActive {
+                windowSwitcherCoordinator.deactivateKeybindSession()
+            }
+        }
         windowSwitcherCoordinator.pendingSpaceNavigation = nil
         externalDragTargetToken = nil
         ActionFeedbackController.existing?.previewWillDisappear(self)
@@ -1142,7 +1149,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     private var shouldRunDeferredWatchers: Bool {
-        isVisible || windowSwitcherCoordinator.windowSwitcherActive || windowSwitcherCoordinator.fullWindowPreviewActive
+        !Task.isCancelled && (isVisible || windowSwitcherCoordinator.windowSwitcherActive || windowSwitcherCoordinator.fullWindowPreviewActive)
     }
 
     @MainActor
@@ -2943,6 +2950,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 try? await Task.sleep(nanoseconds: delay)
                 guard shouldRunDeferredWatchers else { return }
                 await WindowUtil.updateNewWindowsForApp(app)
+                guard shouldRunDeferredWatchers else { return }
                 let cached = WindowUtil.readCachedWindows(for: pid)
                 let stillExists = cached.contains { $0.id == windowID && $0.app.processIdentifier == pid }
                 let stillVisible = windowSwitcherCoordinator.windows.contains { $0.id == windowID && $0.app.processIdentifier == pid }
@@ -2964,6 +2972,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 try? await Task.sleep(nanoseconds: delay)
                 guard shouldRunDeferredWatchers else { return }
                 await WindowUtil.updateNewWindowsForApp(app)
+                guard shouldRunDeferredWatchers else { return }
                 let cached = WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
                 let visibleNonWindowlessCount = windowSwitcherCoordinator.windows.filter { $0.app.processIdentifier == pid && !$0.isWindowlessApp }.count
                 if cached.isEmpty || visibleNonWindowlessCount == 0 {
@@ -2987,6 +2996,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                 try? await Task.sleep(nanoseconds: delay)
                 guard shouldRunDeferredWatchers else { return }
                 await WindowUtil.updateNewWindowsForApp(app)
+                guard shouldRunDeferredWatchers else { return }
                 let cached = WindowUtil.readCachedWindows(for: pid).filter { !$0.isWindowlessApp }
                 let currentIDs = Set(cached.map(\.id))
                 let hasNewWindow = !currentIDs.subtracting(previousWindowIDs).isEmpty

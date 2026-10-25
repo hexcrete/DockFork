@@ -469,3 +469,5 @@ Display-divider drop-zone regression: drag a Desktop from either side across a d
 Clear-filter glyph trial: compare numeric and named Space pills at small/large item sizes. The x symbol should use a native SF Symbol font at 1.3x the original size, without changing pill width or moving app icons. Check sharpness as well as size. Check clipping, clear clicks and the existing reveal/hide animation. Manual verification and media pending.
 
 The user verified the final 1.3x clear-filter glyph and approved commit. Exhaustive item-size/style/transition coverage and media capture remain pending.
+
+Stage 1 dismissal regression: perform Open App Window on a checked group, plus Close/Minimize/Hide/fullscreen/Space actions with keep-open settings as configured. Whenever the switcher closes, the very next keyboard/menu-bar/swipe invocation must work normally. Reopen promptly during unfinished operations and wait for old callbacks: the new session must not close unexpectedly. Include rejected actions, held/persistent sessions and Dock/Cmd+Tab. Scope/name changes are not included yet. Manual verification/media pending; destructive tests require disposable targets.

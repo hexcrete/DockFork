@@ -268,3 +268,13 @@ The menu-bar switcher toggle no longer relies on the 50 ms event-tap/local-monit
 - WindowUtil waits 300 ms between activation and requesting a new window. Characterize affected app behavior before replacing this activation-readiness assumption.
 
 These paths are unchanged. Hover/spring-load delays, key repeat/double-tap recognition, debounce/coalescing, feedback/animation durations and bounded OS-state confirmation retries serve different purposes and are not evidence of the same input-ownership race. This was a source-level scan, not an exhaustive runtime timing audit.
+
+## Consistent Action Scope and Switcher Dismissal
+
+Three manually gated stages, with no release/push or subagents:
+
+1. Terminal dismissal ends the switcher session through existing cancellation; cancelled UI watchers cannot affect a reopened panel. Implemented pending build/manual verification and review/commit. Accepted operations retain their independent lifetime.
+2. Centralize action scope/eligibility. Open Window becomes initiating-window-only; preserve selection/app-wide/fullscreen rules from the approved plan. Not started.
+3. Rename displayed Open App Window to Open Window, use Activate App for windowless placeholders, and clarify selected-window/app scope in menus and tooltips. Preserve brief feedback, stored action identifiers and scripting interfaces. Not started.
+
+Automated suites remain unrun unless separately authorized. After each stage, build/relaunch the signed development app, obtain manual verification, then review/commit before continuing.
