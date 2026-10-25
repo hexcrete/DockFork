@@ -240,7 +240,8 @@ source += <<~'SWIFT'
   precondition(WindowAction.closeAllWindows.menuTitle(for: normal, batchTargets: [normal, full]) == "Close All Windows of Selected App")
   precondition(WindowAction.toggleFullScreen.menuTitle(for: normal, batchTargets: [normal, wine]) == "Enter Full Screen (This Window)")
   precondition(WindowAction.toggleFullScreen.menuTitle(for: normal, batchTargets: [normal, full]) == "Exit Full Screen for Selected Window")
-  precondition(WindowAction.spaceMoveMenuTitle(for: normal, batchTargets: [normal, full]) == "Move Selected Windows to Space")
+  precondition(WindowAction.spaceMoveMenuTitle(for: normal, batchTargets: [normal, full]) == "Move Selected Window to Space", "Fullscreen peers do not inflate the eligible move count")
+  precondition(WindowAction.spaceMoveMenuTitle(for: normal, batchTargets: [normal, native]) == "Move Selected Windows to Space")
   precondition(WindowAction.spaceMoveMenuTitle(for: normal, batchTargets: nil) == "Move to Space")
   precondition(WindowAction.quit.feedbackTitle(for: normal, batchTargets: [normal, wine]) == "Quit App")
   precondition(WindowAction.close.feedbackTitle(for: normal, batchTargets: [normal, full]) == "Close")
@@ -270,6 +271,23 @@ source += <<~'SWIFT'
   precondition(WindowAction.minimizeAllWindows.previewTargets(from: [wine, native]).map(\.id) == [native.id])
   precondition(WindowAction.closeAllWindows.previewTargets(from: [wine, native]).map(\.id) == [native.id])
   precondition(WindowAction.minimize.batchTargetState(for: [wine, native]) == false)
+let toolbar=Set([WindowAction.quit,.close,.minimize,.toggleFullScreen,.maximize,.bringToCurrentSpace,.openNewWindow])
+for fullscreen:Bool? in [false,true,nil] {
+ for hidden in [false,true] {
+  var target=normal
+  target.isFullscreen=fullscreen
+  target.app.isHidden=hidden
+  let expected=fullscreen == true ? toolbar.subtracting([.minimize,.maximize,.bringToCurrentSpace]):toolbar
+  precondition(resolvedTrafficLightButtons(for:target,configuredButtons:toolbar,showWindowlessQuitButton:true)==expected,"Fullscreen toolbar must reuse cached support rules without changing ordinary/hidden controls")
+  target.hasLimitedWindowControls=true
+  precondition(resolvedTrafficLightButtons(for:target,configuredButtons:toolbar,showWindowlessQuitButton:true)==expected.intersection([.quit,.close]),"Limited controls must remain restricted after fullscreen filtering")
+  target.isWindowlessApp=true
+  precondition(resolvedTrafficLightButtons(for:target,configuredButtons:toolbar,showWindowlessQuitButton:true)==[.quit])
+  precondition(resolvedTrafficLightButtons(for:target,configuredButtons:toolbar,showWindowlessQuitButton:false).isEmpty)
+ }
+}
+normal.app.isHidden=false
+print("PASS shared fullscreen traffic lights: native/hidden/unknown states, limited/windowless restrictions and unchanged ordinary controls")
   let configured = Set([WindowAction.quit, .close, .hide, .minimize, .toggleFullScreen, .maximize, .bringToCurrentSpace])
   for hidden in [false, true] {
    wineApp.isHidden = hidden
@@ -382,7 +400,7 @@ let busyTile=await WindowUtil.performPreviewBatchAction(.autoTileSelectedWindows
 precondition(busyTile.succeeded.isEmpty && busyTile.failed==[PreviewWindowIdentity(capOne)],"Busy eligible targets must fail without refilling intentional capacity exclusions")
 protectedTile.finish()
 Defaults.autoFill=false;Defaults.limited=false;Defaults.rows=2;Defaults.columns=3
-precondition(WindowAction.fillLeftHalf.previewTargets(from:[unsupported,capOne]).map(\.id)==[200,201],"Independent Fill eligibility changed")
+precondition(WindowAction.fillLeftHalf.previewTargets(from:[unsupported,capOne]).map(\.id)==[201],"Independent Fill must also exclude fullscreen targets")
 let geometry=[WindowInfo(id:300,app:visibleApp),WindowInfo(id:301,app:visibleApp)]
 func started(_ gate:PendingAX) async {
  for _ in 0..<2000 {if gate.started {return};try? await Task.sleep(nanoseconds:1_000_000)}
@@ -430,3 +448,9 @@ Dir.mktmpdir('dockfork-quit-actions-') do |dir|
   abort 'Quit checks failed' unless system("#{dir}/checks")
 end
 puts 'PASS catalog/menu/default wiring and unchanged Dock Quick Quit; all termination calls used inert apps'
+
+regular_preview=File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreview.swift")
+compact_preview=File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreviewCompact.swift")
+[regular_preview,compact_preview].each do |preview|
+ abort 'Regular and Compact toolbars must share resolved actions for rendering and overflow' unless preview.include?('resolvedTrafficLightButtons(') && preview.include?('stage.visibleActions(in: effectiveTrafficLightButtons)') && preview.include?('stage.overflowActions(in: effectiveTrafficLightButtons)')
+end

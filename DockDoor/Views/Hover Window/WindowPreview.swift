@@ -488,8 +488,9 @@ func resolvedTrafficLightButtons(
     if windowInfo.isWindowlessApp {
         return showWindowlessQuitButton ? configuredButtons.intersection([.quit]) : []
     }
+    let configuredButtons = configuredButtons.filter { $0.isSupported(for: windowInfo) }
     if windowInfo.isWineWindow {
-        return configuredButtons.filter { $0.isSupported(for: windowInfo) }
+        return configuredButtons
     }
     if windowInfo.hasLimitedWindowControls {
         return configuredButtons.intersection([.quit, .close])
