@@ -179,6 +179,13 @@ source += <<~'SWIFT'
   precondition(!WindowAction.spaceMenuActions.contains(.maximize) && !WindowAction.spaceMenuActions.contains(.center) && !WindowAction.spaceMenuActions.contains(.fillLeftHalf))
   precondition(!WindowAction.spaceMenuActions.contains(.closeAllWindows) && !WindowAction.spaceMenuActions.contains(.minimizeAllWindows), "Original app-wide commands are shortcut-only, not aliases of resident-only commands")
   precondition(WindowAction.spaceMenuActions.contains(.autoTileSelectedWindows))
+  let outsideSpace = WindowInfo(id: 83, app: nativeApp)
+  WindowUtil.cached[78] = [normal, outsideSpace]
+  precondition(WindowAction.close.spaceTargets(from: [normal]).map(\.id) == [normal.id])
+  precondition(WindowAction.closeAllWindows.spaceTargets(from: [normal]).map(\.id) == [normal.id, outsideSpace.id], "Shortcut-only Close All retains represented-app scope across Spaces")
+  precondition(WindowAction.minimizeAllWindows.spaceTargets(from: [normal]).map(\.id) == [normal.id, outsideSpace.id])
+  precondition(WindowAction.center.spaceTargets(from: [normal]).map(\.id) == [normal.id] && WindowAction.maximize.spaceTargets(from: [normal]).map(\.id) == [normal.id])
+  WindowUtil.cached = [:]
   precondition(WindowAction.openAppWindow.spaceTargets(from: [normal]).isEmpty && WindowAction.toggleWindowSelection.spaceTargets(from: [normal]).isEmpty)
   precondition(WindowAction.minimize.spaceMenuTitle(for: [normal, native]) == "Minimize All Windows on This Space")
   precondition(WindowAction.minimize.spaceMenuTitle(for: [native]) == "Un-minimize Window on This Space")

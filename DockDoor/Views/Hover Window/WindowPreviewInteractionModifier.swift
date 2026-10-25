@@ -600,7 +600,7 @@ final class WindowActionMenuBuilder: NSObject {
     }
 
     func addSpaceActions(for space: ManagedSpacePresentation.Entry, residents: [WindowInfo], to menu: NSMenu,
-                         shortcutKeybind: UserKeyBind, handler: @escaping (WindowAction) -> Void)
+                         shortcutKeybind: UserKeyBind, handler: @escaping (WindowAction) -> Void) -> [UInt16: WindowAction]
     {
         menu.title = space.title(mode: Defaults[.spacesBarLabels])
         let targets = Dictionary(uniqueKeysWithValues: WindowAction.spaceMenuActions.map { ($0, $0.spaceTargets(from: residents)) })
@@ -608,7 +608,6 @@ final class WindowActionMenuBuilder: NSObject {
             let candidates = targets[action] ?? []
             return !candidates.isEmpty && candidates.contains { action.isAvailable(for: $0) }
         }
-        guard !actions.isEmpty else { return }
         let shortcuts = WindowSwitcherShortcutResolver.resolvedPreviewShortcuts(
             Defaults[.cmdShortcuts], previewKeybind: shortcutKeybind,
             mainKeybind: SharedPreviewWindowCoordinator.activeInstance?.effectivePreviewShortcutKeybind(forSpaces: true) ?? Defaults[.UserKeybind]
@@ -634,6 +633,11 @@ final class WindowActionMenuBuilder: NSObject {
                         .compactMap { $0 }.joined(separator: " ")
                 })
         }
+        var routing: [UInt16: WindowAction] = [:]
+        for shortcut in shortcuts where routing[shortcut.keyCode] == nil {
+            routing[shortcut.keyCode] = shortcut.action
+        }
+        return routing
     }
 
     private func add(_ actions: [WindowAction], to menu: NSMenu, shortcutKeybind: UserKeyBind,
@@ -742,8 +746,8 @@ final class PreviewContextMenuController: NSObject {
         present(menu, keybind: keybind, event: event, sourceView: event?.window?.contentView)
     }
 
-    private func present(_ builtMenu: (menu: NSMenu, shortcuts: [UInt16: WindowAction]), keybind: UserKeyBind,
-                         event: NSEvent?, sourceView: NSView?)
+    func present(_ builtMenu: (menu: NSMenu, shortcuts: [UInt16: WindowAction]), keybind: UserKeyBind,
+                 event: NSEvent?, sourceView: NSView?, spaceID: CGSSpaceID? = nil)
     {
         let menu = builtMenu.menu
         guard !menu.items.isEmpty else { return }
@@ -752,7 +756,7 @@ final class PreviewContextMenuController: NSObject {
         activeMenu = menu
         let routingToken = SharedPreviewWindowCoordinator.activeInstance?.beginContextMenuShortcutRouting(
             keybind: keybind,
-            actionsByKeyCode: builtMenu.shortcuts
+            actionsByKeyCode: builtMenu.shortcuts, spaceID: spaceID
         )
         activeRoutingToken = routingToken
         if let event, let sourceView {
@@ -781,6 +785,15 @@ final class PreviewContextMenuController: NSObject {
     }
 
     func performShortcut(_ action: WindowAction, token: UUID) {
+        if activeRoutingToken == token,
+           let coordinator = SharedPreviewWindowCoordinator.activeInstance,
+           let routing = coordinator.contextMenuShortcutRoutingSnapshot(), routing.token == token,
+           let spaceID = routing.spaceID
+        {
+            dismiss()
+            ActionFeedbackController.performKeyboardMenuAction { _ = coordinator.performSpaceWindowAction(action, spaceID: spaceID, keyboard: true) }
+            return
+        }
         guard activeRoutingToken == token,
               let request = WindowActionMenuBuilder.shared.actionRequest(for: action, in: activeMenu)
         else { return }

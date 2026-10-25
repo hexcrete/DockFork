@@ -1057,8 +1057,10 @@ class PreviewStateCoordinator: ObservableObject {
 
         if windows.isEmpty {
             updateSelectionIndex(-1, source: .programmatic)
-            SharedPreviewWindowCoordinator.activeInstance?.hideWindow()
-            return
+            if SharedPreviewWindowCoordinator.activeInstance?.hasVisibleSpacesBar != true {
+                SharedPreviewWindowCoordinator.activeInstance?.hideWindow()
+                return
+            }
         }
 
         if oldCurrIndex == indexToRemove {

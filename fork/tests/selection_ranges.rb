@@ -276,6 +276,9 @@ enum ArrowDirection { case right }
  struct Snapshot { var isSearchFocused = false }
  let windowSwitcherCoordinator = SelectionCoordinator()
  var tapSnapshot = Snapshot(), arrowExtensions: [Bool] = [], forwarded = 0
+ var highlightedSpaceID: UInt64?
+ var spaceActions: [(WindowAction, UInt64)] = []
+ func performSpaceWindowAction(_ action: WindowAction, spaceID: UInt64, keyboard: Bool) -> Bool { precondition(keyboard); spaceActions.append((action, spaceID)); return false }
  func performActionOnCurrentWindow(action: WindowAction, preservePreviews: Bool) -> Bool { forwarded += 1; return false }
  func navigateWithArrowKey(direction: ArrowDirection, extendingSelection: Bool) { arrowExtensions.append(extendingSelection) }
 }
@@ -309,6 +312,12 @@ keyboard += <<~'SWIFT'
    precondition(c.keyboardSelectionPress == nil, "Stale dispatch must not arm extension")
    _ = h.performPreviewShortcut(.other, keyCode: code, timestamp: timestamp + 1)
    precondition(h.previewCoordinator.forwarded == 1 && c.keyboardSelectionPress == nil)
+   h.previewCoordinator.highlightedSpaceID = 42
+   let previousToggles = c.toggles
+   _ = h.performPreviewShortcut(.other, keyCode: code, timestamp: timestamp + 2)
+   _ = h.performPreviewShortcut(.toggleWindowSelection, keyCode: code, timestamp: timestamp + 3)
+   precondition(h.previewCoordinator.spaceActions.count == 2 && h.previewCoordinator.spaceActions.allSatisfy { $0.1 == 42 })
+   precondition(h.previewCoordinator.forwarded == 1 && c.toggles == previousToggles, "Space actions must never fall through to the underlying window, including unsupported selection toggles")
   }
   print("PASS production keyboard selection dispatch: held ranges with/without search focus, unchanged text focus, release, stale presses and ordinary action forwarding")
  }

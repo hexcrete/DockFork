@@ -539,7 +539,7 @@ struct SpacesBarView: View {
     let activateApp: (ManagedSpacePresentation.App, ManagedSpacePresentation.Entry) -> Void
     let activate: (ManagedSpacePresentation.Entry) -> Void
     var dragContents: ((CGSSpaceID, CGPoint, Bool) -> Void)? = nil
-    var spaceMenu: ((ManagedSpacePresentation.Entry) -> NSMenu)? = nil
+    var spaceMenu: ((ManagedSpacePresentation.Entry, NSEvent, NSView) -> Void)? = nil
     var allowedGaps: Set<SpaceContentsGap> = []
     var contentsTargetChanged: ((SpaceContentsDropTarget?) -> Void)? = nil
 
@@ -776,8 +776,7 @@ struct SpacesBarView: View {
         }
         .overlay {
             NativeContextMenuCapture { event, sourceView in
-                guard let menu = spaceMenu?(entry) else { return }
-                SpaceMoveMenuController.shared.present(menu, event: event, sourceView: sourceView)
+                spaceMenu?(entry, event, sourceView)
             }
         }
         .accessibilityElement(children: .contain)

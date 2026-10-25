@@ -212,7 +212,7 @@ class WindowManipulationObservers {
                     coordinator.removeWindow(at: i)
                 }
             }
-            if coordinator.windows.isEmpty {
+            if coordinator.windows.isEmpty, !previewCoordinator.hasVisibleSpacesBar {
                 previewCoordinator.hideWindow()
             }
         } else if !Defaults[.keepPreviewOnAppTerminate], !previewCoordinator.selectionKeepsPreviewsOpen {

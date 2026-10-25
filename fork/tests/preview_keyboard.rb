@@ -666,3 +666,84 @@ Dir.mktmpdir('dockfork-session-dismissal-') do |dir|
  abort 'Session dismissal compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
  abort 'Session dismissal checks failed' unless system("#{dir}/checks")
 end
+
+# Production routing ownership and dispatch; inert menus, no UI events or AX.
+menu_source = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewInteractionModifier.swift")
+routing = <<~'SWIFT'
+import Foundation
+typealias CGSSpaceID = UInt64
+struct UserKeyBind {}
+enum WindowAction { case close, maximize, openAppWindow }
+@MainActor final class SharedPreviewWindowCoordinator {
+ static var activeInstance: SharedPreviewWindowCoordinator?
+ private let shortcutSnapshotLock = NSLock()
+ private var contextMenuShortcutRouting: ContextMenuShortcutRoutingSnapshot?
+ var calls: [(WindowAction, CGSSpaceID)] = []
+ var highlightedSpaceID: CGSSpaceID = 99
+ func performSpaceWindowAction(_ action: WindowAction, spaceID: CGSSpaceID, keyboard: Bool) -> Bool {
+  precondition(keyboard); calls.append((action, spaceID)); return false
+ }
+SWIFT
+routing += block(panel_source, '    struct ContextMenuShortcutRoutingSnapshot {') + "\n"
+%w[beginContextMenuShortcutRouting endContextMenuShortcutRouting contextMenuShortcutRoutingSnapshot].each do |name|
+ routing += block(panel_source, "    func #{name}(") + "\n"
+end
+routing += <<~'SWIFT'
+}
+@MainActor enum ActionFeedbackController {
+ static func performKeyboardMenuAction(_ action: () -> Void) { action() }
+}
+@MainActor final class WindowActionMenuBuilder {
+ static let shared = WindowActionMenuBuilder()
+ struct Request { let action: WindowAction; let handler: (WindowAction) -> Void }
+ var request: Request?
+ func actionRequest(for action: WindowAction, in menu: Int?) -> Request? { request?.action == action ? request : nil }
+}
+@MainActor final class MenuProbe {
+ var activeMenu: Int? = 1
+ var activeRoutingToken: UUID?
+ var dismissals = 0
+ func dismiss() {
+  if let token = activeRoutingToken { SharedPreviewWindowCoordinator.activeInstance?.endContextMenuShortcutRouting(token: token) }
+  activeRoutingToken = nil; activeMenu = nil; dismissals += 1
+ }
+SWIFT
+routing += block(menu_source, '    func performShortcut(') + "\n}\n"
+routing += <<~'SWIFT'
+@main struct SpaceMenuRoutingChecks {
+ @MainActor static func main() {
+  let panel = SharedPreviewWindowCoordinator(), menu = MenuProbe()
+  SharedPreviewWindowCoordinator.activeInstance = panel
+  let old = panel.beginContextMenuShortcutRouting(keybind: UserKeyBind(), actionsByKeyCode: [1:.close], spaceID: 7)
+  let current = panel.beginContextMenuShortcutRouting(keybind: UserKeyBind(), actionsByKeyCode: [2:.maximize], spaceID: 8)
+  menu.activeRoutingToken = current
+  panel.endContextMenuShortcutRouting(token: old)
+  precondition(panel.contextMenuShortcutRoutingSnapshot()?.spaceID == 8)
+  menu.performShortcut(.close, token: old)
+  precondition(panel.calls.isEmpty && menu.dismissals == 0, "A stale menu must not execute or close a newer menu")
+  menu.performShortcut(.maximize, token: current)
+  precondition(panel.calls.count == 1 && panel.calls[0].1 == 8 && menu.dismissals == 1, "Shortcut-only commands must use the pinned Space, not current hover, without requiring a menu row")
+  precondition(panel.contextMenuShortcutRoutingSnapshot() == nil)
+  let unsupported = panel.beginContextMenuShortcutRouting(keybind: UserKeyBind(), actionsByKeyCode: [3:.openAppWindow], spaceID: 9)
+  menu.activeRoutingToken = unsupported
+  menu.performShortcut(.openAppWindow, token: unsupported)
+  precondition(panel.calls.count == 2 && panel.calls[1].1 == 9, "Unsupported Space commands must reach Space refusal rather than the window handler")
+  var windowActions = 0
+  WindowActionMenuBuilder.shared.request = .init(action:.close, handler:{ _ in windowActions += 1 })
+  let normal = panel.beginContextMenuShortcutRouting(keybind: UserKeyBind(), actionsByKeyCode: [1:.close])
+  menu.activeRoutingToken = normal
+  menu.performShortcut(.close, token: normal)
+  precondition(windowActions == 1 && panel.calls.count == 2, "Regular preview menus retain their original target routing")
+  print("PASS production menu routing: pinned Space, shortcut-only dispatch, unsupported refusal routing, token cleanup, stale-menu rejection and unchanged regular menus")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-menu-routing-') do |dir|
+ File.write("#{dir}/checks.swift", routing)
+ abort 'Space menu routing compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+ abort 'Space menu routing checks failed' unless system("#{dir}/checks")
+end
+space_dispatch = block(keybinds, '    private func performPreviewShortcut(')
+abort 'Space shortcuts must route before initiating-window selection or navigation reset' unless space_dispatch.index('highlightedSpaceID') < space_dispatch.index('if action == .toggleWindowSelection') && space_dispatch.index('performSpaceWindowAction') < space_dispatch.index('coordinator.navigationTarget = .windows')
+abort 'Space menu routing must include resolved shortcut-only keys, without alias menu rows' unless block(menu_source, '    func addSpaceActions(').include?('for shortcut in shortcuts where routing[shortcut.keyCode] == nil')
+abort 'An empty grid must not tear down a visible Spaces session' unless keybinds.include?('windows.isEmpty && !self.previewCoordinator.hasVisibleSpacesBar') && File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift").include?('hasVisibleSpacesBar != true')

@@ -1965,7 +1965,7 @@ class KeybindHelper {
                             self.windowSwitchingCoordinator.takeKeyboardOwnership()
                         }
                         let didClosePreviews = self.performPreviewShortcut(action, keyCode: keyCode, timestamp: pressTimestamp)
-                        if didClosePreviews || self.previewCoordinator.windowSwitcherCoordinator.windows.isEmpty {
+                        if didClosePreviews || (self.previewCoordinator.windowSwitcherCoordinator.windows.isEmpty && !self.previewCoordinator.hasVisibleSpacesBar) {
                             self.switcherSessionActive = false
                             self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
                             self.preventSwitcherHideOnRelease = false
@@ -2256,6 +2256,10 @@ class KeybindHelper {
     @MainActor
     private func performPreviewShortcut(_ action: WindowAction, keyCode: Int64, timestamp: UInt64, preservePreviews: Bool = false) -> Bool {
         let coordinator = previewCoordinator.windowSwitcherCoordinator
+        if let spaceID = previewCoordinator.highlightedSpaceID {
+            coordinator.endSelectionRange()
+            return previewCoordinator.performSpaceWindowAction(action, spaceID: spaceID, keyboard: true)
+        }
         if action == .toggleWindowSelection, let window = coordinator.getCurrentWindow() {
             let press = actionKeyPressState.isHeld(keyCode: keyCode, timestamp: timestamp)
                 ? PreviewSelectionKeyPress(keyCode: keyCode, timestamp: timestamp) : nil

@@ -175,6 +175,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let token: UUID
         let keybind: UserKeyBind
         let actionsByKeyCode: [UInt16: WindowAction]
+        let spaceID: CGSSpaceID?
     }
 
     private let shortcutSnapshotLock = NSLock()
@@ -216,14 +217,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     @discardableResult
     func beginContextMenuShortcutRouting(
         keybind: UserKeyBind,
-        actionsByKeyCode: [UInt16: WindowAction]
+        actionsByKeyCode: [UInt16: WindowAction], spaceID: CGSSpaceID? = nil
     ) -> UUID {
         let token = UUID()
         shortcutSnapshotLock.lock()
         contextMenuShortcutRouting = ContextMenuShortcutRoutingSnapshot(
             token: token,
             keybind: keybind,
-            actionsByKeyCode: actionsByKeyCode
+            actionsByKeyCode: actionsByKeyCode, spaceID: spaceID
         )
         shortcutSnapshotLock.unlock()
         return token
@@ -483,6 +484,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         return nil
     }
 
+    var hasVisibleSpacesBar: Bool {
+        windowSwitcherCoordinator.windowSwitcherActive && spacesBarWindow?.isVisible == true &&
+            spacesBarSections.contains { !$0.spaces.isEmpty }
+    }
+
     private var spaceFilterTop: CGFloat?
 
     private func updateSpaceFilter() {
@@ -575,40 +581,44 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @MainActor
-    private func makeSpaceMenu(_ entry: ManagedSpacePresentation.Entry) -> NSMenu {
-        guard let context = spaceActionContext(entry.id) else { return NSMenu() }
+    private func presentSpaceMenu(_ entry: ManagedSpacePresentation.Entry, event: NSEvent, sourceView: NSView) {
+        guard let context = spaceActionContext(entry.id) else { return }
         let menu = SpaceMoveMenuController.shared.makeContentsMenu(
             for: context.entry, presentation: spacesBarSections,
             contentsAction: { [weak self] source, target, action in self?.performContentsAction(from: source, to: target, action: action) }
         )
-        WindowActionMenuBuilder.shared.addSpaceActions(
+        let keybind = effectivePreviewShortcutKeybind()
+        let shortcuts = WindowActionMenuBuilder.shared.addSpaceActions(
             for: context.entry, residents: context.residents, to: menu,
-            shortcutKeybind: effectivePreviewShortcutKeybind(),
-            handler: { [weak self] action in self?.performSpaceWindowAction(action, spaceID: entry.id) }
+            shortcutKeybind: keybind,
+            handler: { [weak self] action in _ = self?.performSpaceWindowAction(action, spaceID: entry.id) }
         )
-        return menu
+        PreviewContextMenuController.shared.present((menu, shortcuts), keybind: keybind,
+                                                    event: event, sourceView: sourceView, spaceID: entry.id)
     }
 
     @MainActor
-    func performSpaceWindowAction(_ action: WindowAction, spaceID: CGSSpaceID, keyboard: Bool = false) {
+    @discardableResult
+    func performSpaceWindowAction(_ action: WindowAction, spaceID: CGSSpaceID, keyboard: Bool = false) -> Bool {
         guard isVisible, windowSwitcherCoordinator.windowSwitcherActive,
               let context = spaceActionContext(spaceID)
-        else { NSSound.beep(); return }
+        else { NSSound.beep(); return false }
         let targets = action.spaceTargets(from: context.residents)
-        guard let initiator = targets.first else { NSSound.beep(); return }
+        guard let initiator = targets.first else { NSSound.beep(); return false }
         if action == .selectAllWindows {
             windowSwitcherCoordinator.selectWindows(targets)
         } else if action == .bringToCurrentSpace {
             let displays = WindowSpaces.managedDisplays()
             guard let id = WindowSpaces.currentManagedSpaceID(mouseLocation: NSEvent.mouseLocation),
                   let destination = WindowSpaces.destination(forSpaceID: id, in: displays)
-            else { NSSound.beep(); return }
+            else { NSSound.beep(); return false }
             performSpaceMove(targets, to: destination, dismissPreviews: { [weak self] in self?.hideWindow() }, keyboard: keyboard, usePreviews: false)
         } else {
-            _ = performPreviewBatchAction(action, on: targets, initiator: initiator,
-                                          preservePreviews: action == .toggleFullScreen, keyboard: keyboard, usePreviews: false,
-                                          tilingDestination: context.entry.destination)
+            return performPreviewBatchAction(action, on: targets, initiator: initiator,
+                                             preservePreviews: action == .toggleFullScreen, keyboard: keyboard, usePreviews: false,
+                                             tilingDestination: context.entry.destination)
         }
+        return false
     }
 
     private func activateSpace(_ entry: ManagedSpacePresentation.Entry) {
@@ -888,7 +898,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             activateApp: { [weak self] app, entry in Task { @MainActor in await self?.activateSpaceApp(app, in: entry) } },
             activate: { [weak self] entry in Task { @MainActor in self?.activateSpace(entry) } },
             dragContents: { [weak self] id, point, ended in self?.updateContentsDrag(from: id, at: point, ended: ended) },
-            spaceMenu: { [weak self] entry in self?.makeSpaceMenu(entry) ?? NSMenu() },
+            spaceMenu: { [weak self] entry, event, view in self?.presentSpaceMenu(entry, event: event, sourceView: view) },
             allowedGaps: Set(contentsDragSession.flatMap { session in
                 guard !Defaults[.spacesBarRecentlyUsed] else { return nil as [SpaceContentsGap]? }
                 return spacesBarSections.flatMap { display in

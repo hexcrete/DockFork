@@ -1549,7 +1549,7 @@ abort 'Fullscreen contents must omit movement while indicators retain the shared
 abort 'Obsolete fullscreen menu title/request must be removed' if view.include?('Exit Full Screen to move this window') || view.include?('FullscreenExitRequest')
 space_actions = block(panel, '    func performSpaceWindowAction(')
 space_context = block(panel, '    private func spaceActionContext(')
-space_menu = block(panel, '    private func makeSpaceMenu(')
+space_menu = block(panel, '    private func presentSpaceMenu(')
 abort 'Space actions must resolve fresh real residents from stable Space identities, independent of search and checks' unless space_context.include?('ManagedSpacePresentation.snapshot') && space_context.include?('WindowUtil.collapseNativeTabsIfNeeded(WindowUtil.getAllWindowsIgnoringSwitcherFilters())') && space_context.include?('first(where: { $0.id == id })') && space_context.include?('identities.contains(PreviewWindowIdentity($0))') && !space_context.include?('checkedActionTargets')
 abort 'Space menu actions must be native shared rows after existing contents controls' unless space_menu.index('makeContentsMenu(') < space_menu.index('addSpaceActions(') && space_actions.include?('action.spaceTargets(from: context.residents)') && space_actions.include?('tilingDestination: context.entry.destination') && space_actions.include?('preservePreviews: action == .toggleFullScreen') && space_actions.include?('usePreviews: false')
 abort 'Space Select All must add cached residents through shared selection publication' unless space_actions.include?('windowSwitcherCoordinator.selectWindows(targets)') && !space_actions.include?('clearCheckedWindows')

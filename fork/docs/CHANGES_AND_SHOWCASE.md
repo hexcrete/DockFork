@@ -1312,3 +1312,15 @@ Space-menu grouping refinement: Auto Tile joins the preceding window-action sect
 The joined Auto Tile grouping is running in verified build `DockFork-60c22a4-working-6JFg9b`. Development signature/source/binaries/running path match; automated suites remain unrun and manual grouping verification is pending.
 
 The user verified Stage 2 actions and final grouping. Source review and development artifact checks passed; automated suites and exhaustive fault/display coverage remain unrun. Known deferred issue: quitting the app for the highlighted fullscreen Space can collapse the switcher; this is not fixed by resident actions.
+
+### Space-targeted action shortcuts (Stage 3)
+
+Configured preview-action shortcuts now target the highlighted Space before the ordinary path returns navigation to windows. A Space context menu pins shortcut commands to its original stable Space ID for the menu's lifetime, even if hover/highlight changes. Native menu routing, token cleanup, effective modifiers, conflict resolution and physical-key repeat suppression are reused. Unsupported Space actions refuse without acting on the window beneath them.
+
+Fill, Maximize and Center work through shortcuts without new menu rows. Fill-to-Auto-Tile uses the pill's Space/display; ordinary geometry keeps existing Space membership and foreground preferences. Shortcut-only Close All Windows and Minimize All Windows retain their original represented-app-wide scope, including those apps' windows on other Spaces; they are not aliases of resident-only Close/Minimize rows. Visible hints remain attached only to their actual menu actions. No bindings/defaults or AppleScript interfaces changed.
+
+A valid visible Spaces Bar prevents empty-window-list teardown in shortcut completion and window/app removal; explicit dismissal and existing action keep-open rules still apply. This is not a claim to fix the separately deferred highlighted-fullscreen-app quit/topology collapse.
+
+Signed development build `DockFork-1f53500-working-NxnLQN` is running at the expected development path. Signature, source snapshot and installed executable/debug library match. Fixture syntax, formatter lint and diff checks pass; automated suites and native/manual shortcut coverage remain unrun. Stage 3 awaits manual verification before review/commit. No release or push.
+
+Stage 3 is now user-verified and approved after final source review. The complete three-stage Space-pill action/shortcut plan is implemented. Final signature/source/binary/running-path, fixture syntax, formatter lint and diff checks passed without further production edits. Automated suites and exhaustive modifier/display/fault combinations remain unrun. The highlighted-fullscreen-app quit collapse is still a separately deferred known issue.
