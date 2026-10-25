@@ -1165,8 +1165,9 @@ struct SpacesBarScroll: NSViewRepresentable {
                 let inset = SpacesBarLayout.titleInset(sectionWidth: heading.width, titleWidth: width)
                 let shift = SpacesBarLayout.pinnedTitleOffset(sectionStart: heading.start, sectionWidth: heading.width,
                                                               titleWidth: width, scrollOffset: scroller.offset)
-                label.frame = CGRect(x: heading.start + inset + shift - scroller.offset, y: SpacesBarLayout.innerPadding,
-                                     width: width, height: SpacesBarLayout.headingHeight)
+                let frame = CGRect(x: heading.start + inset + shift - scroller.offset, y: SpacesBarLayout.innerPadding,
+                                   width: width, height: SpacesBarLayout.headingHeight)
+                if label.frame != frame { label.frame = frame }
             }
             CATransaction.commit()
         }

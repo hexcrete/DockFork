@@ -964,7 +964,9 @@ scroll_source = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Sup
 native_source = "import AppKit\nimport SwiftUI\ntypealias CGSSpaceID = UInt64\n" + font_sizes + "\n" + font_space_sizes + "\n"
 native_source += "enum CardGridScrollView { static let edgeScrollZoneSize: CGFloat = 50\n"
 native_source += block(scroll_source, '    enum EdgeScrollRequest:') + "\n"
-native_source += block(scroll_source, '    final class ContainerView:') + "\n"
+# Substitute only the native pointer provider so tests cannot depend on user movement.
+native_source += "enum ScrollPointer {static var location=CGPoint.zero}\n"
+native_source += block(scroll_source, '    final class ContainerView:').gsub('NSEvent.mouseLocation','ScrollPointer.location') + "\n"
 native_source += block(scroll_source, '    final class FlippedView:') + "\n}\n"
 native_source += block(shared, 'enum SpaceContentsAction {') + "\n" + block(shared, 'struct SpaceContentsGap:') + "\n" + block(shared, 'enum SpaceContentsDropTarget:') + "\n"
 native_source += block(bar, 'struct SpacesBarDisplayHeading:') + "\n"
@@ -1479,6 +1481,38 @@ precondition(!FilterControlSlideSamples.values.contains{$0 > -SpacesBarLayout.mi
 filterAnimationPanel.orderOut(nil)
 dragPanel.orderOut(nil)
 print("PASS native Space pill input: body/icon drags, control drag exclusion, replacement button clicks, x-only initial entry, whole-button outgoing/incoming slide frames and immediate disabled-animation updates; test-owned panel only")
+for vertical in [false,true] {
+ let shared=CardGridScrollView.ContainerView(scrollsVertically:vertical)
+ shared.frame=CGRect(x:0,y:0,width:300,height:100)
+ shared.contentSize=CGSize(width:1600,height:1600)
+ shared.scroll(to:400,animated:false)
+ shared.updateEdgeScroll(request:.forward,speed:4)
+ shared.onOffsetChange = { [weak shared] _ in shared?.updateEdgeScroll(request:.forward,speed:4) }
+ for momentum:Int64 in [0,1,2,3] {
+  let cg=CGEvent(scrollWheelEvent2Source:nil,units:.pixel,wheelCount:2,wheel1:vertical ? 8:0,wheel2:vertical ? 0:8,wheel3:0)!
+  cg.setIntegerValueField(.scrollWheelEventIsContinuous,value:1)
+  cg.setIntegerValueField(.scrollWheelEventMomentumPhase,value:momentum)
+  let before=shared.offset
+  shared.scrollWheel(with:NSEvent(cgEvent:cg)!)
+  let after=shared.offset
+  precondition(after<before,"Manual scrolling must apply its native delta")
+  shared.updateEdgeScroll(request:nil,speed:4)
+  shared.updateEdgeScroll(request:.backward,speed:4)
+  shared.updateEdgeScroll(request:.forward,speed:4)
+  shared.setFrameSize(shared.frame.size)
+  RunLoop.main.run(until:Date().addingTimeInterval(0.05))
+  precondition(shared.offset==after,"Layout and reentrant sweep/drag requests must not restart auto-scroll after wheel/momentum")
+ }
+ shared.onOffsetChange=nil
+ let stopped=shared.offset
+ CardGridScrollView.ScrollPointer.location.x += 1
+ shared.updateEdgeScroll(request:.forward,speed:4)
+ let deadline=Date().addingTimeInterval(0.3)
+ while shared.offset==stopped && Date()<deadline {RunLoop.main.run(until:Date().addingTimeInterval(0.01))}
+ precondition(shared.offset>stopped,"Actual pointer movement must make edge scrolling eligible again: vertical=\(vertical),before=\(stopped),after=\(shared.offset),pointer=\(CardGridScrollView.ScrollPointer.location)")
+ shared.stopEdgeScroll()
+}
+print("PASS shared scrolling ownership: both axes, native wheel/momentum deltas, synchronous range/drag-style reentry, stale/changed/nil requests, layout updates and pointer resumption; injected native pointer, no user-input dependency")
   let window=NSPanel(contentRect:NSRect(x:0,y:0,width:900,height:56),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
   let view=SpacesBarScroll.ViewportView(frame:NSRect(x:0,y:0,width:900,height:56))
   window.contentView=view
@@ -1528,10 +1562,36 @@ let moved=NSEvent.mouseEvent(with:.mouseMoved,location:NSPoint(x:895,y:20),modif
   let stopped=view.scroller.offset
   RunLoop.main.run(until:Date().addingTimeInterval(0.08))
   precondition(view.scroller.offset==stopped,"Leaving the edge must stop scrolling")
+view.mouseMoved(with:moved)
+func wheel(_ delta:Int32,momentum:Int64=0)->NSEvent {
+ let cg=CGEvent(scrollWheelEvent2Source:nil,units:.pixel,wheelCount:2,wheel1:0,wheel2:delta,wheel3:0)!
+ cg.setIntegerValueField(.scrollWheelEventIsContinuous,value:1)
+ cg.setIntegerValueField(.scrollWheelEventMomentumPhase,value:momentum)
+ return NSEvent(cgEvent:cg)!
+}
+view.scroller.scrollWheel(with:wheel(20))
+let wheelOffset=view.scroller.offset
+view.updateScroll();view.layout()
+RunLoop.main.run(until:Date().addingTimeInterval(0.08))
+precondition(view.scroller.offset==wheelOffset,"Wheel input must stop opposing edge scrolling through layout/content updates")
+for phase:Int64 in [1,2,2,3] {
+ view.scroller.scrollWheel(with:wheel(3,momentum:phase))
+ let offset=view.scroller.offset
+ view.updateScroll()
+ RunLoop.main.run(until:Date().addingTimeInterval(0.04))
+ precondition(view.scroller.offset==offset,"Momentum scrolling must not restart pointer edge scrolling")
+}
+let beforePointer=view.scroller.offset
+CardGridScrollView.ScrollPointer.location.x += 1
+view.mouseMoved(with:moved)
+RunLoop.main.run(until:Date().addingTimeInterval(0.08))
+precondition(view.scroller.offset>beforePointer,"A new pointer movement must restore normal edge scrolling")
+view.mouseExited(with:moved)
+let afterManual=view.scroller.offset
   view.edgeScrolling=false
   view.mouseMoved(with:moved)
   RunLoop.main.run(until:Date().addingTimeInterval(0.08))
-  precondition(view.scroller.offset==stopped,"Disabled edge scrolling must not start a timer")
+  precondition(view.scroller.offset==afterManual,"Disabled edge scrolling must not start a timer")
   view.scroller.contentSize=CGSize(width:900,height:56)
   precondition(view.scroller.maxOffset==0 && view.scroller.offset==0)
 window.ignoresMouseEvents = true
@@ -1558,7 +1618,7 @@ precondition(view.spaceForDrop(at:screenPoint(150))==nil,"Hidden bar has no live
 print("PASS native Space drop hits: Desktop/fullscreen distinction, gaps, live scroll offsets, stationary pointer refresh and hidden/cancelled cleanup; test-owned panel only")
   view.scroller.stopEdgeScroll()
   window.orderOut(nil)
-  print("PASS native Spaces viewport: measured production-pill dimensions, full-width layout, initial centering, shared edge scrolling, exit/disable cleanup and nonoverflow clamping; no user-window events")
+  print("PASS native Spaces viewport: measured production-pill dimensions, full-width layout, initial centering, manual/momentum priority over edge scrolling, pointer resumption, exit/disable cleanup and nonoverflow clamping; no user-window events")
  }
 }
 SWIFT
@@ -2122,3 +2182,7 @@ abort 'Filter header must not trigger edge scrolling or appear in Dock/Cmd+Tab' 
 
 abort 'Retired empty-Space policy must not be read, observed, indexed or reset' if [panel,bar,settings,catalog,reset].any?{|source|source.include?('spacesBarDoNotFilterEmpty')}
 abort 'Retired key must remain declared without a migration' unless File.read("#{root}/DockDoor/consts.swift").include?('static let spacesBarDoNotFilterEmpty = Key<Bool>("spacesBarDoNotFilterEmpty", default: false)')
+
+abort 'Sticky display headings must skip unchanged frame writes' unless block(bar,'        func positionHeadings()').include?('if label.frame != frame { label.frame = frame }')
+
+abort 'Manual-scroll priority must live in the shared scroller without a bar-only callback' unless block(scroll_source,'    final class ContainerView:').include?('manualScrollPointer = NSEvent.mouseLocation') && block(scroll_source,'        func updateEdgeScroll(').include?('guard NSEvent.mouseLocation != manualScrollPointer else { return }') && !bar.include?('onScrollWheel') && !scroll_source.include?('onScrollWheel')

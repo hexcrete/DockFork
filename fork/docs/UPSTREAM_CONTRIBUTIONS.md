@@ -198,3 +198,5 @@ Preserve the explicit overflow order: remove the description prefix, abbreviate 
 Filter-header Stage 2 is user-verified and reviewed. Keep the final intrinsic-sizing/six-stage overflow implementation and focused regressions when extracting this issue; earlier measurement/truncation attempts are superseded. Fork publication records remain excluded from upstream PRs.
 
 Empty-Space filtering policy is retired following user-reported hover stalls. Exclude its toggle/search/reset/observer and skip-empty branches when extracting filtering work. Keep the old key declaration untouched, normal empty filters and explicit clear behavior; preserve regression coverage for empty/populated membership updates. No new caching or timing workaround.
+
+Shared scroll fix boundary: manual wheel input in CardGridScrollView stops existing auto-scroll and suppresses all automatic requests until cursor movement, covering regular/Compact previews, Dock/Cmd+Tab, selection sweeps and Space dragging. The bar-only callback is removed. Keep deterministic pointer-provider and reentrant request tests, plus the unchanged-heading-frame guard. No new event tap, monitor, timer or dependency.

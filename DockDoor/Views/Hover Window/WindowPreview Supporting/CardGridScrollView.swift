@@ -107,6 +107,7 @@ struct CardGridScrollView: NSViewRepresentable {
         private var edgeScrollTimer: Timer?
         private var edgeScrollRequest: EdgeScrollRequest?
         private var edgeScrollSpeed: CGFloat = 0
+        private var manualScrollPointer: CGPoint?
 
         var maxOffset: CGFloat {
             max(0, scrollsVertically ? contentSize.height - bounds.height : contentSize.width - bounds.width)
@@ -149,6 +150,8 @@ struct CardGridScrollView: NSViewRepresentable {
         }
 
         override func scrollWheel(with event: NSEvent) {
+            manualScrollPointer = NSEvent.mouseLocation
+            if edgeScrollRequest != nil { stopEdgeScroll() }
             let primary = scrollsVertically ? event.scrollingDeltaY : event.scrollingDeltaX
             let secondary = scrollsVertically ? event.scrollingDeltaX : event.scrollingDeltaY
             var delta = primary != 0 ? primary : secondary
@@ -166,6 +169,11 @@ struct CardGridScrollView: NSViewRepresentable {
 
         func updateEdgeScroll(request: EdgeScrollRequest?, speed: CGFloat) {
             edgeScrollSpeed = speed
+            // Layout, sweep and drag callbacks are not new pointer input.
+            if let manualScrollPointer {
+                guard NSEvent.mouseLocation != manualScrollPointer else { return }
+                self.manualScrollPointer = nil
+            }
             guard request != edgeScrollRequest || (request != nil && edgeScrollTimer == nil) else { return }
             edgeScrollRequest = request
             restartEdgeScrollIfNeeded()
