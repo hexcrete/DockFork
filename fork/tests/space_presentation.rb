@@ -418,8 +418,8 @@ enum PreviewHeaderLayout { static let horizontalInset: CGFloat = 20 }
 enum SearchWindow { static let searchHeight: CGFloat = 40; static let panelEdgeOffset: CGFloat = -4 }
 enum WindowStateIndicator { static let styledMinimumAspectRatio: CGFloat = 1.2; static let styledContentPadding: CGFloat = 4 }
 enum MaterialPillStyle { static let horizontalInset: CGFloat = 9.125 }
-enum Defaults { struct Key<T> { let value: T }; static var size = SpacesBarItemSize.small; static subscript<T>(_ key: Key<T>) -> T { key.value } }
-extension Defaults.Key where T == CGFloat { static var globalPaddingMultiplier: Self { Self(value:1) } }
+enum Defaults { struct Key<T> { let value: T }; static var size = SpacesBarItemSize.small; static var padding: CGFloat = 1; static subscript<T>(_ key: Key<T>) -> T { key.value } }
+extension Defaults.Key where T == CGFloat { static var globalPaddingMultiplier: Self { Self(value:Defaults.padding) } }
 extension Defaults.Key where T == SpacesBarItemSize { static var spacesBarItemSize: Self { Self(value:Defaults.size) } }
 enum WindowPreviewHoverContainer {
  struct PreviewLayoutMetrics {
@@ -435,11 +435,104 @@ layout = layout.lines.reject { |line| line.include?('static var font:') || line.
 source += block(bar, 'struct SpacePillMetrics {') + "\n"
 source += layout.sub("enum SpacesBarLayout {", "enum SpacesBarLayout {\n static var headingHeight: CGFloat { 14 * scale }") + "\n"
 source += block(bar, 'enum SpacesBarAppLayout {') + "\n"
+source += block(bar, 'struct SpacesBarSizing {') + "\n" + block(bar, 'struct SpacesBarPreparedLayout {') + "\n"
+source += <<~'SWIFT'
+@MainActor func checkPreparedLayouts() {
+ typealias Prepared = SpacesBarPreparedLayout
+ typealias Key = Prepared.Key
+ typealias Pill = Prepared.Pill
+ func key(_ pills:[Pill], _ fixed:Bool, _ details:Bool, _ icons:Bool, _ available:CGFloat, _ requested:CGFloat, _ minimum:CGFloat, _ split:Bool, _ source:Int?, _ backing:CGFloat=2, _ font:NSFont?=nil)->Key {
+  let usable=max(1,available-(SpacesBarLayout.outerPadding+HoverContainerPadding.scrollOuter+SpacesBarLayout.innerPadding)*2)
+  let maximum=fixed || details ? min(usable,max(SpacesBarLayout.minimumPillWidth,requested)) : usable
+  return Key(pills:pills,displayIDs:split ? ["one","two"] : ["one"],spaceCounts:split ? [1,pills.count-1] : [pills.count],available:available,backingScale:backing,font:font ?? SpacesBarLayout.textFont,pillHeight:SpacesBarLayout.pillHeight,innerPadding:SpacesBarLayout.innerPadding,fixed:fixed,preferDetails:details,maximum:maximum,minimum:minimum,showIcons:icons,sourceDisplayIndex:source)
+ }
+ // Characterization reference: the former uncached coordinator calculation.
+ func reference(_ k:Key,_ progress:CGFloat)->SpacesBarSizing {
+  let labels=k.pills.map { SpacesBarLayout.labelWidth(($0.title as NSString).size(withAttributes:[.font:k.font]).width,fullscreen:$0.fullscreen) }
+  let ideal=zip(k.pills,labels).map {p,w in w+CGFloat(k.showIcons ? p.appCount : 0)*(SpacesBarAppLayout.iconSize+SpacesBarAppLayout.spacing)}
+  let spacing=SpacesBarLayout.rowSpacing(spaceCount:k.pills.count,displayCount:k.displayIDs.count,gapProgress:progress,sourceDisplayIndex:k.sourceDisplayIndex)+SpacesBarLayout.innerPadding*2+(SpacesBarLayout.outerPadding+HoverContainerPadding.scrollOuter)*2
+  let sizes=SpacesBarLayout.widths(ideal:ideal,labels:labels,maximum:k.maximum,available:max(1,k.available-spacing),fixed:k.fixed,minimum:k.fixed || k.preferDetails ? 0:k.minimum,preferDetails:k.preferDetails)
+  return SpacesBarSizing(widths:Dictionary(uniqueKeysWithValues:zip(k.pills.map(\.id),sizes)),width:min(k.available,sizes.reduce(0,+)+spacing))
+ }
+ let numeric=[Pill(id:1,title:"1",fullscreen:false,appCount:0),Pill(id:2,title:"2",fullscreen:true,appCount:1),Pill(id:3,title:"3",fullscreen:false,appCount:12)]
+ let named=[Pill(id:1,title:"Desktop 1",fullscreen:false,appCount:0),Pill(id:2,title:"A Very Long Fullscreen Application Name",fullscreen:true,appCount:1),Pill(id:3,title:"Desktop 3",fullscreen:false,appCount:12)]
+ var cases=0
+ for size in SpacesBarItemSize.allCases {
+  Defaults.size=size
+  for padding:CGFloat in [0.5,1,1.5] {
+   Defaults.padding=padding
+   for mode in 0..<3 {
+    for icons in [false,true] {
+     for available:CGFloat in [100,240,900] {
+      for pills in [numeric,named] {
+       for split in [false,true] {
+        for source:Int? in split ? [nil,0,1] : [nil,0] {
+         let k=key(pills,mode==0,mode==1,icons,available,240,80,split,source)
+         var cached:Prepared?
+         var measured=0
+         let prepared=Prepared.resolve(k,cached:&cached,measure:{s,f in measured+=1;return (s as NSString).size(withAttributes:[.font:f]).width})
+         precondition(measured==pills.count && cached?.key==k)
+         let rest=reference(k,0),expanded=reference(k,1)
+         precondition(prepared.resting.widths==rest.widths && prepared.resting.width==rest.width && prepared.expanded.widths==expanded.widths && prepared.expanded.width==expanded.width,"Prepared widths must exactly match the uncached calculation")
+         for p:CGFloat in [0,0.1,0.5,0.9,1] {
+          let actual=prepared.resting.interpolated(to:prepared.expanded,progress:p)
+          let expected=rest.interpolated(to:expanded,progress:p)
+          precondition(actual.widths==expected.widths && actual.width==expected.width)
+         }
+         for _ in 0..<5 {
+          let hit=Prepared.resolve(k,cached:&cached,measure:{_,_ in preconditionFailure("Highlight/filter/glyph updates must not remeasure")})
+          precondition(hit.textWidths==prepared.textWidths)
+         }
+         precondition(measured==pills.count)
+         cases+=1
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+ Defaults.size = .small;Defaults.padding=1
+ let base=key(numeric,false,false,true,900,240,80,true,nil)
+ var cached:Prepared?
+ _=Prepared.resolve(base,cached:&cached)
+ func changed(_ k:Key) {
+  precondition(k != base)
+  var cache=cached,measures=0
+  _=Prepared.resolve(k,cached:&cache,measure:{s,f in measures+=1;return (s as NSString).size(withAttributes:[.font:f]).width})
+  precondition(measures==k.pills.count && cache?.key==k)
+ }
+ changed(key(named,false,false,true,900,240,80,true,nil))
+ changed(key(Array(numeric.reversed()),false,false,true,900,240,80,true,nil))
+ changed(key([Pill(id:1,title:"1",fullscreen:false,appCount:4)]+numeric.dropFirst(),false,false,true,900,240,80,true,nil))
+ changed(key([Pill(id:1,title:"1",fullscreen:true,appCount:0)]+numeric.dropFirst(),false,false,true,900,240,80,true,nil))
+ changed(key(numeric,false,false,false,900,240,80,true,nil))
+ changed(key(numeric,true,false,true,900,400,80,true,nil))
+ changed(key(numeric,false,true,true,900,600,80,true,nil))
+ changed(key(numeric,false,false,true,900,240,160,true,nil))
+ changed(key(numeric,false,false,true,240,240,80,true,nil))
+ changed(key(numeric,false,false,true,900,240,80,false,nil))
+ changed(key(numeric,false,false,true,900,240,80,true,0))
+ changed(key(numeric,false,false,true,900,240,80,true,1))
+ changed(key(numeric,false,false,true,900,240,80,true,nil,1))
+ changed(key(numeric,false,false,true,900,240,80,true,nil,2,.systemFont(ofSize:29,weight:.bold)))
+ Defaults.padding=1.5;changed(key(numeric,false,false,true,900,240,80,true,nil));Defaults.padding=1
+ Defaults.size = .large;changed(key(numeric,false,false,true,900,240,80,true,nil));Defaults.size = .small
+ cached=nil
+ var rebuilt=0
+ _=Prepared.resolve(base,cached:&cached,measure:{s,f in rebuilt+=1;return (s as NSString).size(withAttributes:[.font:f]).width})
+ precondition(rebuilt==numeric.count)
+ print("PASS production prepared pill layout: \(cases) exact uncached-reference cases across seven sizes, padding, width modes, labels, icons, narrow screens, display/source boundaries and animated endpoints; five warm updates add 0 measurements; key invalidation and cache release")
+}
+SWIFT
+
 source += block(state, '    enum SpaceNavigationRequest:') + "\n"
 source += "func navigationIndex(ids:[UInt64],current:UInt64?,highlightedSpaceID:UInt64?,backward:Bool,startNext:Bool)->Int { SpaceNavigationRequest.cycle(backward:backward).targetIndex(ids:ids,current:current,highlighted:highlightedSpaceID,startNext:startNext)! }\n"
 source += <<~'SWIFT'
 @main struct Checks {
  @MainActor static func main() {
+  checkPreparedLayouts()
   precondition(navigationIndex(ids:[1,2,3],current:2,highlightedSpaceID:nil,backward:false,startNext:true)==2)
   precondition(navigationIndex(ids:[1,2,3],current:2,highlightedSpaceID:nil,backward:true,startNext:true)==0)
   precondition(navigationIndex(ids:[1,2,3],current:2,highlightedSpaceID:nil,backward:false,startNext:false)==1)
@@ -902,6 +995,7 @@ struct PillProbe: View {
  let label: String
  var apps: [ManagedSpacePresentation.App] = []
  var widths: [UInt64: CGFloat] { [1:width] }
+ var labelTextWidths: [UInt64: CGFloat] { [1:(label as NSString).size(withAttributes:[.font:SpacesBarLayout.textFont]).width] }
  var filteredSpace: UInt64? = nil
  func clearFilter() { SpacePillEvents.clears += 1 }
  let highlightedSpace: UInt64? = nil
@@ -1355,7 +1449,7 @@ Dir.mktmpdir('dockfork-space-visits-') do |dir|
  abort 'Space history checks failed' unless system("#{dir}/checks")
 end
 
-abort 'Hidden Space icons must reserve no app width or render overflow' unless panel.include?('CGFloat(Defaults[.spacesBarShowAppIcons] ? entry.apps.count : 0)') && bar.include?('let apps = showAppIcons ? entry.apps : []') && bar.include?('total: apps.count, availableWidth: iconRoom') && bar.include?('count < apps.count')
+abort 'Hidden Space icons must reserve no app width or render overflow' unless panel.include?('showIcons: Defaults[.spacesBarShowAppIcons]') && block(bar, 'struct SpacesBarPreparedLayout {').include?('CGFloat(key.showIcons ? pill.appCount : 0)') && bar.include?('let apps = showAppIcons ? entry.apps : []') && bar.include?('total: apps.count, availableWidth: iconRoom') && bar.include?('count < apps.count')
 abort 'Icon activation setting must remain editable with a visibility explanation' unless settings.include?('if !spacesBarShowAppIcons {') && settings.include?('Enable \"Appearance > Spaces Bar > Show app icons in the Spaces Bar\" to use this.') && !settings.include?('.disabled(!spacesBarShowAppIcons)')
 puts 'PASS Space icon visibility: default-on preference wiring, Appearance search/reset, no hidden icon width/overflow and gated activation'
 
@@ -1742,3 +1836,7 @@ end
 end
 abort 'Presentation topology must be separate from notification baseline' unless bar_refresh.include?('spacesBarPresentationDisplays = snapshot ?? WindowSpaces.managedDisplays') && bar_refresh.include?('if spacesBarSpaceChangeSnapshot == nil')
 abort 'Action-time Space resolution must retain fresh validation' unless space_context.include?('WindowSpaces.managedDisplays()') && !space_context.include?('spacesBarPresentationDisplays')
+prepared_position = block(panel, '    private func positionSpacesBar(')
+abort 'Prepared sizing must remain coordinator-owned and separate from live interaction' unless prepared_position.include?('SpacesBarPreparedLayout.resolve(key, cached: &spacesBarPreparedLayout)') && prepared_position.include?('labelTextWidths: prepared.textWidths') && prepared_position.include?('highlightedSpace: windowSwitcherCoordinator.spaceNavigationInputSource') && prepared_position.include?('contentsTargetChanged:')
+abort 'Pills must reuse prepared text width, not repeat label measurements' unless pill_style.include?('labelTextWidths[entry.id, default: 0]') && !pill_style.include?('(title as NSString).size(')
+abort 'Prepared cache must clear on both presentation removal and terminal hidden cleanup' unless block(panel,'    private func removeSpacesBar(').include?('spacesBarPreparedLayout = nil') && block(panel,'    func hideWindow(').index('spacesBarPreparedLayout = nil') < block(panel,'    func hideWindow(').index('guard isVisible else')

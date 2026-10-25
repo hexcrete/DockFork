@@ -63,6 +63,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private var spacesBarSections: [ManagedSpacePresentation.Display] = []
     private var spacesBarAllSections: [ManagedSpacePresentation.Display] = []
     private var spacesBarPresentationDisplays: [ManagedDisplayDescriptor]?
+    private var spacesBarPreparedLayout: SpacesBarPreparedLayout?
     private var spacesBarFingerprint: [String] = []
     private var spacesBarSpaceChangeSnapshot: [ManagedDisplayDescriptor]?
     private var spacesBarScreenObserver: NSObjectProtocol?
@@ -863,6 +864,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     private func removeSpacesBar(keepTopologyObserver: Bool = false) {
         pendingSpacesBarRefresh = nil
+        spacesBarPreparedLayout = nil
         cancelContentsDrag()
         windowSwitcherCoordinator.spaceDragViewport?.updateDrag(at: nil)
         windowSwitcherCoordinator.spaceDragViewport = nil
@@ -913,22 +915,19 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let sourceDisplayIndex = spacesBarSections.firstIndex { display in display.spaces.contains { $0.id == panel.viewport.gapSourceSpaceID } }
         let labels = Defaults[.spacesBarLabels]
         let font = SpacesBarLayout.textFont
-        let labelWidths = entries.map { entry in
-            SpacesBarLayout.labelWidth((entry.title(mode: labels) as NSString).size(withAttributes: [.font: font]).width, fullscreen: entry.isFullscreen)
-        }
-        let ideal = zip(entries, labelWidths).map { entry, labelWidth in
-            labelWidth + CGFloat(Defaults[.spacesBarShowAppIcons] ? entry.apps.count : 0) * (SpacesBarAppLayout.iconSize + SpacesBarAppLayout.spacing)
-        }
         let availablePillWidth = max(1, available - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter + SpacesBarLayout.innerPadding) * 2)
         let maximum = fixed || preferDetails ? min(availablePillWidth, max(SpacesBarLayout.minimumPillWidth, requestedWidth.isFinite ? min(600, max(10, requestedWidth)) : 240)) : availablePillWidth
-        func sizing(gapProgress: CGFloat) -> SpacesBarSizing {
-            let spacing = SpacesBarLayout.rowSpacing(spaceCount: entries.count, displayCount: spacesBarSections.count, gapProgress: gapProgress, sourceDisplayIndex: sourceDisplayIndex) + SpacesBarLayout.innerPadding * 2 + (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2
-            let sizes = SpacesBarLayout.widths(ideal: ideal, labels: labelWidths, maximum: maximum, available: max(1, available - spacing), fixed: fixed,
-                                               minimum: fixed || preferDetails ? 0 : minimum, preferDetails: preferDetails)
-            return SpacesBarSizing(widths: Dictionary(uniqueKeysWithValues: zip(entries.map(\.id), sizes)), width: min(available, sizes.reduce(0, +) + spacing))
-        }
-        let restingSizing = sizing(gapProgress: 0)
-        let expandedSizing = sizing(gapProgress: 1)
+        let key = SpacesBarPreparedLayout.Key(
+            pills: entries.map { .init(id: $0.id, title: $0.title(mode: labels), fullscreen: $0.isFullscreen, appCount: $0.apps.count) },
+            displayIDs: spacesBarSections.map(\.id), spaceCounts: spacesBarSections.map(\.spaces.count),
+            available: available, backingScale: screen.backingScaleFactor, font: font,
+            pillHeight: SpacesBarLayout.pillHeight, innerPadding: SpacesBarLayout.innerPadding,
+            fixed: fixed, preferDetails: preferDetails, maximum: maximum, minimum: minimum,
+            showIcons: Defaults[.spacesBarShowAppIcons], sourceDisplayIndex: sourceDisplayIndex
+        )
+        let prepared = SpacesBarPreparedLayout.resolve(key, cached: &spacesBarPreparedLayout)
+        let restingSizing = prepared.resting
+        let expandedSizing = prepared.expanded
         let width = showDropGaps ? expandedSizing.width : restingSizing.width
         let target = spacesBarFrame(relativeTo: grid, size: CGSize(width: width, height: SpacesBarLayout.height(displayCount: spacesBarSections.count)), screen: screen)
         let current = spacesBarSections.first(where: { WindowSpaces.screen(forDisplayIdentifier: $0.id) == screen })?
@@ -937,6 +936,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         panel.sharingType = sharingType
         let barView = SpacesBarView(
             viewport: panel.viewport, restingSizing: restingSizing, expandedSizing: expandedSizing,
+            labelTextWidths: prepared.textWidths,
             frameForSize: { [weak self] size in self?.spacesBarFrame(relativeTo: grid, size: size, screen: screen) ?? target },
             screen: screen, sections: spacesBarSections,
             initialSpace: current, highlightedSpace: windowSwitcherCoordinator.spaceNavigationInputSource == .mouse ? nil : highlightedSpaceID, previewCoordinator: windowSwitcherCoordinator, labels: labels,
@@ -1118,6 +1118,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
         windowSwitcherCoordinator.pendingSpaceNavigation = nil
         pendingSpacesBarRefresh = nil
+        spacesBarPreparedLayout = nil
         externalDragTargetToken = nil
         ActionFeedbackController.existing?.previewWillDisappear(self)
         windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)

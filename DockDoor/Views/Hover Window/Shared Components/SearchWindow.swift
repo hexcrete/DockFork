@@ -492,6 +492,70 @@ struct SpacesBarSizing {
     }
 }
 
+struct SpacesBarPreparedLayout {
+    struct Pill: Equatable {
+        let id: CGSSpaceID
+        let title: String
+        let fullscreen: Bool
+        let appCount: Int
+    }
+
+    struct Key: Equatable {
+        let pills: [Pill]
+        let displayIDs: [String]
+        let spaceCounts: [Int]
+        let available: CGFloat
+        let backingScale: CGFloat
+        let font: NSFont
+        let pillHeight: CGFloat
+        let innerPadding: CGFloat
+        let fixed: Bool
+        let preferDetails: Bool
+        let maximum: CGFloat
+        let minimum: CGFloat
+        let showIcons: Bool
+        let sourceDisplayIndex: Int?
+    }
+
+    let key: Key
+    let textWidths: [CGSSpaceID: CGFloat]
+    let resting: SpacesBarSizing
+    let expanded: SpacesBarSizing
+
+    init(key: Key, measure: (String, NSFont) -> CGFloat) {
+        self.key = key
+        let measured = key.pills.map { measure($0.title, key.font) }
+        textWidths = Dictionary(uniqueKeysWithValues: zip(key.pills.map(\.id), measured))
+        let labelWidths = zip(key.pills, measured).map {
+            SpacesBarLayout.labelWidth($1, fullscreen: $0.fullscreen)
+        }
+        let ideal = zip(key.pills, labelWidths).map { pill, labelWidth in
+            labelWidth + CGFloat(key.showIcons ? pill.appCount : 0) * (SpacesBarAppLayout.iconSize + SpacesBarAppLayout.spacing)
+        }
+        func sizing(gapProgress: CGFloat) -> SpacesBarSizing {
+            let spacing = SpacesBarLayout.rowSpacing(spaceCount: key.pills.count, displayCount: key.displayIDs.count,
+                                                     gapProgress: gapProgress, sourceDisplayIndex: key.sourceDisplayIndex) +
+                key.innerPadding * 2 + (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2
+            let sizes = SpacesBarLayout.widths(ideal: ideal, labels: labelWidths, maximum: key.maximum,
+                                               available: max(1, key.available - spacing), fixed: key.fixed,
+                                               minimum: key.fixed || key.preferDetails ? 0 : key.minimum, preferDetails: key.preferDetails)
+            return SpacesBarSizing(widths: Dictionary(uniqueKeysWithValues: zip(key.pills.map(\.id), sizes)),
+                                   width: min(key.available, sizes.reduce(0, +) + spacing))
+        }
+        resting = sizing(gapProgress: 0)
+        expanded = sizing(gapProgress: 1)
+    }
+
+    static func resolve(_ key: Key, cached: inout Self?,
+                        measure: (String, NSFont) -> CGFloat = { ($0 as NSString).size(withAttributes: [.font: $1]).width }) -> Self
+    {
+        if let cached, cached.key == key { return cached }
+        let prepared = Self(key: key, measure: measure)
+        cached = prepared
+        return prepared
+    }
+}
+
 struct SpacesBarGapAnimation<Content: View>: View, Animatable {
     var progress: CGFloat
     let content: (CGFloat) -> Content
@@ -526,6 +590,7 @@ struct SpacesBarView: View {
     @ObservedObject var viewport: SpacesBarViewport
     let restingSizing: SpacesBarSizing
     let expandedSizing: SpacesBarSizing
+    let labelTextWidths: [CGSSpaceID: CGFloat]
     let frameForSize: (CGSize) -> CGRect
     let screen: NSScreen
     let sections: [ManagedSpacePresentation.Display]
@@ -686,7 +751,7 @@ struct SpacesBarView: View {
     private func pill(_ entry: ManagedSpacePresentation.Entry, width: CGFloat) -> some View {
         let title = entry.title(mode: labels)
         let font = SpacesBarLayout.textFont
-        let titleWidth = min(max(0, width - SpacesBarLayout.horizontalInset * 2 - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0)), max(SpacesBarLayout.minimumLabelWidth, ceil((title as NSString).size(withAttributes: [.font: font]).width) + 2))
+        let titleWidth = min(max(0, width - SpacesBarLayout.horizontalInset * 2 - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0)), max(SpacesBarLayout.minimumLabelWidth, ceil(labelTextWidths[entry.id, default: 0]) + 2))
         let titleParts = SpacesBarLayout.titleParts(width: titleWidth, filtered: filteredSpace == entry.id, spacing: SpacesBarAppLayout.spacing)
         let iconRoom = max(0, width - titleWidth - SpacesBarLayout.horizontalInset * 2 - SpacesBarAppLayout.spacing - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0))
         let apps = showAppIcons ? entry.apps : []
