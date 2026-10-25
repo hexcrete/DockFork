@@ -345,7 +345,9 @@ render_source += <<~'SWIFT'
    if selected || checked {precondition(delta<0.01,"Selected/checked content must remain full strength")}
    else {precondition(delta>0.1,"Unselected content must retain configured dimming")}
    if outer && hidden {
-    precondition(components(dimmed,100,24)[3]<0.01,"Hiding both backgrounds must remain transparent")
+    let centerAlpha=components(dimmed,100,24)[3]
+    if active {precondition(centerAlpha>0.1,"Active hidden-background cards must retain a filled focus highlight")}
+    else {precondition(centerAlpha<0.01,"Inactive hidden-background cards must remain transparent inside their hover outline")}
    }
    cases+=1
   }}}}}}

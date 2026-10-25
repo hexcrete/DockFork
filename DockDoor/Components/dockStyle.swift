@@ -106,6 +106,12 @@ private struct PreviewCardChromeModifier: ViewModifier {
                     }
             }
 
+            if hideBackground, isActiveWindow {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(activeBorderColor.opacity(highlightOpacity))
+                    .padding(expansionEdges, -CardRadius.innerPadding)
+            }
+
             if hideBackground, showsHighlightWhenBackgroundHidden, isHighlighted {
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .strokeBorder(highlightColor, lineWidth: 2.5)
