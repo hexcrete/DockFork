@@ -37,6 +37,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
 
     @Default(.enableSpacesBar) private var enableSpacesBar
     @Default(.spacesBarFilterWindows) private var spacesBarFilterWindows
+    @Default(.spacesBarDoNotFilterEmpty) private var spacesBarDoNotFilterEmpty
     @Default(.spacesBarStartOnNext) private var spacesBarStartOnNext
     @Default(.spacesBarRecentlyUsed) private var spacesBarRecentlyUsed
     @Default(.spacesBarSwapContents) private var spacesBarSwapContents
@@ -68,7 +69,8 @@ struct WindowSwitcherBehaviorSettingsView: View {
         }
         .onChange(of: windowSwitcherSortOrder) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
         .onChange(of: spacesBarRecentlyUsed) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
-        .onChange(of: spacesBarFilterWindows) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+        .onChange(of: spacesBarFilterWindows) { _ in SharedPreviewWindowCoordinator.activeInstance?.resetSpaceFiltering() }
+        .onChange(of: spacesBarDoNotFilterEmpty) { _ in SharedPreviewWindowCoordinator.activeInstance?.resetSpaceFiltering() }
         .onChange(of: enableSpacesBar) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
         .onChange(of: spacesBarHideWhenSingle) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
         .sheet(isPresented: $showGroupedAppsSheet) {
@@ -209,8 +211,10 @@ struct WindowSwitcherBehaviorSettingsView: View {
                 Toggle("Enable Spaces Bar", isOn: $enableSpacesBar)
                     .settingsSearchTarget("windowSwitcher.enableSpacesBar")
                 if enableSpacesBar {
-                    Toggle("Filter windows by highlighted Space", isOn: $spacesBarFilterWindows)
+                    Toggle("Automatically filter windows by highlighted Space", isOn: $spacesBarFilterWindows)
                         .settingsSearchTarget("windowSwitcher.spacesBarFilterWindows")
+                    Toggle("Do not filter empty Spaces", isOn: $spacesBarDoNotFilterEmpty)
+                        .settingsSearchTarget("windowSwitcher.spacesBarDoNotFilterEmpty")
                     Toggle("Start on next Space", isOn: $spacesBarStartOnNext)
                         .settingsSearchTarget("windowSwitcher.spacesBarStartOnNext")
                     Picker("Spaces sort order", selection: $spacesBarRecentlyUsed) {

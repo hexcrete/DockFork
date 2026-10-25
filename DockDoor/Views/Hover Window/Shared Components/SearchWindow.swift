@@ -568,6 +568,14 @@ struct SpacesBarGapAnimation<Content: View>: View, Animatable {
     var body: some View { content(min(1, max(0, progress))) }
 }
 
+private enum SpaceFilterLeadingAlignment: AlignmentID {
+    static func defaultValue(in context: ViewDimensions) -> CGFloat { context[.leading] }
+}
+
+private extension HorizontalAlignment {
+    static let spaceFilterLeading = HorizontalAlignment(SpaceFilterLeadingAlignment.self)
+}
+
 struct SpacesBarView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Default(.showAnimations) private var showAnimations
@@ -583,6 +591,7 @@ struct SpacesBarView: View {
     @Default(.selectionOpacity) private var highlightOpacity
     @Default(.activeAppIndicatorColor) private var activeBorderColor
     @Default(.showActiveWindowBorder) private var showActiveWindowBorder
+    @Default(.spacesBarDoNotFilterEmpty) private var skipEmptySpaces
     @Default(.switcherShowAppIconBadges) private var showBadges
     @Default(.switcherAppIconBadgeScale) private var badgeScale
     @Default(.enableWindowSwitcherEdgeAutoScroll) private var edgeScrolling
@@ -600,7 +609,9 @@ struct SpacesBarView: View {
     let labels: SpaceMenuDisplayMode
     let hover: (CGSSpaceID, Bool) -> Void
     let filteredSpace: CGSSpaceID?
+    let filterControlSpace: CGSSpaceID?
     let clearFilter: () -> Void
+    let applyFilter: (CGSSpaceID) -> Void
     let activateApp: (ManagedSpacePresentation.App, ManagedSpacePresentation.Entry) -> Void
     let activate: (ManagedSpacePresentation.Entry) -> Void
     var dragContents: ((CGSSpaceID, CGPoint, Bool) -> Void)? = nil
@@ -751,8 +762,12 @@ struct SpacesBarView: View {
     private func pill(_ entry: ManagedSpacePresentation.Entry, width: CGFloat) -> some View {
         let title = entry.title(mode: labels)
         let font = SpacesBarLayout.textFont
+        let isFiltered = filteredSpace == entry.id
+        let showsFilterControl = (isFiltered || filterControlSpace == entry.id) &&
+            (!skipEmptySpaces || entry.apps.contains { !$0.windowIdentities.isEmpty })
+        let filterControlState: Bool? = showsFilterControl ? isFiltered : nil
         let titleWidth = min(max(0, width - SpacesBarLayout.horizontalInset * 2 - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0)), max(SpacesBarLayout.minimumLabelWidth, ceil(labelTextWidths[entry.id, default: 0]) + 2))
-        let titleParts = SpacesBarLayout.titleParts(width: titleWidth, filtered: filteredSpace == entry.id, spacing: SpacesBarAppLayout.spacing)
+        let titleParts = SpacesBarLayout.titleParts(width: titleWidth, filtered: showsFilterControl, spacing: SpacesBarAppLayout.spacing)
         let iconRoom = max(0, width - titleWidth - SpacesBarLayout.horizontalInset * 2 - SpacesBarAppLayout.spacing - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0))
         let apps = showAppIcons ? entry.apps : []
         let fittedCount = AppIconStripFormatting.visibleCount(
@@ -760,67 +775,81 @@ struct SpacesBarView: View {
             font: font, spacing: SpacesBarAppLayout.spacing
         )
         let count = fittedCount ?? 0
-        return ZStack {
-            Button { activate(entry) } label: { Color.clear.contentShape(Rectangle()) }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("\(title), \(entry.apps.reduce(0) { $0 + $1.windowCount }) windows"))
-                .accessibilityValue(entry.isCurrent ? Text("Current") : Text(""))
-            HStack(spacing: SpacesBarAppLayout.spacing) {
-                if entry.isFullscreen { Image(systemName: "arrow.up.left.and.arrow.down.right").allowsHitTesting(false) }
-                ZStack(alignment: .leading) {
-                    Button(action: clearFilter) {
-                        Image(systemName: "xmark.circle.fill")
+        return ZStack(alignment: Alignment(horizontal: .spaceFilterLeading, vertical: .center)) {
+            ZStack {
+                Button { activate(entry) } label: { Color.clear.contentShape(Rectangle()) }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("\(title), \(entry.apps.reduce(0) { $0 + $1.windowCount }) windows"))
+                    .accessibilityValue(entry.isCurrent ? Text("Current") : Text(""))
+                HStack(spacing: SpacesBarAppLayout.spacing) {
+                    if entry.isFullscreen { Image(systemName: "arrow.up.left.and.arrow.down.right").allowsHitTesting(false) }
+                    ZStack(alignment: .leading) {
+                        Text(title).lineLimit(1).truncationMode(.tail)
+                            .frame(width: titleParts.text, alignment: .center).clipped()
+                            .offset(x: titleParts.button + titleParts.spacing)
+                            .opacity(titleParts.text > 0 ? 1 : 0).allowsHitTesting(false)
+                    }
+                    .frame(width: titleWidth, height: ceil(font.ascender - font.descender + font.leading), alignment: .leading)
+                    .alignmentGuide(.spaceFilterLeading) { $0[.leading] }
+                    .previewControlVisibilityAnimation(isVisible: showsFilterControl, duration: controlAnimationDuration, animationsEnabled: showAnimations)
+                    ForEach(Array(apps.prefix(count).enumerated()), id: \.element.application.processIdentifier) { _, app in
+                        let icon = PreviewAppIcon(icon: app.application.icon, bundleURL: app.application.bundleURL,
+                                                  size: SpacesBarAppLayout.iconSize, showBadge: showBadges,
+                                                  badgeScale: badgeScale, mockPreviewActive: false)
+                            .appWindowCount(app.windowCount, height: SpacesBarLayout.pillHeight)
+                            .accessibilityHidden(true)
+                        if activateAppIcons, !app.windowIdentities.isEmpty {
+                            Button { activateApp(app, entry) } label: { icon.contentShape(Rectangle()) }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(Text(app.application.localizedName ?? String(localized: "Application")))
+                        } else {
+                            icon.allowsHitTesting(false)
+                        }
+                    }
+                    if fittedCount != nil, count < apps.count { Text("+\(apps.count - count)").foregroundStyle(.secondary).allowsHitTesting(false) }
+                }
+                .font(SpacesBarLayout.font)
+                .padding(.horizontal, SpacesBarLayout.horizontalInset)
+                .frame(width: width, height: SpacesBarLayout.pillHeight, alignment: .center)
+            }
+            .frame(width: width, height: SpacesBarLayout.pillHeight)
+            .previewCardChrome(
+                uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier,
+                expansionEdges: [], hideBackground: hideCardBackground,
+                isHighlighted: (enableMouseHoverInSwitcher && viewport.hoveredSpaceID == entry.id) || highlightedSpace == entry.id, isActiveWindow: showActiveWindowBorder && entry.isCurrent,
+                highlightColor: highlightColor ?? Color(nsColor: .controlAccentColor), highlightOpacity: highlightOpacity,
+                activeBorderColor: activeBorderColor, backgroundAppearance: .resolve()
+            )
+            .contentShape(RoundedRectangle(cornerRadius: CardRadius.previewCard(uniform: uniformCardRadius, paddingMultiplier: paddingMultiplier)))
+            .highPriorityGesture(entry.isFullscreen || dragContents == nil ? nil : DragGesture(minimumDistance: 3, coordinateSpace: .global)
+                .onChanged { _ in dragContents?(entry.id, NSEvent.mouseLocation, false) }
+                .onEnded { _ in dragContents?(entry.id, NSEvent.mouseLocation, true) })
+            ZStack {
+                if let clearing = filterControlState {
+                    Button { if clearing { clearFilter() } else { applyFilter(entry.id) } } label: {
+                        Image(systemName: clearing ? "xmark.circle.fill" : "magnifyingglass.circle.fill")
                             .font(.system(size: SpacesBarLayout.clearSymbolSize * 1.3))
                             .frame(width: SpacesBarLayout.clearSymbolSize, height: SpacesBarLayout.clearSymbolSize)
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .frame(width: SpacesBarLayout.minimumLabelWidth)
-                    .offset(x: filteredSpace == entry.id ? 0 : -SpacesBarLayout.minimumLabelWidth)
-                    .opacity(filteredSpace == entry.id ? 1 : 0)
-                    .allowsHitTesting(filteredSpace == entry.id)
-                    .help(String(localized: "Clear Space filter"))
-                    .accessibilityLabel(Text("Clear Space filter"))
-                    .accessibilityHidden(filteredSpace != entry.id)
-                    Text(title).lineLimit(1).truncationMode(.tail)
-                        .frame(width: titleParts.text, alignment: .center).clipped()
-                        .offset(x: titleParts.button + titleParts.spacing)
-                        .opacity(titleParts.text > 0 ? 1 : 0).allowsHitTesting(false)
+                    .frame(width: SpacesBarLayout.minimumLabelWidth, height: ceil(font.ascender - font.descender + font.leading))
+                    .contentShape(Rectangle())
+                    .highPriorityGesture(DragGesture(minimumDistance: 3).onChanged { _ in })
+                    .help(clearing ? String(localized: "Clear Space filter") : String(localized: "Filter windows by this Space"))
+                    .accessibilityLabel(clearing ? Text("Clear Space filter") : Text("Filter windows by this Space"))
+                    .id(clearing)
+                    .transition(showAnimations && !reduceMotion
+                        ? .offset(x: -SpacesBarLayout.minimumLabelWidth).combined(with: .opacity) : .identity)
                 }
-                .frame(width: titleWidth, height: ceil(font.ascender - font.descender + font.leading), alignment: .leading)
-                .previewControlVisibilityAnimation(isVisible: filteredSpace == entry.id, duration: controlAnimationDuration, animationsEnabled: showAnimations)
-                ForEach(Array(apps.prefix(count).enumerated()), id: \.element.application.processIdentifier) { _, app in
-                    let icon = PreviewAppIcon(icon: app.application.icon, bundleURL: app.application.bundleURL,
-                                              size: SpacesBarAppLayout.iconSize, showBadge: showBadges,
-                                              badgeScale: badgeScale, mockPreviewActive: false)
-                        .appWindowCount(app.windowCount, height: SpacesBarLayout.pillHeight)
-                        .accessibilityHidden(true)
-                    if activateAppIcons, !app.windowIdentities.isEmpty {
-                        Button { activateApp(app, entry) } label: { icon.contentShape(Rectangle()) }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel(Text(app.application.localizedName ?? String(localized: "Application")))
-                    } else {
-                        icon.allowsHitTesting(false)
-                    }
-                }
-                if fittedCount != nil, count < apps.count { Text("+\(apps.count - count)").foregroundStyle(.secondary).allowsHitTesting(false) }
             }
-            .font(SpacesBarLayout.font)
-            .padding(.horizontal, SpacesBarLayout.horizontalInset)
-            .frame(width: width, height: SpacesBarLayout.pillHeight, alignment: .center)
+            .frame(width: SpacesBarLayout.minimumLabelWidth, height: ceil(font.ascender - font.descender + font.leading))
+            .alignmentGuide(.spaceFilterLeading) { $0[.leading] }
+            .animation(PreviewControlAnimation.animation(duration: controlAnimationDuration, animationsEnabled: showAnimations, reduceMotion: reduceMotion), value: filterControlState)
+            .allowsHitTesting(showsFilterControl)
+            .accessibilityHidden(!showsFilterControl)
         }
         .frame(width: width, height: SpacesBarLayout.pillHeight)
-        .previewCardChrome(
-            uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier,
-            expansionEdges: [], hideBackground: hideCardBackground,
-            isHighlighted: (enableMouseHoverInSwitcher && viewport.hoveredSpaceID == entry.id) || highlightedSpace == entry.id, isActiveWindow: showActiveWindowBorder && entry.isCurrent,
-            highlightColor: highlightColor ?? Color(nsColor: .controlAccentColor), highlightOpacity: highlightOpacity,
-            activeBorderColor: activeBorderColor, backgroundAppearance: .resolve()
-        )
-        .contentShape(RoundedRectangle(cornerRadius: CardRadius.previewCard(uniform: uniformCardRadius, paddingMultiplier: paddingMultiplier)))
-        .highPriorityGesture(entry.isFullscreen || dragContents == nil ? nil : DragGesture(minimumDistance: 3, coordinateSpace: .global)
-            .onChanged { _ in dragContents?(entry.id, NSEvent.mouseLocation, false) }
-            .onEnded { _ in dragContents?(entry.id, NSEvent.mouseLocation, true) })
         .onContinuousHover { phase in
             switch phase {
             case .active:

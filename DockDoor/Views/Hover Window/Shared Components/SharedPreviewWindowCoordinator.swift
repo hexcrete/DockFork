@@ -501,19 +501,70 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     private var spaceFilterTop: CGFloat?
 
+    struct SpaceFilterIntent {
+        private(set) var highlighted: CGSSpaceID?
+        var requested: CGSSpaceID?
+
+        mutating func highlight(_ id: CGSSpaceID?, automatically: Bool) {
+            guard highlighted != id else { return }
+            highlighted = id
+            if let id { requested = automatically ? id : nil }
+        }
+
+        func filterID(hasWindows: Bool, skipEmpty: Bool) -> CGSSpaceID? {
+            skipEmpty && !hasWindows ? nil : requested
+        }
+    }
+
+    private var spaceFilterIntent = SpaceFilterIntent()
+
+    func resetSpaceFiltering() {
+        spaceFilterIntent = SpaceFilterIntent()
+        refreshSpacesBar(.layout)
+    }
+
+    func clearSpaceFilter() {
+        spaceFilterIntent.requested = nil
+        windowSwitcherCoordinator.hasMovedSinceOpen = false
+        windowSwitcherCoordinator.initialHoverLocation = NSEvent.mouseLocation
+        windowSwitcherCoordinator.navigationTarget = .windows
+        windowSwitcherCoordinator.setSpaceFilter(nil)
+        positionSpacesBar(relativeTo: frame)
+    }
+
+    private func applySpaceFilter(_ id: CGSSpaceID) {
+        guard windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar],
+              spacesBarSections.contains(where: { $0.spaces.contains(where: { $0.id == id }) })
+        else { return }
+        spaceFilterIntent.requested = id
+        updateSpaceFilter()
+        positionSpacesBar(relativeTo: frame)
+    }
+
     private func updateSpaceFilter() {
         let coordinator = windowSwitcherCoordinator
-        guard Defaults[.spacesBarFilterWindows], Defaults[.enableSpacesBar] else {
+        guard coordinator.windowSwitcherActive, Defaults[.enableSpacesBar] else {
+            spaceFilterIntent = SpaceFilterIntent()
             coordinator.setSpaceFilter(nil)
             return
         }
-        guard let id = highlightedSpaceID ?? coordinator.activeSpaceFilterID else { return }
+        spaceFilterIntent.highlight(highlightedSpaceID, automatically: Defaults[.spacesBarFilterWindows])
+        guard let id = spaceFilterIntent.requested else {
+            coordinator.setSpaceFilter(nil)
+            return
+        }
         guard let entry = spacesBarSections.flatMap(\.spaces).first(where: { $0.id == id }) else {
+            spaceFilterIntent.requested = nil
+            coordinator.setSpaceFilter(nil)
+            return
+        }
+        let members = Set(entry.apps.flatMap(\.windowIdentities))
+        guard spaceFilterIntent.filterID(hasWindows: !members.isEmpty, skipEmpty: Defaults[.spacesBarDoNotFilterEmpty]) != nil else {
             coordinator.setSpaceFilter(nil)
             return
         }
         if spaceFilterTop == nil { spaceFilterTop = frame.maxY }
-        coordinator.setSpaceFilter(id, members: Set(entry.apps.flatMap(\.windowIdentities)))
+        coordinator.setSpaceFilter(id, members: members)
     }
 
     @MainActor
@@ -865,6 +916,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private func removeSpacesBar(keepTopologyObserver: Bool = false) {
         pendingSpacesBarRefresh = nil
         spacesBarPreparedLayout = nil
+        spaceFilterIntent = SpaceFilterIntent()
         cancelContentsDrag()
         windowSwitcherCoordinator.spaceDragViewport?.updateDrag(at: nil)
         windowSwitcherCoordinator.spaceDragViewport = nil
@@ -942,12 +994,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             initialSpace: current, highlightedSpace: windowSwitcherCoordinator.spaceNavigationInputSource == .mouse ? nil : highlightedSpaceID, previewCoordinator: windowSwitcherCoordinator, labels: labels,
             hover: { [weak self] id, hovering in self?.windowSwitcherCoordinator.hoverSpace(id, hovering: hovering) },
             filteredSpace: windowSwitcherCoordinator.activeSpaceFilterID,
-            clearFilter: { [weak self] in
-                self?.windowSwitcherCoordinator.hasMovedSinceOpen = false
-                self?.windowSwitcherCoordinator.initialHoverLocation = NSEvent.mouseLocation
-                self?.windowSwitcherCoordinator.navigationTarget = .windows
-                self?.windowSwitcherCoordinator.setSpaceFilter(nil)
-            },
+            filterControlSpace: highlightedSpaceID ?? windowSwitcherCoordinator.mouseHighlightedSpaceID,
+            clearFilter: { [weak self] in self?.clearSpaceFilter() },
+            applyFilter: { [weak self] id in self?.applySpaceFilter(id) },
             activateApp: { [weak self] app, entry in Task { @MainActor in await self?.activateSpaceApp(app, in: entry) } },
             activate: { [weak self] entry in Task { @MainActor in self?.activateSpace(entry) } },
             dragContents: { [weak self] id, point, ended in self?.updateContentsDrag(from: id, at: point, ended: ended) },
@@ -1119,6 +1168,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         windowSwitcherCoordinator.pendingSpaceNavigation = nil
         pendingSpacesBarRefresh = nil
         spacesBarPreparedLayout = nil
+        spaceFilterIntent = SpaceFilterIntent()
         externalDragTargetToken = nil
         ActionFeedbackController.existing?.previewWillDisappear(self)
         windowSwitcherCoordinator.clearCheckedWindows(resetOwnership: true)

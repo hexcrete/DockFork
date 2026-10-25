@@ -193,6 +193,7 @@ struct MainSettingsView: View {
                 Defaults[.spacesBarCycleKey] = Defaults.Keys.spacesBarCycleKey.defaultValue
                 Defaults[.spacesBarBackwardCycleKey] = Defaults.Keys.spacesBarBackwardCycleKey.defaultValue
                 Defaults[.spacesBarFilterWindows] = Defaults.Keys.spacesBarFilterWindows.defaultValue
+                Defaults[.spacesBarDoNotFilterEmpty] = Defaults.Keys.spacesBarDoNotFilterEmpty.defaultValue
                 Defaults[.spacesBarStartOnNext] = Defaults.Keys.spacesBarStartOnNext.defaultValue
                 Defaults[.spacesBarRecentlyUsed] = Defaults.Keys.spacesBarRecentlyUsed.defaultValue
                 Defaults[.spacesBarCycleOpensSwitcher] = Defaults.Keys.spacesBarCycleOpensSwitcher.defaultValue
