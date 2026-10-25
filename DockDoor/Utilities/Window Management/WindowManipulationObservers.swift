@@ -227,8 +227,18 @@ class WindowManipulationObservers {
     @objc private func activeSpaceDidChange(_ notification: Notification) {
         DebugLogger.log("activeSpaceDidChange")
         Task { @MainActor in
-            WindowSpaces.recordBarSpaceVisits()
-            dismissPreviewsForSpaceChange()
+            let preservesBar: Bool
+            if Defaults[.enableSpacesBar], previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
+                let displays = WindowSpaces.managedDisplays(includeOwners: true)
+                WindowSpaces.recordBarSpaceVisits(displays)
+                preservesBar = previewCoordinator.preserveSpacesBarAfterSpaceChange(in: displays)
+            } else {
+                WindowSpaces.recordBarSpaceVisits()
+                preservesBar = false
+            }
+            if !preservesBar {
+                dismissPreviewsForSpaceChange()
+            }
         }
         if Defaults[.showActiveAppIndicator] {
             ActiveAppIndicatorCoordinator.shared?.handleSpaceChanged()

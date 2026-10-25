@@ -1324,3 +1324,15 @@ A valid visible Spaces Bar prevents empty-window-list teardown in shortcut compl
 Signed development build `DockFork-1f53500-working-NxnLQN` is running at the expected development path. Signature, source snapshot and installed executable/debug library match. Fixture syntax, formatter lint and diff checks pass; automated suites and native/manual shortcut coverage remain unrun. Stage 3 awaits manual verification before review/commit. No release or push.
 
 Stage 3 is now user-verified and approved after final source review. The complete three-stage Space-pill action/shortcut plan is implemented. Final signature/source/binary/running-path, fixture syntax, formatter lint and diff checks passed without further production edits. Automated suites and exhaustive modifier/display/fault combinations remain unrun. The highlighted-fullscreen-app quit collapse is still a separately deferred known issue.
+
+### Fullscreen-Space removal lifecycle correction (in verification)
+
+The previously deferred fullscreen-app quit collapse is now addressed in source. The shared Space-change notification handler compares existing display/Space topology rather than dismissing on every notification. An unchanged active Space, or automatic fallback from a removed fullscreen Space, preserves a visible WS+SB session. Ordinary navigation away from a still-existing Space retains dismissal, as do explicit action/session dismissal rules. Display-set changes or unknown current IDs conservatively retain the old dismissal behavior.
+
+When a highlighted pill disappears, navigation falls back to its display's valid current Space, or Windows when unavailable. Stale mouse highlighting is cleared and the existing filter is reconciled. Removing the final extra Space still honors Hide when only one Space exists. The shared notification path refreshes the bar using the same topology snapshot; its redundant Space-change observer is removed. No timer, retry, AX validation, new discovery loop or preference change is added. Manual/native verification remains pending; automated suites unrun.
+
+Development build `DockFork-e426e35-working-YiiV1r` is signed and running from the verified development path; installed binaries/source match. Formatter/diff and fixture syntax checks passed. Native/manual confirmation remains pending and automated suites were not run; the lifecycle correction is uncommitted.
+
+The user confirmed the fullscreen-app Quit fix. Final review also restored the original disabled/inactive-bar query behavior; no topology fetch is added to that idle notification path. Shared preservation behavior for related Space-removal interactions is supported by source inspection, not additional native tests. Existing action-dismissal preferences remain effective.
+
+Final reviewed development build `DockFork-e426e35-working-frpaQp` passed signed build/relaunch and exact source/installed-binary/running-path verification. Formatter/diff and fixture syntax checks passed; automated suites remain unrun. The fix is approved after user verification and source review.

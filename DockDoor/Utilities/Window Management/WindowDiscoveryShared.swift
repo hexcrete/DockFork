@@ -659,6 +659,18 @@ struct ManagedSpaceDestination {
 }
 
 enum ManagedSpacePresentation {
+    static func isTopologyOnlySpaceChange(from previous: [ManagedDisplayDescriptor], to current: [ManagedDisplayDescriptor]) -> Bool {
+        guard !previous.isEmpty, previous.count == current.count else { return false }
+        return previous.allSatisfy { old in
+            guard let display = current.first(where: { $0.identifier == old.identifier }),
+                  let source = old.currentSpaceID, display.currentSpaceID != nil
+            else { return false }
+            if source == display.currentSpaceID { return true }
+            return old.spaces.contains { $0.id == source && $0.kind == .fullscreen } &&
+                !display.spaces.contains { $0.id == source }
+        }
+    }
+
     static func applicationKey(for app: NSRunningApplication) -> String {
         app.bundleIdentifier ?? "pid:\(app.processIdentifier)"
     }
