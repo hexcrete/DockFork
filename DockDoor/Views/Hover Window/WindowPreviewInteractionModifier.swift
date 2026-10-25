@@ -460,8 +460,7 @@ final class WindowActionMenuBuilder: NSObject {
                     displayedShortcuts: &displayedShortcuts, handler: handleWindowAction)
             }
             let actions = TrafficLightButtons.actionOrder.filter {
-                overflow.actions.contains($0) && $0.isSupported(for: window) && ($0.isAvailable(for: window) ||
-                    ($0 == .toggleFullScreen && batchTargets?.contains { $0.isFullscreen == true } == true))
+                overflow.actions.contains($0) && $0.isAvailable(for: window, batchTargets: batchTargets)
             }
             .flatMap { $0 == .quit ? [.quit, .forceQuit] : [$0] }
             if !actions.isEmpty {

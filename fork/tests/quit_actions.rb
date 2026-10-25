@@ -85,6 +85,7 @@ case_start = util.index('    // Existing actions')
 cases = util[case_start...util.index('    var localizedName:', case_start)].scan(/^    case (\w+)$/).flatten
 source += "enum WindowAction { case #{cases.join(', ')}\n var positionRect:Int? {[.center,.maximize,.fillLeftHalf].contains(self) ? 0 : nil}\n"
 %w[localizedName iconName].each { |name| source += block(util[case_start..], "    var #{name}:") + "\n" }
+source += block(catalog, '    enum TargetScope:') + "\n" + block(catalog, '    var targetScope:') + "\n" + block(catalog, '    func selectedPreviewTargets(') + "\n"
 source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    var isAppWidePreviewAction:')]
 %w[isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }
 %w[isSupported appliesToSelectedWindow previewTargets batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
@@ -94,7 +95,7 @@ source += <<~'SWIFT'
 
  /* Action availability */
 SWIFT
-source.sub!('/* Action availability */', block(catalog, '    func isAvailable('))
+source.sub!('/* Action availability */', block(catalog, '    func isAvailable(for window: WindowInfo) -> Bool') + "\n" + block(catalog, '    func isAvailable(for window: WindowInfo, batchTargets:'))
 source.sub!('/* Auto Tile policy */', block(catalog, '    func autoTilingDirection(').sub('PreviewTilingLayout.Direction?', 'Int?'))
 source += block(catalog, '    func batchTargetState(') + "\n"
 source += block(catalog, '    func menuTitle(') + "\n" + block(catalog, '    func feedbackTitle(') + "\n"
@@ -166,6 +167,24 @@ source += <<~'SWIFT'
   let wineApp = App(77), nativeApp = App(78)
   let wine = WindowInfo(id: 77, app: wineApp, isWineWindow: true)
   var native = WindowInfo(id: 78, app: nativeApp); native.isMinimized = true
+  let normal = WindowInfo(id: 81, app: nativeApp)
+  let full = WindowInfo(id: 82, app: nativeApp, isFullscreen: true)
+  precondition(WindowAction.openAppWindow.targetScope == .initiator)
+  precondition(WindowAction.openAppWindow.selectedPreviewTargets(for: native, from: [native, wine]) == nil)
+  precondition(WindowAction.autoTileSelectedWindows.selectedPreviewTargets(for: normal, from: [native, wine]) == nil, "Unchecked initiators must not tile an unrelated selection")
+  precondition(WindowAction.close.selectedPreviewTargets(for: native, from: [wine, native])?.map(\.id) == [wine.id, native.id], "Selection order must survive scope resolution")
+  precondition(WindowAction.toggleFullScreen.selectedPreviewTargets(for: normal, from: [normal, wine]) == nil, "Fullscreen entry stays initiating-window-only")
+  var wineFull = wine; wineFull.isFullscreen = true
+  precondition(WindowAction.toggleFullScreen.selectedPreviewTargets(for: normal, from: [normal, wineFull]) == nil, "Unsupported fullscreen sources must not block initiating-window entry")
+  let emptySource = WindowInfo(id: 0, app: nativeApp, isWindowlessApp: true)
+  precondition(WindowAction.toggleFullScreen.selectedPreviewTargets(for: emptySource, from: [emptySource, normal])?.isEmpty == true, "Windowless sources must not enter fullscreen for another selection")
+  precondition(WindowAction.toggleFullScreen.selectedPreviewTargets(for: normal, from: [normal, full])?.map(\.id) == [normal.id, full.id])
+  precondition(WindowAction.toggleFullScreen.previewTargets(from: [normal, full], allowFullscreenEntry: false).map(\.id) == [full.id])
+  precondition(WindowAction.minimize.isAvailable(for: wine, batchTargets: [wine, native]), "A supported selected peer must make the group action available")
+  precondition(!WindowAction.minimize.isAvailable(for: wine, batchTargets: [wine]))
+  precondition(WindowAction.toggleFullScreen.isAvailable(for: wine, batchTargets: [wine, full]))
+  precondition(WindowAction.openNewWindow.targetScope == .selectedApps && WindowAction.closeAllWindows.targetScope == .allWindowsOfSelectedApps)
+  precondition(WindowAction.openNewWindow.batchTargets(from: [normal, full]).map(\.id) == [normal.id], "New Window must remain one request per app")
   let unsupportedWineActions: [WindowAction] = [.close, .closeAllWindows, .minimize, .minimizeAllWindows, .toggleFullScreen, .openNewWindow]
   for action in unsupportedWineActions {
    precondition(!action.isSupported(for: wine) && action.isSupported(for: native))

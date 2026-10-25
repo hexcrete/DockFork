@@ -229,6 +229,7 @@ source += "\n@MainActor final class DragPreviewCoordinator {\nprivate var dropTo
 source += block(drag, '    private func cancelPendingDrop(') + "\n}\n"
 catalog = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
 source += "\nenum WindowAction: CaseIterable { case autoTileSelectedWindows, fillLeftHalf, fillRightHalf, fillTopHalf, fillBottomHalf, fillTopLeftQuarter, fillTopRightQuarter, fillBottomLeftQuarter, fillBottomRightQuarter, minimize, quit, forceQuit, openAppWindow, openNewWindow, hide, close, closeAllWindows, minimizeAllWindows, toggleFullScreen, toggleWindowSelection, selectAllWindows, maximize, center, bringToCurrentSpace, none\n"
+source += block(catalog, '    enum TargetScope:') + "\n" + block(catalog, '    var targetScope:') + "\n" + block(catalog, '    func selectedPreviewTargets(') + "\n"
 source += catalog[catalog.index('    var isQuitAction:')...catalog.index('    var isAppWidePreviewAction:')]
 %w[tilingDirection isAppWidePreviewAction].each { |name| source += block(catalog, "    var #{name}:") + "\n" }
 %w[isSupported autoTilingDirection appliesToSelectedWindow batchTargets].each { |name| source += block(catalog, "    func #{name}(") + "\n" }
@@ -358,7 +359,8 @@ checks = <<~'SWIFT'
   selectionModel.windows = [empty]; WindowUtil.cachedWindows = []
   selectionModel.reconcileCheckedWindows()
   precondition(selectionModel.checkedActionTargets()?.isEmpty == true && selectionModel.checkedWindowCount == 1)
-  for action in WindowAction.allCases where !action.isQuitAction && action != .openNewWindow && action != .toggleWindowSelection && action != .selectAllWindows && action != .none {
+  precondition(actionModel.performCheckedWindowAction(.openAppWindow, on: empty) == nil, "Placeholder activation must use the single-entry path")
+  for action in WindowAction.allCases where !action.isQuitAction && action != .openNewWindow && action.targetScope != .initiator {
    precondition(actionModel.performCheckedWindowAction(action, on: empty) == false)
   }
   precondition(actionModel.performCheckedWindowAction(.quit, on: empty) == true)

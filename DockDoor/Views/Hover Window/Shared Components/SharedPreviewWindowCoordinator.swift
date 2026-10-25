@@ -2343,16 +2343,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     @MainActor
     // nil delegates to single-window handling; the Bool reports immediate preview dismissal.
     func performCheckedWindowAction(_ action: WindowAction, on initiator: WindowInfo, preservePreviews: Bool = false, keyboard: Bool = false) -> Bool? {
-        guard action != .toggleWindowSelection, action != .selectAllWindows, action != .none,
-              let selectedTargets = action == .autoTileSelectedWindows
-              ? windowSwitcherCoordinator.checkedActionTargets(includingWindowlessApps: true) ?? [initiator]
-              : windowSwitcherCoordinator.checkedActionTargets(for: initiator, includingWindowlessApps: true)
+        guard action.targetScope != .initiator,
+              let selectedTargets = action.selectedPreviewTargets(for: initiator, from:
+                  windowSwitcherCoordinator.checkedActionTargets(for: initiator, includingWindowlessApps: true))
         else { return nil }
         let hasWindowlessTargets = selectedTargets.contains(where: \.isWindowlessApp)
         let targets = selectedTargets.filter { action.appliesToSelectedWindow($0) }
         guard !targets.isEmpty else { return false }
         guard targets.count > 1 || action == .autoTileSelectedWindows || hasWindowlessTargets else { return nil }
-        if action == .toggleFullScreen, !targets.contains(where: { $0.isFullscreen == true }) { return initiator.isWindowlessApp ? false : nil }
         if action == .bringToCurrentSpace {
             let displays = WindowSpaces.managedDisplays()
             guard let spaceID = WindowSpaces.currentManagedSpaceID(mouseLocation: NSEvent.mouseLocation),

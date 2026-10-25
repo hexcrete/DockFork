@@ -136,7 +136,7 @@ stubs.sub!('/* Popup content */', source[source.index('    struct Content: Equat
 actions = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowActionCatalog.swift")
 util_source = File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowUtil.swift")
 stubs.sub!('/* Auto Tile eligibility */', util_source[util_source.index('    static func autoTileTargets(')...util_source.index("    @MainActor\n    static func tilePreviewWindows(")])
-stubs.sub!('/* Shared target eligibility */', actions[actions.index('    func isSupported(')...actions.index('    func usesConfirmedSingleWindowAction(')] + actions[actions.index('    func appliesToSelectedWindow(')...actions.index('    func batchTargets(')])
+stubs.sub!('/* Shared target eligibility */', block(actions, '    enum TargetScope:') + "\n" + block(actions, '    var targetScope:') + "\n" + actions[actions.index('    func isSupported(')...actions.index('    func usesConfirmedSingleWindowAction(')] + actions[actions.index('    func appliesToSelectedWindow(')...actions.index('    func batchTargets(')])
 stubs.sub!('/* Shared batch targets */', actions[actions.index('    func batchTargets(')...actions.index('    func batchTargetState(')] + actions[actions.index('    var isAppWidePreviewAction:')...actions.index('    enum Group:')])
 stubs << actions[actions.index('enum PreviewBatchTogglePolicy {')...actions.index('struct WindowActionGroup:')]
 stubs.sub!('/* Batch target state */', actions[actions.index('    func batchTargetState(')...actions.index('    var isAppWidePreviewAction:')])

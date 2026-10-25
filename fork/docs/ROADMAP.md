@@ -278,3 +278,5 @@ Three manually gated stages, with no release/push or subagents:
 3. Rename displayed Open App Window to Open Window, use Activate App for windowless placeholders, and clarify selected-window/app scope in menus and tooltips. Preserve brief feedback, stored action identifiers and scripting interfaces. Not started.
 
 Automated suites remain unrun unless separately authorized. After each stage, build/relaunch the signed development app, obtain manual verification, then review/commit before continuing.
+
+Stage 1 is user-verified, reviewed and committed as 2a0ea222. Stage 2 scope/eligibility is implemented pending final build/manual verification and review/commit. The action audit matches the approved scope table; initiating-only Open and unchecked Auto Tile behavior are corrected, and regular/More menus share cached group availability. Names, tooltips and short-feedback separation remain Stage 3, not started.

@@ -210,6 +210,45 @@ struct WindowActionGroup: Identifiable {
 }
 
 extension WindowAction {
+    enum TargetScope: Equatable {
+        case initiator
+        case selectedWindows
+        case selectedApps
+        case allWindowsOfSelectedApps
+    }
+
+    var targetScope: TargetScope {
+        switch self {
+        case .openAppWindow, .toggleWindowSelection, .selectAllWindows, .none:
+            .initiator
+        case .hide, .quit, .forceQuit, .openNewWindow:
+            .selectedApps
+        case .closeAllWindows, .minimizeAllWindows:
+            .allWindowsOfSelectedApps
+        case .close, .minimize, .toggleFullScreen, .maximize, .bringToCurrentSpace,
+             .fillLeftHalf, .fillRightHalf, .fillTopHalf, .fillBottomHalf,
+             .fillTopLeftQuarter, .fillTopRightQuarter, .fillBottomLeftQuarter, .fillBottomRightQuarter,
+             .center, .autoTileSelectedWindows:
+            .selectedWindows
+        }
+    }
+
+    func selectedPreviewTargets(for initiator: WindowInfo, from selection: [WindowInfo]?) -> [WindowInfo]? {
+        guard targetScope != .initiator, let selection,
+              selection.contains(where: { PreviewWindowIdentity($0) == PreviewWindowIdentity(initiator) })
+        else { return nil }
+        if self == .toggleFullScreen,
+           !selection.contains(where: { !$0.isWindowlessApp && isSupported(for: $0) && $0.isFullscreen == true })
+        { return initiator.isWindowlessApp ? [] : nil }
+        return selection
+    }
+
+    func isAvailable(for window: WindowInfo, batchTargets: [WindowInfo]?) -> Bool {
+        guard let selected = selectedPreviewTargets(for: window, from: batchTargets) else { return isAvailable(for: window) }
+        let targets = previewTargets(from: selected, allowFullscreenEntry: false)
+        return targets.contains { self == .toggleFullScreen || isAvailable(for: $0) }
+    }
+
     func isSupported(for window: WindowInfo) -> Bool {
         guard window.isWineWindow else { return true }
         switch self {
@@ -255,7 +294,7 @@ extension WindowAction {
 
     func previewTargets(from windows: [WindowInfo], allowFullscreenEntry: Bool = true) -> [WindowInfo] {
         var targets = windows.filter { appliesToSelectedWindow($0) }
-        if self == .minimizeAllWindows || self == .closeAllWindows {
+        if targetScope == .allWindowsOfSelectedApps {
             var apps = Set<pid_t>()
             targets = targets.flatMap { window -> [WindowInfo] in
                 guard apps.insert(window.app.processIdentifier).inserted else { return [] }
@@ -309,8 +348,8 @@ extension WindowAction {
     var isQuitAction: Bool { self == .quit || self == .forceQuit }
 
     var isAppWidePreviewAction: Bool {
-        switch self {
-        case .hide, .quit, .forceQuit, .closeAllWindows, .minimizeAllWindows, .openNewWindow: true
+        switch targetScope {
+        case .selectedApps, .allWindowsOfSelectedApps: true
         default: false
         }
     }
@@ -349,9 +388,8 @@ extension WindowAction {
     {
         Group.allCases.compactMap { group in
             let actions = group.actions.filter {
-                $0.isSupported(for: window) &&
-                    (![.toggleWindowSelection, .selectAllWindows].contains($0) || includeSelectionActions) &&
-                    (($0 == .toggleFullScreen && batchTargets?.contains(where: { $0.isFullscreen == true }) == true) || $0.isAvailable(for: window))
+                (![.toggleWindowSelection, .selectAllWindows].contains($0) || includeSelectionActions) &&
+                    $0.isAvailable(for: window, batchTargets: batchTargets)
             }
             return actions.isEmpty ? nil : WindowActionGroup(id: group, actions: actions)
         }
