@@ -196,3 +196,5 @@ Preserve intrinsic fixed-size header labels, like the selection summary. An unbo
 Preserve the explicit overflow order: remove the description prefix, abbreviate Show All to x, reduce the label to the cached Space number, remove the number, then use PreviewHeaderScrollRow for the remaining action. Keep intrinsic labels intact until their omission, the coherent label/number value, full accessible description and native candidate-selection/scroll regressions.
 
 Filter-header Stage 2 is user-verified and reviewed. Keep the final intrinsic-sizing/six-stage overflow implementation and focused regressions when extracting this issue; earlier measurement/truncation attempts are superseded. Fork publication records remain excluded from upstream PRs.
+
+Empty-Space filtering policy is retired following user-reported hover stalls. Exclude its toggle/search/reset/observer and skip-empty branches when extracting filtering work. Keep the old key declaration untouched, normal empty filters and explicit clear behavior; preserve regression coverage for empty/populated membership updates. No new caching or timing workaround.

@@ -865,6 +865,7 @@ extension Defaults.Keys {
     static let spacesBarRecentlyUsed = Key<Bool>("spacesBarRecentlyUsed", default: false)
     static let spacesBarCycleOpensSwitcher = Key<Bool>("spacesBarCycleOpensSwitcher", default: false)
     static let spacesBarFilterWindows = Key<Bool>("spacesBarFilterWindows", default: false)
+    // Retired empty-Space policy; preserve the stored key without reading or migrating it.
     static let spacesBarDoNotFilterEmpty = Key<Bool>("spacesBarDoNotFilterEmpty", default: false)
     static let spacesBarStartOnNext = Key<Bool>("spacesBarStartOnNext", default: true)
     static let spacesBarSwapContents = Key<Bool>("spacesBarSwapContents", default: false)

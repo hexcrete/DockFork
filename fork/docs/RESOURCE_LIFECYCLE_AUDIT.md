@@ -542,3 +542,5 @@ October 25, 2026, filter-header Stage 2 scoped review: retain one optional label
 Extended overflow uses native intrinsic text sizing, removing the earlier explicit label measurements. The last fallback reuses PreviewHeaderScrollRow rather than creating another scroll implementation. Cached label/number presentation is published as one equatable value; identical values and number-only metadata changes cause no row rebuild or panel-refresh request. No additional lifecycle resources.
 
 Stage 2 final review/user sign-off: the approved implementation retains the resource boundaries above. Final reviewed sources match the signed running development artifact. No native resource profile was recorded.
+
+Empty-Space policy retirement: remove the policy observer and runtime reads. An empty hover no longer triggers full-grid restoration through buildSwitcherWindows. Normal filtering and explicit clearing retain their existing executors. No new cache, timer, resource handler or discovery. The retired Defaults declaration is inert and no longer reset.

@@ -510,10 +510,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             highlighted = id
             if let id { requested = automatically ? id : nil }
         }
-
-        func filterID(hasWindows: Bool, skipEmpty: Bool) -> CGSSpaceID? {
-            skipEmpty && !hasWindows ? nil : requested
-        }
     }
 
     private var spaceFilterIntent = SpaceFilterIntent()
@@ -559,10 +555,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             return
         }
         let members = Set(entry.apps.flatMap(\.windowIdentities))
-        guard spaceFilterIntent.filterID(hasWindows: !members.isEmpty, skipEmpty: Defaults[.spacesBarDoNotFilterEmpty]) != nil else {
-            coordinator.setSpaceFilter(nil)
-            return
-        }
         if spaceFilterTop == nil { spaceFilterTop = frame.maxY }
         coordinator.setSpaceFilter(id, members: members, header: .init(label: entry.filterLabel(mode: Defaults[.spacesBarLabels]), number: entry.destination.space.number))
     }

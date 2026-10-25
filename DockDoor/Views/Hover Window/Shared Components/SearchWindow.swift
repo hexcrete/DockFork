@@ -591,7 +591,6 @@ struct SpacesBarView: View {
     @Default(.selectionOpacity) private var highlightOpacity
     @Default(.activeAppIndicatorColor) private var activeBorderColor
     @Default(.showActiveWindowBorder) private var showActiveWindowBorder
-    @Default(.spacesBarDoNotFilterEmpty) private var skipEmptySpaces
     @Default(.switcherShowAppIconBadges) private var showBadges
     @Default(.switcherAppIconBadgeScale) private var badgeScale
     @Default(.enableWindowSwitcherEdgeAutoScroll) private var edgeScrolling
@@ -763,8 +762,7 @@ struct SpacesBarView: View {
         let title = entry.title(mode: labels)
         let font = SpacesBarLayout.textFont
         let isFiltered = filteredSpace == entry.id
-        let showsFilterControl = (isFiltered || filterControlSpace == entry.id) &&
-            (!skipEmptySpaces || entry.apps.contains { !$0.windowIdentities.isEmpty })
+        let showsFilterControl = isFiltered || filterControlSpace == entry.id
         let filterControlState: Bool? = showsFilterControl ? isFiltered : nil
         let titleWidth = min(max(0, width - SpacesBarLayout.horizontalInset * 2 - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0)), max(SpacesBarLayout.minimumLabelWidth, ceil(labelTextWidths[entry.id, default: 0]) + 2))
         let titleParts = SpacesBarLayout.titleParts(width: titleWidth, filtered: showsFilterControl, spacing: SpacesBarAppLayout.spacing)

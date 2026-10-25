@@ -265,10 +265,10 @@ intent_source = <<~'SWIFT'
 import AppKit
 typealias CGSSpaceID = UInt64
 typealias PreviewWindowIdentity = Int
-enum Key {case enableSpacesBar,spacesBarFilterWindows,spacesBarDoNotFilterEmpty,spacesBarLabels}
+enum Key {case enableSpacesBar,spacesBarFilterWindows,spacesBarLabels}
 enum Defaults {
- static var enabled=true,automatic=false,skipEmpty=false
- static subscript(_ key:Key)->Bool {switch key {case .enableSpacesBar:enabled;case .spacesBarFilterWindows:automatic;case .spacesBarDoNotFilterEmpty:skipEmpty;case .spacesBarLabels:false}}
+ static var enabled=true,automatic=false
+ static subscript(_ key:Key)->Bool {switch key {case .enableSpacesBar:enabled;case .spacesBarFilterWindows:automatic;case .spacesBarLabels:false}}
 }
 enum NavigationTarget {case windows,space(UInt64)}
 final class Coordinator {
@@ -319,9 +319,9 @@ intent_source += <<~'SWIFT'
   precondition(c.publications==count,"Same members must not republish or rebuild the grid")
   p.highlight(2);precondition(c.activeSpaceFilterID==nil,"A different highlight clears manual intent")
   Defaults.automatic=true;p.resetSpaceFiltering();precondition(c.activeSpaceFilterID==2 && c.members==[])
-  Defaults.skipEmpty=true;p.resetSpaceFiltering();precondition(c.activeSpaceFilterID==nil && p.spaceFilterIntent.requested==2)
+  let emptyCount=c.publications;for _ in 0..<50 {p.updateSpaceFilter()};precondition(c.activeSpaceFilterID==2 && c.members==[] && c.publications==emptyCount,"Empty automatic filters must stay applied without restoring the full grid")
   p.spacesBarSections[0].spaces[1].apps=[App(windowIdentities:[21])];p.updateSpaceFilter()
-  precondition(c.activeSpaceFilterID==2 && c.members==[21],"A populated hovered Space resumes automatic intent")
+  precondition(c.activeSpaceFilterID==2 && c.members==[21],"A populated hovered Space updates automatic membership")
   p.clearSpaceFilter();p.updateSpaceFilter()
   for _ in 0..<50 {p.updateSpaceFilter()}
   precondition(c.activeSpaceFilterID==nil && p.spaceFilterIntent.requested==nil,"Clearing survives repeated layout/metadata updates")
@@ -329,9 +329,9 @@ intent_source += <<~'SWIFT'
   p.clearSpaceFilter();p.highlight(nil);p.highlight(2);precondition(c.activeSpaceFilterID==2,"Genuine re-entry permits automatic filtering")
   Defaults.automatic=false;p.resetSpaceFiltering();precondition(c.activeSpaceFilterID==nil)
   p.applySpaceFilter(2);p.spacesBarSections[0].spaces[1].apps=[];p.updateSpaceFilter()
-  precondition(c.activeSpaceFilterID==nil && p.spaceFilterIntent.requested==2)
+  precondition(c.activeSpaceFilterID==2 && c.members==[] && p.spaceFilterIntent.requested==2,"Temporarily empty manual filters must stay applied")
   p.spacesBarSections[0].spaces[1].apps=[App(windowIdentities:[22])];p.updateSpaceFilter()
-  precondition(c.activeSpaceFilterID==2 && c.members==[22],"Manual intent resumes after temporary emptiness")
+  precondition(c.activeSpaceFilterID==2 && c.members==[22],"Manual filter updates after temporary emptiness")
   p.clearSpaceFilter();p.updateSpaceFilter();precondition(c.activeSpaceFilterID==nil)
   p.highlight(2);precondition(c.activeSpaceFilterID==nil,"Manual re-entry never applies automatically")
   p.applySpaceFilter(2);p.spacesBarSections[0].spaces.removeLast();p.updateSpaceFilter()
@@ -408,7 +408,7 @@ abort 'Bar must refresh with cache metadata and display topology' unless block(c
 settings = File.read("#{root}/DockDoor/Views/Settings/WindowSwitcherBehaviorSettingsView.swift") + File.read("#{root}/DockDoor/Views/Settings/AppearanceSettingsView.swift")
 catalog = File.read("#{root}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
 reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")
-%w[enableSpacesBar spacesBarItemSize spacesBarPreferDetails spacesBarMinimumWidth spacesBarLabels spacesBarFixedWidth spacesBarMaximumWidth spacesBarPillWidth spacesBarHideWhenSingle spacesBarFilterWindows spacesBarDoNotFilterEmpty spacesBarActivateAppIcons spacesBarShowAppIcons spacesBarSwapContents].each do |key|
+%w[enableSpacesBar spacesBarItemSize spacesBarPreferDetails spacesBarMinimumWidth spacesBarLabels spacesBarFixedWidth spacesBarMaximumWidth spacesBarPillWidth spacesBarHideWhenSingle spacesBarFilterWindows spacesBarActivateAppIcons spacesBarShowAppIcons spacesBarSwapContents].each do |key|
   abort "Unwired bar setting #{key}" unless settings.include?("windowSwitcher.#{key}") && catalog.include?("windowSwitcher.#{key}") && reset.include?("Defaults[.#{key}] = Defaults.Keys.#{key}.defaultValue")
 end
 %w[spacesBarShowAppIcons spacesBarItemSize spacesBarLabels spacesBarFixedWidth spacesBarPreferDetails spacesBarMinimumWidth spacesBarMaximumWidth spacesBarPillWidth].each do |key|
@@ -438,7 +438,7 @@ abort 'Filter label/control must retain a fixed slot and full-size symbol geomet
 abort 'Filter symbols must render at 1.3 times the original point size without scaling the layout slot' unless control_region.include?('.font(.system(size: SpacesBarLayout.clearSymbolSize * 1.3))') && !control_region.include?('.scaleEffect(') && control_region.include?('.frame(width: SpacesBarLayout.minimumLabelWidth, height: ceil(')
 abort 'Filter control must share native title alignment outside Space dragging without deferred geometry' unless label_region.include?('.alignmentGuide(.spaceFilterLeading)') && control_region.include?('.alignmentGuide(.spaceFilterLeading)') && !pill_style.include?('GeometryReader') && !pill_style.include?('PreferenceValue') && pill_style.index('.highPriorityGesture(entry.isFullscreen') < pill_style.index('if let clearing = filterControlState')
 abort 'Filter label/control must use the reserved slot and shared animation policy' unless label_region.include?('.offset(x: titleParts.button + titleParts.spacing)') && label_region.include?('.previewControlVisibilityAnimation(') && control_region.include?('-SpacesBarLayout.minimumLabelWidth') && control_region.include?('PreviewControlAnimation.animation(') && control_region.include?('value: filterControlState')
-abort 'Filter control must toggle between explicit apply/clear and exclude empty residents without queries' unless control_region.include?('clearing ? "xmark.circle.fill" : "magnifyingglass.circle.fill"') && control_region.include?('Button { if clearing { clearFilter() } else { applyFilter(entry.id) } }') && pill_style.include?('!skipEmptySpaces || entry.apps.contains { !$0.windowIdentities.isEmpty }')
+abort 'Filter control must toggle between explicit apply/clear, including empty Spaces' unless control_region.include?('clearing ? "xmark.circle.fill" : "magnifyingglass.circle.fill"') && control_region.include?('Button { if clearing { clearFilter() } else { applyFilter(entry.id) } }') && pill_style.include?('let showsFilterControl = isFiltered || filterControlSpace == entry.id')
 abort 'Filter changes must replace the whole constant-symbol button, with native slide/fade and immediate reduced-motion behavior' unless control_region.index('.buttonStyle(') < control_region.index('.id(clearing)') && control_region.include?('.offset(x: -SpacesBarLayout.minimumLabelWidth).combined(with: .opacity) : .identity') && control_region.include?('showAnimations && !reduceMotion') && !control_region.include?('.id(isFiltered)')
 abort 'Bar refresh must not recommit unchanged native scroll geometry' unless bar.include?('if view.scroller.contentSize != contentSize') && bar.include?('if view.hosting.frame != contentFrame')
 abort 'Space cards must share preview-card styling and centered labels' unless pill_style.include?('.previewCardChrome(') && pill_style.include?('hideBackground: hideCardBackground') && pill_style.include?('uniformCardRadius: uniformCardRadius') && !pill_style.include?('.materialPill(') && pill_style.include?('frame(width: titleWidth, height:')
@@ -1102,7 +1102,6 @@ struct PillProbe: View {
  var labelTextWidths: [UInt64: CGFloat] { [1:(label as NSString).size(withAttributes:[.font:SpacesBarLayout.textFont]).width] }
  var filteredSpace: UInt64? = nil
  var filterControlSpace: UInt64? = nil
- var skipEmptySpaces = false
  func clearFilter() { SpacePillEvents.clears += 1 }
  func applyFilter(_ id: UInt64) { SpacePillEvents.applies += 1 }
  let highlightedSpace: UInt64? = nil
@@ -2120,3 +2119,6 @@ positions=chain.map{|step|header_view.index(step) or abort "Missing overflow ste
 abort 'Filter-header overflow order must match the approved chain' unless positions==positions.sort
 abort 'Filter header must have one coherent observed label/number snapshot and shared reservations' unless state.include?('@Published private(set) var activeSpaceFilterHeader: SpaceFilterHeader?') && container.include?('.padding(.top, previewStateCoordinator.spaceFilterAccessoryHeight') && state.include?('selectionAccessoryHeight + spaceFilterAccessoryHeight + switcherTopAccessoryHeight') && state.include?('expectedContentSize.height += selectionAccessoryHeight + spaceFilterAccessoryHeight') && state.include?('- selectionAccessoryHeight - spaceFilterAccessoryHeight - switcherTopAccessoryHeight')
 abort 'Filter header must not trigger edge scrolling or appear in Dock/Cmd+Tab' unless block(container,'    private func handleEdgeScrollHover(').include?('location.y - filterHeight') && container.include?('!mockPreviewActive, previewStateCoordinator.windowSwitcherActive,') && container.include?('let filter = previewStateCoordinator.activeSpaceFilterHeader')
+
+abort 'Retired empty-Space policy must not be read, observed, indexed or reset' if [panel,bar,settings,catalog,reset].any?{|source|source.include?('spacesBarDoNotFilterEmpty')}
+abort 'Retired key must remain declared without a migration' unless File.read("#{root}/DockDoor/consts.swift").include?('static let spacesBarDoNotFilterEmpty = Key<Bool>("spacesBarDoNotFilterEmpty", default: false)')
