@@ -66,10 +66,11 @@ struct WindowSwitcherBehaviorSettingsView: View {
                 }
             }
         }
-        .onChange(of: spacesBarRecentlyUsed) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
-        .onChange(of: spacesBarFilterWindows) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
+        .onChange(of: windowSwitcherSortOrder) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
+        .onChange(of: spacesBarRecentlyUsed) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
+        .onChange(of: spacesBarFilterWindows) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
         .onChange(of: enableSpacesBar) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
-        .onChange(of: spacesBarHideWhenSingle) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
+        .onChange(of: spacesBarHideWhenSingle) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
         .sheet(isPresented: $showGroupedAppsSheet) {
             AppPickerSheet(
                 selectedApps: $groupedAppsInSwitcher,

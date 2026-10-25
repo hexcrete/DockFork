@@ -70,6 +70,7 @@ struct MainSettingsView: View {
                         .padding(.leading, 20)
                 }
                 .settingsSearchTarget("general.sortMinimized")
+                .onChange(of: sortMinimizedToEnd) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
             }
         }
     }

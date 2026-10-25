@@ -110,13 +110,13 @@ struct SpacesBarAppearanceSection: View {
                 }
             }
         }
-        .onChange(of: spacesBarItemSize) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
-        .onChange(of: spacesBarShowAppIcons) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
-        .onChange(of: spacesBarLabels) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
-        .onChange(of: spacesBarFixedWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
-        .onChange(of: spacesBarPreferDetails) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
-        .onChange(of: spacesBarMinimumWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
-        .onChange(of: spacesBarMaximumWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
-        .onChange(of: spacesBarPillWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
+        .onChange(of: spacesBarItemSize) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+        .onChange(of: spacesBarShowAppIcons) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+        .onChange(of: spacesBarLabels) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+        .onChange(of: spacesBarFixedWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+        .onChange(of: spacesBarPreferDetails) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+        .onChange(of: spacesBarMinimumWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+        .onChange(of: spacesBarMaximumWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+        .onChange(of: spacesBarPillWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
     }
 }

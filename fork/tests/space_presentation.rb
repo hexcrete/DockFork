@@ -18,90 +18,152 @@ end
 
 root = File.expand_path('../..', __dir__)
 
-# Production coalescer with an explicitly drained main queue and inert metadata work.
+# Execute production refresh/admission against inert topology/cache providers and a drained queue.
 refresh_panel = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
+refresh_shared = File.read("#{root}/DockDoor/Utilities/Window Management/WindowDiscoveryShared.swift")
 refresh_source = <<~'SWIFT'
-import Foundation
-struct ManagedDisplayDescriptor {}
-enum Key { case enableSpacesBar }
-@MainActor enum Defaults { static var enabled = true; static subscript(_ key:Key)->Bool { enabled } }
+import AppKit
+struct ManagedSpaceDescriptor { let id: UInt64; var kind: Kind? = .desktop; var ownerPIDs: Set<Int> = []; enum Kind: Int { case desktop, fullscreen } }
+struct ManagedDisplayDescriptor { let identifier: String; var currentSpaceID: UInt64?; var spaces: [ManagedSpaceDescriptor] }
+enum Key { case enableSpacesBar, spacesBarRecentlyUsed, collapseNativeTabsIntoSingleWindow, spacesBarHideWhenSingle }
+@MainActor enum Defaults {
+ static var enabled=true, recent=false, tabs=false, single=false
+ static subscript(_ key:Key)->Bool { switch key {case .enableSpacesBar:enabled;case .spacesBarRecentlyUsed:recent;case .collapseNativeTabsIntoSingleWindow:tabs;case .spacesBarHideWhenSingle:single} }
+}
 @MainActor enum DispatchQueue {
  static var work: [@MainActor ()->Void] = []
  static let main = Queue()
  @MainActor struct Queue { func async(_ action:@escaping @MainActor ()->Void) { DispatchQueue.work.append(action) } }
  static func drain() { let actions=work;work=[];for action in actions {action()} }
 }
+struct App { var processIdentifier=1 }
+struct WindowInfo {let id:Int; var app=App(); var spaceID:UInt64?=1;var isMinimized=false,isHidden=false;var isFullscreen:Bool?=false;var windowName:String?="Window"}
+@MainActor enum World {
+ static var displays=[ManagedDisplayDescriptor(identifier:"one",currentSpaceID:1,spaces:[.init(id:1),.init(id:2,kind:.fullscreen)])]
+ static var windows=[WindowInfo(id:1),WindowInfo(id:2)]
+ static var queries=0,reads=0,builds=0,collapses=0,registrations=0
+ static var builtWindowIDs:[Int]=[]
+}
+@MainActor enum WindowSpaces {
+ static func managedDisplays(includeOwners:Bool)->[ManagedDisplayDescriptor] {World.queries+=1;return World.displays}
+ static func recordBarSpaceVisits(_ displays:[ManagedDisplayDescriptor]) {}
+ static func displayName(for id:String)->String? {id}
+ static func barSpaceOrder(_ displays:[ManagedDisplayDescriptor])->[UInt64] {let ids=displays.flatMap{$0.spaces.map(\.id)};return Defaults.recent ? ids.reversed() : ids}
+}
+@MainActor enum WindowUtil {
+ static func getAllWindowsIgnoringSwitcherFilters()->[WindowInfo] {World.reads+=1;return World.windows}
+ static func collapseNativeTabsIfNeeded(_ windows:[WindowInfo])->[WindowInfo] {World.collapses+=1;return Defaults.tabs ? Array(windows.prefix(1)) : windows}
+ static func registerInternalWindow(_ id:CGWindowID) {World.registrations+=1}
+}
+enum ManagedSpacePresentation {
+ struct Entry { let id:UInt64;let isCurrent:Bool }
+ struct Display {let id:String;let name:String;let spaces:[Entry]}
+ @MainActor static func snapshot(displays:[ManagedDisplayDescriptor],orderedWindows:[WindowInfo])->[Display] {
+  World.builds+=1;World.builtWindowIDs=orderedWindows.map(\.id)
+  return displays.map{display in Display(id:display.identifier,name:display.identifier,spaces:display.spaces.map{Entry(id:$0.id,isCurrent:display.currentSpaceID==$0.id)})}
+ }
+SWIFT
+refresh_source += block(refresh_shared, '    static func isTopologyOnlySpaceChange(') + "\n}\n"
+refresh_source += <<~'SWIFT'
+struct SpaceContentsTopology:Equatable {let ids:[UInt64];init(_ displays:[ManagedDisplayDescriptor]) {ids=displays.flatMap{$0.spaces.map(\.id)}}}
+@MainActor final class SpacesBarWindow {let windowNumber=17}
 @MainActor final class RefreshState {
- var windowSwitcherActive = true
- var pointerInteractionSessionID: UInt = 1
- var onNavigationTargetChanged:(()->Void)?
- var onFrameRefreshNeeded:(()->Void)?
+ enum Target {case windows,space(UInt64)}
+ enum Input {case programmatic}
+ var windowSwitcherActive=true, pointerInteractionSessionID:UInt=1
+ var onNavigationTargetChanged:(()->Void)?,onFrameRefreshNeeded:(()->Void)?
+ var navigationTarget=Target.windows, mouseHighlightedSpaceID:UInt64?,spaceNavigationInputSource=Input.programmatic
+ func setSpaceFilter(_ id:UInt64?) {}
 }
 @MainActor final class RefreshProbe {
- let windowSwitcherCoordinator = RefreshState()
- var pendingSpacesBarRefresh:(token:UUID,session:UInt,metadataOnly:Bool)?
- var queries=0,builds=0,frameRequests=0
- var modes:[Bool]=[]
- var dirty=true
- let frame=0
- func updateSpaceFilter() {}
- func positionSpacesBar(relativeTo:Int) {}
- func schedulePanelFrameRefresh() {frameRequests+=1}
+ let windowSwitcherCoordinator=RefreshState()
 SWIFT
-refresh_source += block(refresh_panel, '    func requestSpacesBarRefresh(') + "\n"
-refresh_source += block(refresh_panel, '    private func setupFrameRefreshObserver(').sub('private func', 'func') + "\n"
-refresh_source += block(refresh_panel, '    private func removeSpacesBar(').split('        cancelContentsDrag()',2).first.sub('private func','func') + "    }\n"
-refresh_source += block(refresh_panel, '    func refreshSpacesBar(').split('        if spacesBarScreenObserver == nil',2).first
+refresh_source += block(refresh_panel, '    struct SpacesBarRefresh:') + "\n"
 refresh_source += <<~'SWIFT'
-  if snapshot == nil {queries+=1}
-  modes.append(metadataOnly)
-  if metadataOnly && !dirty {return}
-  dirty=false;builds+=1
- }
-}
+ var pendingSpacesBarRefresh:(token:UUID,session:UInt,reason:SpacesBarRefresh)?
+ var spacesBarScreenObserver:NSObjectProtocol?
+ var spacesBarPresentationDisplays:[ManagedDisplayDescriptor]?
+ var spacesBarSpaceChangeSnapshot:[ManagedDisplayDescriptor]?
+ var spacesBarSections:[ManagedSpacePresentation.Display]=[],spacesBarAllSections:[ManagedSpacePresentation.Display]=[]
+ var spacesBarFingerprint:[String]=[]
+ var spacesBarWindow:SpacesBarWindow?
+ struct ContentsSession {let displays:[ManagedDisplayDescriptor]}
+ var contentsDragSession:ContentsSession?
+ var highlightedSpaceID:UInt64?
+ var hosts=0,frameRequests=0,filters=0
+ let frame=0
+ var isVisible=true
+ var hasVisibleSpacesBar:Bool {spacesBarWindow != nil && !spacesBarSections.isEmpty}
+ func updateSpaceFilter() {filters+=1}
+ func positionSpacesBar(relativeTo:Int) {hosts+=1}
+ func schedulePanelFrameRefresh() {frameRequests+=1}
+ func updateSpacesBarReservation() {}
+ func cancelContentsDrag() {contentsDragSession=nil}
+ func removeSpacesBar(keepTopologyObserver:Bool=false) {
+  pendingSpacesBarRefresh=nil;spacesBarWindow=nil;spacesBarSections=[]
+SWIFT
+refresh_source += block(block(refresh_panel,'    private func removeSpacesBar('),'        if !keepTopologyObserver {') + "\n }\n"
+%w[requestSpacesBarRefresh refreshSpacesBar preserveSpacesBarAfterSpaceChange].each{|name|refresh_source += block(refresh_panel,"    func #{name}(")+"\n"}
+refresh_source += block(refresh_panel, '    private func setupFrameRefreshObserver(').sub('private func','func') + "\n}\n"
+refresh_source += <<~'SWIFT'
 @main struct RefreshChecks {
  @MainActor static func main() {
   let combined=RefreshProbe();combined.setupFrameRefreshObserver()
   for _ in 0..<5 {combined.windowSwitcherCoordinator.onFrameRefreshNeeded?()}
-  combined.requestSpacesBarRefresh(metadataOnly:true)
-  precondition(DispatchQueue.work.count==1 && combined.queries==0)
-  DispatchQueue.drain()
-  precondition(combined.queries==1 && combined.builds==1 && combined.modes == [false], "Five frame requests plus a cache request must merge into one full refresh")
-  precondition(combined.frameRequests==5 && combined.pendingSpacesBarRefresh==nil)
-  let cache=RefreshProbe()
-  for _ in 0..<10 {cache.requestSpacesBarRefresh(metadataOnly:true)}
-  DispatchQueue.drain()
-  precondition(cache.queries==1 && cache.builds==1 && cache.modes == [true])
-  cache.requestSpacesBarRefresh(metadataOnly:true);DispatchQueue.drain()
-  precondition(cache.queries==2 && cache.builds==1, "Unchanged metadata retains the existing no-rebuild fast path")
-  let immediate=RefreshProbe()
-  immediate.requestSpacesBarRefresh()
-  immediate.refreshSpacesBar(displays:[ManagedDisplayDescriptor()]);DispatchQueue.drain()
-  precondition(immediate.queries==0 && immediate.builds==1 && immediate.pendingSpacesBarRefresh==nil, "Immediate topology reconciliation reuses its snapshot and supersedes queued work")
-  let opening=RefreshProbe();opening.requestSpacesBarRefresh(metadataOnly:true)
-  opening.refreshSpacesBar();DispatchQueue.drain()
-  precondition(opening.queries==1 && opening.builds==1, "Opening refresh must not be repeated by an older queued request")
-  let stale=RefreshProbe();stale.requestSpacesBarRefresh()
-  stale.windowSwitcherCoordinator.pointerInteractionSessionID+=1;DispatchQueue.drain()
-  precondition(stale.queries==0 && stale.pendingSpacesBarRefresh==nil)
-  stale.requestSpacesBarRefresh(metadataOnly:true)
-  stale.windowSwitcherCoordinator.pointerInteractionSessionID+=1
-  stale.requestSpacesBarRefresh();DispatchQueue.drain()
-  precondition(stale.queries==1 && stale.modes == [false], "Old session work must not consume or execute a newer request")
-  let teardown=RefreshProbe();teardown.requestSpacesBarRefresh();teardown.removeSpacesBar();DispatchQueue.drain()
-  precondition(teardown.queries==0 && teardown.pendingSpacesBarRefresh==nil)
-  let disabled=RefreshProbe();disabled.requestSpacesBarRefresh()
-  Defaults.enabled=false;DispatchQueue.drain()
-  disabled.requestSpacesBarRefresh()
-  precondition(disabled.queries==0 && disabled.pendingSpacesBarRefresh==nil && DispatchQueue.work.isEmpty)
-  Defaults.enabled=true;disabled.requestSpacesBarRefresh();DispatchQueue.drain()
-  precondition(disabled.queries==1)
-  let inactive=RefreshProbe();inactive.windowSwitcherCoordinator.windowSwitcherActive=false
-  inactive.requestSpacesBarRefresh();precondition(DispatchQueue.work.isEmpty && inactive.queries==0)
-  var released:RefreshProbe?=RefreshProbe();weak var weakProbe=released
-  released!.requestSpacesBarRefresh();released=nil;precondition(weakProbe==nil);DispatchQueue.drain()
-  precondition(DispatchQueue.work.isEmpty)
-  print("PASS production refresh coalescing: 6 former callback entries -> 1 deferred query/build; 10 cache requests -> 1; strongest request, no-op metadata, supplied snapshots, opening, stale sessions, teardown, disable/re-enable and weak lifetime")
+  combined.requestSpacesBarRefresh(.topology)
+  precondition(DispatchQueue.work.count==1 && World.queries==0);DispatchQueue.drain()
+  precondition(World.queries==1 && World.reads==1 && World.builds==1 && combined.hosts==1 && combined.pendingSpacesBarRefresh==nil)
+  let baseQueries=World.queries,baseReads=World.reads,baseBuilds=World.builds
+  for _ in 0..<10 {combined.refreshSpacesBar(.layout)}
+  combined.windowSwitcherCoordinator.onNavigationTargetChanged?()
+  for _ in 0..<5 {combined.windowSwitcherCoordinator.onFrameRefreshNeeded?()};DispatchQueue.drain()
+  precondition(World.queries==baseQueries && World.reads==baseReads && World.builds==baseBuilds,"Appearance, highlight, filter and frame-only work must not query, read/sort cache or rebuild the model")
+  let hosts=combined.hosts
+  for _ in 0..<10 {combined.requestSpacesBarRefresh(.topology)};DispatchQueue.drain()
+  precondition(World.queries==baseQueries+1 && World.reads==baseReads+1 && World.builds==baseBuilds && combined.hosts==hosts,"Unchanged cache batches still check freshness once but skip model/host rebuild")
+  World.windows.reverse();combined.refreshSpacesBar(.contents)
+  precondition(World.queries==baseQueries+1 && World.builtWindowIDs==[2,1] && World.builds==baseBuilds+1,"Ordering changes reuse topology but rebuild ordered residents")
+  let q=World.queries
+  let takeoverQ=World.queries
+  combined.requestSpacesBarRefresh(.topology)
+  combined.refreshSpacesBar(.layout);DispatchQueue.drain()
+  precondition(World.queries==takeoverQ+1,"An immediate layout update must consume, not discard, queued topology work")
+  Defaults.tabs=true;combined.refreshSpacesBar(.contents)
+  precondition(World.queries==q+1 && World.builtWindowIDs==[2],"Native-tab preference changes must invalidate contents even if raw window order did not change")
+  Defaults.tabs=false;Defaults.recent=true;combined.refreshSpacesBar(.contents)
+  precondition(World.queries==q+1 && combined.spacesBarAllSections[0].spaces.map(\.id)==[2,1])
+  Defaults.recent=false
+  let baseline=combined.spacesBarSpaceChangeSnapshot!
+  let supplied=[ManagedDisplayDescriptor(identifier:"one",currentSpaceID:2,spaces:World.displays[0].spaces)]
+  combined.requestSpacesBarRefresh(.topology)
+  combined.refreshSpacesBar(.topology,displays:supplied);DispatchQueue.drain()
+  precondition(World.queries==q+1 && combined.spacesBarPresentationDisplays![0].currentSpaceID==2 && combined.spacesBarSpaceChangeSnapshot![0].currentSpaceID==baseline[0].currentSpaceID,"Presentation updates must not rewrite the notification baseline or repeat supplied queries")
+  precondition(!combined.preserveSpacesBarAfterSpaceChange(in:supplied))
+  precondition(combined.spacesBarSpaceChangeSnapshot![0].currentSpaceID==2)
+  let one=[ManagedDisplayDescriptor(identifier:"one",currentSpaceID:1,spaces:[.init(id:1)])]
+  combined.highlightedSpaceID=2;Defaults.single=true
+  combined.refreshSpacesBar(.topology,displays:one)
+  precondition(combined.spacesBarWindow==nil && combined.spacesBarSections.isEmpty && combined.spacesBarAllSections[0].spaces.count==1)
+  let hiddenBuilds=World.builds
+  Defaults.single=false;combined.refreshSpacesBar(.layout)
+  precondition(World.queries==q+1 && World.builds==hiddenBuilds && combined.spacesBarWindow != nil && combined.spacesBarSections[0].spaces.count==1,"Unhiding a single Space reuses complete resident data")
+  let stale=RefreshProbe();stale.requestSpacesBarRefresh(.topology)
+  stale.windowSwitcherCoordinator.pointerInteractionSessionID+=1;DispatchQueue.drain();precondition(World.queries==q+1 && stale.pendingSpacesBarRefresh==nil)
+  stale.requestSpacesBarRefresh(.contents);stale.windowSwitcherCoordinator.pointerInteractionSessionID+=1
+  stale.requestSpacesBarRefresh(.topology);DispatchQueue.drain();precondition(World.queries==q+2)
+  stale.requestSpacesBarRefresh(.topology);stale.removeSpacesBar();DispatchQueue.drain();precondition(World.queries==q+2)
+  combined.requestSpacesBarRefresh(.topology);Defaults.enabled=false;DispatchQueue.drain()
+  precondition(World.queries==q+2 && combined.spacesBarPresentationDisplays==nil && combined.spacesBarSpaceChangeSnapshot==nil && combined.spacesBarAllSections.isEmpty)
+  combined.requestSpacesBarRefresh(.topology);precondition(DispatchQueue.work.isEmpty)
+  Defaults.enabled=true;combined.refreshSpacesBar(.layout);precondition(World.queries==q+3,"Cold/re-enabled layout must initialize a fresh model, never use stale prior-session data")
+  let inactive=RefreshProbe();inactive.windowSwitcherCoordinator.windowSwitcherActive=false;inactive.requestSpacesBarRefresh(.topology)
+  precondition(DispatchQueue.work.isEmpty && inactive.spacesBarPresentationDisplays==nil)
+  let merged=RefreshProbe();merged.refreshSpacesBar();let mergeQ=World.queries,mergeHosts=merged.hosts
+  merged.requestSpacesBarRefresh(.layout);merged.requestSpacesBarRefresh(.contents);merged.requestSpacesBarRefresh(.topology);DispatchQueue.drain()
+  precondition(World.queries==mergeQ+1 && merged.hosts==mergeHosts+1,"Merged work must retain topology validation and an explicit layout even with unchanged contents")
+  var released:RefreshProbe?=RefreshProbe();weak var weakProbe=released;released!.requestSpacesBarRefresh();released=nil
+  precondition(weakProbe==nil);DispatchQueue.drain();precondition(DispatchQueue.work.isEmpty)
+  print("PASS production refresh pipeline: 6 former callbacks -> 1 query/build; 10 cache requests -> 1 query and 0 unchanged rebuilds; warm layout/highlight/filter -> 0 queries/cache reads/model builds; cached ordering, tab policy, supplied snapshots, independent baseline, single-Space hiding, stale sessions, teardown and disable/re-enable")
  }
 }
 SWIFT
@@ -253,7 +315,7 @@ bar = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SearchWin
 abort 'Space labels must share Compact Mode primary typography and measurement' unless bar.include?('Defaults[.spacesBarItemSize].primaryFont') && bar.include?('Defaults[.spacesBarItemSize].primaryAppKitFont') && bar.include?('let font = SpacesBarLayout.textFont')
 panel = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
 cache = File.read("#{root}/DockDoor/Utilities/Window Management/SpaceWindowCacheManager.swift")
-abort 'Bar must refresh with cache metadata and display topology' unless block(cache, '    private func flushCoordinatorChanges()').include?('preview.requestSpacesBarRefresh(metadataOnly: true)') && panel.include?('spacesBarScreenObserver = NotificationCenter.default.addObserver(') && panel.include?('spacesBarScreenObserver = nil') && panel.include?('if metadataOnly, fingerprint == spacesBarFingerprint { return }') && block(cache, '    private func flushCoordinatorChanges()').include?('preview.windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar]')
+abort 'Bar must refresh with cache metadata and display topology' unless block(cache, '    private func flushCoordinatorChanges()').include?('preview.requestSpacesBarRefresh(.topology)') && panel.include?('spacesBarScreenObserver = NotificationCenter.default.addObserver(') && panel.include?('spacesBarScreenObserver = nil') && panel.include?('guard contentsChanged || reason.contains(.layout) else { return }') && block(cache, '    private func flushCoordinatorChanges()').include?('preview.windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar]')
 settings = File.read("#{root}/DockDoor/Views/Settings/WindowSwitcherBehaviorSettingsView.swift") + File.read("#{root}/DockDoor/Views/Settings/AppearanceSettingsView.swift")
 catalog = File.read("#{root}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
 reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")
@@ -1667,7 +1729,16 @@ space_changed = block(space_observers, '    @objc private func activeSpaceDidCha
 space_policy = block(panel, '    func preserveSpacesBarAfterSpaceChange(')
 bar_refresh = block(panel, '    func refreshSpacesBar(')
 abort 'Space-change dismissal must distinguish topology updates through the shared notification path' unless space_changed.include?('preservesBar = previewCoordinator.preserveSpacesBarAfterSpaceChange(in: displays)') && space_changed.include?('if !preservesBar') && space_changed.include?('WindowSpaces.recordBarSpaceVisits(displays)') && !panel.include?('spacesBarSpaceObserver')
-abort 'Space-change snapshots must be gated and refresh with the same topology, without another query' unless space_policy.include?('guard windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar]') && space_policy.include?('refreshSpacesBar(displays: displays)') && bar_refresh.include?('snapshot ?? WindowSpaces.managedDisplays(includeOwners: true)')
+abort 'Space-change snapshots must be gated and refresh with the same topology, without another query' unless space_policy.include?('guard windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar]') && space_policy.include?('refreshSpacesBar(.topology, displays: displays)') && bar_refresh.include?('snapshot ?? WindowSpaces.managedDisplays(includeOwners: true)')
 abort 'Removing the highlighted Space must select a valid same-display current Space and clear stale hover' unless bar_refresh.include?('let highlightedDisplay = spacesBarSections.first') && bar_refresh.include?('replacement.map { .space($0.id) } ?? .windows') && bar_refresh.include?('windowSwitcherCoordinator.mouseHighlightedSpaceID = nil') && bar_refresh.include?('windowSwitcherCoordinator.spaceNavigationInputSource = .programmatic')
 
 abort 'Disabled/inactive Spaces Bar must not add topology queries to Space notifications' unless space_changed.index('if Defaults[.enableSpacesBar], previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive') < space_changed.index('let displays = WindowSpaces.managedDisplays(includeOwners: true)') && space_changed.include?("} else {\n                WindowSpaces.recordBarSpaceVisits()\n                preservesBar = false")
+appearance_refresh = File.read("#{root}/DockDoor/Views/Settings/AppearanceSettingsView.swift")
+%w[spacesBarItemSize spacesBarShowAppIcons spacesBarLabels spacesBarFixedWidth spacesBarPreferDetails spacesBarMinimumWidth spacesBarMaximumWidth spacesBarPillWidth].each do |key|
+ abort "Appearance must request layout-only work: #{key}" unless appearance_refresh.include?(".onChange(of: #{key}) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }")
+end
+%w[windowSwitcherSortOrder spacesBarRecentlyUsed].each do |key|
+ abort "Sorting must reuse cached topology: #{key}" unless settings.include?(".onChange(of: #{key}) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }")
+end
+abort 'Presentation topology must be separate from notification baseline' unless bar_refresh.include?('spacesBarPresentationDisplays = snapshot ?? WindowSpaces.managedDisplays') && bar_refresh.include?('if spacesBarSpaceChangeSnapshot == nil')
+abort 'Action-time Space resolution must retain fresh validation' unless space_context.include?('WindowSpaces.managedDisplays()') && !space_context.include?('spacesBarPresentationDisplays')

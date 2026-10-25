@@ -137,6 +137,7 @@ struct DockPreviewsSettingsView: View {
 
                 Toggle(isOn: $collapseNativeTabsIntoSingleWindow) { Text("Collapse native tabs into a single window") }
                     .settingsSearchTarget("dockPreviews.collapseNativeTabs")
+                    .onChange(of: collapseNativeTabsIntoSingleWindow) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
                 Text("Show one preview for apps that use native macOS window tabs (e.g. Ghostty, Finder, Terminal) instead of one preview per tab. Restart the app for this to take effect.")
                     .font(.caption)
                     .foregroundColor(.secondary)

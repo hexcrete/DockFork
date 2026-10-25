@@ -61,10 +61,19 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private var isPositioningCompanions = false
     private var spacesBarWindow: SpacesBarWindow?
     private var spacesBarSections: [ManagedSpacePresentation.Display] = []
+    private var spacesBarAllSections: [ManagedSpacePresentation.Display] = []
+    private var spacesBarPresentationDisplays: [ManagedDisplayDescriptor]?
     private var spacesBarFingerprint: [String] = []
     private var spacesBarSpaceChangeSnapshot: [ManagedDisplayDescriptor]?
     private var spacesBarScreenObserver: NSObjectProtocol?
-    private var pendingSpacesBarRefresh: (token: UUID, session: UInt, metadataOnly: Bool)?
+    struct SpacesBarRefresh: OptionSet {
+        let rawValue: UInt8
+        static let layout = Self(rawValue: 1)
+        static let contents = Self(rawValue: 2)
+        static let topology = Self(rawValue: 4)
+    }
+
+    private var pendingSpacesBarRefresh: (token: UUID, session: UInt, reason: SpacesBarRefresh)?
 
     private var appName: String = ""
     var currentlyDisplayedPID: pid_t?
@@ -753,31 +762,35 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             ManagedSpacePresentation.isTopologyOnlySpaceChange(from: $0, to: displays)
         } == true
         spacesBarSpaceChangeSnapshot = displays
-        refreshSpacesBar(displays: displays)
+        refreshSpacesBar(.topology, displays: displays)
         return preserve
     }
 
-    func requestSpacesBarRefresh(metadataOnly: Bool = false) {
+    func requestSpacesBarRefresh(_ reason: SpacesBarRefresh = .layout) {
         guard windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar] else {
             pendingSpacesBarRefresh = nil
             return
         }
         let session = windowSwitcherCoordinator.pointerInteractionSessionID
         if let pending = pendingSpacesBarRefresh, pending.session == session {
-            pendingSpacesBarRefresh?.metadataOnly = pending.metadataOnly && metadataOnly
+            pendingSpacesBarRefresh?.reason = pending.reason.union(reason)
             return
         }
         let token = UUID()
-        pendingSpacesBarRefresh = (token, session, metadataOnly)
+        pendingSpacesBarRefresh = (token, session, reason)
         DispatchQueue.main.async { [weak self] in
             guard let self, let pending = pendingSpacesBarRefresh, pending.token == token else { return }
             pendingSpacesBarRefresh = nil
             guard windowSwitcherCoordinator.pointerInteractionSessionID == pending.session else { return }
-            refreshSpacesBar(metadataOnly: pending.metadataOnly)
+            refreshSpacesBar(pending.reason)
         }
     }
 
-    func refreshSpacesBar(metadataOnly: Bool = false, displays snapshot: [ManagedDisplayDescriptor]? = nil) {
+    func refreshSpacesBar(_ requested: SpacesBarRefresh = [.topology, .layout], displays snapshot: [ManagedDisplayDescriptor]? = nil) {
+        var reason = requested
+        if let pending = pendingSpacesBarRefresh, pending.session == windowSwitcherCoordinator.pointerInteractionSessionID {
+            reason.formUnion(pending.reason)
+        }
         pendingSpacesBarRefresh = nil
         guard windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar] else {
             removeSpacesBar()
@@ -787,33 +800,42 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             spacesBarScreenObserver = NotificationCenter.default.addObserver(
                 forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
             ) { [weak self] _ in
-                self?.refreshSpacesBar()
+                self?.refreshSpacesBar([.topology, .layout])
             }
         }
-        let displays = snapshot ?? WindowSpaces.managedDisplays(includeOwners: true)
+        if spacesBarPresentationDisplays == nil { reason.insert(.topology) }
+        if reason.contains(.topology) {
+            spacesBarPresentationDisplays = snapshot ?? WindowSpaces.managedDisplays(includeOwners: true)
+        }
+        guard let displays = spacesBarPresentationDisplays else { return }
         if spacesBarSpaceChangeSnapshot == nil { spacesBarSpaceChangeSnapshot = displays }
         let highlightedDisplay = spacesBarSections.first { display in display.spaces.contains { $0.id == highlightedSpaceID } }?.id
         if let session = contentsDragSession, SpaceContentsTopology(displays) != SpaceContentsTopology(session.displays) {
             cancelContentsDrag()
         }
-        if snapshot == nil { WindowSpaces.recordBarSpaceVisits(displays) }
+        if reason.contains(.topology), snapshot == nil { WindowSpaces.recordBarSpaceVisits(displays) }
 
-        let windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters()
-        let fingerprint = ["recent:\(Defaults[.spacesBarRecentlyUsed])"] + displays.flatMap { display in
-            ["\(display.identifier):\(display.currentSpaceID ?? 0):\(WindowSpaces.displayName(for: display.identifier) ?? "")"] + display.spaces.map { "\($0.id):\($0.kind?.rawValue ?? -1):\($0.ownerPIDs.sorted())" }
-        } + windows.map { "\($0.app.processIdentifier):\($0.id):\($0.spaceID ?? 0):\($0.isMinimized):\($0.isHidden):\($0.isFullscreen):\($0.windowName ?? "")" }
-        if metadataOnly, fingerprint == spacesBarFingerprint { return }
-        if fingerprint != spacesBarFingerprint {
-            spacesBarFingerprint = fingerprint
-            spacesBarSections = ManagedSpacePresentation.snapshot(
-                displays: displays, orderedWindows: WindowUtil.collapseNativeTabsIfNeeded(windows)
-            )
-            let order = Dictionary(uniqueKeysWithValues: WindowSpaces.barSpaceOrder(displays).enumerated().map { ($0.element, $0.offset) })
-            spacesBarSections = spacesBarSections.map { display in
-                ManagedSpacePresentation.Display(id: display.id, name: display.name,
-                                                 spaces: display.spaces.sorted { order[$0.id, default: 0] < order[$1.id, default: 0] })
+        var contentsChanged = false
+        if reason.contains(.topology) || reason.contains(.contents) {
+            let windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters()
+            let fingerprint = ["recent:\(Defaults[.spacesBarRecentlyUsed])", "tabs:\(Defaults[.collapseNativeTabsIntoSingleWindow])"] + displays.flatMap { display in
+                ["\(display.identifier):\(display.currentSpaceID ?? 0):\(WindowSpaces.displayName(for: display.identifier) ?? "")"] + display.spaces.map { "\($0.id):\($0.kind?.rawValue ?? -1):\($0.ownerPIDs.sorted())" }
+            } + windows.map { "\($0.app.processIdentifier):\($0.id):\($0.spaceID ?? 0):\($0.isMinimized):\($0.isHidden):\($0.isFullscreen):\($0.windowName ?? "")" }
+            if fingerprint != spacesBarFingerprint {
+                spacesBarFingerprint = fingerprint
+                spacesBarAllSections = ManagedSpacePresentation.snapshot(
+                    displays: displays, orderedWindows: WindowUtil.collapseNativeTabsIfNeeded(windows)
+                )
+                let order = Dictionary(uniqueKeysWithValues: WindowSpaces.barSpaceOrder(displays).enumerated().map { ($0.element, $0.offset) })
+                spacesBarAllSections = spacesBarAllSections.map { display in
+                    ManagedSpacePresentation.Display(id: display.id, name: display.name,
+                                                     spaces: display.spaces.sorted { order[$0.id, default: 0] < order[$1.id, default: 0] })
+                }
+                contentsChanged = true
             }
         }
+        guard contentsChanged || reason.contains(.layout) else { return }
+        spacesBarSections = spacesBarAllSections
         if let id = highlightedSpaceID, !spacesBarSections.contains(where: { $0.spaces.contains(where: { $0.id == id }) }) {
             let replacement = spacesBarSections.first { $0.id == highlightedDisplay }?.spaces.first(where: \.isCurrent)
             windowSwitcherCoordinator.mouseHighlightedSpaceID = nil
@@ -848,7 +870,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         windowSwitcherCoordinator.navigationTarget = .windows
         windowSwitcherCoordinator.setSpaceFilter(nil)
         spaceFilterTop = nil
-        if !keepTopologyObserver { spacesBarSpaceChangeSnapshot = nil }
+        if !keepTopologyObserver {
+            spacesBarSpaceChangeSnapshot = nil
+            spacesBarPresentationDisplays = nil
+            spacesBarAllSections = []
+            spacesBarFingerprint = []
+        }
         if !keepTopologyObserver, let observer = spacesBarScreenObserver {
             NotificationCenter.default.removeObserver(observer)
             spacesBarScreenObserver = nil
@@ -861,7 +888,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
         spacesBarWindow = nil
         spacesBarSections = []
-        spacesBarFingerprint = []
         updateSpacesBarReservation()
     }
 

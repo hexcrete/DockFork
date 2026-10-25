@@ -1344,3 +1344,15 @@ Cache-batch and frame-triggered metadata requests now merge into one next-main-t
 The deterministic production-source fixture reduced the six-request sequence to one deferred refresh; ten same-turn cache requests also merge into one. This is an operation-count result, not a wall-clock performance claim. Focused Spaces, layout and keyboard/session suites pass after repairing stale fixture-only menu/geometry declarations. The signed development build/source/installed-binary/running path are verified. Manual behavior verification remains pending; stages 2 (presentation-only query removal) and 3 (measurement reuse) are not implemented yet. No release or push.
 
 Stage 1 refresh coalescing is user-verified and approved after final source review. The three focused suites and exact signed development/source/binary/running-path checks passed. Stages 2 and 3 remain separate pending work; no native wall-clock speedup is claimed.
+
+### Spaces Bar metadata/presentation separation (Stage 2, awaiting manual verification)
+
+Warm appearance, sizing, filtering and highlight updates reuse the current Space model without fetching topology or reading/sorting the window cache. Window/Space sorting and native-tab-collapse preference changes rebuild residents using cached topology. Actual window-cache batches retain their coalesced topology query to catch native changes; opening and Space/display notifications still refresh promptly. Layout changes cannot discard a stronger queued metadata request.
+
+Single-Space hiding now hides the panel without discarding the complete resident model. Showing it again can reuse that data. Full teardown/disable clears the presentation cache; the separate notification baseline used for fullscreen-removal classification is preserved only for its existing session lifetime. Unchanged metadata requests skip resident-model and host rebuilding. Explicit window/Space actions continue to resolve and validate fresh targets.
+
+Production-source tests with inert providers report 0 topology queries/cache reads/model builds for warm layout/highlight/filter updates; 10 cache requests still merge into 1 freshness query and 0 model/host rebuilds when unchanged. These are operation counts, not measured native latency. Stage 3 geometry measurement caching is not implemented yet. No defaults, scripting, identity, project or release changes.
+
+Stage 2 development validation: all four authorized focused suites passed, as did formatter/diff checks and signed build/relaunch `DockFork-784490d-working-VgZk76`. Installed signature, exact source snapshot, binaries and running path match. Native/manual verification remains pending; Stage 2 is uncommitted and Stage 3 has not started.
+
+Stage 2 metadata/presentation separation is user-verified and approved after source review. All four focused suites and exact signed development/source/installed-binary/running-path checks passed. Stage 3 measurement caching remains pending; no native latency claim or release work.
