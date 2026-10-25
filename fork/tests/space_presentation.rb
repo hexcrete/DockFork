@@ -187,6 +187,7 @@ abort 'Subscript must not have badge-like decoration' if count_style.nil? || cou
 pill_style = block(bar, '    private func pill(')
 label_region = pill_style.split('ZStack(alignment: .leading)', 2).last&.split('ForEach(', 2)&.first
 abort 'Filter label must retain stable child views and full-size symbol geometry' unless label_region && !label_region.include?('if filteredSpace') && !label_region.include?('if titleParts') && !label_region.include?('.transition(') && label_region.include?('width: SpacesBarLayout.clearSymbolSize') && label_region.include?('.allowsHitTesting(filteredSpace == entry.id)')
+abort 'Clear-filter SF Symbol must render at 1.3 times its original point size without scaling its layout slot' unless label_region.include?('.font(.system(size: SpacesBarLayout.clearSymbolSize * 1.3))') && !label_region.include?('.scaleEffect(') && label_region.include?('.frame(width: SpacesBarLayout.minimumLabelWidth)')
 abort 'Clear filter must precede the Space label' unless pill_style.index('Button(action: clearFilter)') < pill_style.index('Text(title).lineLimit(1)')
 abort 'Filter label must slide within its reserved slot using shared animation policy' unless label_region.include?('.offset(x: titleParts.button + titleParts.spacing)') && label_region.include?('.previewControlVisibilityAnimation(') && label_region.include?('-SpacesBarLayout.minimumLabelWidth')
 abort 'Bar refresh must not recommit unchanged native scroll geometry' unless bar.include?('if view.scroller.contentSize != contentSize') && bar.include?('if view.hosting.frame != contentFrame')

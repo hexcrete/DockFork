@@ -706,7 +706,7 @@ struct SpacesBarView: View {
                 ZStack(alignment: .leading) {
                     Button(action: clearFilter) {
                         Image(systemName: "xmark.circle.fill")
-                            .resizable().scaledToFit()
+                            .font(.system(size: SpacesBarLayout.clearSymbolSize * 1.3))
                             .frame(width: SpacesBarLayout.clearSymbolSize, height: SpacesBarLayout.clearSymbolSize)
                             .foregroundStyle(.secondary)
                     }
@@ -724,7 +724,6 @@ struct SpacesBarView: View {
                         .opacity(titleParts.text > 0 ? 1 : 0).allowsHitTesting(false)
                 }
                 .frame(width: titleWidth, height: ceil(font.ascender - font.descender + font.leading), alignment: .leading)
-                .clipped()
                 .previewControlVisibilityAnimation(isVisible: filteredSpace == entry.id, duration: controlAnimationDuration, animationsEnabled: showAnimations)
                 ForEach(Array(apps.prefix(count).enumerated()), id: \.element.application.processIdentifier) { _, app in
                     let icon = PreviewAppIcon(icon: app.application.icon, bundleURL: app.application.bundleURL,

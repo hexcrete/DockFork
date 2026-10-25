@@ -465,3 +465,7 @@ Search presentation check: search no longer waits an extra main-queue turn. The 
 Menu-bar toggle regression: with left-click configured to open the switcher, repeat open/close at ordinary and rapid rates, including after keyboard/swipe invocation and with search/Spaces Bar enabled or disabled. Check outside dismissal, the normal context menu and the right-click toggle configuration. Manual verification and recording pending.
 
 Display-divider drop-zone regression: drag a Desktop from either side across a display divider. Verify exactly one insertion zone on the source side, correct shift glyph/result, no invisible target on the omitted side, matching headings/container width, and smooth opening/closing animation. Include a middle source display with three displays, fullscreen neighbors, scrolling and Reduce Motion where available. Manual checks and media pending.
+
+Clear-filter glyph trial: compare numeric and named Space pills at small/large item sizes. The x symbol should use a native SF Symbol font at 1.3x the original size, without changing pill width or moving app icons. Check sharpness as well as size. Check clipping, clear clicks and the existing reveal/hide animation. Manual verification and media pending.
+
+The user verified the final 1.3x clear-filter glyph and approved commit. Exhaustive item-size/style/transition coverage and media capture remain pending.
