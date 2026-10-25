@@ -564,7 +564,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             return
         }
         if spaceFilterTop == nil { spaceFilterTop = frame.maxY }
-        coordinator.setSpaceFilter(id, members: members)
+        coordinator.setSpaceFilter(id, members: members, header: .init(label: entry.filterLabel(mode: Defaults[.spacesBarLabels]), number: entry.destination.space.number))
     }
 
     @MainActor

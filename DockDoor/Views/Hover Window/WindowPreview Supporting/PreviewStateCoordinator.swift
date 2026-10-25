@@ -392,7 +392,7 @@ class PreviewStateCoordinator: ObservableObject {
         let generation = selectionLayoutGeneration
         DispatchQueue.main.async { [weak self] in
             guard let self, selectionLayoutGeneration == generation,
-                  !windows.isEmpty || checkedWindowCount > 0
+                  !windows.isEmpty || checkedWindowCount > 0 || activeSpaceFilterID != nil
             else { return }
             if let monitor = lastKnownBestGuessMonitor {
                 recomputeAndPublishDimensions(dockPosition: lastKnownDockPosition, bestGuessMonitor: monitor)
@@ -436,11 +436,21 @@ class PreviewStateCoordinator: ObservableObject {
     var onSpaceFilterChanged: (() -> Void)?
     private(set) var activeSpaceFilterID: CGSSpaceID?
     private(set) var activeSpaceMembers: Set<PreviewWindowIdentity>?
+    struct SpaceFilterHeader: Equatable {
+        let label: String
+        let number: Int
+    }
+
+    @Published private(set) var activeSpaceFilterHeader: SpaceFilterHeader?
     var retainedWindowlessSelectionRows: [WindowInfo] = []
 
     @MainActor
-    func setSpaceFilter(_ id: CGSSpaceID?, members: Set<PreviewWindowIdentity>? = nil) {
-        guard activeSpaceFilterID != id || activeSpaceMembers != members else { return }
+    func setSpaceFilter(_ id: CGSSpaceID?, members: Set<PreviewWindowIdentity>? = nil, header: SpaceFilterHeader? = nil) {
+        let resolvedHeader = id == nil ? nil : header
+        let targetsChanged = activeSpaceFilterID != id || activeSpaceMembers != members
+        guard targetsChanged || activeSpaceFilterHeader != resolvedHeader else { return }
+        if activeSpaceFilterHeader != resolvedHeader { activeSpaceFilterHeader = resolvedHeader }
+        guard targetsChanged else { return }
         endSelectionRange()
         if activeSpaceFilterID == nil, id != nil {
             retainedWindowlessSelectionRows = windows.filter(\.isWindowlessApp)
@@ -477,6 +487,10 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @Published var switcherTopAccessoryHeight: CGFloat = 0
+
+    var spaceFilterAccessoryHeight: CGFloat {
+        windowSwitcherActive && activeSpaceFilterID != nil ? PreviewHeaderLayout.contentReservation(for: .default) : 0
+    }
 
     var selectionAccessoryHeight: CGFloat {
         guard checkedWindowCount > 0, Defaults[.showWindowSelectionSummary] else { return 0 }
@@ -515,6 +529,7 @@ class PreviewStateCoordinator: ObservableObject {
         onSpaceFilterChanged = nil
         activeSpaceFilterID = nil
         activeSpaceMembers = nil
+        activeSpaceFilterHeader = nil
         retainedWindowlessSelectionRows = []
         let changed = isKeybindSessionActive
         isKeybindSessionActive = false
@@ -1238,7 +1253,7 @@ class PreviewStateCoordinator: ObservableObject {
             previewMaxRows: Defaults[.previewMaxRows],
             switcherMaxRows: Defaults[.switcherMaxRows],
             totalItems: windows.count,
-            accessoryHeight: selectionAccessoryHeight + switcherTopAccessoryHeight
+            accessoryHeight: selectionAccessoryHeight + spaceFilterAccessoryHeight + switcherTopAccessoryHeight
         )
 
         var newDimensionsMap = WindowPreviewHoverContainer.precomputeWindowDimensions(
@@ -1329,7 +1344,7 @@ class PreviewStateCoordinator: ObservableObject {
             expectedContentSizeIsExact = false
             expectedContentSize = .zero
         }
-        if expectedContentSize != .zero { expectedContentSize.height += selectionAccessoryHeight }
+        if expectedContentSize != .zero { expectedContentSize.height += selectionAccessoryHeight + spaceFilterAccessoryHeight }
     }
 
     private func resolvedSwitcherRowLimit(
@@ -1353,7 +1368,7 @@ class PreviewStateCoordinator: ObservableObject {
             paddingMultiplier: Defaults[.globalPaddingMultiplier]
         )
         let spacing = metrics.itemSpacing
-        let availableHeight = bestGuessMonitor.visibleFrame.height - metrics.totalPanelInset * 2 - selectionAccessoryHeight - switcherTopAccessoryHeight
+        let availableHeight = bestGuessMonitor.visibleFrame.height - metrics.totalPanelInset * 2 - selectionAccessoryHeight - spaceFilterAccessoryHeight - switcherTopAccessoryHeight
         let rowsThatFit = max(1, Int((availableHeight + spacing) / (itemHeight + spacing)))
         return min(initialRows, rowsThatFit)
     }

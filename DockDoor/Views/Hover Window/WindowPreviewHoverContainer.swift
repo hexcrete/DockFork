@@ -717,11 +717,22 @@ struct WindowPreviewHoverContainer: View {
             disableLeading: dynamicFadeEnabled && !scrolledFromStart,
             disableTrailing: scrolledToEnd
         )
-        .padding(.top, (effectiveShouldShowHeader && effectiveAppNameStyle == .default) ? PreviewHeaderLayout.contentReservation(for: .default) : 0)
+        .padding(.top, previewStateCoordinator.spaceFilterAccessoryHeight +
+            ((effectiveShouldShowHeader && effectiveAppNameStyle == .default) ? PreviewHeaderLayout.contentReservation(for: .default) : 0))
         .padding(.bottom, showsSelectionSummary && previewStateCoordinator.selectionSummaryStyle == .default ? PreviewHeaderLayout.contentReservation(for: .default) : 0)
         .clipShape(CardRadius.containerContentClip(cornerRadius: radii.container))
         .overlay(alignment: PreviewHeaderLayout.alignment(for: effectiveAppNameStyle, edge: .top)) {
             hoverTitleBaseView(labelSize: measureString(appName, fontSize: 14))
+        }
+        .overlay(alignment: .topLeading) {
+            if !mockPreviewActive, previewStateCoordinator.windowSwitcherActive,
+               let filter = previewStateCoordinator.activeSpaceFilterHeader
+            {
+                PreviewSpaceFilterHeader(label: filter.label, number: filter.number, backgroundAppearance: backgroundAppearance) {
+                    SharedPreviewWindowCoordinator.activeInstance?.clearSpaceFilter()
+                }
+                .transition(.opacity)
+            }
         }
         .overlay(alignment: PreviewHeaderLayout.alignment(for: previewStateCoordinator.selectionSummaryStyle, edge: .bottom)) {
             if showsSelectionSummary { selectionSummary.transition(.opacity) }
@@ -1339,9 +1350,11 @@ struct WindowPreviewHoverContainer: View {
         let width = edgeScrollHoverSize.width
         let summaryHeight = showsSelectionSummary && previewStateCoordinator.selectionSummaryStyle == .default
             ? PreviewHeaderLayout.contentReservation(for: .default) : 0
-        let height = edgeScrollHoverSize.height - summaryHeight
+        let filterHeight = previewStateCoordinator.spaceFilterAccessoryHeight
+        let location = CGPoint(x: location.x, y: location.y - filterHeight)
+        let height = edgeScrollHoverSize.height - summaryHeight - filterHeight
 
-        guard width > 0, height > 0, location.y <= height else {
+        guard width > 0, height > 0, location.y >= 0, location.y <= height else {
             edgeScrollRequest = nil
             return
         }
@@ -2566,6 +2579,52 @@ private struct PreviewHeaderScrollRow<Content: View>: View {
     var body: some View {
         ScrollView(.horizontal, showsIndicators: true) { content.fixedSize() }
             .frame(height: PreviewHeaderLayout.minimumHeight)
+    }
+}
+
+private struct PreviewSpaceFilterHeader: View {
+    let label: String
+    let number: Int
+    let backgroundAppearance: BackgroundAppearance
+    let clearFilter: () -> Void
+
+    var body: some View {
+        let message = String(localized: "Showing windows from \(label)")
+        ViewThatFits(in: .horizontal) {
+            header(message: message, glyphs: false)
+            header(message: label, glyphs: false)
+            header(message: label, glyphs: true)
+            header(message: String(number), glyphs: true)
+            header(message: nil, glyphs: true)
+            PreviewHeader(style: .default, edge: .top, backgroundAppearance: backgroundAppearance) {
+                PreviewHeaderScrollRow { clearButton(glyphs: true) }
+            } actions: {}
+        }
+        .font(.body)
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .globalPadding(.trailing, PreviewHeaderLayout.horizontalInset)
+        // Do not let informational header clicks activate the container's first app.
+        .contentShape(Rectangle())
+        .onTapGesture {}
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(Text(message))
+    }
+
+    private func header(message: String?, glyphs: Bool) -> some View {
+        PreviewHeader(style: .default, edge: .top, backgroundAppearance: backgroundAppearance) {
+            if let message {
+                Text(message)
+                    .fontWeight(.medium)
+                    .fixedSize()
+            }
+        } actions: {
+            clearButton(glyphs: glyphs)
+        }
+    }
+
+    private func clearButton(glyphs: Bool) -> some View {
+        PreviewHeaderActionButton(title: String(localized: "Show All"), symbol: "xmark.circle", glyphs: glyphs, action: clearFilter)
     }
 }
 

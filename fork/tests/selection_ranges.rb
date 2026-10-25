@@ -29,6 +29,8 @@ typealias CGSSpaceID = UInt64
 final class App { let processIdentifier: pid_t; var isTerminated = false; init(_ pid: pid_t) { processIdentifier = pid } }
 struct WindowInfo { let id: CGWindowID; var app: App; var isWindowlessApp = false }
 enum DockPosition { case bottom }
+enum AppNameStyle {case `default`}
+enum PreviewHeaderLayout {static func contentReservation(for style:AppNameStyle)->CGFloat {25}}
 final class NSScreen {}
 enum WindowUtil { static var cached: [WindowInfo] = []; static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { cached.filter {$0.app.processIdentifier == pid} } }
 enum Key { case enableMultiWindowSelection, enableWindowlessAppSelection, keepWindowSwitcherOpenWhenSelected }
@@ -57,6 +59,7 @@ final class Selection { var checkedWindows = OrderedPreviewSelection() }
  enum NavigationTarget { case windows }
  var activeSpaceFilterID: CGSSpaceID?
  var activeSpaceMembers: Set<PreviewWindowIdentity>?
+ var activeSpaceFilterHeader:SpaceFilterHeader?
  var onSpaceFilterChanged: (() -> Void)?
  var retainedWindowlessSelectionRows: [WindowInfo] = []
  var navigationTarget = NavigationTarget.windows
@@ -85,6 +88,8 @@ final class Selection { var checkedWindows = OrderedPreviewSelection() }
  func getCurrentWindow() -> WindowInfo? { windows.indices.contains(currIndex) ? windows[currIndex] : nil }
 SWIFT
 source += block(state, '    private enum SelectionRangeInput:') + "\n"
+source += block(state, '    struct SpaceFilterHeader:') + "\n"
+source += block(state, '    var spaceFilterAccessoryHeight: CGFloat') + "\n"
 source += block(state, '    var keyboardSelectionPress:') + "\n"
 %w[setSpaceFilter displayedSelectionIdentities endSelectionRange endKeyboardSelectionRange endPointerSelectionRange reconcileSelectionRange beginSelectionRange extendSelectionRange toggleSelectionCheckbox canSelectWindow toggleCheckedWindow selectAllDisplayedWindows selectWindows pinCheckedSelectionIfNeeded clearCheckedWindows publishCheckedSelection consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows updateSelectionIndex setIndex].each do |name|
   signature = state.include?("    private func #{name}(") ? "    private func #{name}(" : "    func #{name}("
@@ -120,11 +125,23 @@ source += <<~'SWIFT'
  }
  let members: Set<PreviewWindowIdentity> = [PreviewWindowIdentity(windows[1])]
  filtered.setSpaceFilter(2, members: members)
+ precondition(filtered.spaceFilterAccessoryHeight==25)
  precondition(filtered.checkedWindowCount == 2 && filtered.windows.count == 1, "Filtering must retain outside-view real and windowless selection")
  filtered.setSpaceFilter(2, members: members)
  precondition(updates == 1, "Unchanged membership must not rebuild rows")
+ var layoutRequests=0
+ filtered.onFrameRefreshNeeded={layoutRequests+=1}
+ filtered.setSpaceFilter(2, members: members, header:.init(label:"Space 2",number:2))
+ precondition(filtered.activeSpaceFilterHeader?.label=="Space 2" && filtered.activeSpaceFilterHeader?.number==2 && updates==1 && layoutRequests==0,"Header-only changes must not rebuild windows, schedule panel refresh or change checked selections")
+ filtered.setSpaceFilter(2, members: members, header:.init(label:"Space 2",number:2))
+ precondition(layoutRequests==0,"Repeated header state must not schedule layout")
+ filtered.setSpaceFilter(2, members: members, header:.init(label:"Desktop 2",number:2))
+ precondition(filtered.activeSpaceFilterHeader?.label=="Desktop 2" && updates==1 && layoutRequests==0)
+ filtered.setSpaceFilter(2, members: members, header:.init(label:"Desktop 2",number:3))
+ precondition(filtered.activeSpaceFilterHeader?.number==3 && updates==1 && layoutRequests==0,"Renumbering must update the numeric fallback without rebuilding rows")
  filtered.setSpaceFilter(nil)
- precondition(filtered.windows.count == original.count && filtered.checkedWindowCount == 2 && filtered.retainedWindowlessSelectionRows.isEmpty)
+ precondition(filtered.windows.count == original.count && filtered.checkedWindowCount == 2 && filtered.retainedWindowlessSelectionRows.isEmpty && filtered.activeSpaceFilterHeader==nil)
+ precondition(filtered.spaceFilterAccessoryHeight==0)
  filtered.setSpaceFilter(2, members: members)
  WindowUtil.cached = windows + [WindowInfo(id: 99, app: other)]
  filtered.reconcileCheckedWindows()

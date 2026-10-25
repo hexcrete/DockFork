@@ -690,6 +690,13 @@ enum ManagedSpacePresentation {
         var isCurrent: Bool { destination.display.currentSpaceID == id }
         var isFullscreen: Bool { destination.space.kind == .fullscreen }
 
+        func filterLabel(mode: SpaceMenuDisplayMode) -> String {
+            switch mode {
+            case .numberOnly: String(localized: "Space \(destination.space.number)")
+            case .fullName: title(mode: mode)
+            }
+        }
+
         func title(mode: SpaceMenuDisplayMode) -> String {
             switch mode {
             case .numberOnly:

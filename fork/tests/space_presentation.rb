@@ -265,25 +265,31 @@ intent_source = <<~'SWIFT'
 import AppKit
 typealias CGSSpaceID = UInt64
 typealias PreviewWindowIdentity = Int
-enum Key {case enableSpacesBar,spacesBarFilterWindows,spacesBarDoNotFilterEmpty}
+enum Key {case enableSpacesBar,spacesBarFilterWindows,spacesBarDoNotFilterEmpty,spacesBarLabels}
 enum Defaults {
  static var enabled=true,automatic=false,skipEmpty=false
- static subscript(_ key:Key)->Bool {switch key {case .enableSpacesBar:enabled;case .spacesBarFilterWindows:automatic;case .spacesBarDoNotFilterEmpty:skipEmpty}}
+ static subscript(_ key:Key)->Bool {switch key {case .enableSpacesBar:enabled;case .spacesBarFilterWindows:automatic;case .spacesBarDoNotFilterEmpty:skipEmpty;case .spacesBarLabels:false}}
 }
 enum NavigationTarget {case windows,space(UInt64)}
 final class Coordinator {
+ struct Header {let label:String;let number:Int}
  var windowSwitcherActive=true,hasMovedSinceOpen=true
  var initialHoverLocation:CGPoint?
  var navigationTarget=NavigationTarget.windows
  var activeSpaceFilterID:UInt64?,members:Set<Int>?
  var publications=0
- func setSpaceFilter(_ id:UInt64?,members:Set<Int>?=nil) {
+ func setSpaceFilter(_ id:UInt64?,members:Set<Int>?=nil,header:Header?=nil) {
   guard activeSpaceFilterID != id || self.members != members else{return}
   activeSpaceFilterID=id;self.members=members;publications+=1
  }
 }
 struct App {var windowIdentities:[Int]}
-struct Entry {let id:UInt64;var apps:[App]}
+struct Entry {
+ let id:UInt64;var apps:[App]
+ struct Destination {struct Space {let number:Int};let space:Space}
+ var destination:Destination {.init(space:.init(number:Int(id)))}
+ func filterLabel(mode:Bool)->String {"Space \(id)"}
+}
 struct Section {var spaces:[Entry]}
 @MainActor final class FilterProbe {
  let windowSwitcherCoordinator=Coordinator()
@@ -759,6 +765,9 @@ for fraction: CGFloat in [0,0.1,0.49,0.5,0.9] {
   precondition(full.apps.allSatisfy { $0.windowCount==0 },"An owner PID must not invent window counts or action targets")
   precondition(desktop.title(mode:.numberOnly)=="1" && desktop.title(mode:.fullName)=="Desktop 1")
   precondition(full.title(mode:.fullName)=="Zebra + Full App")
+  precondition(desktop.filterLabel(mode:.numberOnly)=="Space 1" && desktop.filterLabel(mode:.fullName)=="Desktop 1")
+  precondition(full.filterLabel(mode:.numberOnly)=="Space 3" && full.filterLabel(mode:.fullName)=="Zebra + Full App")
+  precondition(ordered[0].spaces[1].filterLabel(mode:.numberOnly)=="Space 2","Empty Space filters retain a meaningful header label")
   precondition(Membership.reads==[1:1,2:1,3:1,4:1,5:1,6:1],"Read membership once per represented window, never once per Space or duplicate row")
   let reversed=ManagedSpacePresentation.snapshot(displays:topology,orderedWindows:[w3,w2,w1,sticky])
   precondition(reversed[0].spaces[0].apps.map { $0.application.processIdentifier }==[13,11],"App order must follow supplied window order, never app names")
@@ -1983,3 +1992,131 @@ prepared_position = block(panel, '    private func positionSpacesBar(')
 abort 'Prepared sizing must remain coordinator-owned and separate from live interaction' unless prepared_position.include?('SpacesBarPreparedLayout.resolve(key, cached: &spacesBarPreparedLayout)') && prepared_position.include?('labelTextWidths: prepared.textWidths') && prepared_position.include?('highlightedSpace: windowSwitcherCoordinator.spaceNavigationInputSource') && prepared_position.include?('contentsTargetChanged:')
 abort 'Pills must reuse prepared text width, not repeat label measurements' unless pill_style.include?('labelTextWidths[entry.id, default: 0]') && !pill_style.include?('(title as NSString).size(')
 abort 'Prepared cache must clear on both presentation removal and terminal hidden cleanup' unless block(panel,'    private func removeSpacesBar(').include?('spacesBarPreparedLayout = nil') && block(panel,'    func hideWindow(').index('spacesBarPreparedLayout = nil') < block(panel,'    func hideWindow(').index('guard isVisible else')
+
+# Measure the production default-style filter header without touching user windows.
+container = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift")
+header_source = <<~'SWIFT'
+import AppKit
+import SwiftUI
+enum AppNameStyle {case `default`,popover,shadowed}
+struct BackgroundAppearance {}
+enum HoverContainerPadding {static let container:CGFloat=26}
+enum Key {case globalPaddingMultiplier}
+enum Defaults {static subscript(_ key:Key)->CGFloat {1}}
+enum HeaderMarkers {static var views:[(String,NSView)]=[]}
+struct HeaderBoundsProbe:NSViewRepresentable {
+ let kind:String
+ func makeNSView(context:Context)->NSView {let view=NSView();HeaderMarkers.views.append((kind,view));return view}
+ func updateNSView(_ view:NSView,context:Context) {}
+}
+extension Color {func lighter(by:Double)->Color {self}}
+extension View {
+ func dockStyle(backgroundAppearance:BackgroundAppearance,cornerRadius:CGFloat)->some View {self}
+SWIFT
+header_source += "@ViewBuilder\n" + block(view_extensions, '    func `if`(') + "\n"
+header_source += block(File.read("#{root}/DockDoor/Extensions/GlobalPadding.swift"),'    func globalPadding(_ edges:') + "\n}\n"
+header_source += block(container,'enum PreviewHeaderLayout {') + "\n"
+header_source += block(File.read("#{root}/DockDoor/Utilities/Misc Utils.swift"),'func measureString(') + "\n"
+header_source += block(container,'private struct PreviewHeader<') + "\n"
+header_source += block(File.read("#{root}/DockDoor/Extensions/Button Styles/AccentButton.swift"),'struct AccentButtonStyle:') + "\n"
+header_action = block(container,'private struct PreviewHeaderActionButton:')
+header_action.sub!('.fixedSize()', '.fixedSize().background(HeaderBoundsProbe(kind:"action:\(glyphs)"))') or abort 'Missing fixed action for header measurement'
+header_source += header_action + "\n"
+filter_header = block(container,'private struct PreviewSpaceFilterHeader:')
+filter_header.sub!('.fixedSize()', '.fixedSize()' + "\n.background(HeaderBoundsProbe(kind:\"label:\\(message)\"))") or abort 'Missing natural filter label'
+filter_header.sub!('private func header(', 'func header(')
+header_source += filter_header + "\n"
+scroll_header = block(container,'private struct PreviewHeaderScrollRow<')
+scroll_header.sub!('.frame(height: PreviewHeaderLayout.minimumHeight)', '.frame(height: PreviewHeaderLayout.minimumHeight).background(HeaderBoundsProbe(kind:"scroll:row"))') or abort 'Missing shared scroll row'
+header_source += scroll_header + "\n"
+header_source += <<~'SWIFT'
+@main struct HeaderChecks {
+ @MainActor static func main() {
+  let app=NSApplication.shared
+  app.setActivationPolicy(.prohibited)
+  var cases=0
+  for width:CGFloat in [48,64,100,120,200,600] {
+   for label in ["Space 1","Desktop 12",String(repeating:"Long Fullscreen Application ",count:8)] {
+    for dark in [false,true] {
+     let header=PreviewSpaceFilterHeader(label:label,number:12,backgroundAppearance:BackgroundAppearance(),clearFilter:{})
+      .frame(width:width).environment(\.colorScheme,dark ? .dark:.light)
+     let view=NSHostingView(rootView:header)
+     let size=view.fittingSize
+     precondition(abs(size.width-width)<0.1 && size.height.isFinite && size.height>0 && size.height<60,"Filter header must fit a single default-style row at its allocated width: \(size)")
+     cases+=1
+    }
+   }
+  }
+  if !NSScreen.screens.isEmpty {
+   let label="Desktop 12",number=12
+   let message=String(localized:"Showing windows from \(label)")
+   let template=PreviewSpaceFilterHeader(label:label,number:number,backgroundAppearance:BackgroundAppearance(),clearFilter:{})
+   func required(_ text:String?,_ glyphs:Bool)->CGFloat {
+    NSHostingView(rootView:template.header(message:text,glyphs:glyphs).font(.body).lineLimit(1)).fittingSize.width+PreviewHeaderLayout.horizontalInset
+   }
+   let minimums=[required(message,false),required(label,false),required(label,true),required(String(number),true),required(nil,true)]
+   precondition(zip(minimums,minimums.dropFirst()).allSatisfy{$0>$1},"Each overflow stage must reduce the header's natural width")
+   let widths=[minimums[0]+20]+zip(minimums,minimums.dropFirst()).map{($0+$1)/2}+[max(1,minimums.last!-5)]
+   let messages:[String?]=[message,label,label,String(number),nil,nil]
+   for (stage,width) in widths.enumerated() {
+    HeaderMarkers.views=[]
+    var clears=0,backgroundTaps=0
+    let root=PreviewSpaceFilterHeader(label:label,number:number,backgroundAppearance:BackgroundAppearance(),clearFilter:{clears+=1})
+     .frame(width:width).onTapGesture{backgroundTaps+=1}
+    let hosting=NSHostingView(rootView:root)
+    let size=hosting.fittingSize
+    let panel=NSPanel(contentRect:CGRect(origin:CGPoint(x:20,y:20),size:size),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
+    panel.isReleasedWhenClosed=false
+    panel.contentView=hosting;panel.orderFront(nil);hosting.layoutSubtreeIfNeeded()
+    RunLoop.main.run(until:Date().addingTimeInterval(0.1))
+    func click(_ point:CGPoint) {
+     let time=ProcessInfo.processInfo.systemUptime
+     for (index,type) in [NSEvent.EventType.leftMouseDown,.leftMouseUp].enumerated() {
+      app.postEvent(NSEvent.mouseEvent(with:type,location:point,modifierFlags:[],timestamp:time+Double(index)*0.05,windowNumber:panel.windowNumber,context:nil,eventNumber:index+1,clickCount:1,pressure:type == .leftMouseUp ? 0:1)!,atStart:false)
+     }
+     while let event=app.nextEvent(matching:.any,until:Date().addingTimeInterval(0.05),inMode:.default,dequeue:true){app.sendEvent(event)}
+     RunLoop.main.run(until:Date().addingTimeInterval(0.1))
+    }
+    func rect(_ kind:String)->CGRect {
+     guard let marker=HeaderMarkers.views.last(where:{$0.0.hasPrefix(kind+":") && $0.1.window===panel})?.1 else{preconditionFailure("Missing rendered header \(kind)")}
+     return marker.convert(marker.bounds,to:nil)
+    }
+    let actionRect=rect("action")
+    let shownLabel=HeaderMarkers.views.last(where:{$0.0.hasPrefix("label:") && $0.1.window===panel})?.0
+    let shownAction=HeaderMarkers.views.last(where:{$0.0.hasPrefix("action:") && $0.1.window===panel})!.0
+    precondition(shownLabel==messages[stage].map{"label:"+$0} && shownAction=="action:\(stage>=2)","Wrong overflow presentation at stage \(stage): \(shownLabel ?? "none"), \(shownAction)")
+    let scroll=HeaderMarkers.views.last(where:{$0.0.hasPrefix("scroll:") && $0.1.window===panel})?.1
+    precondition((scroll != nil)==(stage==5),"Only the last resort may use the shared scroll row")
+    if stage==5 {precondition(actionRect.width>scroll!.bounds.width,"Last-resort action must actually overflow its scroll viewport")}
+    if messages[stage] != nil {
+     let labelRect=rect("label")
+     let gap=actionRect.minX-labelRect.maxX
+     precondition(gap>=0 && gap<PreviewHeaderLayout.horizontalInset,"Action must stay beside the natural label")
+    }
+    if stage==0 {
+     let labelRect=rect("label")
+     let naturalWidth=ceil(measureString(message,fontSize:PreviewHeaderLayout.textFont.pointSize,fontWeight:.medium).width)
+     precondition(labelRect.width<=naturalWidth+0.1,"Short labels must not stretch across unused header width")
+     click(CGPoint(x:labelRect.midX,y:labelRect.midY));precondition(clears==0 && backgroundTaps==0,"Informational header clicks must not activate the container")
+    }
+    click(CGPoint(x:actionRect.midX,y:actionRect.midY))
+    precondition(clears==1 && backgroundTaps==0,"Show All must remain clickable without activating the container at width \(width)")
+    panel.close()
+   }
+  }
+  print("PASS production Space filter header: \(cases) layouts, six measured overflow stages, numeric fallback, action-only state, shared scroll overflow, adjacent actions and click isolation; test-owned views/panels only")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-filter-header-') do |dir|
+ File.write("#{dir}/checks.swift",header_source)
+ abort 'Space filter header compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Space filter header checks failed' unless system("#{dir}/checks")
+end
+header_view = block(container,'private struct PreviewSpaceFilterHeader:')
+abort 'Filter header must reuse header/action/scroll styling, natural labels, informational-click isolation and shared clearing' unless header_view.include?('PreviewHeader(style: .default, edge: .top') && header_view.scan('PreviewHeaderActionButton(title: String(localized: "Show All")').size==1 && header_view.include?('.fixedSize()') && !header_view.include?('measureString') && header_view.include?('.onTapGesture {}') && container.include?('SharedPreviewWindowCoordinator.activeInstance?.clearSpaceFilter()')
+chain=['header(message: message, glyphs: false)','header(message: label, glyphs: false)','header(message: label, glyphs: true)','header(message: String(number), glyphs: true)','header(message: nil, glyphs: true)','PreviewHeaderScrollRow { clearButton(glyphs: true) }']
+positions=chain.map{|step|header_view.index(step) or abort "Missing overflow step: #{step}"}
+abort 'Filter-header overflow order must match the approved chain' unless positions==positions.sort
+abort 'Filter header must have one coherent observed label/number snapshot and shared reservations' unless state.include?('@Published private(set) var activeSpaceFilterHeader: SpaceFilterHeader?') && container.include?('.padding(.top, previewStateCoordinator.spaceFilterAccessoryHeight') && state.include?('selectionAccessoryHeight + spaceFilterAccessoryHeight + switcherTopAccessoryHeight') && state.include?('expectedContentSize.height += selectionAccessoryHeight + spaceFilterAccessoryHeight') && state.include?('- selectionAccessoryHeight - spaceFilterAccessoryHeight - switcherTopAccessoryHeight')
+abort 'Filter header must not trigger edge scrolling or appear in Dock/Cmd+Tab' unless block(container,'    private func handleEdgeScrollHover(').include?('location.y - filterHeight') && container.include?('!mockPreviewActive, previewStateCoordinator.windowSwitcherActive,') && container.include?('let filter = previewStateCoordinator.activeSpaceFilterHeader')
