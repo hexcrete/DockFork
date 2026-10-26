@@ -244,9 +244,10 @@ space_guard = block(coordinator, '    func performCheckedSpaceMove(').split('   
 source += "@MainActor final class ActionHarness { let windowSwitcherCoordinator: SelectionHarness; init(_ selection: SelectionHarness) { windowSwitcherCoordinator = selection }\n"
 source += action_guard + "return true\n}\n" + space_guard + "return true\n}\n}\n"
 selection = File.read("#{ROOT}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift")
-replacement = block(selection, '    func addWindows(')
-consume_replacement = replacement.index('consumeWindowlessSelection(in: [windows[placeholderIndex]])')
-abort 'Replacing a placeholder must consume its old selection' unless consume_replacement && consume_replacement < replacement.index('windows[placeholderIndex] = newWin')
+replacement = block(selection, '    private func reconcileWindowChanges(')
+consume_replacement = replacement.index('consumeWindowlessSelection(in: replacedPlaceholders, refreshLayout: false)')
+abort 'Replacing a placeholder must consume its old selection before final layout' unless consume_replacement && replacement.index('replacedPlaceholders.append(placeholder)') < replacement.index('rows[index] = fresh', replacement.index('replacedPlaceholders.append(placeholder)')) && consume_replacement < replacement.index('selectionLayoutGeneration &+= 1')
+abort 'Standalone additions must share batch reconciliation' unless block(selection, '    func addWindows(').include?('reconcileWindowChanges(added: newWindowsToAdd)')
 termination = block(File.read("#{ROOT}/DockDoor/Utilities/Window Management/WindowManipulationObservers.swift"), '    private func handleAppTermination(pid:')
 cleanup = termination.index('coordinator.removeCheckedWindows(forProcessIdentifier: pid)')
 abort 'Termination must uncheck apps before mode-specific row dismissal' unless cleanup && cleanup < termination.index('if coordinator.isKeybindSessionActive')
@@ -254,7 +255,7 @@ source += block(selection, 'struct OrderedPreviewSelection:') + "\n"
 source += block(selection, 'struct PreviewSelectionKeyPress:') + "\n"
 source += block(selection, 'struct PreviewSelectionRange {') + "\n"
 source += "struct SelectionState { var checkedWindows = OrderedPreviewSelection() }\n"
-source += "@MainActor final class SelectionHarness { var retainedWindowlessSelectionRows: [WindowInfo] = []; var selection = SelectionState(); var windows: [WindowInfo] = []; var windowSwitcherActive = true; var checkedWindowCount = 0; var visibleIndices: [Int]?\nfunc filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }\nfunc publishCheckedSelection() { checkedWindowCount = selection.checkedWindows.identities.count }\n"
+source += "@MainActor final class SelectionHarness { var retainedWindowlessSelectionRows: [WindowInfo] = []; var selection = SelectionState(); var windows: [WindowInfo] = []; var windowSwitcherActive = true; var checkedWindowCount = 0; var visibleIndices: [Int]?\nfunc filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }\nfunc publishCheckedSelection(refreshLayout:Bool = true) { checkedWindowCount = selection.checkedWindows.identities.count }\n"
 source += "var selectionAnchor: PreviewWindowIdentity?; var selectionRange: PreviewSelectionRange?\nenum RangeInput {case keyboard(PreviewSelectionKeyPress)}\nfunc endSelectionRange() {selectionRange = nil}\nfunc beginSelectionRange(at:PreviewWindowIdentity,input:RangeInput)->Bool {preconditionFailure(\"Range execution is tested in selection_ranges.rb\")}\n"
 %w[canSelectWindow toggleCheckedWindow selectAllDisplayedWindows selectWindows consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows checkedActionTargets].each do |name|
   source += block(selection, "    func #{name}(") + "\n"

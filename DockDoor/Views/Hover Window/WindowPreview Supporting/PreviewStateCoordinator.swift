@@ -315,25 +315,25 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    private func publishCheckedSelection() {
+    private func publishCheckedSelection(refreshLayout: Bool = true) {
         pinCheckedSelectionIfNeeded()
         let newCount = selection.checkedWindows.identities.count
         let changedSize = (checkedWindowCount == 0) != (newCount == 0)
         checkedWindowCount = newCount
         tapStateDidChange?()
-        if changedSize {
+        if changedSize, refreshLayout {
             refreshSelectionLayout()
         }
     }
 
     @MainActor
-    func consumeWindowlessSelection(in targets: [WindowInfo]) {
+    func consumeWindowlessSelection(in targets: [WindowInfo], refreshLayout: Bool = true) {
         guard checkedWindowCount > 0 else { return }
         let removed = Set(targets.filter(\.isWindowlessApp).map(PreviewWindowIdentity.init))
         guard !selection.checkedWindows.membership.isDisjoint(with: removed) else { return }
         endSelectionRange()
         selection.checkedWindows.remove(removed)
-        publishCheckedSelection()
+        publishCheckedSelection(refreshLayout: refreshLayout)
     }
 
     @MainActor
@@ -346,7 +346,7 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @MainActor
-    func reconcileCheckedWindows() {
+    func reconcileCheckedWindows(refreshLayout: Bool = true) {
         guard checkedWindowCount > 0 else { return }
         let identities = selection.checkedWindows.identities
         var live = Set(Set(identities.map(\.pid)).flatMap {
@@ -362,7 +362,7 @@ class PreviewStateCoordinator: ObservableObject {
         guard !removed.isEmpty else { return }
         endSelectionRange()
         selection.checkedWindows.remove(removed)
-        publishCheckedSelection()
+        publishCheckedSelection(refreshLayout: refreshLayout)
     }
 
     @MainActor
@@ -1012,131 +1012,140 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func applyCacheChanges(removed: [WindowInfo], added: [WindowInfo], updated: [WindowInfo]) {
-        if !removed.isEmpty { reconcileCheckedWindows() }
-        guard !windows.isEmpty else { return }
-
-        if !updated.isEmpty {
-            var merged = windows
-            var changed = false
-            for fresh in updated {
-                guard let index = merged.firstIndex(where: { $0.id == fresh.id && $0.app.processIdentifier == fresh.app.processIdentifier }),
-                      merged[index].viewSnapshot != fresh.viewSnapshot || merged[index] != fresh
-                else { continue }
-                merged[index] = fresh
-                changed = true
-            }
-            if changed {
-                windows = merged
-            }
-        }
-
-        for window in removed {
-            removeWindow(byAx: window.axElement)
-        }
-
-        if !added.isEmpty {
-            addWindows(added)
-        }
+        reconcileWindowChanges(removed: removed, added: added, updated: updated)
     }
 
     @MainActor
-    func removeWindow(at indexToRemove: Int) {
-        guard indexToRemove >= 0, indexToRemove < windows.count else { return }
+    private func reconcileWindowChanges(removed: [WindowInfo] = [], added: [WindowInfo] = [], updated: [WindowInfo] = [], removingIndex: Int? = nil) {
+        let previousCheckedCount = checkedWindowCount
+        let originalPID = windows.first?.app.processIdentifier
+        // Keep lookup and selection slots stable until the final publication.
+        var rows = windows.map(Optional.some)
+        var selectedSlot = windows.indices.contains(currIndex) ? currIndex : nil
+        var selectionWasMoved = false
+        var changed = false
+        var membershipChanged = false
+        var replacedPlaceholders: [WindowInfo] = []
 
-        let removedWindow = windows[indexToRemove]
-        let oldCurrIndex = currIndex
-        windows.remove(at: indexToRemove)
-        var insertedWindowlessIndex: Int?
+        if !updated.isEmpty {
+            let firstByIdentity = Dictionary(windows.indices.map { (PreviewWindowIdentity(windows[$0]), $0) }, uniquingKeysWith: { first, _ in first })
+            for fresh in updated {
+                guard let index = firstByIdentity[PreviewWindowIdentity(fresh)], let previous = rows[index],
+                      previous.viewSnapshot != fresh.viewSnapshot || previous != fresh
+                else { continue }
+                rows[index] = fresh
+                changed = true
+            }
+        }
 
-        if windowSwitcherActive, Defaults[.showWindowlessAppsInSwitcher], !removedWindow.isWindowlessApp {
-            let removedPID = removedWindow.app.processIdentifier
-            let appStillRepresented = windows.contains { $0.app.processIdentifier == removedPID }
+        if removed.isEmpty, added.isEmpty, removingIndex == nil {
+            if changed { windows = rows.compactMap { $0 } }
+            return
+        }
 
-            if !appStillRepresented,
-               let windowlessEntry = WindowUtil.windowlessEntryIfEligible(for: removedWindow.app, existingWindows: windows)
+        var removalSlots: [Int] = []
+        if let removingIndex, rows.indices.contains(removingIndex) { removalSlots.append(removingIndex) }
+        if !removed.isEmpty {
+            let byAX = Dictionary(grouping: rows.indices, by: { rows[$0]!.axElement })
+            var consumed: [AXUIElement: Int] = [:]
+            for window in removed {
+                let next = consumed[window.axElement, default: 0]
+                guard let matches = byAX[window.axElement], next < matches.count else { continue }
+                removalSlots.append(matches[next])
+                consumed[window.axElement] = next + 1
+            }
+        }
+        var appCounts = Dictionary(rows.compactMap { $0.map { ($0.app.processIdentifier, 1) } }, uniquingKeysWith: +)
+        for slot in removalSlots {
+            guard let window = rows[slot] else { continue }
+            rows[slot] = nil
+            appCounts[window.app.processIdentifier, default: 0] -= 1
+            var placeholderSlot: Int?
+            if windowSwitcherActive, Defaults[.showWindowlessAppsInSwitcher], !window.isWindowlessApp,
+               appCounts[window.app.processIdentifier] == 0,
+               let placeholder = WindowUtil.windowlessEntryIfEligible(for: window.app, existingWindows: rows.compactMap { $0 }),
+               activeSpaceMembers == nil
             {
-                windows.append(windowlessEntry)
-                insertedWindowlessIndex = windows.count - 1
+                placeholderSlot = rows.count
+                rows.append(placeholder)
+                appCounts[window.app.processIdentifier] = 1
+            }
+            if let selected = selectedSlot, selected >= slot {
+                selectionWasMoved = true
+                if selected == slot {
+                    selectedSlot = placeholderSlot ?? rows.indices.first(where: { $0 > slot && rows[$0] != nil })
+                        ?? rows.indices.last(where: { rows[$0] != nil })
+                }
+            }
+            changed = true
+            membershipChanged = true
+        }
+
+        if !added.isEmpty {
+            var present = Set(rows.compactMap { $0.map(PreviewWindowIdentity.init) })
+            var placeholders = Dictionary(rows.indices.compactMap { index -> (pid_t, Int)? in
+                guard let row = rows[index], row.isWindowlessApp else { return nil }
+                return (row.app.processIdentifier, index)
+            }, uniquingKeysWith: { first, _ in first })
+            for fresh in added {
+                guard isKeybindSessionActive || fresh.app.processIdentifier == originalPID else { continue }
+                if let activeSpaceMembers,
+                   fresh.isWindowlessApp || !activeSpaceMembers.contains(PreviewWindowIdentity(fresh)) { continue }
+                if let index = placeholders.removeValue(forKey: fresh.app.processIdentifier), let placeholder = rows[index] {
+                    replacedPlaceholders.append(placeholder)
+                    present.remove(PreviewWindowIdentity(placeholder))
+                    rows[index] = fresh
+                    if fresh.isWindowlessApp { placeholders[fresh.app.processIdentifier] = index }
+                } else {
+                    guard !present.contains(PreviewWindowIdentity(fresh)) else { continue }
+                    if fresh.isWindowlessApp { placeholders[fresh.app.processIdentifier] = rows.count }
+                    rows.append(fresh)
+                }
+                present.insert(PreviewWindowIdentity(fresh))
+                changed = true
+                membershipChanged = true
             }
         }
 
-        if windows.isEmpty {
-            updateSelectionIndex(-1, source: .programmatic)
-            if SharedPreviewWindowCoordinator.activeInstance?.hasVisibleSpacesBar != true {
-                SharedPreviewWindowCoordinator.activeInstance?.hideWindow()
-                return
-            }
+        if changed { windows = rows.compactMap { $0 } }
+        if !replacedPlaceholders.isEmpty { consumeWindowlessSelection(in: replacedPlaceholders, refreshLayout: false) }
+        if !removed.isEmpty || removingIndex != nil { reconcileCheckedWindows(refreshLayout: false) }
+        guard membershipChanged else {
+            if (previousCheckedCount == 0) != (checkedWindowCount == 0) { refreshSelectionLayout() }
+            return
         }
-
-        if oldCurrIndex == indexToRemove {
-            if let insertedWindowlessIndex {
-                updateSelectionIndex(insertedWindowlessIndex, source: .programmatic)
-            } else {
-                updateSelectionIndex(min(indexToRemove, windows.count - 1), source: .programmatic)
-            }
-        } else if oldCurrIndex > indexToRemove {
-            updateSelectionIndex(oldCurrIndex - 1, source: .programmatic)
+        // This final layout includes selection-summary changes; discard older deferred fits.
+        selectionLayoutGeneration &+= 1
+        reconcileSelectionRange()
+        let newIndex = selectedSlot.flatMap { selected in rows.indices.filter { rows[$0] != nil }.firstIndex(of: selected) } ?? -1
+        if windows.isEmpty || selectionWasMoved || newIndex != currIndex { updateSelectionIndex(newIndex, source: .programmatic) }
+        if windows.isEmpty, SharedPreviewWindowCoordinator.activeInstance?.hasVisibleSpacesBar != true {
+            SharedPreviewWindowCoordinator.activeInstance?.hideWindow()
+            return
         }
-
-        if currIndex >= windows.count {
-            updateSelectionIndex(windows.count - 1, source: .programmatic)
-        }
-
-        // Recompute dimensions and request frame refresh
         if let monitor = lastKnownBestGuessMonitor {
-            let dockPosition = DockUtils.getDockPosition()
-            recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: monitor)
+            recomputeAndPublishDimensions(dockPosition: DockUtils.getDockPosition(), bestGuessMonitor: monitor)
             onFrameRefreshNeeded?()
         }
         scheduleActiveFocusedWindowRefresh()
     }
 
     @MainActor
+    func removeWindow(at indexToRemove: Int) {
+        guard windows.indices.contains(indexToRemove) else { return }
+        reconcileWindowChanges(removingIndex: indexToRemove)
+    }
+
+    @MainActor
     func removeWindow(byAx ax: AXUIElement) {
-        guard let indexToRemove = windows.firstIndex(where: { $0.axElement == ax }) else {
-            return // Window not found
-        }
-        removeWindow(at: indexToRemove)
+        guard let index = windows.firstIndex(where: { $0.axElement == ax }) else { return }
+        removeWindow(at: index)
     }
 
     @MainActor
     func addWindows(_ newWindowsToAdd: [WindowInfo]) {
         guard !newWindowsToAdd.isEmpty else { return }
-        let gated: [WindowInfo]
-        if isKeybindSessionActive {
-            // The switcher shows every app, so cache discoveries from any PID belong here.
-            gated = newWindowsToAdd
-        } else {
-            // Dock previews are single-app: gate by the displayed PID to avoid cross-app injection.
-            guard let currentPid = windows.first?.app.processIdentifier else { return }
-            gated = newWindowsToAdd.filter { $0.app.processIdentifier == currentPid }
-        }
-
-        var windowsWereAdded = false
-        for newWin in gated {
-            if let placeholderIndex = windows.firstIndex(where: {
-                $0.isWindowlessApp && $0.app.processIdentifier == newWin.app.processIdentifier
-            }) {
-                consumeWindowlessSelection(in: [windows[placeholderIndex]])
-                windows[placeholderIndex] = newWin
-                windowsWereAdded = true
-                continue
-            }
-            if !windows.contains(where: { $0.id == newWin.id && $0.app.processIdentifier == newWin.app.processIdentifier }) {
-                windows.append(newWin)
-                windowsWereAdded = true
-            }
-        }
-
-        // Recompute dimensions if any windows were added
-        if windowsWereAdded, let monitor = lastKnownBestGuessMonitor {
-            let dockPosition = DockUtils.getDockPosition()
-            recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: monitor)
-            onFrameRefreshNeeded?()
-        }
-        if windowsWereAdded {
-            scheduleActiveFocusedWindowRefresh()
-        }
+        reconcileWindowChanges(added: newWindowsToAdd)
     }
 
     @MainActor
