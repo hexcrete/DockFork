@@ -273,6 +273,13 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         return contextMenuShortcutRouting
     }
 
+    @objc private func previewGeometryDidChange(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              window === self || window === searchWindow || window === spacesBarWindow || window === fullPreviewWindow
+        else { return }
+        publishTapSnapshot()
+    }
+
     @objc private func publishTapSnapshot() {
         if spacesBarWindow != nil { positionCompanionWindows() }
         updatePreviewFocusFade()
@@ -323,7 +330,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             self?.publishTapSnapshot()
         }
         setupFrameRefreshObserver()
-        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification, NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification, NSWindow.didExposeNotification] {
+        for name in [NSWindow.didMoveNotification, NSWindow.didResizeNotification, NSWindow.didExposeNotification] {
+            NotificationCenter.default.addObserver(self, selector: #selector(previewGeometryDidChange), name: name, object: nil)
+        }
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
             NotificationCenter.default.addObserver(self, selector: #selector(publishTapSnapshot), name: name, object: nil)
         }
         NotificationCenter.default.addObserver(self, selector: #selector(panelDidResize), name: NSWindow.didResizeNotification, object: self)

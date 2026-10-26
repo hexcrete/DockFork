@@ -218,6 +218,7 @@ No application installation, launch, live settings import or media capture accom
 | Changed behavior | Focused checks under `fork/tests/` |
 |---|---|
 | Window-cache reconciliation, batching, image-only delivery or suppression | `cache_reconciliation.rb`, `frame_placement.rb`; `space_presentation.rb --refresh-only` for refresh scheduling without unrelated native layout/drag fixtures |
+| Preview panel notifications, companion geometry or input snapshots | `preview_window_notifications.rb`, `preview_keyboard.rb`, `frame_placement.rb`, `preview_focus_fade.rb` |
 | Cache batches applied to preview rows, standalone additions/removals | `preview_batch_reconciliation.rb`, `cache_reconciliation.rb`, `selection_ranges.rb`, `linked_tiling.rb` |
 | Space-filter candidate preparation, ordering or invalidation | `switcher_filter_candidates.rb`, `cache_reconciliation.rb`, `selection_ranges.rb`, `preview_keyboard.rb`; `space_presentation.rb --refresh-only` for topology lifecycle |
 | Spaces Bar content publication, icon fitting or pill presentation | `spaces_bar_presentation.rb`; `space_presentation.rb --model-only` for model/prepared sizing; `--viewport-compile-only` additionally compiles the existing native viewport fixture without running its drag checks |

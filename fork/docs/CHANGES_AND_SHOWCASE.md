@@ -1443,4 +1443,10 @@ All three mode labels omit Experimental and use one concise explainer, also refl
 
 Preview cache batches now update a local indexed list and publish final rows once. Window removal/addition, placeholder replacement, highlight fallback and checked-selection cleanup share the same path as standalone additions/removals. Membership-changing batches request one dimension/frame/focus refresh; deferred selection-summary fits superseded by that final layout are cancelled. Image-only and unchanged updates add no layout requests. Final-state dismissal avoids collapsing midway through a same-app replacement, and an empty Spaces Bar grid can accept new residents. Dock/Cmd+Tab admissions retain the original displayed app's scope.
 
-Focused fixtures match the previous reducer's final rows, ordering, highlight/source and checked selection across 1,440 cases. Twenty removals require one row publication/layout/frame/focus request rather than twenty each. These are isolated operation counts, not native frame timings. Manual verification is pending.
+Focused fixtures match the previous reducer's final rows, ordering, highlight/source and checked selection across 1,440 cases. Twenty removals require one row publication/layout/frame/focus request rather than twenty each. These are isolated operation counts, not native frame timings. Stage 1 was user-verified, reviewed and committed as `c290d633`.
+
+### Further UI responsiveness: scoped panel geometry notifications
+
+Move, resize and exposure events now refresh preview interaction snapshots only for the main preview, search, Spaces Bar and full-size-preview panels. Moving feedback popups, drag ghosts and unrelated DockFork windows no longer trigger that geometry work. Key/focus subscriptions and explicit session/selection/suspension updates remain unchanged and immediate. The observer count remains five; no new scheduling or cache is introduced.
+
+The focused notification fixture uses hidden disposable panels: 900 unrelated geometry events produce zero snapshot/companion-placement calls versus 900 each through the previous subscriptions. Owned-panel geometry, broad focus handling, replaced/disabled companions and observer removal pass. This is an isolated operation count, not a measured UI latency improvement; manual verification pending.

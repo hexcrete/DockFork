@@ -594,3 +594,13 @@ Source-extracted current/frozen reducer comparisons pass 1,440 cases and 20-remo
 Stage 1 artifact verification: exact signed running development source/binaries match `DockFork-15ba5d5-working-UgPiOT`; formatter/diff checks pass. The fixture also extracts the production deferred selection-layout callback to verify stale-generation rejection and retained offscreen-selection cleanup. No manual full-session or exhaustive display coverage is inferred from the build.
 
 Stage 1 closeout: user verification accepted; final reducer rerun and source/binary/signature/running-path comparison pass. Temporary indexes and selection-layout generation cleanup introduce no retained resources. The earlier native-checkbox first failure and rerun remain recorded; exhaustive native display/fault and profiling coverage remain gaps.
+
+### Further responsiveness Stage 2, October 26
+
+Retain the same five NSWindow subscriptions and existing removeObserver teardown. Three geometry/exposure names use an identity guard against the four current preview panels; the two key/focus names keep their broad existing route. No retained identity list, observer duplication, timer, deferred publication, AX/native topology query or new resource owner. Explicit session, mouse-containment, selection, suspension and full-preview lifecycle publication paths are unchanged. Self-resize anchor handling remains separately registered as before.
+
+A production-source handler/subscription fixture compares the former broad route with the new route. Nine hundred unrelated events cause zero preview snapshot/placement calls instead of 900 each. Relevant geometry remains synchronous; replacement/nil companions, malformed objects, broad focus and teardown pass without showing or focusing panels. Related checks and development/manual handoff follow; no global profiling or broad fault/display certification.
+
+Stage 2 validation: notification routing and related keyboard/frame/fade/chrome/refresh checks pass, along with formatter/syntax/diff checks. Exact signed installed/running source and binaries match `DockFork-c290d63-working-5yAgGn`. No shown panels in the notification fixture, no working-window manipulation, no full-suite or native performance-profile claim. Manual focus/hover/companion checks remain pending.
+
+Stage 2 closeout: user verification accepted; final review, notification rerun and source/binary/signature/running-path checks pass. No new resource ownership or scheduled work; no blocker to the separately gated full-preview geometry stage.
