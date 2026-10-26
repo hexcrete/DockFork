@@ -3092,16 +3092,7 @@ extension WindowUtil {
             guard !shouldRejectCapturedImage(image, for: window) else { return }
             let capturedAt = Date()
             // Update only the image; a capture must not restore stale window metadata or a removed row.
-            desktopSpaceWindowCacheManager.updateCache(pid: pid) { windowSet in
-                guard let cached = windowSet.first(where: { $0.id == window.id }),
-                      !missingOnly || cached.image == nil
-                else { return }
-                var updated = cached
-                updated.image = image
-                updated.imageCapturedTime = capturedAt
-                windowSet.remove(cached)
-                windowSet.insert(updated)
-            }
+            desktopSpaceWindowCacheManager.updateImage(pid: pid, windowID: window.id, image: image, capturedAt: capturedAt, missingOnly: missingOnly)
         }
     }
 
@@ -4513,10 +4504,7 @@ extension WindowUtil {
                 windowTitle: window.windowName,
                 forceRefresh: true
             )
-            var updated = window
-            updated.image = image
-            updated.imageCapturedTime = Date()
-            updateDesktopSpaceWindowCache(with: updated)
+            updateCachedWindowImage(image, for: window)
         }
     }
 
@@ -4558,11 +4546,20 @@ extension WindowUtil {
                 windowTitle: window.windowName,
                 forceRefresh: true
             )
-            var updated = window
-            updated.image = image
-            updated.imageCapturedTime = Date()
-            updateDesktopSpaceWindowCache(with: updated)
+            updateCachedWindowImage(image, for: window)
         }
+    }
+
+    private static func updateCachedWindowImage(_ image: CGImage, for window: WindowInfo) {
+        let capturedAt = Date()
+        let shouldRejectImage = shouldRejectCapturedImage(image, for: window)
+        desktopSpaceWindowCacheManager.updateImage(
+            pid: window.app.processIdentifier,
+            windowID: window.id,
+            image: image,
+            capturedAt: capturedAt,
+            rejectIfImageExists: shouldRejectImage
+        )
     }
 
     static func minimizableWindowSnapshot(_ windows: [WindowInfo]) async -> [(window: WindowInfo, isMinimized: Bool)] {

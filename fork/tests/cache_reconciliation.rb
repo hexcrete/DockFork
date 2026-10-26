@@ -16,17 +16,37 @@ end
 root = File.expand_path('../..', __dir__)
 cache = File.read("#{root}/DockDoor/Utilities/Window Management/SpaceWindowCacheManager.swift")
 production = block(cache, 'class SpaceWindowCacheManager {')
-# Keep real cache locking, diffing, suppression and deferred batching; replace UI delivery only.
-production = production.sub(block(production, '    private func flushCoordinatorChanges()'), <<~'SWIFT')
-    private func flushCoordinatorChanges() {
-        Delivery.batches.append(takePendingCoordinatorChanges())
-    }
-SWIFT
+# Keep real cache locking, diffing, suppression, batching and delivery; record drained batches.
+production = production.sub('let batch = takePendingCoordinatorChanges()', 'let batch = takePendingCoordinatorChanges(); Delivery.batches.append(batch)')
 source = <<~'SWIFT'
 import Foundation
 typealias CGWindowID=Int
-struct PreviewWindowIdentity {let pid:Int32;let windowID:Int}
-final class WindowSnapRegistry {static var existing:WindowSnapRegistry?;func remove(_ identity:PreviewWindowIdentity){}}
+typealias CGImage=Int
+struct PreviewWindowIdentity {
+ let pid:Int32;let windowID:Int
+ init(pid:Int32,windowID:Int){self.pid=pid;self.windowID=windowID}
+ init(_ window:WindowInfo){self.init(pid:window.app.processIdentifier,windowID:window.id)}
+}
+final class WindowSnapRegistry {
+ static var existing:WindowSnapRegistry?
+ var hasRecords=true,updates:[WindowInfo]=[]
+ func remove(_ identity:PreviewWindowIdentity){}
+ func reconcileCachedWindows(_ windows:[WindowInfo]){updates+=windows}
+}
+enum Key {case enableSpacesBar}
+enum Defaults {static var enabled=true;static subscript(_ key:Key)->Bool {enabled}}
+final class PreviewState {
+ var windowSwitcherActive=true,updates:[WindowInfo]=[]
+ func applyCacheChanges(removed:[WindowInfo],added:[WindowInfo],updated:[WindowInfo]){updates+=updated}
+}
+final class SharedPreviewWindowCoordinator {
+ static var activeInstance:SharedPreviewWindowCoordinator?
+ let windowSwitcherCoordinator=PreviewState()
+ enum Reason {case topology}
+ var refreshes=0,fullPreviewUpdates:[WindowInfo]=[]
+ func requestSpacesBarRefresh(_ reason:Reason){refreshes+=1}
+ func refreshDisplayedFullPreview(after updates:[WindowInfo]){fullPreviewUpdates+=updates}
+}
 enum Metrics {static var idReads=0}
 struct App {let processIdentifier:Int32}
 struct Snapshot:Hashable {var title="";var minimized=false;var hidden=false;var fullscreen=false;var space=1;var image=0}
@@ -37,12 +57,14 @@ struct WindowInfo:Hashable {
  var ax:Int
  var viewSnapshot=Snapshot()
  var lastAccessedTime=Date.distantPast
+ var imageCapturedTime=Date.distantPast
+ var image:CGImage? {get {viewSnapshot.image==0 ? nil:viewSnapshot.image} set {viewSnapshot.image=newValue ?? 0}}
  static func ==(lhs:Self,rhs:Self)->Bool {lhs.rawID==rhs.rawID && lhs.app.processIdentifier==rhs.app.processIdentifier && lhs.ax==rhs.ax}
  func hash(into hasher:inout Hasher){hasher.combine(rawID);hasher.combine(app.processIdentifier)}
 }
 enum DebugLogger {static func log(_ event:String,details:String){}}
 typealias Changes=(removed:Set<WindowInfo>,added:Set<WindowInfo>,updated:[WindowInfo])
-enum Delivery {static var batches:[(removed:[WindowInfo],added:[WindowInfo],updated:[WindowInfo])]=[]}
+enum Delivery {static var batches:[(removed:[WindowInfo],added:[WindowInfo],updated:[WindowInfo],refreshSpacesBar:Bool)]=[]}
 struct Signature:Hashable {
  let id:Int,pid:Int32,ax:Int,snapshot:Snapshot
  init(_ w:WindowInfo){id=w.rawID;pid=w.app.processIdentifier;ax=w.ax;snapshot=w.viewSnapshot}
@@ -132,6 +154,78 @@ source += <<~'SWIFT'
   await drain();precondition(Delivery.batches.count==1 && Delivery.batches[0].removed.count==1 && Delivery.batches[0].added.count==1,"Writes in one turn must retain existing batching")
   manager.purgeAll();await drain();precondition(manager.getAllWindows().isEmpty)
   print("PASS production cache reconciliation: \(cases) reference comparisons, duplicate IDs/AX replacement/image/metadata/removal cases, real write/update paths, deferred batches, per-app nested/throwing suppression and purge; inert windows only")
+
+  let images=SpaceWindowCacheManager(),preview=SharedPreviewWindowCoordinator(),registry=WindowSnapRegistry()
+  SharedPreviewWindowCoordinator.activeInstance=preview;WindowSnapRegistry.existing=registry
+  var resident=window(20,image:1)
+  resident.viewSnapshot.title="Current native tab";resident.viewSnapshot.space=7
+  resident.viewSnapshot.hidden=true;resident.viewSnapshot.minimized=true;resident.viewSnapshot.fullscreen=true
+  resident.lastAccessedTime=Date(timeIntervalSince1970:10)
+  images.writeCache(pid:42,windowSet:[resident]);await drain()
+  let initial=preview.refreshes
+  for image in 2...9 {
+   images.updateImage(pid:42,windowID:20,image:image,capturedAt:Date(timeIntervalSince1970:Double(image)))
+   await drain()
+  }
+  precondition(preview.refreshes==initial && preview.windowSwitcherCoordinator.updates.count==8 && preview.fullPreviewUpdates.count==8 && registry.updates.count==8,"Image-only batches must reach all original consumers without bar metadata refresh")
+  let current=images.readCache(pid:42).first!
+  var expected=resident;expected.image=9
+  precondition(signatures([current])==signatures([expected]) && current.lastAccessedTime==resident.lastAccessedTime && current.imageCapturedTime==Date(timeIntervalSince1970:9),"Captures must retain current identity, tab title, state, Space and recency")
+  print("COUNT 8 separate image-only batches: Spaces Bar refresh requests before=8, after=\(preview.refreshes-initial); small/full-preview deliveries=8 each")
+  Delivery.batches=[]
+  images.updateImage(pid:42,windowID:20,image:10,capturedAt:Date())
+  images.updateImage(pid:42,windowID:20,image:11,capturedAt:Date())
+  await drain()
+  precondition(Delivery.batches.count==1 && Delivery.batches[0].updated.count==2 && !Delivery.batches[0].refreshSpacesBar,"Image-only batching must retain every image update")
+
+  for metadataFirst in [false,true] {
+   Delivery.batches=[];let refreshes=preview.refreshes
+   func metadata(){images.updateCache(pid:42){windows in var w=windows.first!;windows.remove(w);w.viewSnapshot.space+=1;windows.insert(w)}}
+   if metadataFirst {metadata()}
+   images.updateImage(pid:42,windowID:20,image:metadataFirst ? 12:13,capturedAt:Date())
+   if !metadataFirst {metadata()}
+   await drain()
+   precondition(Delivery.batches.count==1 && Delivery.batches[0].refreshSpacesBar && preview.refreshes==refreshes+1,"Mixed batches must keep metadata work in either arrival order")
+  }
+  let generic=preview.refreshes
+  images.updateCache(pid:42){windows in var w=windows.first!;windows.remove(w);w.image=14;windows.insert(w)}
+  await drain();precondition(preview.refreshes==generic+1,"Unknown/generic image writes must retain topology fallback")
+  images.writeCache(pid:42,windowSet:[window(20,ax:200,image:15),window(21)])
+  images.updateImage(pid:42,windowID:20,image:16,capturedAt:Date())
+  await drain();precondition(preview.refreshes==generic+2,"Membership/AX replacement must keep metadata work when an image arrives too")
+  Delivery.batches=[]
+  let known=images.readCache(pid:42).first(where:{$0.id==20})!
+  images.updateImage(pid:42,windowID:20,image:16,capturedAt:Date(timeIntervalSince1970:99))
+  images.updateImage(pid:42,windowID:20,image:17,capturedAt:Date(),missingOnly:true)
+  images.updateImage(pid:42,windowID:20,image:18,capturedAt:Date(),rejectIfImageExists:true)
+  images.updateImage(pid:99,windowID:20,image:18,capturedAt:Date())
+  images.updateImage(pid:42,windowID:999,image:18,capturedAt:Date())
+  await drain()
+  precondition(Delivery.batches.isEmpty && signatures(images.readCache(pid:42).filter{$0.id==20})==signatures([known]),"Same-image, missing-only, rejected and absent targets must not publish or create rows")
+  precondition(images.readCache(pid:42).first(where:{$0.id==20})!.imageCapturedTime==Date(timeIntervalSince1970:99),"Same-pointer capture timestamps still update silently")
+  images.updateImage(pid:42,windowID:21,image:19,capturedAt:Date(),rejectIfImageExists:true)
+  await drain();precondition(images.readCache(pid:42).first(where:{$0.id==21})!.image==19,"Preserve rejected-image fallback when no prior image exists")
+  Delivery.batches=[]
+  try await images.withCoordinatorNotificationsSuppressed(for:42){images.updateImage(pid:42,windowID:20,image:20,capturedAt:Date())}
+  await drain();precondition(Delivery.batches.isEmpty && images.readCache(pid:42).first(where:{$0.id==20})!.image==20,"Image writes must honor existing suppression")
+  images.writeCache(pid:42,windowSet:[])
+  images.updateImage(pid:42,windowID:20,image:21,capturedAt:Date())
+  await drain();precondition(images.readCache(pid:42).isEmpty,"A completed capture must not resurrect a removed row")
+  images.writeCache(pid:42,windowSet:[window(20,image:1)]);await drain()
+  let gated=preview.refreshes
+  Defaults.enabled=false
+  images.updateImage(pid:42,windowID:20,image:2,capturedAt:Date())
+  images.updateCache(pid:42){$0.insert(window(22))};await drain()
+  precondition(preview.refreshes==gated,"Disabled Spaces Bar must do no cache-triggered work")
+  Defaults.enabled=true;preview.windowSwitcherCoordinator.windowSwitcherActive=false
+  images.writeCache(pid:42,windowSet:[window(20,image:3)]);await drain()
+  precondition(preview.refreshes==gated,"Inactive switcher must do no bar work")
+  preview.windowSwitcherCoordinator.windowSwitcherActive=true
+  images.updateImage(pid:42,windowID:20,image:4,capturedAt:Date())
+  SharedPreviewWindowCoordinator.activeInstance=nil;await drain()
+  precondition(preview.refreshes==gated,"Teardown before deferred delivery must not refresh the old preview")
+  WindowSnapRegistry.existing=nil
+  print("PASS production screenshot delivery: image-only and mixed batches, conservative unknown writes, AX/tab/membership changes, unchanged metadata, missing/rejected images, suppression, removal, disabled/inactive paths and teardown; no native queries")
  }
 }
 SWIFT
@@ -147,3 +241,14 @@ end
   abort "#{name} notification order changed" unless order==order.sort
 end
 abort 'Diff helper must not reintroduce linear searches or native queries' if block(cache,'    static func changes(').match?(/first\(where:|AXUIElement|managedDisplays|NSWorkspace/)
+
+image_writer=block(cache,'    func updateImage(')
+abort 'Image-only writer must remain limited to existing rows and image fields' unless image_writer.include?('let previous = windows.first(') && image_writer.scan(/current\.\w+ =/).sort==['current.image =','current.imageCapturedTime ='] && image_writer.include?('refreshSpacesBar: false')
+abort 'Image writer must not add native queries inside the cache lock' if image_writer.match?(/AXUIElement|managedDisplays|NSWorkspace|shouldRejectCapturedImage/)
+util=File.read("#{root}/DockDoor/Utilities/Window Management/WindowUtil.swift")
+%w[forceRefreshCachedWindowImages refreshCachedWindowImagesAfterOpenNewWindow].each do |name|
+  method=block(util,"    static func #{name}(")
+  abort "#{name} must not merge stale metadata from capture results" unless method.include?('updateCachedWindowImage(image, for: window)') && !method.include?('updateDesktopSpaceWindowCache(')
+end
+abort 'Resize recapture must retain metadata/topology publication' unless block(util,'    private static func scheduleForcedPreviewRecapture(').include?('updateDesktopSpaceWindowCache(with: refreshedWindowInfo)')
+puts 'PASS image-only routing and conservative resize/discovery refresh contracts'

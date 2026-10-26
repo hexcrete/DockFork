@@ -174,6 +174,10 @@ Dir.mktmpdir('dockfork-space-refresh-') do |dir|
 end
 abort 'Frame fitting must not reenter metadata refresh' if block(refresh_panel,'    private func schedulePanelFrameRefresh(').include?('SpacesBarRefresh') || block(refresh_panel,'    private func schedulePanelFrameRefresh(').include?('refreshSpacesBar')
 abort 'Terminal hiding must invalidate pending metadata before its early visibility return' unless block(refresh_panel,'    func hideWindow(').index('pendingSpacesBarRefresh = nil') < block(refresh_panel,'    func hideWindow(').index('guard isVisible else')
+cache = File.read("#{root}/DockDoor/Utilities/Window Management/SpaceWindowCacheManager.swift")
+cache_delivery = block(cache, '    private func flushCoordinatorChanges()')
+abort 'Bar must refresh with structural cache metadata and display topology' unless cache_delivery.include?('if batch.refreshSpacesBar, preview.windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar]') && cache_delivery.include?('preview.requestSpacesBarRefresh(.topology)') && refresh_panel.include?('spacesBarScreenObserver = NotificationCenter.default.addObserver(') && refresh_panel.include?('spacesBarScreenObserver = nil')
+exit if ARGV.include?('--refresh-only')
 
 util = File.read("#{root}/DockDoor/Utilities/Window Management/WindowUtil.swift")
 ordering_source = <<~'SWIFT'
@@ -403,8 +407,7 @@ abort 'Menu must keep native shared icon formatting' unless view.include?('AppIc
 bar = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SearchWindow.swift")
 abort 'Space labels must share Compact Mode primary typography and measurement' unless bar.include?('Defaults[.spacesBarItemSize].primaryFont') && bar.include?('Defaults[.spacesBarItemSize].primaryAppKitFont') && bar.include?('let font = SpacesBarLayout.textFont')
 panel = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
-cache = File.read("#{root}/DockDoor/Utilities/Window Management/SpaceWindowCacheManager.swift")
-abort 'Bar must refresh with cache metadata and display topology' unless block(cache, '    private func flushCoordinatorChanges()').include?('preview.requestSpacesBarRefresh(.topology)') && panel.include?('spacesBarScreenObserver = NotificationCenter.default.addObserver(') && panel.include?('spacesBarScreenObserver = nil') && panel.include?('guard contentsChanged || reason.contains(.layout) else { return }') && block(cache, '    private func flushCoordinatorChanges()').include?('preview.windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar]')
+abort 'Unchanged Space contents must skip unnecessary layout' unless panel.include?('guard contentsChanged || reason.contains(.layout) else { return }')
 settings = File.read("#{root}/DockDoor/Views/Settings/WindowSwitcherBehaviorSettingsView.swift") + File.read("#{root}/DockDoor/Views/Settings/AppearanceSettingsView.swift")
 catalog = File.read("#{root}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
 reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")

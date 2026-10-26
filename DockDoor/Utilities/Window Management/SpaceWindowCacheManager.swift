@@ -18,15 +18,17 @@ class SpaceWindowCacheManager {
     private var pendingRemoved: [WindowInfo] = []
     private var pendingAdded: [WindowInfo] = []
     private var pendingUpdated: [WindowInfo] = []
+    private var pendingSpacesBarRefresh = false
     private var flushScheduled = false
     private let pendingChangesLock = NSLock()
 
-    private func enqueueCoordinatorChanges(removed: Set<WindowInfo> = [], added: Set<WindowInfo> = [], updated: [WindowInfo] = []) {
+    private func enqueueCoordinatorChanges(removed: Set<WindowInfo> = [], added: Set<WindowInfo> = [], updated: [WindowInfo] = [], refreshSpacesBar: Bool = true) {
         guard !removed.isEmpty || !added.isEmpty || !updated.isEmpty else { return }
         pendingChangesLock.lock()
         pendingRemoved.append(contentsOf: removed)
         pendingAdded.append(contentsOf: added)
         pendingUpdated.append(contentsOf: updated)
+        pendingSpacesBarRefresh = pendingSpacesBarRefresh || refreshSpacesBar
         let shouldScheduleFlush = !flushScheduled
         if shouldScheduleFlush {
             flushScheduled = true
@@ -39,13 +41,14 @@ class SpaceWindowCacheManager {
         }
     }
 
-    private func takePendingCoordinatorChanges() -> (removed: [WindowInfo], added: [WindowInfo], updated: [WindowInfo]) {
+    private func takePendingCoordinatorChanges() -> (removed: [WindowInfo], added: [WindowInfo], updated: [WindowInfo], refreshSpacesBar: Bool) {
         pendingChangesLock.lock()
         defer { pendingChangesLock.unlock() }
-        let batch = (pendingRemoved, pendingAdded, pendingUpdated)
+        let batch = (pendingRemoved, pendingAdded, pendingUpdated, pendingSpacesBarRefresh)
         pendingRemoved.removeAll()
         pendingAdded.removeAll()
         pendingUpdated.removeAll()
+        pendingSpacesBarRefresh = false
         flushScheduled = false
         return batch
     }
@@ -65,7 +68,7 @@ class SpaceWindowCacheManager {
         MainActor.assumeIsolated {
             preview.windowSwitcherCoordinator.applyCacheChanges(removed: batch.removed, added: batch.added, updated: batch.updated)
             preview.refreshDisplayedFullPreview(after: batch.updated)
-            if preview.windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar] {
+            if batch.refreshSpacesBar, preview.windowSwitcherCoordinator.windowSwitcherActive, Defaults[.enableSpacesBar] {
                 preview.requestSpacesBarRefresh(.topology)
             }
         }
@@ -79,8 +82,28 @@ class SpaceWindowCacheManager {
         enqueueCoordinatorChanges(added: addedWindows)
     }
 
-    private func notifyCoordinatorOfUpdatedWindows(_ updatedWindows: [WindowInfo]) {
-        enqueueCoordinatorChanges(updated: updatedWindows)
+    private func notifyCoordinatorOfUpdatedWindows(_ updatedWindows: [WindowInfo], refreshSpacesBar: Bool = true) {
+        enqueueCoordinatorChanges(updated: updatedWindows, refreshSpacesBar: refreshSpacesBar)
+    }
+
+    func updateImage(pid: pid_t, windowID: CGWindowID, image: CGImage, capturedAt: Date, missingOnly: Bool = false, rejectIfImageExists: Bool = false) {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        guard var windows = windowCache[pid], let previous = windows.first(where: { $0.id == windowID }),
+              !missingOnly || previous.image == nil,
+              !rejectIfImageExists || previous.image == nil
+        else { return }
+        var current = previous
+        current.image = image
+        current.imageCapturedTime = capturedAt
+        windows.remove(previous)
+        windows.insert(current)
+        windowCache[pid] = windows
+        guard coordinatorNotificationSuppressionCounts[pid, default: 0] == 0,
+              previous.viewSnapshot != current.viewSnapshot
+        else { return }
+        // Only this writer guarantees unchanged membership, ordering and Space metadata.
+        notifyCoordinatorOfUpdatedWindows([current], refreshSpacesBar: false)
     }
 
     func readCache(pid: pid_t) -> Set<WindowInfo> {
