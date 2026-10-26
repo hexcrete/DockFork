@@ -639,7 +639,7 @@ enum ManagedSpaceKind: Int {
     case fullscreen = 4
 }
 
-struct ManagedSpaceDescriptor {
+struct ManagedSpaceDescriptor: Equatable {
     let id: CGSSpaceID
     let kind: ManagedSpaceKind?
     let number: Int
@@ -647,13 +647,13 @@ struct ManagedSpaceDescriptor {
     let ownerPIDs: Set<pid_t>
 }
 
-struct ManagedDisplayDescriptor {
+struct ManagedDisplayDescriptor: Equatable {
     let identifier: String
     let currentSpaceID: CGSSpaceID?
     let spaces: [ManagedSpaceDescriptor]
 }
 
-struct ManagedSpaceDestination {
+struct ManagedSpaceDestination: Equatable {
     let display: ManagedDisplayDescriptor
     let space: ManagedSpaceDescriptor
 }
@@ -675,14 +675,14 @@ enum ManagedSpacePresentation {
         app.bundleIdentifier ?? "pid:\(app.processIdentifier)"
     }
 
-    struct App {
+    struct App: Equatable {
         let application: NSRunningApplication
         let windowIdentities: [PreviewWindowIdentity]
 
         var windowCount: Int { windowIdentities.count }
     }
 
-    struct Entry: Identifiable {
+    struct Entry: Identifiable, Equatable {
         let destination: ManagedSpaceDestination
         let apps: [App]
 
@@ -713,7 +713,7 @@ enum ManagedSpacePresentation {
         }
     }
 
-    struct Display: Identifiable {
+    struct Display: Identifiable, Equatable {
         let id: String
         let name: String
         let spaces: [Entry]

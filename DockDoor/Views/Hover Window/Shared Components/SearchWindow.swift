@@ -515,22 +515,29 @@ struct SpacesBarPreparedLayout {
         let minimum: CGFloat
         let showIcons: Bool
         let sourceDisplayIndex: Int?
+        var iconSize: CGFloat = SpacesBarAppLayout.iconSize
+        var iconSpacing: CGFloat = SpacesBarAppLayout.spacing
     }
 
     let key: Key
     let textWidths: [CGSSpaceID: CGFloat]
     let resting: SpacesBarSizing
     let expanded: SpacesBarSizing
+    let iconFits: [CGSSpaceID: AppIconStripFormatting.PreparedFit]
 
     init(key: Key, measure: (String, NSFont) -> CGFloat) {
         self.key = key
         let measured = key.pills.map { measure($0.title, key.font) }
         textWidths = Dictionary(uniqueKeysWithValues: zip(key.pills.map(\.id), measured))
+        let fits = Dictionary(uniqueKeysWithValues: Set(key.pills.map { key.showIcons ? $0.appCount : 0 }).map { total in
+            (total, AppIconStripFormatting.PreparedFit(total: total, iconSize: key.iconSize, font: key.font, spacing: key.iconSpacing))
+        })
+        iconFits = Dictionary(uniqueKeysWithValues: key.pills.map { ($0.id, fits[key.showIcons ? $0.appCount : 0]!) })
         let labelWidths = zip(key.pills, measured).map {
             SpacesBarLayout.labelWidth($1, fullscreen: $0.fullscreen)
         }
         let ideal = zip(key.pills, labelWidths).map { pill, labelWidth in
-            labelWidth + CGFloat(key.showIcons ? pill.appCount : 0) * (SpacesBarAppLayout.iconSize + SpacesBarAppLayout.spacing)
+            labelWidth + CGFloat(key.showIcons ? pill.appCount : 0) * (key.iconSize + key.iconSpacing)
         }
         func sizing(gapProgress: CGFloat) -> SpacesBarSizing {
             let spacing = SpacesBarLayout.rowSpacing(spaceCount: key.pills.count, displayCount: key.displayIDs.count,
@@ -599,6 +606,7 @@ struct SpacesBarView: View {
     let restingSizing: SpacesBarSizing
     let expandedSizing: SpacesBarSizing
     let labelTextWidths: [CGSSpaceID: CGFloat]
+    var preparedLayout: SpacesBarPreparedLayout? = nil
     let frameForSize: (CGSize) -> CGRect
     let screen: NSScreen
     let sections: [ManagedSpacePresentation.Display]
@@ -644,7 +652,7 @@ struct SpacesBarView: View {
         let frames = dropFrames(gapProgress: gapProgress, widths: widths)
         let initialCenter = target.flatMap { frames[$0]?.midX }
         return BaseHoverContainer(bestGuessMonitor: screen, content: {
-            SpacesBarScroll(content: AnyView(spaceContents(gapProgress: gapProgress, widths: widths).frame(width: max(contentWidth, viewportWidth), height: height, alignment: .topLeading)),
+            SpacesBarScroll(content: { AnyView(spaceContents(gapProgress: gapProgress, widths: widths).frame(width: max(contentWidth, viewportWidth), height: height, alignment: .topLeading)) },
                             contentSize: CGSize(width: max(contentWidth, viewportWidth), height: height), headings: displayHeadings(gapProgress: gapProgress, widths: widths),
                             initialCenter: initialCenter, revealRange: highlightedSpace.flatMap { id in initialCenter.map { center in
                                 let halfWidth = (widths[id] ?? 0) / 2
@@ -654,8 +662,18 @@ struct SpacesBarView: View {
                             gapFrames: gapFrames(gapProgress: gapProgress, pills: frames), allowedGaps: allowedGaps, contentSourceID: viewport.draggedSpaceID,
                             dropFrames: frames, desktopDropIDs: Set(entries.filter { !$0.isFullscreen }.map(\.id)),
                             previewCoordinator: previewCoordinator,
-                            filteredSpace: filteredSpace,
                             contentAnimation: PreviewControlAnimation.animation(duration: controlAnimationDuration, animationsEnabled: showAnimations, reduceMotion: reduceMotion),
+                            contentKey: preparedLayout.map { SpacesBarContentKey(
+                                layout: $0.key, sections: sections, widths: widths, gapProgress: gapProgress,
+                                size: CGSize(width: max(contentWidth, viewportWidth), height: height), allowedGaps: allowedGaps,
+                                coordinator: previewCoordinator.map(ObjectIdentifier.init), session: previewCoordinator?.pointerInteractionSessionID,
+                                flags: [showAnimations, reduceMotion, activateAppIcons, enableMouseHoverInSwitcher, uniformCardRadius, hideCardBackground, showActiveWindowBorder, showBadges, dragContents != nil, spaceMenu != nil],
+                                colors: [highlightColor, activeBorderColor],
+                                scalars: [CGFloat(controlAnimationDuration), CGFloat(paddingMultiplier), CGFloat(highlightOpacity), CGFloat(badgeScale), CGFloat(CardRadius.previewCard(uniform: uniformCardRadius, paddingMultiplier: paddingMultiplier))],
+                                background: .resolve()
+                            ) },
+                            interaction: .init(highlighted: highlightedSpace, filtered: filteredSpace, control: filterControlSpace,
+                                               hovered: viewport.hoveredSpaceID, dropTarget: viewport.dropTargetID, contentsTarget: viewport.contentsDropTarget),
                             edgeScrolling: edgeScrolling, speed: scrollSpeed)
                 .frame(width: viewportWidth, height: height)
                 .padding(HoverContainerPadding.scrollOuter)
@@ -768,10 +786,18 @@ struct SpacesBarView: View {
         let titleParts = SpacesBarLayout.titleParts(width: titleWidth, filtered: showsFilterControl, spacing: SpacesBarAppLayout.spacing)
         let iconRoom = max(0, width - titleWidth - SpacesBarLayout.horizontalInset * 2 - SpacesBarAppLayout.spacing - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0))
         let apps = showAppIcons ? entry.apps : []
-        let fittedCount = AppIconStripFormatting.visibleCount(
-            total: apps.count, availableWidth: iconRoom, iconSize: SpacesBarAppLayout.iconSize,
-            font: font, spacing: SpacesBarAppLayout.spacing
-        )
+        let fittedCount: Int? = if let preparedLayout, preparedLayout.key.font == font,
+                                   preparedLayout.key.iconSize == SpacesBarAppLayout.iconSize,
+                                   preparedLayout.key.iconSpacing == SpacesBarAppLayout.spacing,
+                                   let fit = preparedLayout.iconFits[entry.id], fit.requiredWidths.count == apps.count + 1
+        {
+            fit.visibleCount(availableWidth: iconRoom)
+        } else {
+            AppIconStripFormatting.visibleCount(
+                total: apps.count, availableWidth: iconRoom, iconSize: SpacesBarAppLayout.iconSize,
+                font: font, spacing: SpacesBarAppLayout.spacing
+            )
+        }
         let count = fittedCount ?? 0
         return ZStack(alignment: Alignment(horizontal: .spaceFilterLeading, vertical: .center)) {
             ZStack {
@@ -914,17 +940,53 @@ final class SpacesBarViewport: ObservableObject {
     @Published var contentsDropTarget: SpaceContentsDropTarget?
 }
 
+struct SpacesBarContentKey: Equatable {
+    let layout: SpacesBarPreparedLayout.Key
+    let sections: [ManagedSpacePresentation.Display]
+    let widths: [CGSSpaceID: CGFloat]
+    let gapProgress: CGFloat
+    let size: CGSize
+    let allowedGaps: Set<SpaceContentsGap>
+    let coordinator: ObjectIdentifier?
+    let session: UInt?
+    let flags: [Bool]
+    let colors: [Color?]
+    let scalars: [CGFloat]
+    let background: BackgroundAppearance
+}
+
+struct SpacesBarInteraction: Equatable {
+    var highlighted: CGSSpaceID?
+    var filtered: CGSSpaceID?
+    var control: CGSSpaceID?
+    var hovered: CGSSpaceID?
+    var dropTarget: CGSSpaceID?
+    var contentsTarget: SpaceContentsDropTarget?
+}
+
 final class SpacesBarHostedState: ObservableObject {
-    @Published var content = AnyView(EmptyView())
+    var content: () -> AnyView = { AnyView(EmptyView()) }
+    @Published private(set) var revision: UInt = 0
+    private var key: SpacesBarContentKey?
+    private var interaction: SpacesBarInteraction?
+
+    func update(_ content: @escaping () -> AnyView, key: SpacesBarContentKey?, interaction: SpacesBarInteraction, animation: Animation?) {
+        self.content = content
+        guard key == nil || self.key != key || self.interaction != interaction else { return }
+        let transition = self.interaction != nil && self.interaction?.filtered != interaction.filtered ? animation : nil
+        self.key = key
+        self.interaction = interaction
+        withAnimation(transition) { revision &+= 1 }
+    }
 }
 
 struct SpacesBarHostedContent: View {
     @ObservedObject var state: SpacesBarHostedState
-    var body: some View { state.content }
+    var body: some View { state.content() }
 }
 
 struct SpacesBarScroll: NSViewRepresentable {
-    let content: AnyView
+    let content: () -> AnyView
     let contentSize: CGSize
     var headings: [SpacesBarDisplayHeading] = []
     let initialCenter: CGFloat?
@@ -937,8 +999,9 @@ struct SpacesBarScroll: NSViewRepresentable {
     var dropFrames: [CGSSpaceID: CGRect] = [:]
     var desktopDropIDs: Set<CGSSpaceID> = []
     var previewCoordinator: PreviewStateCoordinator? = nil
-    var filteredSpace: CGSSpaceID? = nil
     var contentAnimation: Animation? = nil
+    var contentKey: SpacesBarContentKey? = nil
+    var interaction = SpacesBarInteraction()
     let edgeScrolling: Bool
     let speed: CGFloat
 
@@ -962,7 +1025,7 @@ struct SpacesBarScroll: NSViewRepresentable {
         view.onDropTargetChanged = { [weak viewport] id in
             if viewport?.dropTargetID != id { viewport?.dropTargetID = id }
         }
-        view.updateContent(content, filteredSpace: filteredSpace, animation: contentAnimation)
+        view.updateContent(content, key: contentKey, interaction: interaction, animation: contentAnimation)
         let contentFrame = CGRect(origin: .zero, size: contentSize)
         if view.hosting.frame != contentFrame { view.hosting.frame = contentFrame }
         if view.scroller.contentSize != contentSize { view.scroller.contentSize = contentSize }
@@ -1023,14 +1086,8 @@ struct SpacesBarScroll: NSViewRepresentable {
         let scroller = CardGridScrollView.ContainerView(scrollsVertically: false)
         private let hostedState: SpacesBarHostedState
         let hosting: NSHostingView<SpacesBarHostedContent>
-        private var presentedContent = false
-        private var lastFilteredSpace: CGSSpaceID?
-
-        func updateContent(_ content: AnyView, filteredSpace: CGSSpaceID?, animation: Animation?) {
-            let transition = presentedContent && lastFilteredSpace != filteredSpace ? animation : nil
-            presentedContent = true
-            lastFilteredSpace = filteredSpace
-            withAnimation(transition) { hostedState.content = content }
+        func updateContent(_ content: @escaping () -> AnyView, key: SpacesBarContentKey?, interaction: SpacesBarInteraction, animation: Animation?) {
+            hostedState.update(content, key: key, interaction: interaction, animation: animation)
         }
 
         let headingOverlay = SpacesBarHeadingOverlay()

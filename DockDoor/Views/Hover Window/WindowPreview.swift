@@ -4,6 +4,41 @@ import SwiftUI
 enum AppIconStripFormatting {
     static let menuIconSize: CGFloat = 14
 
+    struct PreparedFit {
+        let iconSize: CGFloat
+        let requiredWidths: [CGFloat]
+
+        init(total: Int, iconSize: CGFloat, font: NSFont, spacing: CGFloat,
+             measure: (String, NSFont) -> CGFloat = { ($0 as NSString).size(withAttributes: [.font: $1]).width })
+        {
+            self.iconSize = iconSize
+            requiredWidths = (0 ... total).map { count in
+                AppIconStripFormatting.requiredWidth(count: count, total: total, iconSize: iconSize, font: font, spacing: spacing, measure: measure)
+            }
+        }
+
+        func visibleCount(availableWidth: CGFloat) -> Int? {
+            let total = requiredWidths.count - 1
+            guard total > 0, availableWidth > 0 else { return nil }
+            var count = min(total, Int(availableWidth / iconSize))
+            while count >= 0 {
+                if requiredWidths[count] <= availableWidth { return count }
+                count -= 1
+            }
+            return nil
+        }
+    }
+
+    private static func requiredWidth(count: Int, total: Int, iconSize: CGFloat, font: NSFont, spacing: CGFloat?,
+                                      measure: (String, NSFont) -> CGFloat = { ($0 as NSString).size(withAttributes: [.font: $1]).width }) -> CGFloat
+    {
+        let remaining = total - count
+        let suffix = remaining > 0 ? (count > 0 ? " +\(remaining)" : "+\(remaining)") : ""
+        var required = width(iconCount: count, iconSize: iconSize, font: font, spacing: spacing) + measure(suffix, font)
+        if let spacing, remaining > 0, count > 0 { required += spacing - measure(" ", font) }
+        return required
+    }
+
     static func width(iconCount: Int, iconSize: CGFloat, font: NSFont, spacing: CGFloat? = nil) -> CGFloat {
         let spacing = spacing ?? ("\u{00A0}" as NSString).size(withAttributes: [.font: font]).width
         return CGFloat(iconCount) * iconSize + CGFloat(max(0, iconCount - 1)) * spacing
@@ -13,13 +48,7 @@ enum AppIconStripFormatting {
         guard total > 0, availableWidth > 0 else { return nil }
         var count = min(total, max(0, maximumVisible ?? total), Int(availableWidth / iconSize))
         while count >= 0 {
-            let remaining = total - count
-            let suffix = remaining > 0 ? (count > 0 ? " +\(remaining)" : "+\(remaining)") : ""
-            var required = width(iconCount: count, iconSize: iconSize, font: font, spacing: spacing) +
-                (suffix as NSString).size(withAttributes: [.font: font]).width
-            if let spacing, remaining > 0, count > 0 {
-                required += spacing - (" " as NSString).size(withAttributes: [.font: font]).width
-            }
+            let required = requiredWidth(count: count, total: total, iconSize: iconSize, font: font, spacing: spacing)
             if required <= availableWidth { return count }
             count -= 1
         }

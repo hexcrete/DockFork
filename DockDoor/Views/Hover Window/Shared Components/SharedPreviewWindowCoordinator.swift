@@ -983,6 +983,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let barView = SpacesBarView(
             viewport: panel.viewport, restingSizing: restingSizing, expandedSizing: expandedSizing,
             labelTextWidths: prepared.textWidths,
+            preparedLayout: prepared,
             frameForSize: { [weak self] size in self?.spacesBarFrame(relativeTo: grid, size: size, screen: screen) ?? target },
             screen: screen, sections: spacesBarSections,
             initialSpace: current, highlightedSpace: windowSwitcherCoordinator.spaceNavigationInputSource == .mouse ? nil : highlightedSpaceID, previewCoordinator: windowSwitcherCoordinator, labels: labels,

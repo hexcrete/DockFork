@@ -459,7 +459,8 @@ import CoreGraphics
 typealias CGWindowID = UInt32
 typealias CGSSpaceID = UInt64
 enum SpaceMenuDisplayMode { case numberOnly, fullName }
-final class NSRunningApplication {
+final class NSRunningApplication: Equatable {
+ static func ==(lhs:NSRunningApplication,rhs:NSRunningApplication)->Bool {lhs.processIdentifier==rhs.processIdentifier}
  static var running: [pid_t: NSRunningApplication] = [:]
  let processIdentifier: pid_t
  let localizedName: String?
@@ -494,7 +495,7 @@ extension CGWindowID {
 SWIFT
 source += block(state, 'struct PreviewWindowIdentity:') + "\n"
 %w[ManagedSpaceKind ManagedSpaceDescriptor ManagedDisplayDescriptor ManagedSpaceDestination].each do |name|
-  signature = name == 'ManagedSpaceKind' ? "enum #{name}:" : "struct #{name} {"
+  signature = name == 'ManagedSpaceKind' ? "enum #{name}:" : "struct #{name}:"
   source += block(shared, signature) + "\n"
 end
 source += "enum WindowSpaces {\n static func displayName(for id: String) -> String? { id == \"first\" ? \"Built-in Display\" : nil }\n"
@@ -532,6 +533,8 @@ layout = layout.lines.reject { |line| line.include?('static var font:') || line.
 source += block(bar, 'struct SpacePillMetrics {') + "\n"
 source += layout.sub("enum SpacesBarLayout {", "enum SpacesBarLayout {\n static var headingHeight: CGFloat { 14 * scale }") + "\n"
 source += block(bar, 'enum SpacesBarAppLayout {') + "\n"
+formatting = block(File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview.swift"), 'enum AppIconStripFormatting {')
+source += formatting.sub(block(formatting, '    static func attributedIcons('), '') + "\n"
 source += block(bar, 'struct SpacesBarSizing {') + "\n" + block(bar, 'struct SpacesBarPreparedLayout {') + "\n"
 source += <<~'SWIFT'
 @MainActor func checkPreparedLayouts() {
@@ -614,6 +617,8 @@ source += <<~'SWIFT'
  changed(key(numeric,false,false,true,900,240,80,true,1))
  changed(key(numeric,false,false,true,900,240,80,true,nil,1))
  changed(key(numeric,false,false,true,900,240,80,true,nil,2,.systemFont(ofSize:29,weight:.bold)))
+ var iconSizeKey=base;iconSizeKey.iconSize+=2;changed(iconSizeKey)
+ var iconSpacingKey=base;iconSpacingKey.iconSpacing+=2;changed(iconSpacingKey)
  Defaults.padding=1.5;changed(key(numeric,false,false,true,900,240,80,true,nil));Defaults.padding=1
  Defaults.size = .large;changed(key(numeric,false,false,true,900,240,80,true,nil));Defaults.size = .small
  cached=nil
@@ -804,6 +809,8 @@ Dir.mktmpdir('dockfork-space-presentation-') do |dir|
   abort 'Space snapshot checks failed' unless system("#{dir}/checks")
 end
 
+exit if ARGV.include?('--model-only')
+
 # Exercise mouse-owned Space navigation without changing a real session or pointer.
 hover_source = <<~'SWIFT'
 import Foundation
@@ -978,6 +985,7 @@ native_source += block(bar, 'struct SpacesBarDisplayHeading:') + "\n"
 native_source += block(bar, 'final class SpacesBarHeadingOverlay:') + "\n"
 native_source += block(bar, 'final class SpacesBarViewport:') + "\n"
 native_source += block(bar, 'final class SpacesBarWindow:') + "\n"
+native_source += block(bar, 'struct SpacesBarContentKey:') + "\n" + block(bar, 'struct SpacesBarInteraction:') + "\n"
 native_source += block(bar, 'final class SpacesBarHostedState:') + "\n" + block(bar, 'struct SpacesBarHostedContent:') + "\n"
 native_source += block(bar, 'struct SpacesBarSizing {')+"\n"
 native_source += block(bar, 'private enum SpaceFilterLeadingAlignment:')+"\n"+block(bar, 'extension HorizontalAlignment {')+"\n"
@@ -989,7 +997,7 @@ preview = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview.swift")
 native_source += block(view_extensions, 'enum BorderedBackgroundMetrics {') + "\n"
 native_source += "extension View {\n" + block(view_extensions, '    func borderedBackground(_ content: some ShapeStyle, lineWidth: CGFloat = 1.0, shape:') + "\n}\n"
 native_source += <<~'SWIFT'
-struct BackgroundAppearance { static func resolve() -> Self { Self() } }
+struct BackgroundAppearance: Equatable { static func resolve() -> Self { Self() } }
 struct BlurView: View {
  let shape: Capsule
  let appearance: BackgroundAppearance
@@ -1012,10 +1020,10 @@ enum SpacesBarLayout {
 enum WindowStateIndicator { static let styledContentPadding: CGFloat = 4 }
 enum SpaceMenuDisplayMode { case numberOnly }
 enum ManagedSpacePresentation {
- struct App { let application: NSRunningApplication; let windowCount: Int; var windowIdentities: [UInt64] { windowCount > 0 ? [1] : [] } }
- struct Display { let id: String = "display"; let spaces: [Entry] }
- struct Destination { struct Owner { let identifier = "display" }; let display = Owner() }
- struct Entry: Identifiable {
+ struct App: Equatable { let application: NSRunningApplication; let windowCount: Int; var windowIdentities: [UInt64] { windowCount > 0 ? [1] : [] } }
+ struct Display: Equatable { let id: String = "display"; let spaces: [Entry] }
+ struct Destination: Equatable { struct Owner: Equatable { let identifier = "display" }; let display = Owner() }
+ struct Entry: Identifiable, Equatable {
   let destination = Destination()
   let id: UInt64 = 1
   let label: String
@@ -1028,7 +1036,8 @@ enum ManagedSpacePresentation {
 SWIFT
 native_source += block(material, 'struct MaterialPillStyle:') + "\n"
 native_source += "extension View {\n" + block(material, '    func materialPill(') + "\n}\n"
-native_source += "enum AppIconStripFormatting {\n" + block(preview, '    static func width(') + "\n" + block(preview, '    static func visibleCount(total:') + "\n}\n"
+native_source += formatting.sub(block(formatting, '    static func attributedIcons('), '') + "\n"
+native_source += "struct SpacesBarPreparedLayout { struct Key: Equatable { var font=NSFont.systemFont(ofSize:13);var iconSize:CGFloat=24;var iconSpacing:CGFloat=6 };var key=Key(); var iconFits: [UInt64: AppIconStripFormatting.PreparedFit] = [:] }\n"
 native_source += "extension SpacesBarLayout {\n" + block(bar, '    static func titleInset(') + "\n" + block(bar, '    static func pinnedTitleOffset(') + "\n}\n"
 native_source += "enum Defaults { struct Key<T> { let value:T }; static var size = SpacesBarItemSize.small; static var centerSelections = true; static subscript<T>(_ key:Key<T>)->T {key.value} }\nextension Defaults.Key where T == SpacesBarItemSize {static var spacesBarItemSize: Self {Self(value:Defaults.size)}}\n"
 native_source += "extension Defaults.Key where T == Bool {static var centerOutOfViewSelections: Self {Self(value:Defaults.centerSelections)}}\n"
@@ -1081,6 +1090,7 @@ struct FilterControlSlideSample:AnimatableModifier {
  func body(content:Content)->some View {FilterControlSlideSamples.values.append(position);FilterControlSlideSamples.symbols.append(clearing);return content.offset(x:position)}
 }
 struct PillProbe: View {
+ var preparedLayout: SpacesBarPreparedLayout? = nil
  var spaceMenu: ((ManagedSpacePresentation.Entry, NSEvent, NSView)->Void)? = nil
  var exitFullScreen: ((ManagedSpacePresentation.Entry)->Void)? = nil
  var previewCoordinator: PreviewStateCoordinator? = nil
@@ -1178,7 +1188,7 @@ struct AnimatedGapProbe: View {
 let sizing=SpacesBarSizing(widths:[1:120,2:120],width:300).interpolated(to:SpacesBarSizing(widths:[1:100,2:100],width:360),progress:p)
 let layout=PillFrameProbe(sections:[.init(spaces:[.init(id:1),.init(id:2)])],widths:sizing.widths,gapProgress:p)
    let width=SpacesBarLayout.innerPadding*2+sizing.widths.values.reduce(0,+)+SpacesBarLayout.rowSpacing(spaceCount:2,displayCount:1,gapProgress:p)
-   return SpacesBarScroll(content:AnyView(layout),contentSize:CGSize(width:width,height:68),initialCenter:nil,viewport:viewport,
+   return SpacesBarScroll(content:{ AnyView(layout) },contentSize:CGSize(width:width,height:68),initialCenter:nil,viewport:viewport,
                   panelFrame:CGRect(x:200-sizing.width/2,y:20,width:sizing.width,height:68),gapFrames:layout.gapFrames(gapProgress:p),allowedGaps:[.init(displayID:"display",beforeSpaceID:2)],contentSourceID:1,
                   dropFrames:layout.dropFrames(gapProgress:p),desktopDropIDs:[1,2],edgeScrolling:false,speed:0)
   }.animation(animation,value:state.progress)
@@ -1253,18 +1263,18 @@ for source in 0..<3 {
   animationViewport.hosting.frame = animationViewport.bounds
   animationPanel.contentView = animationViewport
   func slide(_ x: CGFloat) -> AnyView { AnyView(Color.gray.frame(width:20,height:20).modifier(SlideProbe(position:x))) }
-  animationViewport.updateContent(slide(0),filteredSpace:nil,animation:nil)
+  animationViewport.updateContent({ slide(0) },key:nil,interaction:.init(filtered:nil),animation:nil)
   animationPanel.orderFront(nil)
   RunLoop.main.run(until:Date().addingTimeInterval(0.15))
   SlideSamples.values = []
-  animationViewport.updateContent(slide(40),filteredSpace:1,animation:.linear(duration:0.3))
+  animationViewport.updateContent({ slide(40) },key:nil,interaction:.init(filtered:1),animation:.linear(duration:0.3))
   RunLoop.main.run(until:Date().addingTimeInterval(0.06))
   SlideSamples.values = []
-  animationViewport.updateContent(slide(40),filteredSpace:1,animation:.linear(duration:0.3))
+  animationViewport.updateContent({ slide(40) },key:nil,interaction:.init(filtered:1),animation:.linear(duration:0.3))
   RunLoop.main.run(until:Date().addingTimeInterval(0.5))
   precondition(SlideSamples.values.contains { $0>0 && $0<40 }, "Hosted filter content must receive an animation transaction, not jump directly to the result")
   SlideSamples.values = []
-  animationViewport.updateContent(slide(0),filteredSpace:nil,animation:nil)
+  animationViewport.updateContent({ slide(0) },key:nil,interaction:.init(filtered:nil),animation:nil)
   RunLoop.main.run(until:Date().addingTimeInterval(0.1))
   precondition(!SlideSamples.values.contains { $0>0 && $0<40 }, "Disabled motion must update the hosting root immediately")
   animationPanel.orderOut(nil)
@@ -1463,25 +1473,25 @@ filterAnimationPanel.ignoresMouseEvents=true
 let filterAnimationViewport=SpacesBarScroll.ViewportView(frame:CGRect(x:0,y:0,width:240,height:40))
 filterAnimationViewport.hosting.frame=filterAnimationViewport.bounds
 filterAnimationPanel.contentView=filterAnimationViewport
-filterAnimationViewport.updateContent(AnyView(PillProbe(showAnimations:true,controlAnimationDuration:0.3,width:240,label:"1")),filteredSpace:nil,animation:nil)
+filterAnimationViewport.updateContent({ AnyView(PillProbe(showAnimations:true,controlAnimationDuration:0.3,width:240,label:"1")) },key:nil,interaction:.init(filtered:nil),animation:nil)
 filterAnimationPanel.orderFront(nil)
 RunLoop.main.run(until:Date().addingTimeInterval(0.4))
 FilterControlSlideSamples.values=[]
 FilterControlSlideSamples.symbols=[]
-filterAnimationViewport.updateContent(AnyView(PillProbe(showAnimations:true,controlAnimationDuration:0.3,width:240,label:"1",filteredSpace:1,filterControlSpace:1)),filteredSpace:1,animation:.snappy(duration:0.3))
+filterAnimationViewport.updateContent({ AnyView(PillProbe(showAnimations:true,controlAnimationDuration:0.3,width:240,label:"1",filteredSpace:1,filterControlSpace:1)) },key:nil,interaction:.init(filtered:1),animation:.snappy(duration:0.3))
 for _ in 0..<10 {filterAnimationViewport.layoutSubtreeIfNeeded();RunLoop.main.run(until:Date().addingTimeInterval(0.04))}
 precondition(FilterControlSlideSamples.values.contains{$0 > -SpacesBarLayout.minimumLabelWidth+0.05 && $0 < -0.05},"Filter control must keep real intermediate slide frames: \(FilterControlSlideSamples.values)")
 precondition(!FilterControlSlideSamples.symbols.isEmpty && FilterControlSlideSamples.symbols.allSatisfy{$0},"Highlighting a filtered pill must insert only the x button, never the magnifier")
 FilterControlSlideSamples.values=[];FilterControlSlideSamples.symbols=[]
-filterAnimationViewport.updateContent(AnyView(PillProbe(showAnimations:true,controlAnimationDuration:0.3,width:240,label:"1",filterControlSpace:1)),filteredSpace:nil,animation:.snappy(duration:0.3))
+filterAnimationViewport.updateContent({ AnyView(PillProbe(showAnimations:true,controlAnimationDuration:0.3,width:240,label:"1",filterControlSpace:1)) },key:nil,interaction:.init(filtered:nil),animation:.snappy(duration:0.3))
 for _ in 0..<10 {filterAnimationViewport.layoutSubtreeIfNeeded();RunLoop.main.run(until:Date().addingTimeInterval(0.04))}
 precondition(Set(FilterControlSlideSamples.symbols)==[false,true] && FilterControlSlideSamples.values.contains{$0 > -SpacesBarLayout.minimumLabelWidth+0.05 && $0 < -0.05},"Replacement must slide the old constant-symbol button out and the new one in")
 FilterControlSlideSamples.values=[]
-filterAnimationViewport.updateContent(AnyView(PillProbe(showAnimations:false,controlAnimationDuration:0.3,width:240,label:"1")),filteredSpace:nil,animation:nil)
+filterAnimationViewport.updateContent({ AnyView(PillProbe(showAnimations:false,controlAnimationDuration:0.3,width:240,label:"1")) },key:nil,interaction:.init(filtered:nil),animation:nil)
 RunLoop.main.run(until:Date().addingTimeInterval(0.1))
 precondition(!FilterControlSlideSamples.values.contains{$0 > -SpacesBarLayout.minimumLabelWidth+0.05 && $0 < -0.05},"Disabled animations must not slide filter controls")
 FilterControlSlideSamples.values=[]
-filterAnimationViewport.updateContent(AnyView(PillProbe(showAnimations:true,reduceMotion:true,controlAnimationDuration:0.3,width:240,label:"1",filteredSpace:1,filterControlSpace:1)),filteredSpace:1,animation:nil)
+filterAnimationViewport.updateContent({ AnyView(PillProbe(showAnimations:true,reduceMotion:true,controlAnimationDuration:0.3,width:240,label:"1",filteredSpace:1,filterControlSpace:1)) },key:nil,interaction:.init(filtered:1),animation:nil)
 RunLoop.main.run(until:Date().addingTimeInterval(0.1))
 precondition(!FilterControlSlideSamples.values.contains{$0 > -SpacesBarLayout.minimumLabelWidth+0.05 && $0 < -0.05},"Reduce Motion must not slide replacement buttons")
 filterAnimationPanel.orderOut(nil)
@@ -1682,12 +1692,13 @@ SWIFT
 Dir.mktmpdir('dockfork-space-viewport-') do |dir|
   File.write("#{dir}/checks.swift",native_source)
   abort 'Native Space viewport compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+  exit if ARGV.include?('--viewport-compile-only')
   abort 'Native Space viewport checks failed' unless system("#{dir}/checks")
 end
 
 history = "import Foundation\ntypealias CGSSpaceID = UInt64\n"
 %w[ManagedSpaceKind ManagedSpaceDescriptor ManagedDisplayDescriptor].each do |name|
- history += block(shared, name == 'ManagedSpaceKind' ? "enum #{name}:" : "struct #{name} {") + "\n"
+ history += block(shared, name == 'ManagedSpaceKind' ? "enum #{name}:" : "struct #{name}:") + "\n"
 end
 history += block(shared, 'struct SpaceVisitHistory {') + "\n"
 history += <<~'SWIFT'
