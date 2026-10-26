@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 require 'tmpdir'
+measure_invalidation = ARGV.delete('--measure-invalidation')
+abort "Unknown arguments: #{ARGV.join(' ')}" unless ARGV.empty?
 
 def block(source, signature)
   start = source.index(signature) or abort "Missing #{signature}"
@@ -89,6 +91,68 @@ func window(_ id:Int,pid:Int32=42,ax:Int?=nil,image:Int=0)->WindowInfo {
 }
 SWIFT
 source += production + "\n"
+if measure_invalidation
+  source += <<~'SWIFT'
+// Synthetic metadata comparison is a measurement model, not a proposed production key.
+struct Metadata:Hashable {
+ let identity:Signature
+ let recency:Date
+ init(_ w:WindowInfo){var metadata=w;metadata.image=nil;identity=Signature(metadata);recency=w.lastAccessedTime}
+}
+@MainActor func measureInvalidation() async {
+ let repetitions=100
+ for count in [16,512] {
+  for kind in ["unchanged-write","unchanged-update","known-image","generic-image","recency","state","membership"] {
+   let manager=SpaceWindowCacheManager()
+   manager.writeCache(pid:42,windowSet:Set((1...count).map{window($0,image:1)}))
+   var preparedRevision=manager.readSnapshot().revision
+   var misses=0,revisions=0,unchanged=0,unchangedValues=0,comparedRows=0,writerNS:UInt64=0,comparisonNS:UInt64=0
+   for step in 1...repetitions {
+    let before=manager.readSnapshot()
+    let old=Set(before.windows)
+    var next=old
+    if kind=="membership" {
+     next.remove(next.first(where:{$0.rawID==count+step-1})!)
+     next.insert(window(count+step,image:1))
+    } else if !kind.hasPrefix("unchanged") {
+     var w=next.first(where:{$0.rawID==1})!;next.remove(w)
+     if kind=="recency" {w.lastAccessedTime=Date(timeIntervalSince1970:Double(step))}
+     else if kind=="state" {w.viewSnapshot.minimized.toggle()}
+     else {w.image=step+1}
+     next.insert(w)
+    }
+    let compareStart=DispatchTime.now().uptimeNanoseconds
+    let equivalent=Set(old.map(Metadata.init))==Set(next.map(Metadata.init))
+    comparisonNS+=DispatchTime.now().uptimeNanoseconds-compareStart
+    comparedRows+=old.count+next.count
+    if equivalent {unchanged+=1}
+    if equivalent && signatures(old)==signatures(next) {unchangedValues+=1}
+    let start=DispatchTime.now().uptimeNanoseconds
+    switch kind {
+    case "known-image":manager.updateImage(pid:42,windowID:1,image:step+1,capturedAt:Date(timeIntervalSince1970:Double(step)))
+    case "unchanged-update","generic-image","recency","state":manager.updateCache(pid:42){$0=next}
+    default:manager.writeCache(pid:42,windowSet:next)
+    }
+    writerNS+=DispatchTime.now().uptimeNanoseconds-start
+    let after=manager.readSnapshot()
+    revisions+=Int(after.revision-before.revision)
+    // One filter interaction after each write, with all other preparation-key fields held fixed.
+    if after.revision != preparedRevision {misses+=1;preparedRevision=after.revision}
+   }
+   let expectsChange=["recency","state","membership"].contains(kind)
+   precondition(unchanged==(expectsChange ? 0:repetitions))
+   precondition(unchangedValues==(kind.hasPrefix("unchanged") ? repetitions:0))
+   precondition(revisions==(kind=="known-image" ? 0:repetitions) && misses==revisions)
+   print("MEASURE windows=\(count) case=\(kind) writes=\(repetitions) genericWrites=\(kind=="known-image" ? 0:repetitions) unchangedValues=\(unchangedValues) unchangedMetadata=\(unchanged) revisionChanges=\(revisions) revisionKeyMisses=\(misses) comparisonRows=\(comparedRows) writerMs=\(Double(writerNS)/1e6) comparisonMs=\(Double(comparisonNS)/1e6)")
+  }
+ }
+ print("PASS measurement only: source-extracted writers; one simulated filter interaction per write; modeled metadata comparison; no native discovery, production instrumentation or invalidation-policy change")
+}
+SWIFT
+  keys=File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift")
+  filter=block(keys,'    private func installSpaceFilter(')
+  abort 'Revision-key miss model no longer matches preparation guard' unless filter.include?('revision: snapshot.revision') && filter.include?('if preparedKey != key || coordinator.preparedSpaceFilterCandidates == nil')
+end
 source += <<~'SWIFT'
 @main struct Checks {
  @MainActor static func drain() async {await withCheckedContinuation{continuation in DispatchQueue.main.async{continuation.resume()}}}
@@ -241,10 +305,13 @@ source += <<~'SWIFT'
  }
 }
 SWIFT
+source=source.sub('  var cases=0', '  if CommandLine.arguments.contains("--measure-invalidation") {await measureInvalidation(); return}' + "\n  var cases=0") if measure_invalidation
 Dir.mktmpdir('dockfork-cache-reconciliation-') do |dir|
   File.write("#{dir}/checks.swift", source)
-  abort 'Cache checks compilation failed' unless system('swiftc', '-swift-version', '5', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
-  abort 'Cache checks failed' unless system("#{dir}/checks")
+  options=measure_invalidation ? ['-O']:[]
+  abort 'Cache checks compilation failed' unless system('swiftc', *options, '-swift-version', '5', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+  arguments=measure_invalidation ? ['--measure-invalidation']:[]
+  abort 'Cache checks failed' unless system("#{dir}/checks", *arguments)
 end
 %w[writeCache updateCache].each do |name|
   method=block(cache,"    func #{name}(")

@@ -548,3 +548,27 @@ Stage 4 follow-up: accept Finder's desktop-only AXScrollArea window-list respons
 Stage 4 desktop-only handoff: corrected build DockFork-7333db5-working-WZbVfX passes exact source/binary/signature/running-path verification. In-process DEBUG wake-hook test passes on the first probe with no ordinary Finder windows open; the previous four failures do not recur in this test. Focused desktop/error/read-count/recovery checks and formatter/diff checks pass. Physical wake/display coverage remains distinct. No commit, push, release or Stage 5 work performed.
 
 Stage 4 final review and user verification accepted. No blockers found in background readiness, desktop-only acceptance, healthy resource preservation or synchronous required teardown. Focused recovery, keyboard and frame-worker checks pass; the frame fixture required the normal unrestricted Swift compiler environment after the restricted run could not load macros. Exact signed running artifact remains the user-tested WZbVfX build. Physical sleep/display and whole-app profiling gaps remain explicit. Approved for commit; proceed to measurement-only Stage 5 without changing cache policy.
+
+### Further responsiveness Stage 5: filter-cache invalidation measurements
+
+Measurement-only checkpoint completed October 26. Reproduce with `ruby fork/tests/cache_reconciliation.rb --measure-invalidation`. The fixture extracts the production cache manager and observes real writer revision changes; its additional counters and metadata-comparison prototype exist only in the generated test process. No production instrumentation, cache policy, settings or app code changed.
+
+For each of 16 and 512 synthetic windows, run 100 writes of each kind:
+
+| Workload | Identical values | Unchanged modeled filter metadata | Revision changes | Revision-key misses with one filter interaction per write |
+|---|---:|---:|---:|---:|
+| Repeated unchanged discovery write | 100 | 100 | 100 | 100 |
+| Unchanged generic update | 100 | 100 | 100 | 100 |
+| Dedicated image writer | 0 | 100 | 0 | 0 |
+| Generic image update | 0 | 100 | 100 | 100 |
+| Recency only | 0 | 0 | 100 | 100 |
+| Minimized state | 0 | 0 | 100 | 100 |
+| Membership replacement | 0 | 0 | 100 | 100 |
+
+The comparison prototype scans 3,200 modeled rows for each 16-window workload and 102,400 for each 512-window workload. In one optimized fixture run, 100 unchanged discovery writes took 0.483 ms at 16 windows and 11.939 ms at 512; the separate metadata comparison took 0.545 ms and 13.464 ms respectively. These are synthetic CPU timings, not production frame times or a controlled real-app speedup. Input construction and subsequent UI rebuilding are outside writer timings. Prototype comparison is additional work, not a replacement for existing notification diffing.
+
+The revision-key miss model holds all other preparation inputs fixed and assumes a filter interaction after every write; real bursts can collapse into fewer accesses, and topology/session invalidation can independently force rebuilding. The prototype uses inert identity/AX tokens, visual metadata excluding the image, and recency. It is not a complete proposed production signature and does not validate all geometry/native-tab/provider dependencies. Full preparation cost and the real frequency of unchanged generic writes were not profiled.
+
+Recommendation: retain conservative invalidation now. The known image path already avoids revision changes; a blanket comparison would add work to actual metadata changes too. Avoid claiming net benefit without real workload frequency and preparation-cost measurements. Any narrower no-op comparison or new image-only routing needs separate authorization and a complete dependency review; recency-only changes must remain invalidating.
+
+Focused measurement, normal cache reconciliation and prepared-filter regressions pass, retaining 3,072 reference comparisons, 96 builder-equivalence cases and 60 warm transitions without sorting/grouping/native scope work. No working windows were manipulated. No development rebuild is needed for this test/documentation-only stage; the user-tested Stage 4 binary remains installed. Stage 5 records are user-approved after final review, with no blockers. The plan is complete; conservative cache policy remains unchanged. No release or push.

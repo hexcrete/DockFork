@@ -569,3 +569,5 @@ Further responsiveness Stage 3 manual setup: unlock the Mac, rapidly highlight d
 Wake recovery manual setup: after unlock or display wake/change, open Window Switcher promptly and keep it open while rapidly highlighting for at least 20 seconds, covering the former delayed-reset interval. Verify held/persistent/swipe behavior, modifier release, search focus, menu-bar reopening and Dock/Cmd+Tab afterward. If Finder is already windowless, include that normal state; do not close working windows just for the test. No new capture ID or media/performance claim; permission-revocation and exhaustive native display tests remain unperformed.
 
 Wake-recovery verification follow-up: with all Finder windows closed, verify the desktop-only Accessibility response passes readiness without waiting through all retries. Retain malformed/error and real wake/display checks. No new capture ID or media claim.
+
+Filter-cache measurement checkpoint adds no screenshot candidate or frame-rate claim. Existing image-update/filter-order capture scenarios remain applicable; cache policy and appearance are unchanged.
