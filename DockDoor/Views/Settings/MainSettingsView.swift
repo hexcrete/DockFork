@@ -174,6 +174,7 @@ struct MainSettingsView: View {
                 Defaults.reset(.enableActionFeedback, .actionFeedbackPosition, .showMouseFollowsFocusFeedback)
                 Defaults.reset(.disableTitleBarGesturesOverInteractiveElements)
                 Defaults.reset(.centerOutOfViewSelections)
+                Defaults.reset(.dockPreviewSpaceNumberIndicatorPlacement, .switcherSpaceNumberIndicatorPlacement, .cmdTabSpaceNumberIndicatorPlacement)
                 Defaults[.movingResizingPostActionBehavior] = Defaults.Keys.movingResizingPostActionBehavior.defaultValue
                 Defaults[.hidingPostActionBehavior] = Defaults.Keys.hidingPostActionBehavior.defaultValue
                 Defaults[.unhidingPostActionBehavior] = Defaults.Keys.unhidingPostActionBehavior.defaultValue

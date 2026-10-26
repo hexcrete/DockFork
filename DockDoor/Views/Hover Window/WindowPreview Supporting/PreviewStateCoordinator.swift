@@ -564,7 +564,6 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @Published private(set) var focusedWindowID: CGWindowID?
-    @Published private(set) var desktopNumbers: [Int: Int] = [:]
 
     var shouldScrollToIndex: Bool = true
 
@@ -603,18 +602,6 @@ class PreviewStateCoordinator: ObservableObject {
             return
         }
         focusedWindowID = Self.currentFocusedWindowID(in: sourceWindows)
-    }
-
-    @MainActor
-    private func refreshDesktopNumbers() {
-        let numbers = Defaults[.showSpaceNumber] ? WindowSpaces.desktopNumbers() : [:]
-        if numbers != desktopNumbers {
-            desktopNumbers = numbers
-        }
-    }
-
-    func desktopNumber(for window: WindowInfo) -> Int? {
-        window.spaceID.flatMap { desktopNumbers[$0] }
     }
 
     private static func currentFocusedWindowID(in windows: [WindowInfo]) -> CGWindowID? {
@@ -777,7 +764,6 @@ class PreviewStateCoordinator: ObservableObject {
         reconcileCheckedWindows()
         reconcileSelectionRange()
         refreshFocusedWindowID(from: newWindows)
-        refreshDesktopNumbers()
         lastKnownBestGuessMonitor = bestGuessMonitor
 
         if currIndex >= windows.count {
@@ -926,7 +912,6 @@ class PreviewStateCoordinator: ObservableObject {
 
         lastKnownBestGuessMonitor = bestGuessMonitor
         refreshFocusedWindowID()
-        refreshDesktopNumbers()
         recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
 
         if windows.count != previousWindowCount || hadRealWindows != hasRealWindows {

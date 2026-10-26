@@ -1218,15 +1218,6 @@ enum SettingsSearchCatalog {
             icon: "eye.trianglebadge.exclamationmark"
         ),
         SettingsSearchItem(
-            id: "appearance.spaceNumber",
-            title: String(localized: "Show Space number on previews (Legacy)"),
-            description: String(localized: "Labels each preview with the number of the desktop (Space) its window is on. Only shown when you have more than one desktop."),
-            keywords: ["space", "desktop", "number", "badge", "mission control", "legacy"],
-            tab: "Appearance",
-            section: String(localized: "General Appearance"),
-            icon: "rectangle.on.rectangle"
-        ),
-        SettingsSearchItem(
             id: "appearance.windowlessQuitButton",
             title: String(localized: "Show quit button for apps with no open windows"),
             description: String(localized: "Shows a quit-only control on previews for running apps with no open windows."),
@@ -1608,8 +1599,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "appearance.dockSpaceNumberIndicator",
             title: String(localized: "Show Space Number Indicator"),
-            description: String(localized: "Shows the Space number for each window in dock previews."),
-            keywords: ["space", "desktop", "number", "indicator", "dock"],
+            keywords: ["space", "desktop", "number", "indicator", "placement", "legacy", "traffic lights"],
             tab: "DockPreviews",
             section: String(localized: "Appearance"),
             icon: "number.circle"
@@ -1775,8 +1765,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "appearance.switcherSpaceNumberIndicator",
             title: String(localized: "Show Space Number Indicator"),
-            description: String(localized: "Shows the Space number for each window in the window switcher."),
-            keywords: ["space", "desktop", "number", "indicator", "switcher"],
+            keywords: ["space", "desktop", "number", "indicator", "placement", "legacy", "traffic lights"],
             tab: "WindowSwitcher",
             section: String(localized: "Appearance"),
             icon: "number.circle"
@@ -1969,8 +1958,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "appearance.cmdTabSpaceNumberIndicator",
             title: String(localized: "Show Space Number Indicator"),
-            description: String(localized: "Shows the Space number for each window in Cmd+Tab previews."),
-            keywords: ["space", "desktop", "number", "indicator", "cmd tab"],
+            keywords: ["space", "desktop", "number", "indicator", "placement", "legacy", "traffic lights"],
             tab: "CmdTab",
             section: String(localized: "Appearance"),
             icon: "number.circle"

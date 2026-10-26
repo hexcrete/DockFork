@@ -977,12 +977,15 @@ extension Defaults.Keys {
     static let useMonochromeTrafficLights = Key<Bool>("useMonochromeTrafficLights", default: false)
     static let trafficLightButtonScale = Key<CGFloat>("trafficLightButtonScale", default: 1.0)
     static let dimMinimizedHiddenPreviews = Key<Bool>("showMinimizedHiddenLabels", default: true)
+    // Retained for stored-preference compatibility; placement replaces this toggle.
     static let showDockPreviewSpaceNumberIndicator = Key<Bool>("showDockPreviewSpaceNumberIndicator", default: true)
+    static let dockPreviewSpaceNumberIndicatorPlacement = Key<WindowStateIndicatorPlacement>("dockPreviewSpaceNumberIndicatorPlacement", default: .off)
     static let highlightDockPreviewCurrentSpaceIndicator = Key<Bool>("highlightDockPreviewCurrentSpaceIndicator", default: false)
     static let dockPreviewWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("dockPreviewWindowStateIndicatorPlacement", default: .onWindowPreviews)
     static let disableDockStyleWindowStateIndicator = Key<Bool>("disableDockStyleSpaceNumberIndicator", default: false)
     static let swapDockPreviewTrafficLightsAndWindowStateIndicator = Key<Bool>("swapDockPreviewTrafficLightsAndWindowStateIndicator", default: true)
     static let limitDockPreviewIndicatorSwapToCompactMode = Key<Bool>("limitDockPreviewIndicatorSwapToCompactMode", default: true)
+    // Retired global legacy indicator toggle; no migration.
     static let showSpaceNumber = Key<Bool>("showSpaceNumber", default: false)
 
     // MARK: - Window Switcher Appearance Settings
@@ -999,7 +1002,9 @@ extension Defaults.Keys {
     static let switcherUseMonochromeTrafficLights = Key<Bool>("switcherUseMonochromeTrafficLights", default: false)
     static let switcherUseEmbeddedDockPreviewElements = Key<Bool>("switcherUseEmbeddedDockPreviewElements", default: false)
     static let switcherDisableDockStyleTrafficLights = Key<Bool>("switcherDisableDockStyleTrafficLights", default: false)
+    // Retained for stored-preference compatibility; placement replaces this toggle.
     static let showSwitcherSpaceNumberIndicator = Key<Bool>("showSwitcherSpaceNumberIndicator", default: true)
+    static let switcherSpaceNumberIndicatorPlacement = Key<WindowStateIndicatorPlacement>("switcherSpaceNumberIndicatorPlacement", default: .off)
     static let highlightSwitcherCurrentSpaceIndicator = Key<Bool>("highlightSwitcherCurrentSpaceIndicator", default: false)
     static let switcherWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("switcherWindowStateIndicatorPlacement", default: .onWindowPreviews)
     static let switcherDisableDockStyleWindowStateIndicator = Key<Bool>("switcherDisableDockStyleSpaceNumberIndicator", default: false)
@@ -1022,7 +1027,9 @@ extension Defaults.Keys {
     static let cmdTabUseEmbeddedDockPreviewElements = Key<Bool>("cmdTabUseEmbeddedDockPreviewElements", default: false)
     static let cmdTabDisableDockStyleTrafficLights = Key<Bool>("cmdTabDisableDockStyleTrafficLights", default: false)
     static let cmdTabDisableDockStyleTitles = Key<Bool>("cmdTabDisableDockStyleTitles", default: false)
+    // Retained for stored-preference compatibility; placement replaces this toggle.
     static let showCmdTabSpaceNumberIndicator = Key<Bool>("showCmdTabSpaceNumberIndicator", default: true)
+    static let cmdTabSpaceNumberIndicatorPlacement = Key<WindowStateIndicatorPlacement>("cmdTabSpaceNumberIndicatorPlacement", default: .off)
     static let highlightCmdTabCurrentSpaceIndicator = Key<Bool>("highlightCmdTabCurrentSpaceIndicator", default: false)
     static let cmdTabWindowStateIndicatorPlacement = Key<WindowStateIndicatorPlacement>("cmdTabWindowStateIndicatorPlacement", default: .onWindowPreviews)
     static let cmdTabDisableDockStyleWindowStateIndicator = Key<Bool>("cmdTabDisableDockStyleSpaceNumberIndicator", default: false)

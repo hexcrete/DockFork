@@ -19,7 +19,7 @@ struct WindowSwitcherAppearanceSection: View {
     @Default(.switcherMaxRows) var switcherMaxRows
     @Default(.switcherIgnoreScreenLimit) var switcherIgnoreScreenLimit
     @Default(.windowSwitcherScrollDirection) var windowSwitcherScrollDirection
-    @Default(.showSwitcherSpaceNumberIndicator) var showSwitcherSpaceNumberIndicator
+    @Default(.switcherSpaceNumberIndicatorPlacement) var switcherSpaceNumberIndicatorPlacement
     @Default(.highlightSwitcherCurrentSpaceIndicator) var highlightSwitcherCurrentSpaceIndicator
     @Default(.switcherWindowStateIndicatorPlacement) var switcherWindowStateIndicatorPlacement
     @Default(.switcherDisableDockStyleWindowStateIndicator) var switcherDisableDockStyleWindowStateIndicator
@@ -153,20 +153,25 @@ struct WindowSwitcherAppearanceSection: View {
 
             Divider().padding(.vertical, 2)
             Text("Window State Indicator").font(.headline).padding(.bottom, -2)
-            Toggle("Show Space Number Indicator", isOn: $showSwitcherSpaceNumberIndicator)
-                .settingsSearchTarget("appearance.switcherSpaceNumberIndicator")
-
-            VStack(alignment: .leading) {
-                Toggle("Highlight Current Space", isOn: $highlightSwitcherCurrentSpaceIndicator)
-                    .settingsSearchTarget("appearance.switcherHighlightCurrentSpace")
-                Text("Highlights the Space number indicator for windows on the current Space.")
-                    .font(.footnote)
-                    .foregroundColor(.gray)
-                    .padding(.leading, 20)
+            Picker("Show Space Number Indicator", selection: $switcherSpaceNumberIndicatorPlacement) {
+                ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
+                    Text(placement.localizedName).tag(placement)
+                }
             }
-            .padding(.leading, 20)
-            .disabled(!showSwitcherSpaceNumberIndicator)
-            .opacity(showSwitcherSpaceNumberIndicator ? 1 : 0.5)
+            .pickerStyle(.menu)
+            .settingsSearchTarget("appearance.switcherSpaceNumberIndicator")
+
+            if switcherSpaceNumberIndicatorPlacement != .off {
+                VStack(alignment: .leading) {
+                    Toggle("Highlight Current Space", isOn: $highlightSwitcherCurrentSpaceIndicator)
+                        .settingsSearchTarget("appearance.switcherHighlightCurrentSpace")
+                    Text("Highlights the Space number indicator for windows on the current Space.")
+                        .font(.footnote)
+                        .foregroundColor(.gray)
+                        .padding(.leading, 20)
+                }
+                .padding(.leading, 20)
+            }
 
             Picker("Show Window State Indicator", selection: $switcherWindowStateIndicatorPlacement) {
                 ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
@@ -179,7 +184,7 @@ struct WindowSwitcherAppearanceSection: View {
                 .font(.footnote)
                 .foregroundColor(.gray)
 
-            if showSwitcherSpaceNumberIndicator || switcherWindowStateIndicatorPlacement == .nextToTrafficLightButtons {
+            if switcherSpaceNumberIndicatorPlacement == .nextToTrafficLightButtons || switcherWindowStateIndicatorPlacement == .nextToTrafficLightButtons {
                 VStack(alignment: .leading) {
                     Toggle("Disable dock styling on Window State Indicator", isOn: $switcherDisableDockStyleWindowStateIndicator)
                         .settingsSearchTarget("appearance.switcherDisableWindowStateIndicatorStyling")

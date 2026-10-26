@@ -974,7 +974,8 @@ struct PreviewAppearanceSettings: Equatable {
     let compactModeTitleFormat: CompactModeTitleFormat
     let compactModeItemSize: CompactModeItemSize
     let compactModeHideTrafficLights: Bool
-    let showSpaceNumberIndicator: Bool
+    let spaceNumberIndicatorPlacement: WindowStateIndicatorPlacement
+    var showSpaceNumberIndicator: Bool { spaceNumberIndicatorPlacement == .nextToTrafficLightButtons }
     let enableSpaceIndicatorWindowMoving: Bool
     let highlightCurrentSpaceNumberIndicator: Bool
     let windowStateIndicatorPlacement: WindowStateIndicatorPlacement
@@ -1080,7 +1081,7 @@ struct PreviewAppearanceSettings: Equatable {
             .disableDockStyleTitles, .cmdTabDisableDockStyleTitles,
             .dockLivePreviewQuality, .windowSwitcherLivePreviewQuality,
             .dockLivePreviewFrameRate, .windowSwitcherLivePreviewFrameRate,
-            .showDockPreviewSpaceNumberIndicator, .showSwitcherSpaceNumberIndicator, .showCmdTabSpaceNumberIndicator,
+            .dockPreviewSpaceNumberIndicatorPlacement, .switcherSpaceNumberIndicatorPlacement, .cmdTabSpaceNumberIndicatorPlacement,
             .enableSpaceIndicatorWindowMoving,
             .highlightDockPreviewCurrentSpaceIndicator, .highlightSwitcherCurrentSpaceIndicator, .highlightCmdTabCurrentSpaceIndicator,
             .dockPreviewWindowStateIndicatorPlacement, .switcherWindowStateIndicatorPlacement, .cmdTabWindowStateIndicatorPlacement,
@@ -1162,7 +1163,7 @@ struct PreviewAppearanceSettings: Equatable {
             compactModeTitleFormat: Defaults[.compactModeTitleFormat],
             compactModeItemSize: Defaults[.compactModeItemSize],
             compactModeHideTrafficLights: Defaults[.compactModeHideTrafficLights],
-            showSpaceNumberIndicator: pick(.showDockPreviewSpaceNumberIndicator, switcher: .showSwitcherSpaceNumberIndicator, cmdTab: .showCmdTabSpaceNumberIndicator),
+            spaceNumberIndicatorPlacement: pick(.dockPreviewSpaceNumberIndicatorPlacement, switcher: .switcherSpaceNumberIndicatorPlacement, cmdTab: .cmdTabSpaceNumberIndicatorPlacement),
             enableSpaceIndicatorWindowMoving: Defaults[.enableSpaceIndicatorWindowMoving],
             highlightCurrentSpaceNumberIndicator: pick(.highlightDockPreviewCurrentSpaceIndicator, switcher: .highlightSwitcherCurrentSpaceIndicator, cmdTab: .highlightCmdTabCurrentSpaceIndicator),
             windowStateIndicatorPlacement: pick(.dockPreviewWindowStateIndicatorPlacement, switcher: .switcherWindowStateIndicatorPlacement, cmdTab: .cmdTabWindowStateIndicatorPlacement),
@@ -1744,7 +1745,10 @@ struct WindowPreview: View, Equatable {
                 SpaceNumberBadge(
                     number: spaceNumber,
                     font: appearance.windowTitleFontSize.font,
-                    backgroundAppearance: backgroundAppearance
+                    backgroundAppearance: backgroundAppearance,
+                    highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator && currentSpaceNumbers.contains(spaceNumber),
+                    highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+                    highlightOpacity: appearance.selectionOpacity
                 )
                 .padding(8)
             }

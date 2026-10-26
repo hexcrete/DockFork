@@ -397,7 +397,10 @@ struct WindowPreviewCompact: View, Equatable {
                         SpaceNumberBadge(
                             number: spaceNumber,
                             font: appearance.compactModeItemSize.secondaryFont,
-                            backgroundAppearance: backgroundAppearance
+                            backgroundAppearance: backgroundAppearance,
+                            highlightsCurrentSpace: appearance.highlightCurrentSpaceNumberIndicator && currentSpaceNumbers.contains(spaceNumber),
+                            highlightColor: appearance.hoverHighlightColor ?? Color(nsColor: .controlAccentColor),
+                            highlightOpacity: appearance.selectionOpacity
                         )
                     }
 

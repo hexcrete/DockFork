@@ -2249,3 +2249,94 @@ selection_reveal=block(scroll_source,'        private func scrollToSelection(')
 abort 'Minimal grid reveal must use shared scaled layout padding without changing centered behavior' unless selection_reveal.include?('Defaults[.centerOutOfViewSelections] ? 0 : (layout?.inset ?? 0)')
 general_appearance=block(appearance_settings,'struct GeneralAppearanceSection:')
 abort 'Centering toggle must remain the last General Appearance control' unless general_appearance.rindex('.settingsSearchTarget(')==general_appearance.index('.settingsSearchTarget("appearance.centerOutOfViewSelections")')
+
+# Compile shared placement and real regular/Compact visibility properties with inert windows.
+placement_preview=File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview.swift")
+placement_compact=File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewCompact.swift")
+placement_constants=File.read("#{root}/DockDoor/consts.swift")
+placement_source="import AppKit\n"
+placement_source += block(placement_constants,'enum WindowStateIndicatorPlacement:').sub(', Defaults.Serializable','')+"\n"
+placement_source += <<~'SWIFT'
+struct WindowInfo {
+ var isWindowlessApp=false,isMinimized=false,isEffectivelyHiddenForUI=false
+ var isFullscreen:Bool?=false
+ var spaceNumber:Int?=2
+}
+struct Appearance {
+ let spaceNumberIndicatorPlacement:WindowStateIndicatorPlacement
+ let windowStateIndicatorPlacement:WindowStateIndicatorPlacement
+ var highlightCurrentSpaceNumberIndicator=true
+SWIFT
+placement_source += block(placement_preview,'    var showSpaceNumberIndicator: Bool')+"\n}\n"
+placement_source += block(placement_preview,'enum WindowStateSymbolResolver {')+"\n"
+%w[Regular Compact].each do |kind|
+ source=kind=='Regular' ? placement_preview:placement_compact
+ placement_source += "struct #{kind} {let appearance:Appearance;let windowInfo:WindowInfo\n"
+ placement_source += "var isEffectivelyHidden:Bool {windowInfo.isEffectivelyHiddenForUI}\n"
+ properties=kind=='Regular' ? %w[hasWindowStateIndicator windowStateSymbols movesWindowStateToIndicator windowStateLabel windowStateSymbol] : %w[hasWindowStateIndicator windowStateSymbols movesWindowStateToIndicator indicatorStateSymbols stateIndicator]
+ properties.each{|name|placement_source += block(source,"    private var #{name}:").sub('private var','var')+"\n"}
+ expression=container[/spaceNumber: (appearance\.spaceNumberIndicatorPlacement == \.onWindowPreviews \? windowInfo\.spaceNumber : nil),/,1] or abort 'Missing shared preview number'
+ placement_source += "var previewNumber:Int? {#{expression}}\n"
+ highlight=source[/highlightsCurrentSpace: (appearance\.highlightCurrentSpaceNumberIndicator && currentSpaceNumbers\.contains\(spaceNumber\)),/,1] or abort "Missing #{kind} legacy highlight"
+ placement_source += "func highlighted(_ spaceNumber:Int,currentSpaceNumbers:Set<Int>)->Bool {#{highlight}}\n}\n"
+end
+placement_source += <<~'SWIFT'
+@main struct PlacementChecks {
+ static func main() {
+ var cases=0
+ for space in WindowStateIndicatorPlacement.allCases {
+  for state in WindowStateIndicatorPlacement.allCases {
+   for status in 0..<5 {
+    for number:Int? in [2,nil] {
+     var window=WindowInfo();window.spaceNumber=number
+     if status==1 {window.isMinimized=true}
+     if status==2 {window.isEffectivelyHiddenForUI=true}
+     if status==3 {window.isFullscreen=true}
+     if status==4 {window.isWindowlessApp=true;window.spaceNumber=nil}
+     for highlight in [false,true] {
+      let appearance=Appearance(spaceNumberIndicatorPlacement:space,windowStateIndicatorPlacement:state,highlightCurrentSpaceNumberIndicator:highlight)
+      let regular=Regular(appearance:appearance,windowInfo:window),compact=Compact(appearance:appearance,windowInfo:window)
+      let toolbarNumber=space == .nextToTrafficLightButtons && window.spaceNumber != nil
+      let toolbarState=state == .nextToTrafficLightButtons && (1...3).contains(status)
+      precondition(regular.hasWindowStateIndicator==(toolbarNumber || toolbarState))
+      precondition(compact.hasWindowStateIndicator==(toolbarNumber || toolbarState))
+      let previewNumber=space == .onWindowPreviews ? window.spaceNumber:nil
+      precondition(regular.previewNumber==previewNumber && compact.previewNumber==previewNumber)
+      precondition(!(toolbarNumber && previewNumber != nil),"Never duplicate a Space number")
+      if status != 4 {
+       precondition((regular.windowStateSymbol != nil)==(state == .onWindowPreviews && status != 0))
+       precondition((compact.stateIndicator != nil)==(state == .onWindowPreviews && status != 0))
+      }
+      precondition(regular.highlighted(2,currentSpaceNumbers:[2])==highlight)
+      precondition(compact.highlighted(2,currentSpaceNumbers:[2])==highlight)
+      precondition(!regular.highlighted(3,currentSpaceNumbers:[2]) && !compact.highlighted(3,currentSpaceNumbers:[2]))
+      cases+=1
+     }
+    }
+   }
+  }
+ }
+ print("PASS production Space indicator placement: \(cases) combinations, independent Space/state placement, regular/Compact parity, no duplicate number, current/other highlighting, missing numbers and windowless cases")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-space-indicator-placement-') do |dir|
+ File.write("#{dir}/checks.swift",placement_source)
+ abort 'Placement compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Placement checks failed' unless system("#{dir}/checks")
+end
+mock=File.read("#{root}/DockDoor/Views/Settings/Shared Components/SettingsMockPreview.swift")
+placement_resolve=block(placement_preview,'    static func resolve(')
+observed=block(placement_preview,'    static var observedKeys:')
+[['DockPreview','dockPreview','DockPreview','dock'],['Switcher','switcher','WindowSwitcher','switcher'],['CmdTab','cmdTab','CmdTab','cmdTab']].each do |cap,mode,file,target|
+ key="#{mode}SpaceNumberIndicatorPlacement"
+ settings_view=File.read("#{root}/DockDoor/Views/Settings/Appearance/#{file}AppearanceSection.swift")
+ abort "Unwired placement #{mode}" unless placement_constants.include?("static let #{key} = Key<WindowStateIndicatorPlacement>(\"#{key}\", default: .off)") && settings_view.include?("Picker(\"Show Space Number Indicator\", selection: $#{key})") && settings_view.include?("if #{key} != .off") && settings_view.include?("if #{key} == .nextToTrafficLightButtons || #{mode}WindowStateIndicatorPlacement == .nextToTrafficLightButtons") && settings_view.include?("appearance.#{target}SpaceNumberIndicator") && catalog.include?("appearance.#{target}SpaceNumberIndicator") && reset.include?(".#{key}") && observed.include?(".#{key}") && placement_resolve.include?(".#{key}") && mock.include?("@Default(.#{key})")
+ retired="show#{cap}SpaceNumberIndicator"
+ abort "Retired toggle still used #{mode}" if [settings_view,observed,placement_resolve,mock,reset].any?{|source|source.include?(retired)}
+ abort 'Old stored toggle must remain declared' unless placement_constants.include?("static let #{retired} = Key<Bool>(\"#{retired}\", default: true)")
+end
+abort 'Legacy global UI/search/refresh must be retired' if appearance_settings.include?('showSpaceNumber)') || catalog.include?('appearance.spaceNumber"') || state.include?('refreshDesktopNumbers') || state.include?('desktopNumber(for:') || container.include?('desktopNumber(for:') || shared.include?('static func desktopNumbers()')
+abort 'Both placements must share number lookup and gated current-Space snapshot' unless container.scan('spaceNumber: appearance.spaceNumberIndicatorPlacement == .onWindowPreviews ? windowInfo.spaceNumber : nil').size==2 && container.include?('if appearance.spaceNumberIndicatorPlacement == .off ||')
+badge=File.read("#{root}/DockDoor/Components/SpaceNumberBadge.swift")
+abort 'Legacy badge must reuse shared material highlight, preserving its passive behavior' unless badge.include?('highlightColor: highlightsCurrentSpace ? highlightColor : nil') && badge.include?('highlightOpacity: highlightOpacity') && !badge.include?('Button')

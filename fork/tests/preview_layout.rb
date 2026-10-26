@@ -63,7 +63,6 @@ enum Input { case programmatic, keyboard }
  func reconcileCheckedWindows() {}
  func reconcileSelectionRange() {}
  func refreshFocusedWindowID(from: [WindowInfo]? = nil) {}
- func refreshDesktopNumbers() {}
  func scheduleActiveFocusedWindowRefresh() {}
  func updateSelectionIndex(_ index: Int, source: Input) { currIndex = index; selectionInputSource = source }
  func recomputeAndPublishDimensions(dockPosition: DockPosition, bestGuessMonitor: NSScreen, isMockPreviewActive: Bool = false) {

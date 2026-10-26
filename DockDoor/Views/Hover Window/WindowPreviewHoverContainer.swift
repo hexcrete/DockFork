@@ -1268,7 +1268,7 @@ struct WindowPreviewHoverContainer: View {
             windowSwitcherActive: previewStateCoordinator.windowSwitcherActive,
             dockPosition: dockPosition
         )
-        let currentSpaceNumbers: Set<Int> = if !appearance.showSpaceNumberIndicator ||
+        let currentSpaceNumbers: Set<Int> = if appearance.spaceNumberIndicatorPlacement == .off ||
             !appearance.highlightCurrentSpaceNumberIndicator
         {
             []
@@ -2358,7 +2358,7 @@ struct WindowPreviewHoverContainer: View {
                     backgroundAppearance: backgroundAppearance,
                     focusedWindowID: previewStateCoordinator.focusedWindowID,
                     currentSpaceNumbers: currentSpaceNumbers,
-                    spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo),
+                    spaceNumber: appearance.spaceNumberIndicatorPlacement == .onWindowPreviews ? windowInfo.spaceNumber : nil,
                     isChecked: previewStateCoordinator.selection.checkedWindows.membership.contains(PreviewWindowIdentity(windowInfo)),
                     dragSelection: appearance.enableWindowDragTiling && !mockPreviewActive ? previewStateCoordinator.selection : nil,
                     previewBodyDrag: mockPreviewActive || windowInfo.isWindowlessApp ? nil : previewDragGesture(for: windowInfo),
@@ -2386,7 +2386,7 @@ struct WindowPreviewHoverContainer: View {
                     backgroundAppearance: backgroundAppearance,
                     focusedWindowID: previewStateCoordinator.focusedWindowID,
                     currentSpaceNumbers: currentSpaceNumbers,
-                    spaceNumber: previewStateCoordinator.desktopNumber(for: windowInfo),
+                    spaceNumber: appearance.spaceNumberIndicatorPlacement == .onWindowPreviews ? windowInfo.spaceNumber : nil,
                     isChecked: previewStateCoordinator.selection.checkedWindows.membership.contains(PreviewWindowIdentity(windowInfo)),
                     dragSelection: appearance.enableWindowDragTiling && !mockPreviewActive ? previewStateCoordinator.selection : nil,
                     previewBodyDrag: mockPreviewActive || windowInfo.isWindowlessApp ? nil : previewDragGesture(for: windowInfo),

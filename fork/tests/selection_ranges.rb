@@ -82,7 +82,6 @@ final class Selection { var checkedWindows = OrderedPreviewSelection() }
  func filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }
  func refreshSelectionLayout() { }
  func refreshFocusedWindowID(from: [WindowInfo]) { }
- func refreshDesktopNumbers() { }
  func scheduleActiveFocusedWindowRefresh() { }
  func recomputeAndPublishDimensions(dockPosition: DockPosition, bestGuessMonitor: NSScreen, isMockPreviewActive: Bool) { }
  func getCurrentWindow() -> WindowInfo? { windows.indices.contains(currIndex) ? windows[currIndex] : nil }

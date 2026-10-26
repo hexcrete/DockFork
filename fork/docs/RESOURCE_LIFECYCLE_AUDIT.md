@@ -552,3 +552,7 @@ Fullscreen toolbar eligibility: reuse WindowAction.isSupported on cached WindowI
 Keyboard reveal preference: a lazy Defaults read in the existing reveal path selects centering or minimal reveal. One pure range/offset calculation is shared between grid and Space navigation. It uses cached card geometry and current logical scroll offset; no AX, discovery, capture, timer, event handler, new observer or retained layout cache. Initial Space centering remains in the existing one-time layout path.
 
 Minimal grid reveal now receives the cached shared layout inset when centering is Off. Padding is not remeasured or independently cached. No new observers, geometry queries or resource lifetime changes; Space reveal remains unchanged.
+
+Per-mode Space placement audit: reuse existing appearance-key observation and the shared cached per-window SpaceNumberResolver. Current-Space highlighting retains one existing flow-level snapshot, gated by placement not Off and highlighting enabled. Remove the legacy-only published desktop-number dictionary, its set/merge refresh calls and unused topology-reading utility. Old preference declarations are inert. Shared material highlighting adds no handler/resource; no polling, per-card topology loop, AX read, new timer or capture. Native resource profiling not performed.
+
+Space-number placement defaults now match upstream Off. The existing placement/highlight gate therefore avoids current-Space highlight snapshot work by default. This changes defaults only, not saved preferences or resource-handler ownership.
