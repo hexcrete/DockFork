@@ -23,6 +23,26 @@ enum PreviewFocusFadePolicy {
     static func bounded(_ value: CGFloat, fallback: CGFloat, range: ClosedRange<CGFloat>) -> CGFloat {
         value.isFinite ? min(range.upperBound, max(range.lowerBound, value)) : fallback
     }
+
+    static func setOpacity(_ opacity: Float, on layer: CALayer, duration: TimeInterval, onlyNewContent: Bool = false) {
+        // Fully transparent panels lose WindowServer mouse targeting, even with an interactive NSView.
+        let opacity = max(0.01, opacity)
+        if onlyNewContent, layer.opacity == opacity { return }
+        let currentOpacity = layer.presentation()?.opacity ?? layer.opacity
+        layer.removeAnimation(forKey: "previewFocusFade")
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.opacity = opacity
+        CATransaction.commit()
+        if duration > 0 {
+            let animation = CABasicAnimation(keyPath: "opacity")
+            animation.fromValue = currentOpacity
+            animation.toValue = opacity
+            animation.duration = duration
+            animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            layer.add(animation, forKey: "previewFocusFade")
+        }
+    }
 }
 
 final class SharedPreviewWindowCoordinator: NSPanel {
@@ -100,7 +120,6 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private var focusFadeSelection: Int?
     private var isPreviewFocusFaded = false
     private var trackingMenus = Set<ObjectIdentifier>()
-    private static let focusFadeAnimationKey = "previewFocusFade"
     private var pendingShowWorkItem: DispatchWorkItem?
     private struct DeferredActionWatcher {
         let token: UUID
@@ -389,7 +408,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     func registerPreviewFocusActivity() {
-        restorePreviewFocusOpacity()
+        restorePreviewFocusOpacity(animated: true)
         guard canRunPreviewFocusFade else {
             stopPreviewFocusFade()
             return
@@ -421,35 +440,24 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     private func setPreviewFocusOpacity(_ opacity: Float, duration: TimeInterval, onlyNewContent: Bool = false) {
-        // Keep the panels interactive even at 0% opacity; only their rendered contents fade.
-        for view in [contentView, searchWindow?.contentView].compactMap({ $0 }) {
+        for view in [contentView, searchWindow?.contentView, spacesBarWindow?.contentView].compactMap({ $0 }) {
             view.wantsLayer = true
             guard let layer = view.layer else { continue }
-            if onlyNewContent, layer.opacity == opacity { continue }
-            let currentOpacity = layer.presentation()?.opacity ?? layer.opacity
-            layer.removeAnimation(forKey: Self.focusFadeAnimationKey)
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            layer.opacity = opacity
-            CATransaction.commit()
-            if duration > 0 {
-                let animation = CABasicAnimation(keyPath: "opacity")
-                animation.fromValue = currentOpacity
-                animation.toValue = opacity
-                animation.duration = duration
-                animation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                layer.add(animation, forKey: Self.focusFadeAnimationKey)
-            }
+            PreviewFocusFadePolicy.setOpacity(opacity, on: layer, duration: duration, onlyNewContent: onlyNewContent)
         }
     }
 
-    private func restorePreviewFocusOpacity() {
+    private func restorePreviewFocusOpacity(animated: Bool = false) {
         guard isPreviewFocusFaded else { return }
         isPreviewFocusFaded = false
-        setPreviewFocusOpacity(1, duration: 0)
+        let duration = animated && Defaults[.showAnimations]
+            ? min(0.2, PreviewFocusFadePolicy.bounded(Defaults[previewFocusFadeMode.durationKey], fallback: 0.5, range: 0 ... 5))
+            : 0
+        setPreviewFocusOpacity(1, duration: duration)
     }
 
     private func stopPreviewFocusFade() {
+        let wasMonitoring = focusFadeLocalMonitor != nil || isPreviewFocusFaded
         focusFadeTimer?.invalidate()
         focusFadeTimer = nil
         if let focusFadeLocalMonitor { NSEvent.removeMonitor(focusFadeLocalMonitor) }
@@ -458,7 +466,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         focusFadeGlobalMonitor = nil
         focusFadeSelection = nil
         focusFadeMode = nil
-        restorePreviewFocusOpacity()
+        isPreviewFocusFaded = false
+        if wasMonitoring { setPreviewFocusOpacity(1, duration: 0) }
     }
 
     @objc private func focusFadeMenuOpened(_ notification: Notification) {

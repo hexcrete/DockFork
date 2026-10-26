@@ -166,7 +166,7 @@ Stage 1 responsiveness verification, October 18: no new media is required for a 
 |---|---|---|---|---|
 | [ ] | F01 | Screenshot pairs: opacity/blur/border | Use a harmless patterned background. Blur affects the backdrop, not the preview screenshot; demonstrate the border without outer overhang. | `97096c7` |
 | [ ] | F02 | Video: fade durations | Disable Reduce Motion for this capture; compare zero and longer fade-in/out durations with the same window. | `3c0cf89` |
-| [ ] | F03 | Optional video: experimental resting fade | Explicitly enable the per-mode experimental feature, pause on non-control content, then move again. Label Experimental / Off by default and disclose intermittent hover-selection issues; disable it afterward if selection becomes unresponsive. | `c2fa95d`, `220464d` |
+| [ ] | F03 | Optional video: resting fade | Enable the per-mode feature, pause on a highlighted preview, then move again. Show the grid, search and Spaces Bar fading/restoring together. Off by default; no media captured yet. | `c2fa95d`, `220464d` |
 
 ## Dragging
 
@@ -557,3 +557,5 @@ UI efficiency Stage 4 manual checks: scroll Spaces Bar with momentum and through
 UI efficiency Stage 5 manual checks: regular Window Switcher with dynamic image sizing, narrow/wide cards, embedded/separate controls, styled/unstyled pills, long/empty titles and title-hover visibility. Select/unselect with unchecked checkboxes hidden; change fonts, icon/control sizes and placement, then search/filter and resize/open/close windows. Check both scroll axes, screen limits and display scale changes when available. Compare Compact Mode, Dock and Cmd+Tab for unchanged behavior. No new media requirement or captured/performance claim; sample-cache tests pass, final panel fitting is intentionally retained.
 
 UI efficiency Stage 5: the user reports the implementation working and approves review/commit. This does not certify every capture setup listed above; media remains deferred and no measured smoothness/frame-rate claim is added.
+
+F03 follow-up, October 26: user verification accepted for shared grid/search/Spaces Bar fade and restoration. No Experimental label; default remains Off. A requested 0% opacity uses a 1% rendering floor for native input safety; activity restores over at most 0.2 seconds. Focused native targeting/interruption checks pass. Retain zero/normal opacity, controls/search, menus, keyboard, refresh and disable/reopen scenarios for capture setup. No screenshots or recordings captured; exhaustive display/input coverage is not claimed.

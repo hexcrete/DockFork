@@ -179,7 +179,7 @@ October 15 tiling reliability follow-up, `c15292f`: confirm actual frames before
 
 ## Full-Size Preview Focus
 
-- The shipped resting-fade prototype remains experimental and off by default. Revisit it separately with reproducible interaction tests.
+- Resting fade remains off by default. The user-verified October 26 follow-up hardens native input targeting and interruptible restoration across companion panels; retain its focused regression.
 - Refine cursor-versus-keyboard ownership, non-control dwell timing, and an optional held key for temporarily hiding the preview container.
 - Preserve hover targets, keyboard focus, menu tracking, accessibility, Reduce Motion, and cancellation when restoring the container.
 
@@ -487,3 +487,9 @@ Related validation: keyboard and deterministic range/navigation checks passed. T
 Stage 5 development handoff: final signed build/relaunch `DockFork-e0bc380-working-F9Guzd` succeeded. Exact tracked application patch, installed executable/debug library, deep/strict signature and running `fork/dist/dev/DockFork.app` path verified. The source diff contains only sample-cache/key and cached-only number access changes; the attempted panel-fitting shortcut and all of its plumbing are removed. Final focused fixture checks actual uncached/warm operation counts and unchanged panel fitting under a stale exact prediction. Keyboard, deterministic selection/range checks, isolated checkbox rerun and focused Space model/layout checks pass; the first native checkbox failure remains recorded above. Formatter lint, Ruby syntax and diff checks pass. No full-suite, unrelated Compact drag, native frame-time/resource profile or exhaustive font/display/overflow runtime claim. The new Ruby runner is not application source. User verification of regular-preview dimensions, toolbar/title/checkbox behavior, search/filter resizing and screen-limit handling remains pending before review/commit. Ledger coverage is exact through Stage 4 `e0bc3808`, 442 commits; Stage 5 is outside that boundary. No release or push.
 
 Stage 5 user verification passed. Final review found no blockers: two-slot replacement/teardown, complete sample-key inputs, cached-only number lookup, invalid-fit fallback and unchanged panel fitting match the focused regressions and tested artifact. The review rerun, formatter/syntax/diff checks and source/executable/debug-library/signature/running-path comparison passed. Approved for the implementation commit and exact-hash closeout. No further implementation stage remains in this plan; native profiling, exhaustive runtime combinations and the stronger panel-geometry validity contract are not claimed or silently added.
+
+### Resting-fade follow-up, October 26
+
+User-verified and reviewed: preserve native targeting with a 1% rendering floor, restore smoothly from current opacity, and cancel unfinished restoration on teardown. Grid, search and Spaces Bar share the same writer. Remove the settings Experimental labels and warning paragraphs in favor of one concise explainer; keep all preferences/defaults unchanged.
+
+Focused native regression, settings/search wording checks, formatter/diff checks and exact signed installed/running-artifact verification pass for `DockFork-87161c4-working-aduK6f`. No additional capture/discovery, handlers or timers. Approval covers the tested implementation, not exhaustive input/display combinations or profiling. No release or push. Ledger coverage ends at the preceding documentation commit `87161c477d942a346bba848c358826fa546e863d`; record this follow-up's exact hash in the next update.

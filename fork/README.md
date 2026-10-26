@@ -226,6 +226,7 @@ No application installation, launch, live settings import or media capture accom
 | Ownership, worker scheduling or frame transactions | `action_ownership.rb`, `action_responsiveness.rb`, `frame_placement.rb` |
 | Auto Tile, linked resize or tiling settings | `linked_tiling.rb`, `tiling_settings.rb` |
 | Native-tab discovery or Close | `native_tab_grouping.rb`, `native_tab_close.rb` |
+| Resting fade and native mouse targeting | `preview_focus_fade.rb` uses a disposable panel; no working windows or pointer movement |
 | Popup execution, styling or lifetime | `action_feedback.rb` |
 | Cmd+Tab app actions, Quit or scripting | `cmd_tab_close.rb`, `quit_actions.rb`, `script_actions.rb` |
 | Title-bar hit classification or Wine discovery | `window_gesture_zones.rb`, `wine_discovery.rb` |

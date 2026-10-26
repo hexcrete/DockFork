@@ -1707,18 +1707,14 @@ enum PreviewFocusFadeMode: CaseIterable {
 
     var toggleTitle: String {
         switch self {
-        case .windowSwitcher: String(localized: "Enable Window Switcher fade out when resting on a preview (Experimental)")
-        case .dock: String(localized: "Enable Dock previews fade out when resting on a preview (Experimental)")
-        case .cmdTab: String(localized: "Enable Cmd+Tab previews fade out when resting on a preview (Experimental)")
+        case .windowSwitcher: String(localized: "Enable Window Switcher fade out when resting on a preview")
+        case .dock: String(localized: "Enable Dock previews fade out when resting on a preview")
+        case .cmdTab: String(localized: "Enable Cmd+Tab previews fade out when resting on a preview")
         }
     }
 
     var helperText: String {
-        switch self {
-        case .windowSwitcher: String(localized: "Fade out Window Switcher while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled. Experimental: this feature can intermittently stop mouse-hover highlighting or make preview selection appear unresponsive. The cause has not been resolved. Disabled by default; turn it off if you encounter these issues.")
-        case .dock: String(localized: "Fade out Dock previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled. Experimental: this feature can intermittently stop mouse-hover highlighting or make preview selection appear unresponsive. The cause has not been resolved. Disabled by default; turn it off if you encounter these issues.")
-        case .cmdTab: String(localized: "Fade out Cmd+Tab previews while highlighting a window and pausing all movement. This is useful to fully reveal the currently highlighted window’s full size preview if enabled. Experimental: this feature can intermittently stop mouse-hover highlighting or make preview selection appear unresponsive. The cause has not been resolved. Disabled by default; turn it off if you encounter these issues.")
-        }
+        String(localized: "Fade the preview container after a pause to reveal the highlighted window’s full-size preview. Mouse or keyboard input restores it.")
     }
 
     var delayTitle: String {
