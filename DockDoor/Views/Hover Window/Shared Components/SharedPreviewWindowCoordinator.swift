@@ -109,7 +109,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private var onWindowTap: (() -> Void)?
     private var fullPreviewWindow: NSPanel?
     private var fullPreviewSource: (identity: PreviewWindowIdentity, capturedAt: Date)?
-    private var fullPreviewRefresh: (token: UUID, capturedAt: Date, task: Task<Void, Never>)?
+    private var fullPreviewRefresh: (token: UUID, capturedAt: Date, pendingWindow: WindowInfo?, task: Task<Void, Never>)?
     private var fullPreviewFadeOutToken: UUID?
     private var activeFullPreviewHoverID: UUID?
     private var focusFadeTimer: Timer?
@@ -1628,13 +1628,61 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     }
 
     @MainActor
-    private func showFullPreviewWindow(for windowInfo: WindowInfo, on screen: NSScreen, frame: CGRect? = nil) {
+    private func requestFullPreviewWindow(for windowInfo: WindowInfo, on screen: NSScreen) {
+        guard canPresentPreviews, isVisible else { return }
+        fullPreviewRefresh?.task.cancel()
+        fullPreviewRefresh = nil
+        fullPreviewWindow?.orderOut(nil)
+        fullPreviewWindow?.contentView = nil
+        fullPreviewSource = nil
+        fullPreviewFadeOutToken = nil
+        windowSwitcherCoordinator.setShowing(.fullWindowPreview, toState: true)
+        let target = windowInfo.frameTarget
+        let screens = NSScreen.screens
+        let screenFrames = screens.map(\.frame)
+        let screenIDs = screens.map { $0.uniqueIdentifier() }
+        let hoverID = activeFullPreviewHoverID
+        let session = windowSwitcherCoordinator.pointerInteractionSessionID
+        let mode = previewFocusFadeMode
+        let token = UUID()
+        let task = Task { @MainActor [weak self] in
+            let geometry = await target.readPreviewGeometry()
+            guard let self else { return }
+            defer {
+                if fullPreviewRefresh?.token == token {
+                    fullPreviewRefresh = nil
+                    windowSwitcherCoordinator.setShowing(.fullWindowPreview, toState: false)
+                    publishTapSnapshot()
+                }
+            }
+            guard !Task.isCancelled, fullPreviewRefresh?.token == token,
+                  canPresentPreviews, isVisible, windowSwitcherCoordinator.fullWindowPreviewActive,
+                  activeFullPreviewHoverID == hoverID, windowSwitcherCoordinator.pointerInteractionSessionID == session,
+                  let selected = windowSwitcherCoordinator.getCurrentWindow(),
+                  PreviewWindowIdentity(selected) == target.identity, selected.axElement == target.element,
+                  previewFocusFadeMode == mode, Defaults[mode.hoverActionKey] == .previewFullSize,
+                  NSScreen.screens.map(\.frame) == screenFrames,
+                  NSScreen.screens.map({ $0.uniqueIdentifier() }) == screenIDs,
+                  let geometry, let current = fullPreviewRefresh?.pendingWindow, current.axElement == target.element
+            else { return }
+            let targetScreen = geometry.position.flatMap { $0.screen() } ?? screen
+            let size = geometry.size ?? targetScreen.frame.size
+            let position = geometry.position ?? CGPoint(x: targetScreen.frame.midX, y: targetScreen.frame.midY)
+            let converted = DockObserver.cgPointFromNSPoint(position, forScreen: targetScreen)
+            let frame = CGRect(x: converted.x, y: converted.y - size.height, width: size.width, height: size.height)
+            fullPreviewRefresh = nil
+            showFullPreviewWindow(for: current, frame: frame)
+        }
+        fullPreviewRefresh = (token, windowInfo.imageCapturedTime, windowInfo, task)
+        publishTapSnapshot()
+    }
+
+    @MainActor
+    private func showFullPreviewWindow(for windowInfo: WindowInfo, frame: CGRect, isRefresh: Bool = false) {
         guard canPresentPreviews else { return }
         fullPreviewRefresh?.task.cancel()
         fullPreviewRefresh = nil
-        if frame == nil { windowSwitcherCoordinator.setShowing(.fullWindowPreview, toState: true) }
 
-        let wasFadingOut = fullPreviewFadeOutToken != nil
         fullPreviewFadeOutToken = nil
         let isNewWindow = fullPreviewWindow == nil
         if fullPreviewWindow == nil {
@@ -1650,36 +1698,27 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             fullPreviewWindow?.animationBehavior = .none
         }
 
-        let flippedIconRect: CGRect
-        if let frame {
-            flippedIconRect = frame
-        } else {
-            let size = (try? windowInfo.axElement.size()) ?? screen.frame.size
-            let position = (try? windowInfo.axElement.position()) ?? CGPoint(x: screen.frame.midX, y: screen.frame.midY)
-            let converted = DockObserver.cgPointFromNSPoint(position, forScreen: screen)
-            flippedIconRect = CGRect(x: converted.x, y: converted.y - size.height, width: size.width, height: size.height)
-        }
-        let windowSize = flippedIconRect.size
+        let windowSize = frame.size
 
         let previewView = FullSizePreviewView(windowInfo: windowInfo, windowSize: windowSize)
-        if frame != nil, let hostingView = fullPreviewWindow?.contentView as? NSHostingView<FullSizePreviewView> {
+        if isRefresh, let hostingView = fullPreviewWindow?.contentView as? NSHostingView<FullSizePreviewView> {
             hostingView.rootView = previewView
         } else {
             fullPreviewWindow?.contentView?.removeFromSuperview()
             fullPreviewWindow?.contentView = NSHostingView(rootView: previewView)
         }
 
-        fullPreviewWindow?.setFrame(flippedIconRect, display: true)
+        fullPreviewWindow?.setFrame(frame, display: true)
         guard let fullPreviewWindow else { return }
         fullPreviewSource = (PreviewWindowIdentity(windowInfo), windowInfo.imageCapturedTime)
-        if frame != nil {
+        if isRefresh {
             // A cache refresh must not raise the panel or interrupt its existing fade-in.
             publishTapSnapshot()
             return
         }
 
         let fadeInDuration = Defaults[.fullSizePreviewFadeInDuration]
-        let shouldFadeIn = fadeInDuration > 0 && (isNewWindow || wasFadingOut || !fullPreviewWindow.isVisible)
+        let shouldFadeIn = fadeInDuration > 0 && (isNewWindow || !fullPreviewWindow.isVisible)
         if isNewWindow, shouldFadeIn {
             fullPreviewWindow.alphaValue = 0
         }
@@ -1699,6 +1738,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     func refreshDisplayedFullPreview(after updates: [WindowInfo]) {
+        if let pending = fullPreviewRefresh?.pendingWindow {
+            if let updated = updates.filter({ PreviewWindowIdentity($0) == PreviewWindowIdentity(pending) }).max(by: { $0.imageCapturedTime < $1.imageCapturedTime }),
+               updated.imageCapturedTime >= pending.imageCapturedTime
+            {
+                fullPreviewRefresh?.pendingWindow = updated
+                fullPreviewRefresh?.capturedAt = updated.imageCapturedTime
+            }
+            return
+        }
         guard let panel = fullPreviewWindow, panel.isVisible, fullPreviewFadeOutToken == nil,
               let source = fullPreviewSource,
               let updated = updates.filter({ PreviewWindowIdentity($0) == source.identity }).max(by: { $0.imageCapturedTime < $1.imageCapturedTime }),
@@ -1714,12 +1762,12 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             guard !Task.isCancelled, fullPreviewRefresh?.token == token,
                   fullPreviewSource?.identity == source.identity,
                   let panel, fullPreviewWindow === panel, panel.isVisible, fullPreviewFadeOutToken == nil,
-                  let frame, let screen = NSScreen.screen(containing: frame)
+                  let frame, NSScreen.screen(containing: frame) != nil
             else { return }
             fullPreviewRefresh = nil
-            showFullPreviewWindow(for: updated, on: screen, frame: frame)
+            showFullPreviewWindow(for: updated, frame: frame, isRefresh: true)
         }
-        fullPreviewRefresh = (token, updated.imageCapturedTime, task)
+        fullPreviewRefresh = (token, updated.imageCapturedTime, nil, task)
     }
 
     @MainActor
@@ -2134,14 +2182,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         if centeredHoverWindowState == .fullWindowPreview,
            let windowInfo = windows.first
         {
-            let targetScreen: NSScreen = if let windowPosition = try? windowInfo.axElement.position(),
-                                            let windowScreen = windowPosition.screen()
-            {
-                windowScreen
-            } else {
-                screen
-            }
-            showFullPreviewWindow(for: windowInfo, on: targetScreen)
+            requestFullPreviewWindow(for: windowInfo, on: screen)
         } else {
             hideFullPreviewWindow()
             self.appName = appName
@@ -2954,14 +2995,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         guard !selectedWindow.isWindowlessApp else { return }
 
         guard let fallbackScreen = NSScreen.main ?? NSScreen.screens.first else { return }
-        let targetScreen: NSScreen = if let position = try? selectedWindow.axElement.position(),
-                                        let resolved = position.screen()
-        {
-            resolved
-        } else {
-            fallbackScreen
-        }
-        showFullPreviewWindow(for: selectedWindow, on: targetScreen)
+        requestFullPreviewWindow(for: selectedWindow, on: fallbackScreen)
     }
 
     private func scheduleAppTerminationDismissConfirmation(window: WindowInfo, sourceAction: WindowAction) {

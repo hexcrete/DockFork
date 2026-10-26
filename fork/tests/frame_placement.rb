@@ -105,9 +105,9 @@ s+=<<~'SWIFT'
  var fullPreviewWindow:PreviewPanel?=PreviewPanel()
  var fullPreviewFadeOutToken:UUID?
  var fullPreviewSource:(identity:PreviewWindowIdentity,capturedAt:Date)?
- var fullPreviewRefresh:(token:UUID,capturedAt:Date,task:Task<Void,Never>)?
+ var fullPreviewRefresh:(token:UUID,capturedAt:Date,pendingWindow:WindowInfo?,task:Task<Void,Never>)?
  var rendered:[(PreviewWindowIdentity,Date,CGRect)]=[]
- func showFullPreviewWindow(for window:WindowInfo,on screen:NSScreen,frame:CGRect) {
+ func showFullPreviewWindow(for window:WindowInfo,frame:CGRect,isRefresh:Bool = false) {
   rendered.append((PreviewWindowIdentity(window),window.imageCapturedTime,frame))
   fullPreviewSource=(PreviewWindowIdentity(window),window.imageCapturedTime)
  }

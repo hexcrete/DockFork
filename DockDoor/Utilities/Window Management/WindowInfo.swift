@@ -242,6 +242,18 @@ struct WindowFrameTarget {
     let ownerPID: pid_t
     let identity: PreviewWindowIdentity
 
+    func readPreviewGeometry() async -> (position: CGPoint?, size: CGSize?)? {
+        let element = element
+        return await WindowFrameTransactions.run(for: ownerPID) { cancellation in
+            guard !cancellation.isCancelled else { return nil as (position: CGPoint?, size: CGSize?)? }
+            let position = try? element.position()
+            guard !cancellation.isCancelled else { return nil }
+            let size = try? element.size()
+            guard !cancellation.isCancelled else { return nil }
+            return (position, size)
+        } ?? nil
+    }
+
     func frame(primaryMaxY: CGFloat, cancellation: WindowFrameTransactions.Cancellation? = nil) -> CGRect? {
         guard cancellation?.isCancelled != true, let position = try? element.position(),
               cancellation?.isCancelled != true, let size = try? element.size(), cancellation?.isCancelled != true else { return nil }
