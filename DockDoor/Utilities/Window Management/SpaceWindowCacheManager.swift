@@ -144,30 +144,23 @@ class SpaceWindowCacheManager {
             return
         }
 
-        let oldWindowIDs = Set(oldWindowSet.map(\.id))
-        let newWindowIDs = Set(windowSet.map(\.id))
+        let changes = Self.changes(from: oldWindowSet, to: windowSet)
+        notifyCoordinatorOfRemovedWindows(changes.removed)
+        notifyCoordinatorOfAddedWindows(changes.added)
+        notifyCoordinatorOfUpdatedWindows(changes.updated)
+    }
 
-        let removedWindowIDs = oldWindowIDs.subtracting(newWindowIDs)
-        let removedWindows = oldWindowSet.filter { removedWindowIDs.contains($0.id) }
-        notifyCoordinatorOfRemovedWindows(Set(removedWindows))
-
-        let addedWindowIDs = newWindowIDs.subtracting(oldWindowIDs)
-        let addedWindows = windowSet.filter { addedWindowIDs.contains($0.id) }
-        notifyCoordinatorOfAddedWindows(Set(addedWindows))
-
-        let persistingWindowIDs = oldWindowIDs.intersection(newWindowIDs)
-        var updatedWindows: [WindowInfo] = []
-
-        for windowID in persistingWindowIDs {
-            if let oldWindow = oldWindowSet.first(where: { $0.id == windowID }),
-               let newWindow = windowSet.first(where: { $0.id == windowID }),
-               oldWindow != newWindow || oldWindow.viewSnapshot != newWindow.viewSnapshot
-            {
-                updatedWindows.append(newWindow)
-            }
+    static func changes(from old: Set<WindowInfo>, to new: Set<WindowInfo>) -> (removed: Set<WindowInfo>, added: Set<WindowInfo>, updated: [WindowInfo]) {
+        // A Set can contain the same window ID with different AX elements; preserve its first match.
+        let oldByID = Dictionary(old.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let newByID = Dictionary(new.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let removed = old.filter { newByID[$0.id] == nil }
+        let added = new.filter { oldByID[$0.id] == nil }
+        let updated = oldByID.compactMap { id, previous -> WindowInfo? in
+            guard let current = newByID[id], previous != current || previous.viewSnapshot != current.viewSnapshot else { return nil }
+            return current
         }
-
-        notifyCoordinatorOfUpdatedWindows(updatedWindows)
+        return (removed, added, updated)
     }
 
     func updateCache(pid: pid_t, update: (inout Set<WindowInfo>) -> Void) {
@@ -193,30 +186,10 @@ class SpaceWindowCacheManager {
             return
         }
 
-        let oldWindowIDs = Set(oldWindowSet.map(\.id))
-        let newWindowIDs = Set(currentWindowSet.map(\.id))
-
-        let removedWindowIDs = oldWindowIDs.subtracting(newWindowIDs)
-        let removedWindows = oldWindowSet.filter { removedWindowIDs.contains($0.id) }
-        notifyCoordinatorOfRemovedWindows(Set(removedWindows))
-
-        let addedWindowIDs = newWindowIDs.subtracting(oldWindowIDs)
-        let addedWindows = currentWindowSet.filter { addedWindowIDs.contains($0.id) }
-        notifyCoordinatorOfAddedWindows(Set(addedWindows))
-
-        let persistingWindowIDs = oldWindowIDs.intersection(newWindowIDs)
-        var updatedWindows: [WindowInfo] = []
-
-        for windowID in persistingWindowIDs {
-            if let oldWindow = oldWindowSet.first(where: { $0.id == windowID }),
-               let newWindow = currentWindowSet.first(where: { $0.id == windowID }),
-               oldWindow != newWindow || oldWindow.viewSnapshot != newWindow.viewSnapshot
-            {
-                updatedWindows.append(newWindow)
-            }
-        }
-
-        notifyCoordinatorOfUpdatedWindows(updatedWindows)
+        let changes = Self.changes(from: oldWindowSet, to: currentWindowSet)
+        notifyCoordinatorOfRemovedWindows(changes.removed)
+        notifyCoordinatorOfAddedWindows(changes.added)
+        notifyCoordinatorOfUpdatedWindows(changes.updated)
     }
 
     func removeFromCache(pid: pid_t, windowId: CGWindowID) {
