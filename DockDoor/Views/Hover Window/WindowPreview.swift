@@ -1333,6 +1333,40 @@ struct WindowTitlePresentation: Equatable {
 }
 
 struct WindowPreview: View, Equatable {
+    struct ChromeMeasurementKey: Equatable {
+        let dimensions: WindowPreviewHoverContainer.WindowDimensions
+        let appearance: PreviewAppearanceSettings
+        let background: BackgroundAppearance
+        let dockPosition: DockPosition
+        let titles: [String?]
+        let spaceNumber: Int?
+        let stateSymbols: [String]
+        let stateLabel: String?
+        let actions: Set<WindowAction>
+        let flags: [Bool]
+        let fonts: [NSFont]
+        let screenFrame: CGRect
+        let backingScale: CGFloat
+    }
+
+    var chromeMeasurementKey: ChromeMeasurementKey? {
+        guard skeletonMode, windowSwitcherActive, !mockPreviewActive, !useLivePreview else { return nil }
+        let showsNumber = appearance.showSpaceNumberIndicator && !windowInfo.isWindowlessApp
+        let number = showsNumber ? windowInfo.spaceNumberOverride ?? SpaceNumberResolver.cachedNumber(for: windowInfo.spaceID) : nil
+        // Unknown numbering must retain the view's existing refresh/fitting path.
+        guard !showsNumber || windowInfo.spaceID == nil || number != nil else { return nil }
+        return ChromeMeasurementKey(
+            dimensions: dimensions, appearance: appearance, background: backgroundAppearance, dockPosition: dockPosition,
+            titles: [windowInfo.windowName, windowInfo.app.localizedName, previewTitle], spaceNumber: number,
+            stateSymbols: windowStateSymbols, stateLabel: visibleWindowStateLabel, actions: effectiveTrafficLightButtons,
+            flags: [uniformCardRadius, isSelected, isChecked, showAppIconOnly, windowInfo.image != nil, windowInfo.isWindowlessApp],
+            fonts: [NSFont.preferredFont(forTextStyle: .body),
+                    NSFont.preferredFont(forTextStyle: appearance.windowTitleFontSize.appKitTextStyle),
+                    NSFont.preferredFont(forTextStyle: appearance.windowStateIndicatorFontSize.appKitTextStyle)],
+            screenFrame: bestGuessMonitor.visibleFrame, backingScale: bestGuessMonitor.backingScaleFactor
+        )
+    }
+
     let windowInfo: WindowInfo
     let onTap: (() -> Void)?
     let index: Int

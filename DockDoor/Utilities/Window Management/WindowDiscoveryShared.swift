@@ -875,6 +875,13 @@ enum SpaceNumberResolver {
     private static var missingSpaceRefreshTimes: [Int: TimeInterval] = [:]
     private static let missingSpaceRefreshInterval: TimeInterval = 0.35
 
+    static func cachedNumber(for spaceID: Int?) -> Int? {
+        guard let spaceID else { return nil }
+        lock.lock()
+        defer { lock.unlock() }
+        return numbersByID[spaceID]
+    }
+
     static func refresh() {
         refreshLock.lock()
         defer { refreshLock.unlock() }

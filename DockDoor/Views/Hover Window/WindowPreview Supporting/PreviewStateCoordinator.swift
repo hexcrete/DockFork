@@ -502,6 +502,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @Published var windowSwitcherActive: Bool = false {
         didSet {
+            if !windowSwitcherActive { switcherChromeMeasurements.removeAll() }
             invalidateFilterCache()
             if oldValue != windowSwitcherActive {
                 tapStateDidChange?()
@@ -525,6 +526,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func deactivateKeybindSession() {
+        switcherChromeMeasurements.removeAll()
         preparedSpaceFilterCandidates = nil
         mouseHighlightedSpaceID = nil
         pendingSpaceNavigation = nil
@@ -641,6 +643,7 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     @Published var dimensionState = DimensionState()
+    private var switcherChromeMeasurements: [(key: WindowPreview.ChromeMeasurementKey, height: CGFloat)] = []
     var expectedContentSize: CGSize = .zero
     var hasEmbeddedContent: Bool = false
 
@@ -1466,6 +1469,8 @@ class PreviewStateCoordinator: ObservableObject {
            checkedIndex != sampleIndex
         { sampleIndices.append(checkedIndex) }
 
+        var nextMeasurements: [(key: WindowPreview.ChromeMeasurementKey, height: CGFloat)] = []
+        defer { switcherChromeMeasurements = nextMeasurements }
         return sampleIndices.compactMap { sampleIndex -> CGFloat? in
             guard let dims = dimensionsMap[sampleIndex] else { return nil }
             let sample = WindowPreview(
@@ -1491,9 +1496,16 @@ class PreviewStateCoordinator: ObservableObject {
                 currentSpaceNumbers: [],
                 isChecked: selection.checkedWindows.membership.contains(PreviewWindowIdentity(windows[sampleIndex]))
             )
+            let key = sample.chromeMeasurementKey
+            if let key, let cached = switcherChromeMeasurements.first(where: { $0.key == key }) {
+                nextMeasurements.append(cached)
+                return cached.height
+            }
             let measured = NSHostingView(rootView: sample).fittingSize
             guard measured.height > 0 else { return nil }
-            return max(0, measured.height - dims.size.height)
+            let height = max(0, measured.height - dims.size.height)
+            if let key, height.isFinite { nextMeasurements.append((key, height)) }
+            return height
         }.max()
     }
 
