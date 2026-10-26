@@ -970,12 +970,7 @@ struct SpacesBarScroll: NSViewRepresentable {
         if view.gapAnchorID == nil, view.lastRevealRange != revealRange {
             view.lastRevealRange = revealRange
             if let revealRange {
-                let inset = SpacesBarLayout.innerPadding
-                if revealRange.lowerBound < view.scroller.offset + inset {
-                    view.scroller.scroll(to: revealRange.lowerBound - inset, animated: false)
-                } else if revealRange.upperBound > view.scroller.offset + view.bounds.width - inset {
-                    view.scroller.scroll(to: revealRange.upperBound + inset - view.bounds.width, animated: false)
-                }
+                view.scroller.reveal(revealRange, inset: SpacesBarLayout.innerPadding, animated: false)
             }
         }
         view.edgeScrolling = edgeScrolling

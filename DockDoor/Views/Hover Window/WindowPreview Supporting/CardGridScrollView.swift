@@ -201,6 +201,23 @@ struct CardGridScrollView: NSViewRepresentable {
             }
         }
 
+        static func revealOffset(for range: ClosedRange<CGFloat>, offset: CGFloat, length: CGFloat,
+                                 inset: CGFloat, centered: Bool) -> CGFloat?
+        {
+            guard length > 0 else { return nil }
+            let inset = min(max(0, inset), length / 2)
+            guard range.lowerBound < offset + inset || range.upperBound > offset + length - inset else { return nil }
+            if centered { return range.lowerBound + (range.upperBound - range.lowerBound - length) / 2 }
+            return range.lowerBound < offset + inset ? range.lowerBound - inset : range.upperBound + inset - length
+        }
+
+        func reveal(_ range: ClosedRange<CGFloat>, inset: CGFloat = 0, animated: Bool) {
+            let length = scrollsVertically ? bounds.height : bounds.width
+            guard let target = Self.revealOffset(for: range, offset: offset, length: length, inset: inset,
+                                                 centered: Defaults[.centerOutOfViewSelections]) else { return }
+            scroll(to: target, animated: animated)
+        }
+
         private func setOffset(_ newOffset: CGFloat) {
             let clamped = max(0, min(newOffset, maxOffset))
             let changed = clamped != offset
@@ -585,12 +602,9 @@ struct CardGridScrollView: NSViewRepresentable {
             guard let container, let previewCoordinator, previewCoordinator.shouldScrollToIndex,
                   let frame = frames[.window(index)]
             else { return }
-            let visible = container.contentView.convert(container.bounds, from: container)
-            guard !visible.contains(frame) else { return }
-            let target = container.scrollsVertically
-                ? frame.midY - visible.height / 2
-                : frame.midX - visible.width / 2
-            container.scroll(to: target, animated: true)
+            let range = container.scrollsVertically ? frame.minY ... frame.maxY : frame.minX ... frame.maxX
+            let inset = Defaults[.centerOutOfViewSelections] ? 0 : (layout?.inset ?? 0)
+            container.reveal(range, inset: inset, animated: true)
         }
     }
 }

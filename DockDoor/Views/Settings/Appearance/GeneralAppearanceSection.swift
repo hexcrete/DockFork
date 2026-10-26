@@ -19,6 +19,7 @@ struct GeneralAppearanceSection: View {
     @Default(.hideWidgetContainerBackground) var hideWidgetContainerBackground
     @Default(.showActiveWindowBorder) var showActiveWindowBorder
     @Default(.appAppearanceMode) var appAppearanceMode
+    @Default(.centerOutOfViewSelections) private var centerOutOfViewSelections
 
     var body: some View {
         SettingsGroup(header: "General Appearance") {
@@ -210,6 +211,14 @@ struct GeneralAppearanceSection: View {
                         .font(.footnote)
                         .foregroundColor(.gray)
                         .padding(.leading, 20)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Toggle(String(localized: "Center out-of-view selections during keyboard navigation"), isOn: $centerOutOfViewSelections)
+                        .settingsSearchTarget("appearance.centerOutOfViewSelections")
+                    Text(String(localized: "When highlighting an out-of-view window or Space in an overflowing list, scroll it to the center. When off, scroll only enough to reveal it."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

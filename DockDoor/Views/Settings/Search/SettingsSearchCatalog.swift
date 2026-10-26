@@ -1166,6 +1166,15 @@ enum SettingsSearchCatalog {
         ),
         // General Appearance
         SettingsSearchItem(
+            id: "appearance.centerOutOfViewSelections",
+            title: String(localized: "Center out-of-view selections during keyboard navigation"),
+            description: String(localized: "When highlighting an out-of-view window or Space in an overflowing list, scroll it to the center. When off, scroll only enough to reveal it."),
+            keywords: ["scroll", "center", "selection", "keyboard", "navigation", "spaces", "reveal"],
+            tab: "Appearance",
+            section: String(localized: "General Appearance"),
+            icon: "arrow.up.and.down"
+        ),
+        SettingsSearchItem(
             id: "appearance.theme",
             title: String(localized: "Appearance"),
             keywords: ["theme", "dark", "light", "system"],

@@ -828,6 +828,7 @@ extension Defaults.Keys {
 
     static let persistedWindowOrder = Key<[WindowOrderPersistence.PersistedWindowEntry]>("persistedWindowOrder", default: [])
     static let showAnimations = Key<Bool>("showAnimations", default: true)
+    static let centerOutOfViewSelections = Key<Bool>("centerOutOfViewSelections", default: true)
     static let gradientColorPalette = Key<GradientColorPaletteSettings>("gradientColorPalette", default: .init())
     static let enableWindowSwitcher = Key<Bool>("enableWindowSwitcher", default: true)
     static let instantWindowSwitcher = Key<Bool>("instantWindowSwitcher", default: false)

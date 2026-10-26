@@ -173,6 +173,7 @@ struct MainSettingsView: View {
                 Defaults[.cmdShortcuts] = Defaults.Keys.cmdShortcuts.defaultValue
                 Defaults.reset(.enableActionFeedback, .actionFeedbackPosition, .showMouseFollowsFocusFeedback)
                 Defaults.reset(.disableTitleBarGesturesOverInteractiveElements)
+                Defaults.reset(.centerOutOfViewSelections)
                 Defaults[.movingResizingPostActionBehavior] = Defaults.Keys.movingResizingPostActionBehavior.defaultValue
                 Defaults[.hidingPostActionBehavior] = Defaults.Keys.hidingPostActionBehavior.defaultValue
                 Defaults[.unhidingPostActionBehavior] = Defaults.Keys.unhidingPostActionBehavior.defaultValue

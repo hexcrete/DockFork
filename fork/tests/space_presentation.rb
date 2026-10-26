@@ -1025,7 +1025,8 @@ native_source += block(material, 'struct MaterialPillStyle:') + "\n"
 native_source += "extension View {\n" + block(material, '    func materialPill(') + "\n}\n"
 native_source += "enum AppIconStripFormatting {\n" + block(preview, '    static func width(') + "\n" + block(preview, '    static func visibleCount(total:') + "\n}\n"
 native_source += "extension SpacesBarLayout {\n" + block(bar, '    static func titleInset(') + "\n" + block(bar, '    static func pinnedTitleOffset(') + "\n}\n"
-native_source += "enum Defaults { struct Key<T> { let value:T }; static var size = SpacesBarItemSize.small; static subscript<T>(_ key:Key<T>)->T {key.value} }\nextension Defaults.Key where T == SpacesBarItemSize {static var spacesBarItemSize: Self {Self(value:Defaults.size)}}\n"
+native_source += "enum Defaults { struct Key<T> { let value:T }; static var size = SpacesBarItemSize.small; static var centerSelections = true; static subscript<T>(_ key:Key<T>)->T {key.value} }\nextension Defaults.Key where T == SpacesBarItemSize {static var spacesBarItemSize: Self {Self(value:Defaults.size)}}\n"
+native_source += "extension Defaults.Key where T == Bool {static var centerOutOfViewSelections: Self {Self(value:Defaults.centerSelections)}}\n"
 native_source += "final class PreviewStateCoordinator { weak var spaceDragViewport: SpacesBarScroll.ViewportView?; var mouseHighlightedSpaceID: CGSSpaceID? }\n"
 native_source += block(File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewInteractionModifier.swift"), 'struct NativeContextMenuCapture:') + "\n"
 native_source += <<~'SWIFT'
@@ -1481,6 +1482,57 @@ precondition(!FilterControlSlideSamples.values.contains{$0 > -SpacesBarLayout.mi
 filterAnimationPanel.orderOut(nil)
 dragPanel.orderOut(nil)
 print("PASS native Space pill input: body/icon drags, control drag exclusion, replacement button clicks, x-only initial entry, whole-button outgoing/incoming slide frames and immediate disabled-animation updates; test-owned panel only")
+var revealCases=0
+for offset:CGFloat in [0,100,500] {
+ for length:CGFloat in [100,200] {
+  for inset:CGFloat in [0,4,10,14,20,34,40] {
+   for start:CGFloat in [-50,0,30,80,150,250] {
+    for extent:CGFloat in [20,100,300] {
+     for centered in [false,true] {
+      let range=(offset+start)...(offset+start+extent)
+      let target=CardGridScrollView.ContainerView.revealOffset(for:range,offset:offset,length:length,inset:inset,centered:centered)
+      let fits=range.lowerBound>=offset+inset && range.upperBound<=offset+length-inset
+      if fits {precondition(target==nil,"Visible selections must not scroll")}
+      else if centered {precondition(target==range.lowerBound+(extent-length)/2,"Centering must preserve upstream geometry")}
+      else {
+       let expected=range.lowerBound<offset+inset ? range.lowerBound-inset:range.upperBound+inset-length
+       precondition(target==expected,"Minimal reveal must align only the crossed edge")
+      }
+      revealCases+=1
+     }
+    }
+   }
+  }
+ }
+}
+precondition(CardGridScrollView.ContainerView.revealOffset(for:0...20,offset:0,length:0,inset:0,centered:true)==nil)
+for vertical in [false,true] {
+ let reveal=CardGridScrollView.ContainerView(scrollsVertically:vertical)
+ reveal.frame=CGRect(x:0,y:0,width:200,height:200)
+ reveal.contentSize=CGSize(width:1000,height:1000)
+ for centered in [false,true] {
+  Defaults.centerSelections=centered
+  reveal.scroll(to:100,animated:false)
+  reveal.reveal(280...330,animated:false)
+  precondition(reveal.offset==(centered ? 205:130),"Both axes must read the same setting")
+  reveal.scroll(to:100,animated:false)
+  reveal.reveal(80...120,animated:false)
+  precondition(reveal.offset==(centered ? 0:80),"Leading reveal must clamp to content bounds")
+for inset:CGFloat in [4,10,14,20,34,40] {
+ reveal.scroll(to:100,animated:false)
+ reveal.reveal(280...330,inset:centered ? 0:inset,animated:false)
+ precondition(reveal.offset==(centered ? 205:130+inset),"Minimal reveal must leave the scaled layout inset beyond the complete card")
+ reveal.scroll(to:100,animated:false)
+ reveal.reveal(80...120,inset:centered ? 0:inset,animated:false)
+ precondition(reveal.offset==(centered ? 0:80-inset),"Leading padding must use the same inset")
+}
+  reveal.scroll(to:100,animated:false)
+  reveal.reveal(150...180,inset:14,animated:false)
+  precondition(reveal.offset==100,"A visible Space pill must remain still in both modes")
+ }
+}
+Defaults.centerSelections=true
+print("PASS shared keyboard reveal: \(revealCases) center/minimal geometry cases, both axes, live setting, insets, oversized targets, clamping and visible/no-viewport no-ops")
 for vertical in [false,true] {
  let shared=CardGridScrollView.ContainerView(scrollsVertically:vertical)
  shared.frame=CGRect(x:0,y:0,width:300,height:100)
@@ -2186,3 +2238,14 @@ abort 'Retired key must remain declared without a migration' unless File.read("#
 abort 'Sticky display headings must skip unchanged frame writes' unless block(bar,'        func positionHeadings()').include?('if label.frame != frame { label.frame = frame }')
 
 abort 'Manual-scroll priority must live in the shared scroller without a bar-only callback' unless block(scroll_source,'    final class ContainerView:').include?('manualScrollPointer = NSEvent.mouseLocation') && block(scroll_source,'        func updateEdgeScroll(').include?('guard NSEvent.mouseLocation != manualScrollPointer else { return }') && !bar.include?('onScrollWheel') && !scroll_source.include?('onScrollWheel')
+
+appearance_settings=File.read("#{root}/DockDoor/Views/Settings/Appearance/GeneralAppearanceSection.swift")
+reveal_title='Center out-of-view selections during keyboard navigation'
+reveal_description='When highlighting an out-of-view window or Space in an overflowing list, scroll it to the center. When off, scroll only enough to reveal it.'
+abort 'Selection reveal setting must use exact localized UI/search text and reset/default-on wiring' unless [appearance_settings,catalog].all?{|s|s.include?('appearance.centerOutOfViewSelections') && s.include?(reveal_title) && s.include?(reveal_description)} && reset.include?('Defaults.reset(.centerOutOfViewSelections)') && File.read("#{root}/DockDoor/consts.swift").include?('Key<Bool>("centerOutOfViewSelections", default: true)')
+abort 'Grid and Space navigation must share live-offset reveal rather than separate centering math' unless block(scroll_source,'        private func scrollToSelection(').include?('container.reveal(range, inset: inset, animated: true)') && block(bar,'    func updateNSView(_ view: ViewportView').include?('view.scroller.reveal(revealRange, inset: SpacesBarLayout.innerPadding, animated: false)') && block(bar,'        override func layout()').include?('scroller.scroll(to: initialCenter - bounds.width / 2, animated: false)')
+
+selection_reveal=block(scroll_source,'        private func scrollToSelection(')
+abort 'Minimal grid reveal must use shared scaled layout padding without changing centered behavior' unless selection_reveal.include?('Defaults[.centerOutOfViewSelections] ? 0 : (layout?.inset ?? 0)')
+general_appearance=block(appearance_settings,'struct GeneralAppearanceSection:')
+abort 'Centering toggle must remain the last General Appearance control' unless general_appearance.rindex('.settingsSearchTarget(')==general_appearance.index('.settingsSearchTarget("appearance.centerOutOfViewSelections")')
