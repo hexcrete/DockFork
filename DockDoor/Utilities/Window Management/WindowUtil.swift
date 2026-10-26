@@ -2584,7 +2584,15 @@ extension WindowUtil {
 
     static func getAllWindowsOfAllApps() -> [WindowInfo] {
         evictTerminatedApps()
-        let windows = desktopSpaceWindowCacheManager.getAllWindows()
+        return switcherWindows(from: desktopSpaceWindowCacheManager.getAllWindows())
+    }
+
+    static func readSwitcherCacheSnapshot() -> (revision: UInt, windows: [WindowInfo]) {
+        evictTerminatedApps()
+        return desktopSpaceWindowCacheManager.readSnapshot()
+    }
+
+    static func switcherWindows(from windows: [WindowInfo]) -> [WindowInfo] {
         var filteredWindows = !Defaults[.includeHiddenWindowsInSwitcher]
             ? windows.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
             : windows

@@ -849,6 +849,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         }
         if spacesBarPresentationDisplays == nil { reason.insert(.topology) }
         if reason.contains(.topology) {
+            windowSwitcherCoordinator.preparedSpaceFilterCandidates = nil
             spacesBarPresentationDisplays = snapshot ?? WindowSpaces.managedDisplays(includeOwners: true)
         }
         guard let displays = spacesBarPresentationDisplays else { return }
@@ -915,6 +916,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         windowSwitcherCoordinator.mouseHighlightedSpaceID = nil
         windowSwitcherCoordinator.navigationTarget = .windows
         windowSwitcherCoordinator.setSpaceFilter(nil)
+        windowSwitcherCoordinator.preparedSpaceFilterCandidates = nil
         spaceFilterTop = nil
         if !keepTopologyObserver {
             spacesBarSpaceChangeSnapshot = nil

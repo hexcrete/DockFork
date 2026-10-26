@@ -7,6 +7,13 @@ class SpaceWindowCacheManager {
     private var windowCache: [pid_t: Set<WindowInfo>] = [:]
     private var coordinatorNotificationSuppressionCounts: [pid_t: Int] = [:]
     private let cacheLock = NSLock()
+    private var metadataRevision: UInt = 0
+
+    func readSnapshot() -> (revision: UInt, windows: [WindowInfo]) {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        return (metadataRevision, windowCache.values.flatMap { $0 })
+    }
 
     private func logSuppressedCoordinatorPublish(pid: pid_t, reason: String, oldCount: Int, newCount: Int, depth: Int) {
         DebugLogger.log(
@@ -152,6 +159,7 @@ class SpaceWindowCacheManager {
         defer { cacheLock.unlock() }
         let oldWindowSet = windowCache[pid] ?? []
         windowCache[pid] = windowSet
+        metadataRevision &+= 1
 
         let suppressionDepth = coordinatorNotificationSuppressionCounts[pid] ?? 0
         guard suppressionDepth == 0 else {
@@ -194,6 +202,7 @@ class SpaceWindowCacheManager {
         // Callers must precompute AX, AppKit, and other potentially blocking work.
         update(&currentWindowSet)
         windowCache[pid] = currentWindowSet
+        metadataRevision &+= 1
 
         let suppressionDepth = coordinatorNotificationSuppressionCounts[pid] ?? 0
         guard suppressionDepth == 0 else {
@@ -225,6 +234,7 @@ class SpaceWindowCacheManager {
            let windowToRemove = windowSet.first(where: { $0.id == windowId })
         {
             windowSet.remove(windowToRemove)
+            metadataRevision &+= 1
             if windowSet.isEmpty {
                 windowCache.removeValue(forKey: pid)
             } else {

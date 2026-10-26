@@ -218,6 +218,7 @@ No application installation, launch, live settings import or media capture accom
 | Changed behavior | Focused checks under `fork/tests/` |
 |---|---|
 | Window-cache reconciliation, batching, image-only delivery or suppression | `cache_reconciliation.rb`, `frame_placement.rb`; `space_presentation.rb --refresh-only` for refresh scheduling without unrelated native layout/drag fixtures |
+| Space-filter candidate preparation, ordering or invalidation | `switcher_filter_candidates.rb`, `cache_reconciliation.rb`, `selection_ranges.rb`, `preview_keyboard.rb`; `space_presentation.rb --refresh-only` for topology lifecycle |
 | Card layout, drag ghosts, Spaces presentation | `preview_layout.rb`, `space_presentation.rb` |
 | Selection or keyboard/session routing | `selection_ranges.rb`, `preview_keyboard.rb` |
 | Ownership, worker scheduling or frame transactions | `action_ownership.rb`, `action_responsiveness.rb`, `frame_placement.rb` |

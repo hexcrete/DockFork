@@ -434,6 +434,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     var onNavigationTargetChanged: (() -> Void)?
     var onSpaceFilterChanged: (() -> Void)?
+    var preparedSpaceFilterCandidates: SwitcherFilterCandidates?
     private(set) var activeSpaceFilterID: CGSSpaceID?
     private(set) var activeSpaceMembers: Set<PreviewWindowIdentity>?
     struct SpaceFilterHeader: Equatable {
@@ -524,6 +525,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func deactivateKeybindSession() {
+        preparedSpaceFilterCandidates = nil
         mouseHighlightedSpaceID = nil
         pendingSpaceNavigation = nil
         onSpaceFilterChanged = nil

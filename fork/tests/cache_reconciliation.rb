@@ -225,6 +225,18 @@ source += <<~'SWIFT'
   SharedPreviewWindowCoordinator.activeInstance=nil;await drain()
   precondition(preview.refreshes==gated,"Teardown before deferred delivery must not refresh the old preview")
   WindowSnapRegistry.existing=nil
+  let revisions=SpaceWindowCacheManager()
+  revisions.writeCache(pid:42,windowSet:[window(1)])
+  let start=revisions.readSnapshot().revision
+  revisions.updateImage(pid:42,windowID:1,image:1,capturedAt:Date())
+  precondition(revisions.readSnapshot().revision==start,"Image-only writes must preserve candidate validity")
+  revisions.updateCache(pid:42){windows in var w=windows.first!;windows.remove(w);w.lastAccessedTime=Date();windows.insert(w)}
+  precondition(revisions.readSnapshot().revision==start+1,"Recency-only writes must invalidate candidates even without view notifications")
+  try await revisions.withCoordinatorNotificationsSuppressed(for:42){revisions.updateCache(pid:42){$0.insert(window(2))}}
+  precondition(revisions.readSnapshot().revision==start+2,"Suppressed metadata mutations must invalidate candidates")
+  revisions.removeFromCache(pid:42,windowId:2)
+  precondition(revisions.readSnapshot().revision==start+3 && revisions.readSnapshot().windows.count==1,"Removal and snapshot revision must be atomic")
+  await drain()
   print("PASS production screenshot delivery: image-only and mixed batches, conservative unknown writes, AX/tab/membership changes, unchanged metadata, missing/rejected images, suppression, removal, disabled/inactive paths and teardown; no native queries")
  }
 }

@@ -88,7 +88,71 @@ enum TrackpadSwipeReleasePolicy {
     }
 }
 
+struct SwitcherFilterCandidates {
+    struct Entry: Hashable {
+        let identity: PreviewWindowIdentity
+        let axElement: AXUIElement
+
+        init(_ window: WindowInfo) {
+            identity = PreviewWindowIdentity(window)
+            axElement = window.axElement
+        }
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.identity == rhs.identity && lhs.axElement == rhs.axElement
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(identity)
+        }
+    }
+
+    private(set) var invocation: [Entry]?
+    let spaces: [Entry]
+    private var windowlessApps: [NSRunningApplication] = []
+    let groupByApp: Bool
+    private var filteredOrders: [Set<PreviewWindowIdentity>: [Entry]] = [:]
+
+    init(spaces: [WindowInfo], groupByApp: Bool) {
+        self.spaces = spaces.map(Entry.init)
+        self.groupByApp = groupByApp
+    }
+
+    mutating func prepareInvocation(_ windows: [WindowInfo]) {
+        invocation = windows.map(Entry.init)
+        windowlessApps = windows.filter(\.isWindowlessApp).map(\.app)
+    }
+
+    mutating func resolve(members: Set<PreviewWindowIdentity>?, windows: [WindowInfo]) -> [WindowInfo] {
+        let current = Dictionary(windows.map { (Entry($0), $0) }, uniquingKeysWith: { first, _ in first })
+        if let members {
+            if filteredOrders[members] == nil {
+                let eligible = spaces.filter { members.contains($0.identity) }.compactMap { current[$0] }
+                filteredOrders[members] = (groupByApp ? WindowUtil.groupWindowsByApp(eligible) : eligible).map(Entry.init)
+            }
+            return filteredOrders[members, default: []].compactMap { current[$0] }
+        }
+        let placeholders = Dictionary(windowlessApps.filter { !$0.isTerminated }.map {
+            (PreviewWindowIdentity(pid: $0.processIdentifier, windowID: 0), $0)
+        }, uniquingKeysWith: { first, _ in first })
+        return (invocation ?? []).compactMap { id in
+            current[id] ?? placeholders[id.identity].map { WindowInfo.windowlessEntry(for: $0) }
+        }
+    }
+}
+
 private class WindowSwitchingCoordinator {
+    private struct FilterPreparationKey: Equatable {
+        let revision: UInt
+        let sortOrder: WindowPreviewSortOrder
+        let groupedApps: [String]
+        let appFilters: [String]
+        let policy: [Bool]
+        let frontmostPID: pid_t?
+        let monitor: String?
+        let runningApps: Set<pid_t>
+    }
+
     private var isProcessingSwitcher = false
     private var uiRenderingTask: Task<Void, Never>?
     private var windowRefreshTask: Task<Void, Never>?
@@ -377,19 +441,21 @@ private class WindowSwitchingCoordinator {
     private func buildSwitcherWindows(
         mode: SwitcherInvocationMode,
         forceRecencyOrder: Bool = false,
-        spaceMembers: Set<PreviewWindowIdentity>? = nil
+        spaceMembers: Set<PreviewWindowIdentity>? = nil,
+        sourceWindows: [WindowInfo]? = nil,
+        groupByApp: Bool = true
     ) -> [WindowInfo] {
         var windows: [WindowInfo]
         if spaceMembers != nil {
             // The shared Space model has already resolved native-tab representatives.
-            windows = WindowUtil.getAllWindowsIgnoringSwitcherFilters()
+            windows = sourceWindows ?? WindowUtil.getAllWindowsIgnoringSwitcherFilters()
             if !Defaults[.includeHiddenWindowsInSwitcher] {
                 windows = windows.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
             }
         } else if mode == .allWindows {
-            windows = WindowUtil.getAllWindowsOfAllApps()
+            windows = sourceWindows.map { WindowUtil.switcherWindows(from: $0) } ?? WindowUtil.getAllWindowsOfAllApps()
         } else {
-            windows = WindowUtil.collapseNativeTabsIfNeeded(WindowUtil.getAllWindowsIgnoringSwitcherFilters())
+            windows = WindowUtil.collapseNativeTabsIfNeeded(sourceWindows ?? WindowUtil.getAllWindowsIgnoringSwitcherFilters())
             if !Defaults[.includeHiddenWindowsInSwitcher] {
                 windows = windows.filter { !$0.isEffectivelyHiddenForUI && !$0.isMinimized }
             }
@@ -423,7 +489,7 @@ private class WindowSwitchingCoordinator {
             ? WindowUtil.sortWindowsForSwitcherByRecency(windows)
             : WindowUtil.sortWindowsForSwitcher(windows)
 
-        if !filterByApp {
+        if !filterByApp, groupByApp {
             windows = WindowUtil.groupWindowsByApp(windows)
         }
 
@@ -442,11 +508,46 @@ private class WindowSwitchingCoordinator {
     private func installSpaceFilter(previewCoordinator: SharedPreviewWindowCoordinator, mode: SwitcherInvocationMode, screen: NSScreen, dockPosition: DockPosition) {
         let coordinator = previewCoordinator.windowSwitcherCoordinator
         guard Defaults[.enableSpacesBar] else { coordinator.onSpaceFilterChanged = nil; return }
+        let session = currentSessionId
+        var preparedKey: FilterPreparationKey?
         coordinator.onSpaceFilterChanged = { [weak self, weak previewCoordinator] in
-            guard let self, let previewCoordinator, previewCoordinator.isVisible else { return }
+            guard let self, currentSessionId == session,
+                  let previewCoordinator, previewCoordinator.isVisible, Defaults[.enableSpacesBar]
+            else { return }
             let coordinator = previewCoordinator.windowSwitcherCoordinator
             guard coordinator.windowSwitcherActive else { return }
-            let windows = buildSwitcherWindows(mode: mode, spaceMembers: coordinator.activeSpaceMembers)
+            let snapshot = WindowUtil.readSwitcherCacheSnapshot()
+            let policy = [
+                Defaults[.includeHiddenWindowsInSwitcher], Defaults[.limitSwitcherToFrontmostApp],
+                Defaults[.showWindowsFromCurrentSpaceOnlyInSwitcher], Defaults[.showWindowsFromCurrentMonitorOnlyInSwitcher],
+                Defaults[.showWindowlessAppsInSwitcher], Defaults[.excludeWindowlessAppsFromCurrentMonitorSwitcherScopes],
+                Defaults[.excludeWindowlessAppsFromCurrentSpaceSwitcherScopes], Defaults[.collapseNativeTabsIntoSingleWindow],
+                Defaults[.sortMinimizedToEnd],
+            ]
+            let usesMonitor = mode == .currentMonitorOnly || mode == .currentMonitorCurrentSpace ||
+                (mode == .allWindows && Defaults[.showWindowsFromCurrentMonitorOnlyInSwitcher])
+            let key = FilterPreparationKey(
+                revision: snapshot.revision,
+                sortOrder: Defaults[.windowSwitcherSortOrder], groupedApps: Defaults[.groupedAppsInSwitcher],
+                appFilters: Defaults[.appNameFilters], policy: policy,
+                frontmostPID: isActiveAppMode(mode) ? NSWorkspace.shared.frontmostApplication?.processIdentifier : nil,
+                monitor: usesMonitor ? NSScreen.screenFromQuartzPoint(DockObserver.getMousePosition()).uniqueIdentifier() : nil,
+                runningApps: Defaults[.showWindowlessAppsInSwitcher] ? Set(NSWorkspace.shared.runningApplications.map(\.processIdentifier)) : []
+            )
+            if preparedKey != key || coordinator.preparedSpaceFilterCandidates == nil {
+                let source = snapshot.windows.sorted { $0.lastAccessedTime > $1.lastAccessedTime }
+                let spaces = buildSwitcherWindows(
+                    mode: mode, spaceMembers: Set(source.map(PreviewWindowIdentity.init)),
+                    sourceWindows: source, groupByApp: false
+                )
+                coordinator.preparedSpaceFilterCandidates = SwitcherFilterCandidates(spaces: spaces, groupByApp: !isActiveAppMode(mode))
+                preparedKey = key
+            }
+            if coordinator.activeSpaceMembers == nil, coordinator.preparedSpaceFilterCandidates?.invocation == nil {
+                let source = snapshot.windows.sorted { $0.lastAccessedTime > $1.lastAccessedTime }
+                coordinator.preparedSpaceFilterCandidates?.prepareInvocation(buildSwitcherWindows(mode: mode, sourceWindows: source))
+            }
+            let windows = coordinator.preparedSpaceFilterCandidates?.resolve(members: coordinator.activeSpaceMembers, windows: snapshot.windows) ?? []
             applyRefreshedSwitcherWindows(windows, coordinator: coordinator, dockPosition: dockPosition, bestGuessMonitor: previewCoordinator.screen ?? screen)
             coordinator.onFrameRefreshNeeded?()
         }

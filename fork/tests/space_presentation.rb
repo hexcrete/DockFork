@@ -71,6 +71,7 @@ struct SpaceContentsTopology:Equatable {let ids:[UInt64];init(_ displays:[Manage
  enum Target {case windows,space(UInt64)}
  enum Input {case programmatic}
  var windowSwitcherActive=true, pointerInteractionSessionID:UInt=1
+ var preparedSpaceFilterCandidates:Int?
  var onNavigationTargetChanged:(()->Void)?,onFrameRefreshNeeded:(()->Void)?
  var navigationTarget=Target.windows, mouseHighlightedSpaceID:UInt64?,spaceNavigationInputSource=Input.programmatic
  func setSpaceFilter(_ id:UInt64?) {}
@@ -229,6 +230,7 @@ struct PreviewWindowIdentity: Hashable { let id: Int; init(_ w: WindowInfo) { id
 enum WindowUtil {
  static var all = [WindowInfo(id: 1, app: 1, space: 1), WindowInfo(id: 2, app: 1, space: 2), WindowInfo(id: 3, app: 2, space: 2, isHidden: true)]
  static func getAllWindowsOfAllApps() -> [WindowInfo] { all }
+ static func switcherWindows(from w: [WindowInfo]) -> [WindowInfo] { w }
  static func getAllWindowsIgnoringSwitcherFilters() -> [WindowInfo] { all }
  static func collapseNativeTabsIfNeeded(_ w: [WindowInfo]) -> [WindowInfo] { w }
  static func filterWindowsByCurrentSpace(_ w: [WindowInfo]) -> [WindowInfo] { w.filter { $0.space == 1 } }
