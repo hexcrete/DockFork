@@ -434,27 +434,28 @@ typealias AXUIElementID = UInt64
 // MARK: - AX Readiness Probe
 
 /// Probes Finder's AX tree to detect post-wake AX subsystem degradation.
-func isAccessibilityReady() -> Bool {
-    guard let finder = NSWorkspace.shared.runningApplications
-        .first(where: { $0.bundleIdentifier == "com.apple.finder" })
+@MainActor
+func isAccessibilityReady() async -> Bool {
+    guard let pid = NSWorkspace.shared.runningApplications
+        .first(where: { $0.bundleIdentifier == "com.apple.finder" })?.processIdentifier
     else {
         return false
     }
 
-    let app = AXUIElementCreateApplication(finder.processIdentifier)
-    AXUIElementSetMessagingTimeout(app, 1.0)
+    return await WindowFrameTransactions.run(for: pid) { cancellation in
+        guard !cancellation.isCancelled else { return false }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
 
-    guard let role = try? app.role(), role == kAXApplicationRole as String else {
-        return false
-    }
+        guard let role = try? app.role(), role == kAXApplicationRole as String,
+              !cancellation.isCancelled, let windows = try? app.windows(), !cancellation.isCancelled
+        else { return false }
+        if windows.isEmpty { return true }
 
-    guard let windows = try? app.windows(), !windows.isEmpty else {
-        return false
-    }
-
-    // Reject partial-init state where app element is returned as its own child
-    return windows.contains { element in
-        guard let childRole = try? element.role() else { return false }
-        return childRole == kAXWindowRole as String
-    }
+        // Finder can list its desktop scroll area when no ordinary windows are open.
+        return windows.contains { element in
+            guard !cancellation.isCancelled, let childRole = try? element.role() else { return false }
+            return childRole == kAXWindowRole as String || childRole == kAXScrollAreaRole as String
+        } && !cancellation.isCancelled
+    } ?? false
 }

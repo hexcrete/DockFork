@@ -388,19 +388,27 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var wakeRecoveryTask: Task<Void, Never>?
+    private var wakeRecoveryGeneration: UInt = 0
     private var screenParametersDebounce: DispatchWorkItem?
 
     @objc private func handleScreenParametersChanged() {
         screenParametersDebounce?.cancel()
-        let workItem = DispatchWorkItem { [weak self] in self?.handleSystemWake() }
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.handleSystemWake(Notification(name: NSApplication.didChangeScreenParametersNotification))
+        }
         screenParametersDebounce = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0, execute: workItem)
     }
 
-    @objc private func handleSystemWake() {
+    @objc private func handleSystemWake(_ notification: Notification? = nil) {
+        screenParametersDebounce?.cancel()
+        screenParametersDebounce = nil
         wakeRecoveryTask?.cancel()
+        wakeRecoveryGeneration &+= 1
+        let generation = wakeRecoveryGeneration
+        DebugLogger.log("Wake recovery", details: "scheduled source=\(notification?.name.rawValue ?? "manual") generation=\(generation)")
 
-        wakeRecoveryTask = Task {
+        wakeRecoveryTask = Task { @MainActor [weak self] in
             var delay: UInt64 = 1_000_000_000 // 1s
             var totalWaited: UInt64 = 0
             let maxWait: UInt64 = 15_000_000_000 // 15s
@@ -410,7 +418,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 guard !Task.isCancelled else { return }
                 totalWaited += delay
 
-                if isAccessibilityReady() {
+                let ready = await isAccessibilityReady()
+                guard !Task.isCancelled else { return }
+                if ready {
                     DebugLogger.log("Wake recovery", details: "AX canary passed after \(totalWaited / 1_000_000)ms")
                     break
                 }
@@ -419,15 +429,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 delay = min(delay * 2, maxWait - totalWaited)
             }
 
-            guard !Task.isCancelled else { return }
-
-            await MainActor.run { [weak self] in
-                self?.recoverObserversAndTaps()
-            }
+            guard !Task.isCancelled, let self, wakeRecoveryGeneration == generation else { return }
+            wakeRecoveryTask = nil
+            recoverObserversAndTaps()
         }
     }
 
     func recoverObserversAndTaps() {
+        wakeRecoveryGeneration &+= 1
+        wakeRecoveryTask?.cancel()
+        wakeRecoveryTask = nil
         dockObserver?.reset()
         keybindHelper?.recover()
         appClosureObserver?.reset()

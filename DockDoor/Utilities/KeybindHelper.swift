@@ -899,18 +899,25 @@ class KeybindHelper {
         trackpadSwipeTrigger?.reset()
     }
 
+    @MainActor
     func recover() {
+        if DockObserver.canPostEvents, AXIsProcessTrusted(), let eventTap,
+           CFMachPortIsValid(eventTap), runLoopSource.map(CFRunLoopSourceIsValid) == true,
+           CGEvent.tapIsEnabled(tap: eventTap)
+        {
+            DebugLogger.log("Wake recovery", details: "keyboard tap healthy; active switcher preserved=\(windowSwitchingCoordinator.isActive(previewCoordinator: previewCoordinator))")
+            return
+        }
+        DebugLogger.log("Wake recovery", details: "keyboard tap unavailable; rebuilding, dismiss active switcher=\(windowSwitchingCoordinator.isActive(previewCoordinator: previewCoordinator))")
         reset()
         switcherSessionActive = false
         hasProcessedModifierRelease = true
         isCommandKeyCurrentlyDown = false
         lastCmdTabObservedActive = false
         cmdTabActionPerformed = false
-        Task { @MainActor in
-            if self.windowSwitchingCoordinator.isActive(previewCoordinator: self.previewCoordinator) {
-                self.windowSwitchingCoordinator.cancelSwitching(previewCoordinator: self.previewCoordinator)
-                self.previewCoordinator.hideWindow()
-            }
+        if windowSwitchingCoordinator.isActive(previewCoordinator: previewCoordinator) {
+            windowSwitchingCoordinator.cancelSwitching(previewCoordinator: previewCoordinator)
+            previewCoordinator.hideWindow()
         }
     }
 

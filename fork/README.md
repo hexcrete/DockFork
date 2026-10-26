@@ -218,6 +218,7 @@ No application installation, launch, live settings import or media capture accom
 | Changed behavior | Focused checks under `fork/tests/` |
 |---|---|
 | Window-cache reconciliation, batching, image-only delivery or suppression | `cache_reconciliation.rb`, `frame_placement.rb`; `space_presentation.rb --refresh-only` for refresh scheduling without unrelated native layout/drag fixtures |
+| Wake/unlock/display recovery, readiness or keyboard-resource health | `wake_recovery.rb`, `preview_keyboard.rb`, `frame_placement.rb` |
 | Full-size preview geometry, request lifetime or cache refresh | `full_preview_geometry.rb`, `frame_placement.rb`, `preview_window_notifications.rb`, `preview_focus_fade.rb` |
 | Preview panel notifications, companion geometry or input snapshots | `preview_window_notifications.rb`, `preview_keyboard.rb`, `frame_placement.rb`, `preview_focus_fade.rb` |
 | Cache batches applied to preview rows, standalone additions/removals | `preview_batch_reconciliation.rb`, `cache_reconciliation.rb`, `selection_ranges.rb`, `linked_tiling.rb` |
