@@ -2,7 +2,7 @@
 
 ## DockFork 0.4.0 Release Preparation
 
-Version 0.4.0 is being prepared as a stable release, not a prerelease. It is not published yet. The current feature summary is in the [public release-note draft](RELEASE_BODY_0.4.0.md); build, audit and testing status are tracked separately in the [candidate record](RELEASE_NOTES_0.4.0.md). Changes are compared with published 0.3.0, including all intervening fixes. Screenshots remain deferred.
+Version 0.4.0 has a built, artifact-audited stable Release candidate from `23850ba04cf7c5e523d53ea2be45607419327e57`. It is not published or approved for publication. The current feature summary is in the [public release-note draft](RELEASE_BODY_0.4.0.md); exact assets and remaining installation/testing gates are in the [candidate record](RELEASE_NOTES_0.4.0.md). Changes are compared with published 0.3.0, including all intervening fixes. Screenshots remain deferred.
 
 The Spaces Bar is implemented: optional desktop/fullscreen pills, per-display sections, resident-app icons/counts, keyboard/opposite-axis swipe navigation, recent/sequential ordering, automatic/manual filtering with status header, window drops and desktop-content move/swap/shift actions. It shares presentation metadata, eligibility, confirmed operations, ownership, feedback and scripting with the existing window/Space controls. Content shifting does not reorder native Desktop identities or move wallpapers/app assignments. Desktop creation/deletion and dropping to create fullscreen/Split View are not implemented.
 

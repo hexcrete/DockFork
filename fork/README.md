@@ -4,7 +4,7 @@ DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). A
 
 ## Preparing 0.4.0
 
-Version **0.4.0** is being prepared as a **stable release**, not a prerelease. No candidate is approved or published yet. Published [0.3.0](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) remains the latest download; previous release assets are unchanged.
+Version **0.4.0** has a built, artifact-audited **stable Release candidate**, not a prerelease. Exact-candidate installation testing and publication approval remain pending. Published [0.3.0](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) remains the latest download; previous release assets are unchanged.
 
 - [Public release-note draft](docs/RELEASE_BODY_0.4.0.md)
 - [Candidate preparation, audit and testing status](docs/RELEASE_NOTES_0.4.0.md)
