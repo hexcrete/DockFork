@@ -1,5 +1,7 @@
 # DockFork Showcase Capture Checklist
 
+October 27 optimized-local comparison: reuse existing hover/scrolling cases without new capture IDs. Compare the same settings, regular/Compact layout and window set against upstream 1.41.0, one app running at a time. Separate the known shared first-opening delay from steady-state response. Local optimized development builds are not distribution assets; no result, screenshot or video is approved/captured by preparing one.
+
 October 27 UI-idle Stage 2 verification: no new capture ID. Test ordinary highlighting with hover action None and active border Off, then enable full-size hover previews and verify rapid target changes, pending cancellation, full-preview fade-out, container resting fade/recovery and active borders On/Off. Check Dock, Cmd+Tab, Window Switcher and animation preferences. Count tests do not certify visible smoothness; no new media captured/approved. Leave the upstream-shared first-opening delay deferred.
 
 October 27 UI-publication Stage 1 manual gate: the first isolation build felt worse to the user, including briefly delayed highlighting. Retest the narrowed unchanged-navigation guard with original input-source observation restored. Compare rapid regular/Compact hover, keyboard/mouse takeover, scrolling, Space/window handoff and resting fade On/Off using existing captures. No media captured or approved; count checks are not smoothness evidence.

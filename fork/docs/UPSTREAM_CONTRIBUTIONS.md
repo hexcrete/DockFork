@@ -4,6 +4,8 @@ October 23 Stage 3 is still partial and uncommitted. A focused navigation/icon c
 
 # Preparing Upstream Contributions
 
+October 27 `--dev --optimized` and its development-only marker/tests/docs/agent guidance are fork build tooling only. Exclude them from upstream app PRs. Normal source project and application code are untouched; no upstream build/publication is implied.
+
 October 27 idle-cleanup Stage 2 is uncommitted pending user testing. A focused extraction must preserve pending full-preview request/hover/source ownership and resting-fade teardown when guarding idle hides; do not gate only on panel visibility. Keep enabled active-focus retries and cancellation unchanged. Port the frozen baseline/resource-lifetime checks into the agreed upstream test location, excluding fork records/build files. Stage 1 navigation publication is independently committed as `4ebdadbb`; no submission or push is authorized.
 
 October 27 publication cleanup remains uncommitted. After negative manual feedback, withdraw input-source isolation and keep only equality guarding before navigation publication. Preserve actual navigation callbacks and existing source/selection observation. Any focused extraction must include the no-op/real-change regression and exclude fork records/build configuration. No PR or push is authorized.

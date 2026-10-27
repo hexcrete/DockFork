@@ -7,6 +7,7 @@ version=""
 prepare_only=false
 include_working_tree=false
 development=false
+optimized=false
 clean_old_builds=false
 signing_identity="-"
 configuration=Release
@@ -14,7 +15,7 @@ configuration=Release
 usage() {
     cat <<'EOF'
 Usage: ./fork/package.sh [--output DIRECTORY] [--version X.Y.Z] [--prepare-only] [--include-working-tree] [--clean-old-builds]
-       ./fork/package.sh --dev [--signing-identity CERTIFICATE_SHA1] [--clean-old-builds]
+       ./fork/package.sh --dev [--optimized] [--signing-identity CERTIFICATE_SHA1] [--clean-old-builds]
 
 Build committed HEAD as an Apple Silicon, ad-hoc-signed DockFork release.
 Release mode performs no account, provisioning, installation, launch or publication operations.
@@ -22,6 +23,8 @@ Release mode performs no account, provisioning, installation, launch or publicat
 --include-working-tree includes tracked app/source changes for local testing only.
 --dev builds Debug with tracked source changes, certificate-signs, replaces and
       launches the fixed local app at fork/dist/dev/DockFork.app. No release ZIP.
+--optimized requires --dev; enables Swift -O and disables code coverage for local
+      comparison. Keeps Debug-specific code and development identity/signing.
 --signing-identity selects a local Apple Development certificate for --dev.
 --clean-old-builds removes older recognized local-test/development build folders
       from the output directory after success. Keeps the current build, installed
@@ -91,11 +94,17 @@ while [[ $# -gt 0 ]]; do
         --prepare-only) prepare_only=true; shift ;;
         --include-working-tree) include_working_tree=true; shift ;;
         --dev) development=true; shift ;;
+        --optimized) optimized=true; shift ;;
         --clean-old-builds) clean_old_builds=true; shift ;;
         --help|-h) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
     esac
 done
+
+if $optimized && ! $development; then
+    echo '--optimized requires --dev; release packaging is unchanged.' >&2
+    exit 2
+fi
 
 [[ $(uname -s) == Darwin ]] || { echo 'macOS is required.' >&2; exit 1; }
 if [[ -n "$version" && ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -220,6 +229,9 @@ done
 /usr/libexec/PlistBuddy -c "Add :DockForkUpstreamReleaseCommit string $upstream_release_commit" "$plist"
 /usr/libexec/PlistBuddy -c "Add :DockForkUpstreamIncludesChanges bool $upstream_changes" "$plist"
 /usr/libexec/PlistBuddy -c "Add :DockForkSourceCommit string $commit" "$plist"
+if $development; then
+    /usr/libexec/PlistBuddy -c "Add :DockForkOptimizedDevelopment bool $optimized" "$plist"
+fi
 
 cp "$root/fork/packaging/DockFork.patch" "$destination/DockFork.patch"
 printf '%s\n' "$commit" > "$destination/SOURCE-COMMIT.txt"
@@ -249,7 +261,10 @@ build_args=(
 if ! $development; then
     build_args+=(ENABLE_CODE_COVERAGE=NO)
 fi
-printf 'Building DockFork %s (%s), upstream %s at %s; log: %s\n' "$version" "$configuration" "$upstream_release" "$upstream_commit" "$destination/build.log"
+if $optimized; then
+    build_args+=(SWIFT_OPTIMIZATION_LEVEL=-O ENABLE_CODE_COVERAGE=NO)
+fi
+printf 'Building DockFork %s (%s, optimized development: %s), upstream %s at %s; log: %s\n' "$version" "$configuration" "$optimized" "$upstream_release" "$upstream_commit" "$destination/build.log"
 if ! xcodebuild "${build_args[@]}" build > "$destination/build.log" 2>&1; then
     tail -n 50 "$destination/build.log" >&2
     exit 1

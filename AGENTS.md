@@ -35,6 +35,8 @@ Build and relaunch after implementation changes unless the user explicitly says 
 
 Include `--clean-old-builds` on routine rebuilds. After success it removes recognized old local-test/development output folders, preserving the current build, installed app and Release packages. Cleanup is limited to the selected output directory and skips active builds and unrelated entries.
 
+For an explicitly requested local optimized comparison, use `./fork/package.sh --dev --optimized --clean-old-builds`. This retains Debug-specific code and the same development identity/path while enabling Swift `-O` and disabling coverage. It creates no Release package and must not be distributed. Keep the normal routine command unchanged; verify compiler flags and the installed `DockForkOptimizedDevelopment` marker rather than assuming optimization from a successful build.
+
 Keep application identity and signing configuration in the fork build script rather than modifying the source project. The script applies DockFork identity in an isolated build snapshot. Preserve existing preferences and permissions. Certificate selection and limitations are documented in [fork/README.md](fork/README.md#stable-local-development-build).
 
 The development script includes tracked working-tree source changes but excludes untracked files and project-file changes. Flag that limitation when adding source files or project registrations rather than silently testing an incomplete snapshot.

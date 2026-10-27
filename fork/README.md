@@ -102,6 +102,16 @@ Changing from ad-hoc signing may require granting permissions once again. Later 
 
 Development mode creates no release ZIP and must not be distributed; its signature identifies your development account. Run the ordinary packaging command separately for the initial ad-hoc release workflow.
 
+For a local responsiveness comparison, opt into Swift optimization without changing the ordinary development command:
+
+```sh
+./fork/package.sh --dev --optimized --clean-old-builds
+```
+
+This keeps Debug configuration, Debug-specific code, symbols, signing, installed path and preferences, but builds with `SWIFT_OPTIMIZATION_LEVEL=-O` and `ENABLE_CODE_COVERAGE=NO`. The installed app's `DockForkOptimizedDevelopment` Info.plist marker is true; normal development builds mark it false. The flag requires `--dev` and cannot change Release packaging. Verify actual compiler arguments in the local build log, not just the marker. Use the ordinary command to return to unoptimized Debug. Neither development variant may be distributed.
+
+This addresses the main unoptimized-Debug versus official-Release mismatch, not every build difference. Compare the same view/settings/window set, quit the other app to avoid input conflicts, and distinguish the upstream-shared opening refresh from steady-state highlighting/scrolling. No smoothness improvement is established until tested; no optimized upstream build or matched two-source benchmark is implied.
+
 The certificate-signed Debug workflow, nested signature checks, fixed-path replacement and exact-path launch have passed, including the October 15 tiling/activation fixes. Its designated requirement is certificate-based, not tied to a binary hash. Permission retention across subsequent builds still needs verification after granting access to this signed build.
 
 The October 15 integration includes DockDoor 1.41.0 and later upstream metadata through `3e08721`. Settings now separate Gestures from Keybinds. The signed Debug build/relaunch, source-overlay/binary/signature correspondence, 84 isolated gesture/swipe/frame/reservation cases and 19 version cases passed after adapting gesture minimization to the existing confirmed-state helper. New manual gesture/display testing remains pending. This integration predates the authorized October 16 Release-candidate build; current validation is recorded under Release Assets and Validation.

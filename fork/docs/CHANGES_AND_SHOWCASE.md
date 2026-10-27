@@ -1,5 +1,9 @@
 # DockFork: Changes and Showcase
 
+## October 27 optimized local comparison, user-tested
+
+Add an opt-in `--dev --optimized` build flag for local testing only. It retains Debug configuration and code paths, local signing, bundle ID, installed path and preferences while using Swift `-O` without code coverage. Normal Debug and Release packaging remain unchanged. A development-only Info.plist marker identifies the chosen mode; compiler flags, installed marker and identity continuity are verified for DockFork-701f91b-working-ZMCkn8. No application feature, preset or distribution release changes. The user reports optimized DockFork and upstream now feel similarly smooth. This is subjective comparison, not a matched two-source benchmark or measured speedup.
+
 ## October 27 UI publication and idle cleanup
 
 Unchanged Windows/Spaces navigation assignments no longer publish the entire preview coordinator. Keep the original input-source storage/observer, snapshot callbacks, same-index keyboard reveal and hover semantics. The attempted input-source isolation was withdrawn after worse manual highlighting feedback; lower parent-notification counts alone did not demonstrate improvement. The narrowed change is committed as `4ebdadbb` with user authorization to continue. No setting, preset or release changed.
