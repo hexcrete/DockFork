@@ -1523,4 +1523,19 @@ Stage 2 reuses resting/expanded pill hit frames, display-heading geometry and co
 
 ### October 27: separate Spaces Bar placement and content updates
 
-Stage 3 avoids rebuilding the outer bar view for equal content/interaction/placement inputs. Current sessions, residents, filters, drag gaps and captured screen/grid geometry remain explicit inputs; observed appearance settings and viewport changes retain their existing update paths. Native placement stays independent, avoiding unchanged level/sharing assignments and repeated orderFront while preserving initial presentation, showing a hidden panel and reparenting. Deterministic checks show 100 unchanged content factories/root replacements and redundant panel writes/order calls becoming zero, plus 15 changed-input scenarios. These counts do not establish frame-rate gains. The signed development build, reviewed source/binaries and running path are verified; manual verification remains pending.
+Stage 3 avoids rebuilding the outer bar view for equal content/interaction/placement inputs. Current sessions, residents, filters, drag gaps and captured screen/grid geometry remain explicit inputs; observed appearance settings and viewport changes retain their existing update paths. Native placement stays independent, avoiding unchanged level/sharing assignments and repeated orderFront while preserving initial presentation, showing a hidden panel and reparenting. Deterministic checks show 100 unchanged content factories/root replacements and redundant panel writes/order calls becoming zero, plus 15 changed-input scenarios. These counts do not establish frame-rate gains. The signed development build, reviewed source/binaries and running path are verified; the user reports working and Stage 3 is reviewed/committed as `cff1ffbd`.
+
+### October 27: refresh-cost measurement checkpoint
+
+The three efficiency stages are user-verified and committed. The optional `ruby fork/tests/space_refresh_costs.rb` fixture counts production refresh/sort/model calls with inert OS/cache boundaries, not native timing. Thirty-three scenarios cover 8/128/512 windows and two displays; instrumentation exists only in generated temporary test source.
+
+| Refresh scenario | Topology reads | Sorts / fingerprints | Resident builds | Membership reads |
+|---|---:|---:|---:|---:|
+| Opening, N real windows | 1 | 1 / 1 | 1 | N |
+| 100 warm layout updates | 0 | 0 / 0 | 0 | 0 |
+| 10 queued unchanged cache requests | 1 | 1 / 1 | 0 | 0 |
+| Recency/order change | 0 | 1 / 1 | 1 | N |
+| State or membership change | 1 | 1 / 1 | 1 | N |
+| Disabled | 0 | 0 / 0 | 0 | 0 |
+
+An unchanged refresh still sorts and constructs N window fingerprint records. Rebuilds resolve each display name in both fingerprint and model phases: four resolutions for two displays instead of two on unchanged refresh. These are remaining measurable operations, not proven UI bottlenecks. Keep freshness policy unchanged; native latency/profiling would be needed to justify more caching. No further app behavior, resources or release status changed.

@@ -235,6 +235,7 @@ No application installation, launch, live settings import or media capture accom
 | Cache batches applied to preview rows, standalone additions/removals | `preview_batch_reconciliation.rb`, `cache_reconciliation.rb`, `selection_ranges.rb`, `linked_tiling.rb` |
 | Space-filter candidate preparation, ordering or invalidation | `switcher_filter_candidates.rb`, `cache_reconciliation.rb`, `selection_ranges.rb`, `preview_keyboard.rb`; `space_presentation.rb --refresh-only` for topology lifecycle |
 | Spaces Bar content publication, icon fitting or pill presentation | `spaces_bar_presentation.rb` (add `--model-only` to skip its native animation panel); `space_presentation.rb --model-only` for model/prepared sizing; `--viewport-compile-only` additionally compiles the existing native viewport fixture without running its drag checks |
+| Spaces Bar refresh-cost measurement | `space_refresh_costs.rb` counts production refresh/sort/resident-model operations with inert OS/cache providers; optional, no native latency/FPS claim or app instrumentation |
 | Regular switcher sample/chrome sizing or final panel-fitting safety | `preview_chrome_measurements.rb`, `preview_keyboard.rb`, `selection_ranges.rb`; `space_presentation.rb --model-only` for related layout/filter behavior |
 | Card layout, drag ghosts, Spaces presentation | `preview_layout.rb`, `space_presentation.rb` |
 | Selection or keyboard/session routing | `selection_ranges.rb`, `preview_keyboard.rb` |
