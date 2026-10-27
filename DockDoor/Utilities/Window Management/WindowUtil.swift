@@ -4021,10 +4021,11 @@ extension WindowUtil {
     }
 
     static func shouldQuitAppOnWindowClose(processIdentifier pid: pid_t) -> Bool {
-        let finder = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder")
-        return Defaults[.quitAppOnWindowClose] &&
-            readCachedWindows(for: pid).count <= 1 &&
-            finder.first?.processIdentifier != pid
+        guard Defaults[.quitAppOnWindowClose], readCachedWindows(for: pid).count <= 1,
+              let app = NSRunningApplication(processIdentifier: pid),
+              app.bundleIdentifier != finderAppIdentifier, !app.isTerminated
+        else { return false }
+        return quitBlockReason(for: app) == nil
     }
 
     @discardableResult

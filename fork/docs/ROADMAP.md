@@ -660,3 +660,5 @@ Stage 1 bounds Flexible icon-width preparation and reuses whitespace measurement
 ## October 27 upstream merge before release planning
 
 User explicitly redirected 0.4.0 preparation to integrate six new upstream commits first. Main through 3044142c is merged as 3655c66a, retaining stable base 1.41.0 and local version/preset. Focused checks and signed development build/relaunch/source/binary verification pass; pause for manual merge verification. No Release package, preset sanitization/import, roadmap deletion, tag, publication or push in this phase. After verification, plan stable 0.4.0 preparation, including the supplied October 27 settings, requested roadmap removal/reference cleanup and updated public notes. The export is read-only so far.
+
+October 27 merge retest found direct DockFork Close-to-Quit bypassing the new excluded-app policy. Shared helper correction and inert policy/Cmd+Tab, explicit-Quit and ownership tests pass. The corrected signed development build is verified/running; manual retest is pending before release planning. Preserve explicit Quit behavior and existing confirmation/ownership. No Release/preset/roadmap-removal work resumed.

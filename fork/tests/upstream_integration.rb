@@ -26,15 +26,22 @@ struct WindowInfo {let id:Int;let frame:CGRect}
 final class NSRunningApplication {
  enum Policy {case regular,accessory,prohibited}
  let bundleIdentifier:String?
+ let processIdentifier:pid_t
+ var isTerminated=false
+ static var apps:[pid_t:NSRunningApplication]=[:]
  var activationPolicy=Policy.regular
- init(_ id:String?){bundleIdentifier=id}
+ init(_ id:String?,pid:pid_t=1){bundleIdentifier=id;processIdentifier=pid;Self.apps[pid]=self}
+ init?(processIdentifier:pid_t){guard let app=Self.apps[processIdentifier] else{return nil};self.processIdentifier=processIdentifier;bundleIdentifier=app.bundleIdentifier;isTerminated=app.isTerminated;activationPolicy=app.activationPolicy}
 }
 enum Defaults {
- struct Key {let value:[String]}
+ struct Key<T> {let value:T}
  static var excluded:[String]=[]
- static subscript(_ key:Key)->[String]{key.value}
+ static var quitEnabled=true
+ static subscript<T>(_ key:Key<T>)->T{key.value}
 }
-extension Defaults.Key {static var quitAppOnWindowCloseExcludedApps:Self{Self(value:Defaults.excluded)}}
+extension Defaults.Key where T==[String] {static var quitAppOnWindowCloseExcludedApps:Self{Self(value:Defaults.excluded)}}
+extension Defaults.Key where T==Bool {static var quitAppOnWindowClose:Self{Self(value:Defaults.quitEnabled)}}
+let finderAppIdentifier="com.apple.finder"
 enum Session {static var locked=false}
 func testSessionDictionary()->[String:Any]?{["CGSSessionScreenIsLocked":Session.locked]}
 let kCGWindowLayer="layer",kCGWindowNumber="number"
@@ -42,12 +49,15 @@ enum Ordered {static var ids:Set<UInt32>=[];static var reads=0}
 func SLSWindowIsOrderedIn(_ id:UInt32)->Bool?{Ordered.reads+=1;return Ordered.ids.contains(id)}
 enum WindowUtil {
  static var candidates:[[String:Any]]=[],valid:Set<UInt32>=[]
+ static var cache:[pid_t:[WindowInfo]]=[:]
+ static func readCachedWindows(for pid:pid_t)->[WindowInfo]{cache[pid] ?? []}
  static func getCGWindowCandidates(for pid:pid_t)->[[String:Any]]{candidates}
  static func isValidCGWindowCandidate(_ id:UInt32,in values:[[String:Any]])->Bool{valid.contains(id)}
 SWIFT
 %w[sortWindowsByScreenPosition orderedScreens screenPositionKey quitBlockReason hasOrderedInWindow].each do |name|
   source += block(util, "    private static func #{name}(").sub('private static func', 'static func') + "\n"
 end
+source += block(util, '    static func shouldQuitAppOnWindowClose(') + "\n"
 source += block(util, '    static var isScreenLocked:').sub('CGSessionCopyCurrentDictionary()', 'testSessionDictionary()') + "\n}\n"
 source += <<~'SWIFT'
 @main struct Checks {
@@ -70,6 +80,19 @@ source += <<~'SWIFT'
   app.activationPolicy = .prohibited;precondition(WindowUtil.quitBlockReason(for:app)=="not a regular app")
   app.activationPolicy = .regular;Defaults.excluded=["test.app"];precondition(WindowUtil.quitBlockReason(for:app)=="excluded")
   Defaults.excluded=[];precondition(WindowUtil.quitBlockReason(for:NSRunningApplication(nil))==nil)
+  let regular=NSRunningApplication("test.close",pid:10)
+  WindowUtil.cache[10]=[a]
+  precondition(WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10))
+  Defaults.excluded=["test.close"];precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10),"DockFork Close must respect the same exclusion as native Close")
+  Defaults.excluded=[];Session.locked=true;precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10));Session.locked=false
+  regular.activationPolicy = .accessory;precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10));regular.activationPolicy = .regular
+  regular.isTerminated=true;precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10));regular.isTerminated=false
+  WindowUtil.cache[10]=[a,b];precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10))
+  WindowUtil.cache[10]=[];precondition(WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10))
+  Defaults.quitEnabled=false;precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10));Defaults.quitEnabled=true
+  _=NSRunningApplication(finderAppIdentifier,pid:11);precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:11))
+  precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:99),"Missing app must not become a Quit fallback")
+  print("PASS shared Close-to-Quit policy: excluded, locked, accessory, terminated, Finder, disabled, missing and multi-window cases refuse; eligible last/windowless entries retain behavior")
   WindowUtil.candidates=[[kCGWindowLayer:1,kCGWindowNumber:1],[kCGWindowLayer:0,kCGWindowNumber:2],[kCGWindowLayer:0,kCGWindowNumber:3]]
   WindowUtil.valid=[3];Ordered.ids=[3];precondition(WindowUtil.hasOrderedInWindow(pid:1) && Ordered.reads==1)
   Ordered.ids=[];precondition(!WindowUtil.hasOrderedInWindow(pid:1))

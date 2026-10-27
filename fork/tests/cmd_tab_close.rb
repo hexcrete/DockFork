@@ -26,6 +26,7 @@ abort 'Preview dismissal must not cancel accepted Close work' if hide.include?('
 source = <<~'SWIFT'
 import Foundation
 typealias pid_t = Int32
+let finderAppIdentifier="com.apple.finder"
 enum Key { case quitAppOnWindowClose }
 enum Defaults {
  static var quitOnClose = false, keepOpen = false
@@ -54,6 +55,8 @@ final class NSRunningApplication: @unchecked Sendable {
  var normalQuits = 0, forceQuits = 0
  static var finder: NSRunningApplication?
  init(_ pid: pid_t) { processIdentifier = pid }
+ convenience init?(processIdentifier pid:pid_t){self.init(pid)}
+ var bundleIdentifier:String?{Self.finder?.processIdentifier==processIdentifier ? "com.apple.finder":"test.\(processIdentifier)"}
  static func runningApplications(withBundleIdentifier: String) -> [NSRunningApplication] { finder.map { [$0] } ?? [] }
 }
 struct PreviewWindowIdentity: Hashable, Sendable {
@@ -120,6 +123,8 @@ enum WindowUtil {
  static var cache: [pid_t: [WindowInfo]] = [:]
  struct PreviewBatchResult { var succeeded: [WindowInfo] = []; var failed: [PreviewWindowIdentity] = [] }
  static func readCachedWindows(for pid: pid_t) -> [WindowInfo] { cache[pid] ?? [] }
+ static var blocked:Set<pid_t>=[]
+ static func quitBlockReason(for app:NSRunningApplication)->String?{blocked.contains(app.processIdentifier) ? "excluded":nil}
 SWIFT
 source += block(util, '    static func shouldQuitAppOnWindowClose(') + "\n"
 source += block(util, '    private actor CloseExecutor') + "\n"
@@ -213,20 +218,21 @@ source += <<~'SWIFT'
    precondition(owner.hides == 1 && owner.refreshes.isEmpty && owner.windowSwitcherCoordinator.focusRefreshes == 0)
   }
   Defaults.quitOnClose = true
-  for (eligible, accepted, finder) in [(true, true, false), (false, true, false), (true, false, false), (true, true, true)] {
+  for (eligible, accepted, finder, excluded) in [(true, true, false, false), (false, true, false, false), (true, false, false, false), (true, true, true, false), (true, true, false, true)] {
    let app = NSRunningApplication(6), refused = window(app, 20, accepts: false)
    app.acceptsQuit = accepted; Defaults.quitOnClose = eligible
    NSRunningApplication.finder = finder ? app : nil
+   WindowUtil.blocked=excluded ? [6]:[]
    WindowUtil.cache[6] = [refused]
    let owner = Coordinator(); owner.windowSwitcherCoordinator.windows = [refused]
    owner.performActionOnCmdTabHighlightedApps(action: .close, apps: [app], preservePreviews: true)
    let feedback = ActionFeedbackController.handles.last!
    await owner.pendingAction?.value
-   let attempts = eligible && !finder ? 1 : 0
+   let attempts = eligible && !finder && !excluded ? 1 : 0
    precondition(app.normalQuits == attempts && app.forceQuits == 0)
    precondition(feedback.state(refused) == (attempts == 1 && accepted ? .requested : .failed))
   }
-  NSRunningApplication.finder = nil; Defaults.quitOnClose = true
+  NSRunningApplication.finder = nil; WindowUtil.blocked=[]; Defaults.quitOnClose = true
   let mixedApp = NSRunningApplication(7), accepted = window(mixedApp, 30), refused = window(mixedApp, 31, accepts: false)
   WindowUtil.cache[7] = [accepted]
   let mixed = Coordinator(); mixed.windowSwitcherCoordinator.windows = [accepted, refused]
