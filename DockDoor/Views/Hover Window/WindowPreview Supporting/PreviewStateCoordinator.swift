@@ -1194,7 +1194,9 @@ class PreviewStateCoordinator: ObservableObject {
             activeFocusRefreshTask?.cancel()
             activeFocusRefreshTask = nil
             pendingActiveFocusRefreshRequest = false
-            focusedWindowID = nil
+            if focusedWindowID != nil {
+                focusedWindowID = nil
+            }
             return
         }
         guard activeFocusRefreshTask == nil else {

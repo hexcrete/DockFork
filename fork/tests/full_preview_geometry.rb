@@ -81,6 +81,7 @@ enum PreviewFocusFadeMode{case dock,windowSwitcher;var hoverActionKey:Key{.hover
  var fullPreviewRefresh:(token:UUID,capturedAt:Date,pendingWindow:WindowInfo?,task:Task<Void,Never>)?
  var fullPreviewWindow:Panel?=Panel(),fullPreviewSource:(identity:PreviewWindowIdentity,capturedAt:Date)?
  var fullPreviewFadeOutToken:UUID?,activeFullPreviewHoverID:UUID?=UUID()
+ var focusFadeMode:Int?
  let windowSwitcherCoordinator=State()
  var canPresentPreviews=true,isVisible=true,previewFocusFadeMode:PreviewFocusFadeMode = .dock
  var rendered:[(Int,Int,CGRect,Bool)]=[],snapshots=0

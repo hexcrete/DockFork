@@ -1780,11 +1780,16 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     @MainActor
     func hideFullPreviewWindow() {
+        guard fullPreviewWindow != nil || fullPreviewRefresh != nil || fullPreviewSource != nil ||
+            activeFullPreviewHoverID != nil || windowSwitcherCoordinator.fullWindowPreviewActive || focusFadeMode != nil
+        else { return }
         fullPreviewRefresh?.task.cancel()
         fullPreviewRefresh = nil
         fullPreviewSource = nil
         stopPreviewFocusFade()
-        windowSwitcherCoordinator.setShowing(.fullWindowPreview, toState: false)
+        if windowSwitcherCoordinator.fullWindowPreviewActive {
+            windowSwitcherCoordinator.setShowing(.fullWindowPreview, toState: false)
+        }
         activeFullPreviewHoverID = nil
         guard let fullPreviewWindow else {
             publishTapSnapshot()

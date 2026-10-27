@@ -1,8 +1,10 @@
 # DockFork: Changes and Showcase
 
-## October 27 UI publication cleanup, pending verification
+## October 27 UI publication and idle cleanup
 
-Unchanged Windows/Spaces navigation assignments no longer publish the entire preview coordinator. Keep the original input-source storage/observer, snapshot callbacks, same-index keyboard reveal and hover semantics. The attempted input-source isolation was withdrawn after worse manual highlighting feedback; lower parent-notification counts alone did not demonstrate improvement. Revised manual verification and commit remain pending. No setting, preset or release changed.
+Unchanged Windows/Spaces navigation assignments no longer publish the entire preview coordinator. Keep the original input-source storage/observer, snapshot callbacks, same-index keyboard reveal and hover semantics. The attempted input-source isolation was withdrawn after worse manual highlighting feedback; lower parent-notification counts alone did not demonstrate improvement. The narrowed change is committed as `4ebdadbb` with user authorization to continue. No setting, preset or release changed.
+
+Stage 1 committed as `4ebdadbb` after the user confirmed the same first-opening delay exists upstream and authorized continuing without pursuing that delay. Stage 2 is user-tested and reviewed, with no noticeable difference reported: idle full-size-preview hide requests skip cleanup/publication when no panel, request, source, hover ownership, active state or resting-fade lifetime exists. Real cleanup still cancels requests, restores container opacity and respects fade ownership. Closing an already-inactive full preview does not schedule active-border refresh; disabled borders clear an existing focused ID once instead of repeatedly publishing nil. No discovery, capture, retry, input-source or preference behavior changes, and no measured frame-rate improvement is claimed.
 
 ## Spaces Bar Stage 3: keyboard pass in progress
 

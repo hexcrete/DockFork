@@ -220,7 +220,7 @@ No application installation, launch, live settings import or media capture accom
 | Preview hover transitions, publication scope, outgoing-card exits or resting fade | `preview_publications.rb` with optional `--native` offscreen SwiftUI observation check; `preview_hover.rb`, `preview_keyboard.rb`, `preview_focus_fade.rb` |
 | Window-cache reconciliation, batching, image-only delivery or suppression | `cache_reconciliation.rb`, `frame_placement.rb`; `space_presentation.rb --refresh-only` for refresh scheduling without unrelated native layout/drag fixtures |
 | Wake/unlock/display recovery, readiness or keyboard-resource health | `wake_recovery.rb`, `preview_keyboard.rb`, `frame_placement.rb` |
-| Full-size preview geometry, request lifetime or cache refresh | `full_preview_geometry.rb`, `frame_placement.rb`, `preview_window_notifications.rb`, `preview_focus_fade.rb` |
+| Full-size preview geometry, request lifetime, idle cleanup or cache refresh | `preview_idle.rb`, `full_preview_geometry.rb`, `frame_placement.rb`, `preview_window_notifications.rb`, `preview_focus_fade.rb` |
 | Preview panel notifications, companion geometry or input snapshots | `preview_window_notifications.rb`, `preview_keyboard.rb`, `frame_placement.rb`, `preview_focus_fade.rb` |
 | Cache batches applied to preview rows, standalone additions/removals | `preview_batch_reconciliation.rb`, `cache_reconciliation.rb`, `selection_ranges.rb`, `linked_tiling.rb` |
 | Space-filter candidate preparation, ordering or invalidation | `switcher_filter_candidates.rb`, `cache_reconciliation.rb`, `selection_ranges.rb`, `preview_keyboard.rb`; `space_presentation.rb --refresh-only` for topology lifecycle |
