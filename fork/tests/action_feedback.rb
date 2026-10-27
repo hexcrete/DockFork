@@ -3,6 +3,19 @@
 require 'tmpdir'
 require_relative 'support/action_ownership'
 require 'open3'
+
+def block(source, signature)
+  start = source.index(signature) or abort "Missing #{signature}"
+  opening = source.index(/\{\n/, start)
+  depth = 0
+  (opening...source.length).each do |i|
+    depth += 1 if source[i] == '{'
+    depth -= 1 if source[i] == '}'
+    return source[start..i] if depth.zero?
+  end
+  abort "Unclosed #{signature}"
+end
+
 ROOT = File.expand_path('../..', __dir__)
 source = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowGestureHUD.swift")
 keys = File.read("#{ROOT}/DockDoor/consts.swift")

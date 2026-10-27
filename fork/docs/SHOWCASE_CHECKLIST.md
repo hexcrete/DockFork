@@ -1,5 +1,13 @@
 # DockFork Showcase Capture Checklist
 
+## 0.4.0 Capture Status
+
+Screenshots and recordings remain deferred. Existing capture IDs and completion states are unchanged. The October 27 optional preset is prepared for 0.4.0 with 273 preferences and 15 generic-ID shortcuts, numeric Flexible Spaces pills at 2/6 icons, toolbar indicators and minimal-reveal scrolling. It is not imported automatically; back up settings before any later import.
+
+Current captures should show the complete Spaces Bar: navigation, filtering/status header, per-display sections, app icons/counts, window drops, content move/swap/shift and action feedback. Capture Compact/card/drag styling, independent indicator placement, narrow-header fallbacks and native accessible controls as supporting polish. Content shifting is not native Desktop reordering. Do not imply Desktop creation/deletion or measured FPS gains.
+
+Dated notes below are historical setup/validation records and may name earlier sizes or incomplete development stages. Use the current release guide and preset for new captures, not superseded candidates. No media is marked captured/approved by preparing the package.
+
 Fullscreen overflow exception, October 27: at maximum zero or a narrow Fixed width, a known single-window fullscreen pill must omit +1. Flexible mode must not reserve its counter/gap width. Keep ordinary one-app Desktop overflow and Split View counts, including two windows of the same app. Check single/Split View transitions invalidate prepared sizing even when app count stays one. No real fullscreen/Space manipulation is inferred from fixture results; existing capture IDs/media status remain unchanged.
 
 Flexible icon-count verification, October 27: Fixed/Flexible only; compare 2-6 defaults, equality, Minimum icons clamping on 0-10 and Maximum icons clamping on 0-20, zero maximum with +N, empty and sub-minimum residents, long/fullscreen labels, icons hidden, all item sizes and narrow/multiple displays. Check overflow starts at minimum counts, Fixed retains its width, search/filter controls do not move icons, and drag-gap animations/hits remain aligned. Use existing Spaces Bar capture IDs; no media captured/approved. The viewport fixture is compiled, not executed, in this pass; real slider keyboard/VoiceOver/pointer behavior and animation remain manual gaps.

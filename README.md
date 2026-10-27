@@ -1,19 +1,17 @@
 ## DockFork: A DockDoor Fork
 
-Based on **[DockDoor by ejbills](https://github.com/ejbills/DockDoor)**, with additional window-management features and reliability/UI fixes. Original attribution, licensing, and Git history are preserved.
+Based on **[DockDoor by ejbills](https://github.com/ejbills/DockDoor)**, with additional window and Space management, configurable previews and reliability/UI improvements. Original attribution, licensing and Git history are preserved.
 
-- **[DockFork Changes & Showcase](fork/docs/CHANGES_AND_SHOWCASE.md)**
-- [Complete fork commit ledger](fork/docs/COMMIT_LEDGER.md)
+- [Changes and showcase](fork/docs/CHANGES_AND_SHOWCASE.md)
+- [Build, installation and optional showcase settings](fork/README.md)
 - [Showcase capture checklist](fork/docs/SHOWCASE_CHECKLIST.md)
-- [Roadmap](fork/docs/ROADMAP.md)
-- [Optional showcase preferences and fork-only assets](fork/README.md)
+- [Complete fork commit ledger](fork/docs/COMMIT_LEDGER.md)
 
-**Early public testing:** [DockFork is a public fork](https://github.com/hexcrete/DockFork) with source and [DockFork 0.3.0 prerelease downloads](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0). The Apple Silicon build is ad-hoc signed and not notarized; build and package checks passed, while downloaded/quarantined installation remains unverified. See the release notes for the scope of testing. Fork screenshots and recordings will be added as testers provide feedback; they are not required to begin testing. See the [build and installation guide](fork/README.md#build-a-dockfork-package). The original README below describes DockDoor; its screenshots, downloads, update links, commercial app, and support links belong to upstream, not DockFork.
+**Preparing DockFork 0.4.0:** the next release is intended to be stable, not a prerelease. It adds the Window Switcher Spaces Bar and the refinements described in the [release notes](fork/docs/RELEASE_BODY_0.4.0.md). Candidate testing and publication approval remain pending; [0.3.0](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) is still the latest published download. No 0.4.0 release is published yet.
 
-**Unpublished interim candidate (0.3.1):** a small update for range-selection refresh reliability and an optional title-bar scrolling/tab gesture filter. See the [candidate preparation record](fork/docs/RELEASE_NOTES_0.3.1.md). The refreshed October 22 candidate is built and audited; publication is held while developing the Spaces Bar, which this package does not contain. The earlier candidate remains superseded. Version 0.3.0 remains the latest download. Screenshots remain deferred.
+Apple Silicon packages are ad-hoc signed and not notarized. Updates are manual; replacing an ad-hoc build can require removing and re-adding system permissions. Follow the [installation guide](fork/packaging/INSTALL.md), and export a backup before importing the optional showcase preset. Screenshots and recordings remain deferred.
 
-**Latest prerelease:** [DockFork 0.3.0](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) adds optional action feedback, range selection, explicit Force Quit, responsive background window actions, shared batch ownership, and native-tab/Wine fixes. It includes an updated privacy-reviewed optional showcase configuration. See the [release notes and validation record](fork/docs/RELEASE_NOTES_0.3.0.md). Screenshots and recordings will follow during testing. Ad-hoc-signed upgrades can require removing and re-adding affected permissions in System Settings. Previous releases remain unchanged.
-
+The original README below describes DockDoor. Its screenshots, downloads, commercial app and support links belong to upstream, not DockFork.
 
 ---
 

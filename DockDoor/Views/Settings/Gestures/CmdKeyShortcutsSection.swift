@@ -247,8 +247,8 @@ struct PreviewPostActionBehaviorSection: View {
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
-                            .settingsSearchTarget("gestures.moveResizeForeground")
-                            .padding(.leading, 32)
+                        .settingsSearchTarget("gestures.moveResizeForeground")
+                        .padding(.leading, 32)
                     }
                 }
             }

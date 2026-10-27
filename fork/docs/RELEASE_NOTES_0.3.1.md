@@ -1,3 +1,7 @@
+# Historical Packaging Audit (Superseded)
+
+This record is retained as audit history only. It is not a current release plan or download. See [0.4.0 candidate status](RELEASE_NOTES_0.4.0.md).
+
 # DockFork 0.3.1 Prerelease
 
 Status: held unpublished at the user’s request while developing a larger Spaces Bar release. The audited interim candidate from `07dfcb7de8fc77edbe20b8bc2d9c400b32e12608` contains the sanitized October 22 preset but not later Spaces Bar development. Preserve the existing candidate/assets; do not rebuild, tag, upload or publish during this feature. The earlier `586be06a` candidate remains superseded. Screenshots remain deferred.
@@ -28,7 +32,7 @@ Before publication, test the exact candidate: selection sweeps and held-shortcut
 
 Ad-hoc signed, Apple Silicon and not notarized. Replacing an ad-hoc build can require removing and re-adding affected system permissions. Updates remain manual. Browser-quarantine/Gatekeeper testing, older macOS releases, exhaustive custom-app/display coverage and media remain unverified. Do not infer them from packaging checks.
 
-Use [the concise release body](RELEASE_BODY_0.3.1.md) for a future GitHub description, not this preparation record. Publication requires approval after candidate testing. Published 0.3.0 assets remain untouched.
+The former draft public description is superseded by the [0.4.0 release notes](RELEASE_BODY_0.4.0.md); do not use this historical preparation record as a release description. Publication requires approval after candidate testing. Published 0.3.0 assets remain untouched.
 
 ## Refreshed Candidate Handoff
 
