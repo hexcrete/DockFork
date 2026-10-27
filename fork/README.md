@@ -62,7 +62,7 @@ The resulting app uses `DockFork.app`, executable `DockFork`, and bundle/prefere
 
 ### Fork and Upstream Versions
 
-`version.json` keeps four independent fields: `forkVersion`, `upstreamRelease`, `upstreamReleaseCommit`, and `upstreamCommit`. The record now selects `0.2.0` for the next prerelease; the published first prerelease remains `0.1.0`. The current base is DockDoor release `1.41.0` plus upstream changes through `3e08721`. Upstream's Xcode project still says `1.18.3`; it is not the published release version and is no longer used as DockFork's default version.
+`version.json` keeps four independent fields: `forkVersion`, `upstreamRelease`, `upstreamReleaseCommit`, and `upstreamCommit`. Fork release numbering stays independent of upstream. The current upstream base is DockDoor stable `1.41.0` plus incorporated history through `3044142c`. The included `1.41.1b1` tag is a beta, not the stable base. Upstream's Xcode project still says `1.18.3`; it is not the published release version and is no longer used as DockFork's default version.
 
 Support > Updates displays the DockFork version and a separate `Based on DockDoor 1.41.0 + upstream changes · 3e08721` line. The full base hash is available by hovering over that line. An exact release base omits `+ upstream changes`. These values are embedded during packaging, not fetched at runtime. Standard DockDoor builds remain unchanged.
 
@@ -256,4 +256,4 @@ For the measurement-only cache-invalidation checkpoint, run `ruby fork/tests/cac
 
 ## October 27 upstream integration checkpoint
 
-Upstream main through `3044142c` is being integrated before the next release is planned. It adds automatic-quit safety/exclusions, optional cached screen-position sorting, centralized links/identifiers and accessibility/Reduce Motion refinements. The newest incorporated stable release remains **1.41.0**; the included 1.41.1b1 tag is a beta. Preserve the fork's ownership, adaptive controls, asynchronous readiness and reduced-motion fades. Development validation is pending; no new Release package, version bump, preset import or publication is part of this checkpoint. Optional focused merge checks: `ruby fork/tests/upstream_integration.rb`.
+Upstream main through `3044142c` is merged as `3655c66a` before the next release is planned. It adds automatic-quit safety/exclusions, optional cached screen-position sorting, centralized links/identifiers and accessibility/Reduce Motion refinements. The newest incorporated stable release remains **1.41.0**; the included 1.41.1b1 tag is a beta. Preserve the fork's ownership, adaptive controls, asynchronous readiness and reduced-motion fades. Focused checks, version validation and signed/running development verification pass; native manual verification remains pending. No new Release package, version bump, preset import or publication is part of this checkpoint. Optional focused merge checks: `ruby fork/tests/upstream_integration.rb`.
