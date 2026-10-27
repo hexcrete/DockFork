@@ -1118,9 +1118,8 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(id: "windowSwitcher.spacesBarLabels", title: String(localized: "Labels"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
         SettingsSearchItem(id: "windowSwitcher.spacesBarFixedWidth", title: String(localized: "Pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
         SettingsSearchItem(id: "windowSwitcher.spacesBarPillWidth", title: String(localized: "Pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarPreferDetails", title: String(localized: "Flexible (Prefer Space details)"), keywords: ["spaces", "bar", "width", "icons", "flexible"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarMinimumWidth", title: String(localized: "Minimum pill width"), keywords: ["spaces", "bar", "desktop", "screen", "flexible"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarMaximumWidth", title: String(localized: "Maximum pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarMinimumIcons", title: String(localized: "Minimum icons"), keywords: ["spaces", "bar", "icons", "flexible", "count"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarMaximumIcons", title: String(localized: "Maximum icons"), keywords: ["spaces", "bar", "icons", "flexible", "count"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
         // Window Preview Size
         SettingsSearchItem(
             id: "appearance.lockAspect",

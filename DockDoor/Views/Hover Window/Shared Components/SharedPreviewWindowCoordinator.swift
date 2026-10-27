@@ -979,23 +979,21 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         else { return }
         let entries = spacesBarSections.flatMap(\.spaces)
         let fixed = Defaults[.spacesBarFixedWidth]
-        let preferDetails = Defaults[.spacesBarPreferDetails]
-        let requestedWidth = fixed ? Defaults[.spacesBarPillWidth] : Defaults[.spacesBarMaximumWidth]
-        let requestedMinimum = Defaults[.spacesBarMinimumWidth]
-        let minimum = requestedMinimum.isFinite ? min(600, max(10, requestedMinimum)) : 160
+        let requestedWidth = Defaults[.spacesBarPillWidth]
+        let limits = SpacesBarIconLimits(minimum: Defaults[.spacesBarMinimumIcons], maximum: Defaults[.spacesBarMaximumIcons])
         let available = max(1, screen.visibleFrame.width)
         let showDropGaps = contentsDragSession != nil && !Defaults[.spacesBarRecentlyUsed]
         let sourceDisplayIndex = spacesBarSections.firstIndex { display in display.spaces.contains { $0.id == panel.viewport.gapSourceSpaceID } }
         let labels = Defaults[.spacesBarLabels]
         let font = SpacesBarLayout.textFont
         let availablePillWidth = max(1, available - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter + SpacesBarLayout.innerPadding) * 2)
-        let maximum = fixed || preferDetails ? min(availablePillWidth, max(SpacesBarLayout.minimumPillWidth, requestedWidth.isFinite ? min(600, max(10, requestedWidth)) : 240)) : availablePillWidth
+        let maximum = fixed ? min(availablePillWidth, max(SpacesBarLayout.minimumPillWidth, requestedWidth.isFinite ? min(600, max(10, requestedWidth)) : 160)) : availablePillWidth
         let key = SpacesBarPreparedLayout.Key(
-            pills: entries.map { .init(id: $0.id, title: $0.title(mode: labels), fullscreen: $0.isFullscreen, appCount: $0.apps.count) },
+            pills: entries.map { .init(id: $0.id, title: $0.title(mode: labels), fullscreen: $0.isFullscreen, appCount: $0.apps.count, suppressesOverflow: $0.isSingleWindowFullscreen) },
             displayIDs: spacesBarSections.map(\.id), spaceCounts: spacesBarSections.map(\.spaces.count),
             available: available, backingScale: screen.backingScaleFactor, font: font,
             pillHeight: SpacesBarLayout.pillHeight, innerPadding: SpacesBarLayout.innerPadding,
-            fixed: fixed, preferDetails: preferDetails, maximum: maximum, minimum: minimum,
+            fixed: fixed, maximum: maximum, minimumIcons: limits.minimum, maximumIcons: limits.maximum,
             showIcons: Defaults[.spacesBarShowAppIcons], sourceDisplayIndex: sourceDisplayIndex
         )
         let prepared = SpacesBarPreparedLayout.resolve(key, cached: &spacesBarPreparedLayout)

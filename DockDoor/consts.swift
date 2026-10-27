@@ -874,6 +874,9 @@ extension Defaults.Keys {
     static let spacesBarActivateAppIcons = Key<Bool>("spacesBarActivateAppIcons", default: true)
     static let spacesBarLabels = Key<SpaceMenuDisplayMode>("spacesBarLabels", default: .numberOnly)
     static let spacesBarFixedWidth = Key<Bool>("spacesBarFixedWidth", default: false)
+    static let spacesBarMinimumIcons = Key<Int>("spacesBarMinimumIcons", default: 2)
+    static let spacesBarMaximumIcons = Key<Int>("spacesBarMaximumIcons", default: 8)
+    // Retired flexible pixel-width preferences; no migration.
     static let spacesBarPreferDetails = Key<Bool>("spacesBarPreferDetails", default: true)
     static let spacesBarMinimumWidth = Key<Double>("spacesBarMinimumWidth", default: 160)
     static let spacesBarMaximumWidth = Key<Double>("spacesBarMaximumWidth", default: 240)
@@ -2374,6 +2377,18 @@ enum CompactModeItemSize: Int, CaseIterable, Defaults.Serializable, Identifiable
         case .xxLarge: 64
         case .xxxLarge: 72
         }
+    }
+}
+
+struct SpacesBarIconLimits: Equatable {
+    static let minimumUpperBound = 10
+    static let maximumUpperBound = 20
+    let minimum: Int
+    let maximum: Int
+
+    init(minimum: Int, maximum: Int) {
+        self.maximum = min(Self.maximumUpperBound, max(0, maximum))
+        self.minimum = min(self.maximum, Self.minimumUpperBound, max(0, minimum))
     }
 }
 

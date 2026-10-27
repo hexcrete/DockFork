@@ -67,6 +67,7 @@ struct Slide:AnimatableModifier {
    }
    precondition(measurements==cold,"Warm fitting must perform no text measurements")
    for maximum in [-1,0,1,5] {
+    precondition(fit.visibleCount(availableWidth:100,maximumVisible:maximum)==reference(total:total,available:100,icon:icon,font:font,spacing:spacing,maximum:maximum))
     precondition(AppIconStripFormatting.visibleCount(total:total,availableWidth:100,iconSize:icon,font:font,maximumVisible:maximum)==reference(total:total,available:100,icon:icon,font:font,spacing:nil,maximum:maximum))
    }
   }}}

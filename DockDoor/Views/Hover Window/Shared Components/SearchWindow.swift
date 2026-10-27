@@ -458,18 +458,13 @@ enum SpacesBarLayout {
                       width: size.width, height: size.height)
     }
 
-    static func widths(ideal: [CGFloat], labels: [CGFloat], maximum: CGFloat, available: CGFloat, fixed: Bool, minimum: CGFloat = 0, preferDetails: Bool = false) -> [CGFloat] {
-        let maximum = maximum.isFinite ? max(1, maximum) : 240
-        guard !fixed else { return ideal.map { _ in maximum } }
-        let minimum = minimum.isFinite ? max(0, minimum) : 0
-        let floors = labels.map { min(maximum, max(minimum, minimumPillWidth, ceil($0))) }
-        let natural = zip(ideal, floors).map { min(maximum, max($0, $1)) }
-        guard !preferDetails else { return natural }
+    static func widths(ideal: [CGFloat], minimum: [CGFloat], available: CGFloat) -> [CGFloat] {
+        let natural = zip(ideal, minimum).map { max($0, $1) }
         let excess = max(0, natural.reduce(0, +) - available)
-        let capacity = zip(natural, floors).reduce(0) { $0 + $1.0 - $1.1 }
+        let capacity = zip(natural, minimum).reduce(0) { $0 + $1.0 - $1.1 }
         guard capacity > 0 else { return natural }
         let fraction = min(1, excess / capacity)
-        return zip(natural, floors).map { $0 - ($0 - $1) * fraction }
+        return zip(natural, minimum).map { $0 - ($0 - $1) * fraction }
     }
 }
 
@@ -498,6 +493,7 @@ struct SpacesBarPreparedLayout {
         let title: String
         let fullscreen: Bool
         let appCount: Int
+        var suppressesOverflow = false
     }
 
     struct Key: Equatable {
@@ -510,9 +506,9 @@ struct SpacesBarPreparedLayout {
         let pillHeight: CGFloat
         let innerPadding: CGFloat
         let fixed: Bool
-        let preferDetails: Bool
         let maximum: CGFloat
-        let minimum: CGFloat
+        let minimumIcons: Int
+        let maximumIcons: Int
         let showIcons: Bool
         let sourceDisplayIndex: Int?
         var iconSize: CGFloat = SpacesBarAppLayout.iconSize
@@ -532,20 +528,33 @@ struct SpacesBarPreparedLayout {
         let fits = Dictionary(uniqueKeysWithValues: Set(key.pills.map { key.showIcons ? $0.appCount : 0 }).map { total in
             (total, AppIconStripFormatting.PreparedFit(total: total, iconSize: key.iconSize, font: key.font, spacing: key.iconSpacing))
         })
-        iconFits = Dictionary(uniqueKeysWithValues: key.pills.map { ($0.id, fits[key.showIcons ? $0.appCount : 0]!) })
+        let iconFits = Dictionary(uniqueKeysWithValues: key.pills.map { ($0.id, fits[key.showIcons ? $0.appCount : 0]!) })
+        self.iconFits = iconFits
         let labelWidths = zip(key.pills, measured).map {
-            SpacesBarLayout.labelWidth($1, fullscreen: $0.fullscreen)
+            SpacesBarLayout.labelWidth($1 + 2, fullscreen: $0.fullscreen)
+        }
+        let limits = SpacesBarIconLimits(minimum: key.minimumIcons, maximum: key.maximumIcons)
+        let minimum = zip(key.pills, labelWidths).map { pill, labelWidth -> CGFloat in
+            guard !key.fixed else { return key.maximum }
+            let total = key.showIcons ? pill.appCount : 0
+            guard total > 0, let fit = iconFits[pill.id] else { return labelWidth }
+            if pill.suppressesOverflow, limits.minimum == 0 { return labelWidth }
+            // Removing the final +N can make all icons narrower than the preceding count.
+            let iconWidth = fit.requiredWidths[min(total, limits.minimum) ... min(total, limits.maximum)].min() ?? 0
+            return labelWidth + key.iconSpacing + iconWidth
         }
         let ideal = zip(key.pills, labelWidths).map { pill, labelWidth in
-            labelWidth + CGFloat(key.showIcons ? pill.appCount : 0) * (key.iconSize + key.iconSpacing)
+            guard !key.fixed else { return key.maximum }
+            let total = key.showIcons ? pill.appCount : 0
+            guard total > 0, let fit = iconFits[pill.id] else { return labelWidth }
+            if pill.suppressesOverflow, limits.maximum == 0 { return labelWidth }
+            return labelWidth + key.iconSpacing + fit.requiredWidths[min(total, limits.maximum)]
         }
         func sizing(gapProgress: CGFloat) -> SpacesBarSizing {
             let spacing = SpacesBarLayout.rowSpacing(spaceCount: key.pills.count, displayCount: key.displayIDs.count,
                                                      gapProgress: gapProgress, sourceDisplayIndex: key.sourceDisplayIndex) +
                 key.innerPadding * 2 + (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2
-            let sizes = SpacesBarLayout.widths(ideal: ideal, labels: labelWidths, maximum: key.maximum,
-                                               available: max(1, key.available - spacing), fixed: key.fixed,
-                                               minimum: key.fixed || key.preferDetails ? 0 : key.minimum, preferDetails: key.preferDetails)
+            let sizes = SpacesBarLayout.widths(ideal: ideal, minimum: minimum, available: max(1, key.available - spacing))
             return SpacesBarSizing(widths: Dictionary(uniqueKeysWithValues: zip(key.pills.map(\.id), sizes)),
                                    width: min(key.available, sizes.reduce(0, +) + spacing))
         }
@@ -786,16 +795,19 @@ struct SpacesBarView: View {
         let titleParts = SpacesBarLayout.titleParts(width: titleWidth, filtered: showsFilterControl, spacing: SpacesBarAppLayout.spacing)
         let iconRoom = max(0, width - titleWidth - SpacesBarLayout.horizontalInset * 2 - SpacesBarAppLayout.spacing - (entry.isFullscreen ? SpacesBarLayout.fullscreenWidth : 0))
         let apps = showAppIcons ? entry.apps : []
+        let maximumVisible: Int? = preparedLayout.flatMap { layout in
+            layout.key.fixed ? nil : SpacesBarIconLimits(minimum: layout.key.minimumIcons, maximum: layout.key.maximumIcons).maximum
+        }
         let fittedCount: Int? = if let preparedLayout, preparedLayout.key.font == font,
                                    preparedLayout.key.iconSize == SpacesBarAppLayout.iconSize,
                                    preparedLayout.key.iconSpacing == SpacesBarAppLayout.spacing,
                                    let fit = preparedLayout.iconFits[entry.id], fit.requiredWidths.count == apps.count + 1
         {
-            fit.visibleCount(availableWidth: iconRoom)
+            fit.visibleCount(availableWidth: iconRoom, maximumVisible: maximumVisible)
         } else {
             AppIconStripFormatting.visibleCount(
                 total: apps.count, availableWidth: iconRoom, iconSize: SpacesBarAppLayout.iconSize,
-                font: font, spacing: SpacesBarAppLayout.spacing
+                font: font, spacing: SpacesBarAppLayout.spacing, maximumVisible: maximumVisible
             )
         }
         let count = fittedCount ?? 0
@@ -830,7 +842,7 @@ struct SpacesBarView: View {
                             icon.allowsHitTesting(false)
                         }
                     }
-                    if fittedCount != nil, count < apps.count { Text("+\(apps.count - count)").foregroundStyle(.secondary).allowsHitTesting(false) }
+                    if !entry.isSingleWindowFullscreen, fittedCount != nil, count < apps.count { Text("+\(apps.count - count)").foregroundStyle(.secondary).allowsHitTesting(false) }
                 }
                 .font(SpacesBarLayout.font)
                 .padding(.horizontal, SpacesBarLayout.horizontalInset)

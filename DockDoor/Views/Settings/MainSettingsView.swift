@@ -203,9 +203,8 @@ struct MainSettingsView: View {
                 Defaults[.spacesBarActivateAppIcons] = Defaults.Keys.spacesBarActivateAppIcons.defaultValue
                 Defaults[.spacesBarLabels] = Defaults.Keys.spacesBarLabels.defaultValue
                 Defaults[.spacesBarFixedWidth] = Defaults.Keys.spacesBarFixedWidth.defaultValue
-                Defaults[.spacesBarPreferDetails] = Defaults.Keys.spacesBarPreferDetails.defaultValue
-                Defaults[.spacesBarMinimumWidth] = Defaults.Keys.spacesBarMinimumWidth.defaultValue
-                Defaults[.spacesBarMaximumWidth] = Defaults.Keys.spacesBarMaximumWidth.defaultValue
+                Defaults[.spacesBarMinimumIcons] = Defaults.Keys.spacesBarMinimumIcons.defaultValue
+                Defaults[.spacesBarMaximumIcons] = Defaults.Keys.spacesBarMaximumIcons.defaultValue
                 Defaults[.spacesBarPillWidth] = Defaults.Keys.spacesBarPillWidth.defaultValue
                 Defaults[.spacesBarHideWhenSingle] = Defaults.Keys.spacesBarHideWhenSingle.defaultValue
                 Defaults[.searchTriggerKey] = Defaults.Keys.searchTriggerKey.defaultValue

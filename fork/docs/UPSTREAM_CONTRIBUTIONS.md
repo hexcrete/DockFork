@@ -4,6 +4,10 @@ October 23 Stage 3 is still partial and uncommitted. A focused navigation/icon c
 
 # Preparing Upstream Contributions
 
+The single-fullscreen +1 exception belongs with icon-limit presentation: carry the cached model classification, prepared-key invalidation, width reservation and rendering condition together. Do not classify solely by one app, since same-app Split View can contain two windows, and do not add discovery to identify the exception. Fork capture/ledger/build records remain excluded.
+
+October 27 Flexible pill icon ranges are uncommitted pending user verification. A focused contribution must include normalized limits, native non-crossing slider bindings, reset/search/accessibility wiring, icon/overflow width budgets, prepared-key invalidation and shared fitting cap together. Keep default-uncapped behavior for other PreparedFit consumers and preserve Fixed/hidden-icon/session behavior. Port relevant fixtures out of fork/tests and exclude fork presets, records, build configuration and local identity. No PR, push or release is authorized.
+
 October 27 `--dev --optimized` and its development-only marker/tests/docs/agent guidance are fork build tooling only. Exclude them from upstream app PRs. Normal source project and application code are untouched; no upstream build/publication is implied.
 
 October 27 idle-cleanup Stage 2 is uncommitted pending user testing. A focused extraction must preserve pending full-preview request/hover/source ownership and resting-fade teardown when guarding idle hides; do not gate only on panel visibility. Keep enabled active-focus retries and cancellation unchanged. Port the frozen baseline/resource-lifetime checks into the agreed upstream test location, excluding fork records/build files. Stage 1 navigation publication is independently committed as `4ebdadbb`; no submission or push is authorized.

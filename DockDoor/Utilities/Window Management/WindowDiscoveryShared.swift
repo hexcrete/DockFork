@@ -689,6 +689,9 @@ enum ManagedSpacePresentation {
         var id: CGSSpaceID { destination.space.id }
         var isCurrent: Bool { destination.display.currentSpaceID == id }
         var isFullscreen: Bool { destination.space.kind == .fullscreen }
+        var isSingleWindowFullscreen: Bool {
+            isFullscreen && apps.count == 1 && apps[0].windowCount == 1 && destination.space.ownerPIDs.count <= 1
+        }
 
         func filterLabel(mode: SpaceMenuDisplayMode) -> String {
             switch mode {

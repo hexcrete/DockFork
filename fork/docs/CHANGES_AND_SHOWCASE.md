@@ -6,14 +6,23 @@
 |---|---|
 | Spaces Bar enabled | Off |
 | Spaces Bar item size | Medium, matching Compact Mode's default |
-| Pill width mode | Flexible, Prefer Space details |
-| Maximum width in Prefer Space details mode | 240 points |
+| Pill width mode | Flexible |
+| Flexible minimum app icons | 2 |
+| Flexible maximum app icons | 8 |
 | Fixed pill width | 160 points |
 | Activate apps by clicking their icons | On |
 | Highlight Current Space in Dock, Cmd+Tab and Window Switcher | On |
 | Space-number indicator placement in all three modes | Off |
 
 October 27 default updates preserve preference keys, stored choices, reset/search wiring and the curated preset. Earlier dated defaults below describe their implementation history. No live settings reset, version change or release preparation is included.
+
+## Flexible Space pills by app count
+
+Pill width now has only Fixed and Flexible modes. Fixed keeps its pixel-width setting. Flexible uses two native sliders, Minimum icons and Maximum icons, with Minimum icons ranging from 0 through 10 and Maximum icons from 0 through 20, in whole steps, defaulting to 2 and 8. Values clamp at each other without moving the other slider; equality is valid. Counts refer to distinct app icons, not windows, and exclude the +N overflow text.
+
+Flexible pills size between the configured icon counts to fit the display. Fewer resident apps use less room without empty slots. When minimum sizes no longer fit, the bar scrolls. Labels/fullscreen indicators retain their normal padded width. A Flexible pill that cannot fit the viewport keeps its minimum and scrolls within the screen-bounded bar instead of violating the icon limits. +N has its own width budget and remains visible with a zero maximum when apps are omitted, except for a known single-window fullscreen Space: its redundant +1 and reserved gap are omitted. Split View, ordinary Desktops and uncertain multi-owner discovery retain their overflow counts. Hidden app icons still produce label-only pills.
+
+Sizing reuses cached label/icon/overflow measurements and the existing width distribution, scroll and drag-gap geometry. It adds no window discovery, AX requests or icon-loading loop. Fixed mode/width preferences remain in use; earlier flexible pixel-width keys remain stored but are retired without migration, rewriting or runtime reads. Both former Flexible choices now use the new icon limits. Reset/search wiring and slider accessibility labels are included; the curated preset is unchanged. The user reports the feature working and approved review/commit. Exhaustive pointer/keyboard/VoiceOver and multi-display visual coverage remains unverified.
 
 October 27 current-Space default: Highlight Current Space defaults On independently in Dock, Cmd+Tab and Window Switcher. All three Space-number indicator placements still default Off; highlighting takes effect only when a user enables an indicator. Existing explicit preferences and the curated preset are unchanged. No rendering, discovery or lifecycle change.
 

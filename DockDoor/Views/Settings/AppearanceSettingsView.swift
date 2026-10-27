@@ -40,22 +40,22 @@ struct SpacesBarAppearanceSection: View {
     @Default(.spacesBarShowAppIcons) private var spacesBarShowAppIcons
     @Default(.spacesBarLabels) private var spacesBarLabels
     @Default(.spacesBarFixedWidth) private var spacesBarFixedWidth
-    @Default(.spacesBarPreferDetails) private var spacesBarPreferDetails
-    @Default(.spacesBarMinimumWidth) private var spacesBarMinimumWidth
-    @Default(.spacesBarMaximumWidth) private var spacesBarMaximumWidth
+    @Default(.spacesBarMinimumIcons) private var spacesBarMinimumIcons
+    @Default(.spacesBarMaximumIcons) private var spacesBarMaximumIcons
     @Default(.spacesBarPillWidth) private var spacesBarPillWidth
 
-    private enum SpacesBarWidthMode: Int {
-        case screenSpace, details, fixed
+    private var iconLimits: SpacesBarIconLimits {
+        SpacesBarIconLimits(minimum: spacesBarMinimumIcons, maximum: spacesBarMaximumIcons)
     }
 
-    private var spacesBarWidthMode: Binding<SpacesBarWidthMode> {
-        Binding(get: {
-            spacesBarFixedWidth ? .fixed : (spacesBarPreferDetails ? .details : .screenSpace)
-        }, set: { mode in
-            spacesBarFixedWidth = mode == .fixed
-            spacesBarPreferDetails = mode == .details
-        })
+    private var minimumIcons: Binding<Double> {
+        Binding(get: { Double(iconLimits.minimum) },
+                set: { spacesBarMinimumIcons = min(SpacesBarIconLimits.minimumUpperBound, max(0, Int($0)), iconLimits.maximum) })
+    }
+
+    private var maximumIcons: Binding<Double> {
+        Binding(get: { Double(iconLimits.maximum) },
+                set: { spacesBarMaximumIcons = max(iconLimits.minimum, min(SpacesBarIconLimits.maximumUpperBound, Int($0))) })
     }
 
     var body: some View {
@@ -77,11 +77,9 @@ struct SpacesBarAppearanceSection: View {
                             Text("Names").tag(SpaceMenuDisplayMode.fullName)
                         }
                         .settingsSearchTarget("windowSwitcher.spacesBarLabels")
-                        Picker("Pill width", selection: spacesBarWidthMode) {
-                            Text("Flexible (Prefer screen space)").tag(SpacesBarWidthMode.screenSpace)
-                            Text("Flexible (Prefer Space details)").tag(SpacesBarWidthMode.details)
-                                .settingsSearchTarget("windowSwitcher.spacesBarPreferDetails")
-                            Text("Fixed").tag(SpacesBarWidthMode.fixed)
+                        Picker("Pill width", selection: $spacesBarFixedWidth) {
+                            Text("Fixed").tag(true)
+                            Text("Flexible").tag(false)
                         }
                         .settingsSearchTarget("windowSwitcher.spacesBarFixedWidth")
                         if spacesBarFixedWidth {
@@ -91,20 +89,21 @@ struct SpacesBarAppearanceSection: View {
                                 Text("\(Int(spacesBarPillWidth))")
                             }
                             .settingsSearchTarget("windowSwitcher.spacesBarPillWidth")
-                        } else if spacesBarPreferDetails {
+                        } else if spacesBarShowAppIcons {
                             HStack {
-                                Text("Maximum pill width")
-                                Slider(value: $spacesBarMaximumWidth, in: 10 ... 600, step: 10)
-                                Text("\(Int(spacesBarMaximumWidth))")
+                                Text("Minimum icons")
+                                Slider(value: minimumIcons, in: 0 ... Double(SpacesBarIconLimits.minimumUpperBound), step: 1)
+                                    .accessibilityLabel(Text("Minimum icons"))
+                                Text("\(iconLimits.minimum)")
                             }
-                            .settingsSearchTarget("windowSwitcher.spacesBarMaximumWidth")
-                        } else {
+                            .settingsSearchTarget("windowSwitcher.spacesBarMinimumIcons")
                             HStack {
-                                Text("Minimum pill width")
-                                Slider(value: $spacesBarMinimumWidth, in: 10 ... 600, step: 10)
-                                Text("\(Int(spacesBarMinimumWidth))")
+                                Text("Maximum icons")
+                                Slider(value: maximumIcons, in: 0 ... Double(SpacesBarIconLimits.maximumUpperBound), step: 1)
+                                    .accessibilityLabel(Text("Maximum icons"))
+                                Text("\(iconLimits.maximum)")
                             }
-                            .settingsSearchTarget("windowSwitcher.spacesBarMinimumWidth")
+                            .settingsSearchTarget("windowSwitcher.spacesBarMaximumIcons")
                         }
                     }
                 }
@@ -114,9 +113,8 @@ struct SpacesBarAppearanceSection: View {
         .onChange(of: spacesBarShowAppIcons) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
         .onChange(of: spacesBarLabels) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
         .onChange(of: spacesBarFixedWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
-        .onChange(of: spacesBarPreferDetails) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
-        .onChange(of: spacesBarMinimumWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
-        .onChange(of: spacesBarMaximumWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+        .onChange(of: spacesBarMinimumIcons) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+        .onChange(of: spacesBarMaximumIcons) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
         .onChange(of: spacesBarPillWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
     }
 }

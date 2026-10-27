@@ -17,10 +17,10 @@ enum AppIconStripFormatting {
             }
         }
 
-        func visibleCount(availableWidth: CGFloat) -> Int? {
+        func visibleCount(availableWidth: CGFloat, maximumVisible: Int? = nil) -> Int? {
             let total = requiredWidths.count - 1
             guard total > 0, availableWidth > 0 else { return nil }
-            var count = min(total, Int(availableWidth / iconSize))
+            var count = min(total, max(0, maximumVisible ?? total), Int(availableWidth / iconSize))
             while count >= 0 {
                 if requiredWidths[count] <= availableWidth { return count }
                 count -= 1
