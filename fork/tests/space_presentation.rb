@@ -413,6 +413,16 @@ abort 'Unchanged Space contents must skip unnecessary layout' unless panel.inclu
 settings = File.read("#{root}/DockDoor/Views/Settings/WindowSwitcherBehaviorSettingsView.swift") + File.read("#{root}/DockDoor/Views/Settings/AppearanceSettingsView.swift")
 catalog = File.read("#{root}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
 reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")
+constants = File.read("#{root}/DockDoor/consts.swift")
+abort 'Space app-icon activation must default On' unless constants.include?('static let spacesBarActivateAppIcons = Key<Bool>("spacesBarActivateAppIcons", default: true)')
+abort 'Compact and Space items must both default to Medium' unless constants.include?('Key<CompactModeItemSize>("compactModeItemSize", default: .medium)') && constants.include?('Key<SpacesBarItemSize>("spacesBarItemSize", default: .medium)')
+abort 'Space pills must default to flexible details with a 240-point maximum and 160-point fixed width' unless constants.include?('Key<Bool>("spacesBarFixedWidth", default: false)') && constants.include?('Key<Bool>("spacesBarPreferDetails", default: true)') && constants.include?('Key<Double>("spacesBarMaximumWidth", default: 240)') && constants.include?('Key<Double>("spacesBarPillWidth", default: 160)')
+[['dockPreview','DockPreview'],['switcher','Switcher'],['cmdTab','CmdTab']].each do |mode,highlight_mode|
+  placement="#{mode}SpaceNumberIndicatorPlacement"
+  highlight="highlight#{highlight_mode}CurrentSpaceIndicator"
+  abort "Space indicator must remain Off by default: #{mode}" unless constants.include?("static let #{placement} = Key<WindowStateIndicatorPlacement>(\"#{placement}\", default: .off)")
+  abort "Current-Space highlighting must default On: #{mode}" unless constants.include?("static let #{highlight} = Key<Bool>(\"#{highlight}\", default: true)")
+end
 %w[enableSpacesBar spacesBarItemSize spacesBarPreferDetails spacesBarMinimumWidth spacesBarLabels spacesBarFixedWidth spacesBarMaximumWidth spacesBarPillWidth spacesBarHideWhenSingle spacesBarFilterWindows spacesBarActivateAppIcons spacesBarShowAppIcons spacesBarSwapContents].each do |key|
   abort "Unwired bar setting #{key}" unless settings.include?("windowSwitcher.#{key}") && catalog.include?("windowSwitcher.#{key}") && reset.include?("Defaults[.#{key}] = Defaults.Keys.#{key}.defaultValue")
 end
@@ -693,8 +703,8 @@ for raw in [0,1,2,3,4,5,6,7,8,99] {
  suite.setVolatileDomain(["spacesBarItemSize":raw],forName:UserDefaults.registrationDomain)
  let stored=suite.object(forKey:"spacesBarItemSize") as! Int
  let decoded=SpacesBarItemSize(rawValue:stored)
- let resolved=decoded ?? .small
- if !(2...8).contains(raw){precondition(decoded==nil && resolved == .small)}
+ let resolved=decoded ?? .medium
+ if !(2...8).contains(raw){precondition(decoded==nil && resolved == .medium)}
  else{precondition(resolved.rawValue==raw)}
  precondition(suite.object(forKey:"spacesBarItemSize") as! Int==raw,"Reading/fallback must not migrate saved values")
 }
@@ -2067,7 +2077,7 @@ abort 'Space drag label updates must be token-owned and measured only on content
 abort 'Symbols must follow both pointer and cached-target changes without discovery' unless panel.include?('contentsTargetChanged: { [weak self] target in self?.updateContentsDragSymbol(target) }') && block(panel,'    private func updateContentsDragSymbol(').include?('displays: session.displays')
 puts 'PASS Space drag label: common group chrome, token cleanup, change-only sizing and cached target glyph updates'
 
-abort 'Space item size default/key must remain unchanged' unless File.read("#{root}/DockDoor/consts.swift").include?('Key<SpacesBarItemSize>("spacesBarItemSize", default: .small)')
+abort 'Space item size must default to Medium' unless File.read("#{root}/DockDoor/consts.swift").include?('Key<SpacesBarItemSize>("spacesBarItemSize", default: .medium)')
 abort 'Space pill height must share Compact Mode row-height metrics directly' unless bar.include?('static var pillHeight: CGFloat { Defaults[.spacesBarItemSize].rowHeight }')
 puts 'PASS Space size parity: seven shared heights/fonts, smaller icon proportions, stable stored values and read-only removed-value fallback'
 abort 'Window groups must snapshot the initiating mode appearance' unless File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift").include?('cardStyle: .compact(appearance: resolvedAppearance, uniformCardRadius: uniformCardRadius, backgroundAppearance: backgroundAppearance)')

@@ -1,5 +1,11 @@
 # DockFork Showcase Capture Checklist
 
+October 27 combined defaults: use Medium Spaces Bar items, Flexible (Prefer Space details) with maximum 240 points, and 160-point fixed pills for future fresh-default captures. Icon activation defaults On; per-mode current-Space highlighting defaults On but indicator placement stays Off. Existing capture IDs and media status are unchanged. Existing live settings and the curated preset are not rewritten. Latest validation is build-only at the user's request; no fresh-profile UI test is inferred.
+
+October 27 current-Space highlighting defaults: verify Dock, Cmd+Tab and Window Switcher have Space indicators Off with fresh defaults, then enable each indicator to observe highlighting On. Check a non-current Space and a stored highlighting-Off choice. Do not reset live preferences or import the preset automatically. Reuse existing indicator captures; no new media captured or approved.
+
+October 27 icon-activation default: reuse existing Spaces Bar captures, no new media or capture ID. Fresh/reset settings enable Activate apps by clicking their icons; verify a stored Off choice remains Off, visible icon clicks target the correct resident window, and background/label clicks still switch Spaces. Hidden icons remain noninteractive. No automatic settings reset or preset import.
+
 October 27 optimized-local comparison: reuse existing hover/scrolling cases without new capture IDs. Compare the same settings, regular/Compact layout and window set against upstream 1.41.0, one app running at a time. Separate the known shared first-opening delay from steady-state response. Local optimized development builds are not distribution assets; no result, screenshot or video is approved/captured by preparing one.
 
 October 27 UI-idle Stage 2 verification: no new capture ID. Test ordinary highlighting with hover action None and active border Off, then enable full-size hover previews and verify rapid target changes, pending cancellation, full-preview fade-out, container resting fade/recovery and active borders On/Off. Check Dock, Cmd+Tab, Window Switcher and animation preferences. Count tests do not certify visible smoothness; no new media captured/approved. Leave the upstream-shared first-opening delay deferred.

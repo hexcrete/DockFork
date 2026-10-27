@@ -1,5 +1,26 @@
 # DockFork: Changes and Showcase
 
+## Current Spaces defaults
+
+| Setting | Default |
+|---|---|
+| Spaces Bar enabled | Off |
+| Spaces Bar item size | Medium, matching Compact Mode's default |
+| Pill width mode | Flexible, Prefer Space details |
+| Maximum width in Prefer Space details mode | 240 points |
+| Fixed pill width | 160 points |
+| Activate apps by clicking their icons | On |
+| Highlight Current Space in Dock, Cmd+Tab and Window Switcher | On |
+| Space-number indicator placement in all three modes | Off |
+
+October 27 default updates preserve preference keys, stored choices, reset/search wiring and the curated preset. Earlier dated defaults below describe their implementation history. No live settings reset, version change or release preparation is included.
+
+October 27 current-Space default: Highlight Current Space defaults On independently in Dock, Cmd+Tab and Window Switcher. All three Space-number indicator placements still default Off; highlighting takes effect only when a user enables an indicator. Existing explicit preferences and the curated preset are unchanged. No rendering, discovery or lifecycle change.
+
+## October 27 Spaces Bar icon activation default
+
+Activate apps by clicking their icons now defaults On. It still requires an enabled Spaces Bar with visible app icons and activates the leading eligible resident window through the existing confirmed pipeline. Background/label clicks retain Space activation. Existing explicitly stored choices are preserved; reset uses the new default. No preference migration, preset change or new resource handler. Earlier dated entries describing default Off are historical.
+
 ## October 27 optimized local comparison, user-tested
 
 Add an opt-in `--dev --optimized` build flag for local testing only. It retains Debug configuration and code paths, local signing, bundle ID, installed path and preferences while using Swift `-O` without code coverage. Normal Debug and Release packaging remain unchanged. A development-only Info.plist marker identifies the chosen mode; compiler flags, installed marker and identity continuity are verified for DockFork-701f91b-working-ZMCkn8. No application feature, preset or distribution release changes. The user reports optimized DockFork and upstream now feel similarly smooth. This is subjective comparison, not a matched two-source benchmark or measured speedup.
