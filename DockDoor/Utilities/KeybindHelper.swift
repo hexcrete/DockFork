@@ -876,7 +876,7 @@ class KeybindHelper {
 
     init(previewCoordinator: SharedPreviewWindowCoordinator) {
         self.previewCoordinator = previewCoordinator
-        previewCoordinator.onSwitcherSessionDismissal = { [weak self] in
+        previewCoordinator.onSwitcherSessionDismissal = { @MainActor [weak self] in
             self?.cancelWindowSwitcherSession()
         }
         previewCoordinator.windowSwitcherCoordinator.onSelectionPinned = { [weak self] in

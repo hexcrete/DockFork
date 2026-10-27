@@ -586,7 +586,7 @@ panel_source = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/
 terminal_hide = block(panel_source, '    func hideWindow(')
 abort 'Terminal hiding must end the active session before clearing UI state' unless terminal_hide.index('onSwitcherSessionDismissal?()') < terminal_hide.index('windowSwitcherCoordinator.pendingSpaceNavigation = nil')
 abort 'Panel dismissal must not cancel accepted mutations' if terminal_hide.include?('cancelPreviewBatchAction(') || terminal_hide.include?('previewActionTasks')
-abort 'Session cancellation callback must be weak and installed by the session owner' unless keybinds.include?('previewCoordinator.onSwitcherSessionDismissal = { [weak self] in')
+abort 'Session cancellation callback must be weak and explicitly main-actor isolated' unless keybinds.include?('previewCoordinator.onSwitcherSessionDismissal = { @MainActor [weak self] in')
 abort 'Remove the obsolete Space-only cancellation entry point' if keybinds.include?('dismissPreviewsForSpaceChange')
 %w[scheduleWindowClosureDismissConfirmation scheduleCloseAllDismissConfirmation scheduleNewWindowDismissConfirmation].each do |name|
  watcher = block(panel_source, "    private func #{name}(")
@@ -747,3 +747,31 @@ space_dispatch = block(keybinds, '    private func performPreviewShortcut(')
 abort 'Space shortcuts must route before initiating-window selection or navigation reset' unless space_dispatch.index('highlightedSpaceID') < space_dispatch.index('if action == .toggleWindowSelection') && space_dispatch.index('performSpaceWindowAction') < space_dispatch.index('coordinator.navigationTarget = .windows')
 abort 'Space menu routing must include resolved shortcut-only keys, without alias menu rows' unless block(menu_source, '    func addSpaceActions(').include?('for shortcut in shortcuts where routing[shortcut.keyCode] == nil')
 abort 'An empty grid must not tear down a visible Spaces session' unless keybinds.include?('windows.isEmpty && !self.previewCoordinator.hasVisibleSpacesBar') && File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift").include?('hasVisibleSpacesBar != true')
+
+# Compile the actual callback registration without DEBUG, with Release optimization.
+registration = keybinds[/        previewCoordinator\.onSwitcherSessionDismissal = \{ @MainActor \[weak self\] in\n.*?\n        \}/m] or abort 'Missing explicit session callback registration'
+registration_source = <<~'SWIFT'
+import Foundation
+final class CallbackPanel {var onSwitcherSessionDismissal:(@MainActor ()->Void)?}
+final class CallbackOwner {
+ let previewCoordinator:CallbackPanel
+ var cancellations=0
+ init(_ panel:CallbackPanel){previewCoordinator=panel
+SWIFT
+registration_source += registration + "\n}\n @MainActor func cancelWindowSwitcherSession(){cancellations+=1}\n}\n"
+registration_source += <<~'SWIFT'
+@main struct RegistrationChecks {
+ @MainActor static func main(){
+  let panel=CallbackPanel();var owner:CallbackOwner?=CallbackOwner(panel);weak var weakOwner=owner
+  panel.onSwitcherSessionDismissal?();precondition(owner!.cancellations==1,"Dismissal stays synchronous")
+  owner=nil;precondition(weakOwner==nil,"Registration must not retain the session owner")
+  panel.onSwitcherSessionDismissal?()
+  print("PASS Release callback registration: explicit main actor, synchronous cancellation and weak ownership")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-release-callback-') do |dir|
+ File.write("#{dir}/checks.swift",registration_source)
+ abort 'Release callback compilation failed' unless system('swiftc','-swift-version','5','-O','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
+ abort 'Release callback checks failed' unless system("#{dir}/checks")
+end

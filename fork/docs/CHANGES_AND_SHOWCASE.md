@@ -1556,3 +1556,5 @@ Merge handoff: committed as `3655c66a`, with 16 focused suites plus inert integr
 ### Automatic-Quit exclusions for DockFork Close
 
 The upstream merge added exclusions to native last-window-close handling, but the fork's direct Close-to-Quit shortcut did not consult that policy. The shared helper now uses the same exclusion, lock and app-policy guards, keeping excluded apps running when their last window is closed through DockFork as well as natively. Finder and missing/terminated targets are refused. Explicit Quit and Force Quit are unchanged. Focused policy/Cmd+Tab, explicit-Quit and ownership checks pass. The corrected signed development build is verified and running; manual retest remains pending.
+
+Release-build validation made the existing switcher-dismissal callback's main-actor isolation explicit. Its weak ownership and synchronous dismissal behavior are unchanged; an optimized non-DEBUG regression covers that contract. The failed initial build is not a candidate.
