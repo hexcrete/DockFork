@@ -437,7 +437,7 @@ typealias AXUIElementID = UInt64
 @MainActor
 func isAccessibilityReady() async -> Bool {
     guard let pid = NSWorkspace.shared.runningApplications
-        .first(where: { $0.bundleIdentifier == "com.apple.finder" })?.processIdentifier
+        .first(where: { $0.bundleIdentifier == finderAppIdentifier })?.processIdentifier
     else {
         return false
     }

@@ -1539,3 +1539,9 @@ The three efficiency stages are user-verified and committed. The optional `ruby 
 | Disabled | 0 | 0 / 0 | 0 | 0 |
 
 An unchanged refresh still sorts and constructs N window fingerprint records. Rebuilds resolve each display name in both fingerprint and model phases: four resolutions for two displays instead of two on unchanged refresh. These are remaining measurable operations, not proven UI bottlenecks. Keep freshness policy unchanged; native latency/profiling would be needed to justify more caching. No further app behavior, resources or release status changed.
+
+## October 27 upstream integration
+
+Incoming upstream changes through `3044142c` include safer automatic Quit after the last window closes, an optional Never quit these apps list, cached screen-position sorting, centralized app links/identifiers, native accessible hover/media controls and broader Reduce Motion handling. Stable base remains DockDoor 1.41.0; 1.41.1b1 is a beta included in history, not the stable version label.
+
+Fork resolutions preserve shared action ownership, background Finder readiness including zero windows, effective hidden/fullscreen labels, adaptive control overflow and existing reduced-motion fades. The new screen-position sort reads cached frames, not live AX geometry; all preview modes and the shared Spaces model use the existing sort preference. Packaging redirects source/issue links to DockFork while retaining intentional upstream donation/Pro/community/translation attribution. No new default binding or preference migration. Focused checks and formatting pass; development-build/manual verification pending. Release preparation is paused until the merge is verified; no Release candidate is built here.

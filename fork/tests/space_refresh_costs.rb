@@ -24,7 +24,7 @@ import CoreGraphics
 typealias CGSSpaceID = UInt64
 typealias CGWindowID = UInt32
 enum SpaceMenuDisplayMode {case numberOnly,fullName}
-enum WindowPreviewSortOrder {case recentlyUsed,creationOrder,alphabeticalByTitle,alphabeticalByAppName}
+enum WindowPreviewSortOrder {case recentlyUsed,creationOrder,screenPosition,alphabeticalByTitle,alphabeticalByAppName}
 final class NSRunningApplication:Equatable {
  let processIdentifier:pid_t,localizedName:String?,bundleIdentifier:String?
  var isTerminated=false
@@ -33,6 +33,7 @@ final class NSRunningApplication:Equatable {
  static func ==(a:NSRunningApplication,b:NSRunningApplication)->Bool{a.processIdentifier==b.processIdentifier}
 }
 final class NSScreen {
+ var cgFrame:CGRect{CGRect(x:identifier=="one" ? 0:1000,y:0,width:1000,height:1000)}
  let identifier:String,localizedName:String
  init(_ id:String){identifier=id;localizedName=id}
  static var screens=[NSScreen("one"),NSScreen("two")]
@@ -40,6 +41,7 @@ final class NSScreen {
 struct WindowInfo {
  let id:CGWindowID,app:NSRunningApplication
  var ownerApp:NSRunningApplication{app}
+ var frame=CGRect.zero
  var spaceID:Int?,windowName:String?
  var isMinimized=false,isHidden=false,isFullscreen:Bool?=false,isWindowlessApp=false
  var lastAccessedTime:Double=0,creationTime:Double=0
@@ -107,6 +109,7 @@ source += <<~'SWIFT'
 SWIFT
 source += block(util, '    static func getAllWindowsIgnoringSwitcherFilters(') + "\n"
 source += block(util, '    static func sortWindowsForSwitcher(') + "\n"
+%w[sortWindowsByScreenPosition orderedScreens screenPositionKey].each{|name|source+=block(util,"    private static func #{name}(")+"\n"}
 source += block(util, '    private static func sortWindowsWithOptions(').sub('        var sortedWindows:', '        Counts.add("sorts")' + "\n        var sortedWindows:") + "\n}\n"
 source += block(shared, 'enum ManagedSpacePresentation {').sub('        var windowsBySpace:', '        Counts.add("models")' + "\n        var windowsBySpace:") + "\n"
 source += <<~'SWIFT'

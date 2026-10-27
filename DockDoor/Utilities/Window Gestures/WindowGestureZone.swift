@@ -73,7 +73,7 @@ enum WindowGestureZoneResolver {
     }
 
     static func resolve(at point: CGPoint) -> WindowGestureZone? {
-        guard !isScreenLocked else { return nil }
+        guard !WindowUtil.isScreenLocked else { return nil }
         let screen = NSScreen.screenFromQuartzPoint(point)
         let windows = onScreenWindows()
 
@@ -269,7 +269,7 @@ enum WindowGestureZoneResolver {
     // MARK: - Helpers
 
     private static func topWindow(at point: CGPoint, in windows: [[String: AnyObject]]) -> [String: AnyObject]? {
-        let dockPID = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first?.processIdentifier
+        let dockPID = DockUtils.runningDock?.processIdentifier
         let cursorLevel = Int(CGWindowLevelForKey(.cursorWindow))
         let screenFrames = NSScreen.screens.map(\.cgFrame)
         return windows.first { window in
@@ -285,11 +285,6 @@ enum WindowGestureZoneResolver {
             guard layer < cursorLevel else { return false }
             return layer == 0 || !screenFrames.contains(frame)
         }
-    }
-
-    private static var isScreenLocked: Bool {
-        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
-        return (session["CGSSessionScreenIsLocked"] as? Bool) == true
     }
 
     private static func onScreenWindows() -> [[String: AnyObject]] {

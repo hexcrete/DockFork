@@ -23,6 +23,8 @@ final class NSRunningApplication {
 }
 final class NSWorkspace {static let shared=NSWorkspace();var frontmostApplication:NSRunningApplication?;var runningApplications:[NSRunningApplication]=[]}
 final class NSScreen {
+ static var screens:[NSScreen]{[current]}
+ var cgFrame:CGRect{CGRect(x:0,y:0,width:1000,height:1000)}
  static var current=NSScreen("one");let id:String
  init(_ id:String){self.id=id}
  static func screenFromQuartzPoint(_ point:CGPoint)->NSScreen{current}
@@ -31,7 +33,7 @@ final class NSScreen {
 enum DockObserver {static func getMousePosition()->CGPoint{.zero}}
 enum DockPosition {case bottom}
 enum SwitcherInvocationMode:CaseIterable {case allWindows,currentSpaceOnly,currentMonitorOnly,currentMonitorCurrentSpace,activeAppOnly,activeAppCurrentSpace}
-enum WindowPreviewSortOrder {case recentlyUsed,creationOrder,alphabeticalByTitle,alphabeticalByAppName}
+enum WindowPreviewSortOrder {case recentlyUsed,creationOrder,screenPosition,alphabeticalByTitle,alphabeticalByAppName}
 struct Key<T> {let name:String}
 enum Defaults {static var values:[String:Any]=[:];static subscript<T>(_ key:Key<T>)->T {values[key.name] as! T}}
 SWIFT
@@ -44,6 +46,7 @@ extension Key where T==[String] {
 }
 extension Key where T==WindowPreviewSortOrder {static var windowSwitcherSortOrder:Self{.init(name:"windowSwitcherSortOrder")}}
 struct WindowInfo {
+ var frame=CGRect.zero
  let id:UInt32;let app:NSRunningApplication;var space:UInt64=1;var monitor="one";var image=0
  var isMinimized=false,isHidden=false,isWindowlessApp=false,isNativeRepresentative=true
  var windowName:String?;var lastAccessedTime=Date.distantPast,creationTime=Date.distantPast
@@ -78,6 +81,7 @@ enum WindowUtil {
  static func groupingBundleIdentifiers(for w:WindowInfo)->[String]{[w.app.bundleIdentifier!]} 
 SWIFT
 %w[readSwitcherCacheSnapshot switcherWindows sortWindowsForSwitcher sortWindowsForSwitcherByRecency groupWindowsByApp].each{|name|source+=block(util,"    static func #{name}(")+"\n"}
+%w[sortWindowsByScreenPosition orderedScreens screenPositionKey].each{|name|source+=block(util,"    private static func #{name}(")+"\n"}
 sort=block(util,'    private static func sortWindowsWithOptions(')
 source+=sort.sub('var sortedWindows:', 'sorts+=1; var sortedWindows:')+"\n}\n"
 group=block(util,'    static func groupWindowsByApp(')

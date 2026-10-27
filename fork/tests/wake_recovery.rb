@@ -22,6 +22,7 @@ abort 'Necessary recovery must not dismiss a newer session asynchronously' if re
 abort 'Keep existing display debounce and observer cleanup infrastructure' unless block(app,'    @objc private func handleScreenParametersChanged(').include?('asyncAfter(deadline: .now() + 2.0') && block(app,'    func applicationWillTerminate(').include?('wakeRecoveryTask?.cancel()')
 source=<<~'SWIFT'
 import Foundation
+let finderAppIdentifier="com.apple.finder"
 typealias pid_t=Int32
 final class Gate:@unchecked Sendable{let entered=DispatchSemaphore(value:0),release=DispatchSemaphore(value:0);func started()->Bool{entered.wait(timeout:.now()) == .success}}
 final class Element:@unchecked Sendable {

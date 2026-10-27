@@ -62,7 +62,7 @@ extension DockObserver {
     }
 
     private func attemptCmdTabSubscription() {
-        guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
+        guard let dockApp = DockUtils.runningDock else {
             return
         }
 
@@ -134,7 +134,7 @@ extension DockObserver {
     private func processCmdTabSwitcherChanged(generation: UInt, retrySelectionLookup: Bool) {
         guard generation == cmdTabSelectionGeneration else { return }
         guard Defaults[.enableCmdTabEnhancements] else { return }
-        guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
+        guard let dockApp = DockUtils.runningDock else {
             return
         }
 

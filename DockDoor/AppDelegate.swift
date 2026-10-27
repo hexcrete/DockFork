@@ -372,9 +372,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openDonationPage() {
-        if let url = URL(string: "https://dockdoor.net/donate") {
-            NSWorkspace.shared.open(url)
-        }
+        NSWorkspace.shared.open(Links.donate)
     }
 
     @objc private func openProPage() {
@@ -382,9 +380,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openReviewPage() {
-        if let url = URL(string: "https://www.producthunt.com/products/dockdoor/reviews") {
-            NSWorkspace.shared.open(url)
-        }
+        NSWorkspace.shared.open(Links.review)
     }
 
     private var wakeRecoveryTask: Task<Void, Never>?
@@ -470,7 +466,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let currentMouseLocation = CGEvent(source: nil)?.location ?? .zero
         let screen = NSScreen.screenFromQuartzPoint(currentMouseLocation)
 
-        if !Defaults[.showAnimations] || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+        if !animationsEnabled {
             showOnboardingWindow(on: screen)
             return
         }

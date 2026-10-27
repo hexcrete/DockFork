@@ -93,7 +93,7 @@ struct WindowPreviewHoverContainer: View {
     @Default(.previewMaxRows) var previewMaxRows
     @Default(.switcherMaxRows) var switcherMaxRows
     @Default(.gradientColorPalette) var gradientColorPalette
-    @Default(.showAnimations) var showAnimations
+    @AnimationsEnabled var showAnimations
     @Default(.enableMouseHoverInSwitcher) var enableMouseHoverInSwitcher
     @Default(.enableWindowSwitcherEdgeAutoScroll) var enableWindowSwitcherEdgeAutoScroll
     @Default(.mouseHoverAutoScrollSpeed) var mouseHoverAutoScrollSpeed
