@@ -84,6 +84,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private var spacesBarAllSections: [ManagedSpacePresentation.Display] = []
     private var spacesBarPresentationDisplays: [ManagedDisplayDescriptor]?
     private var spacesBarPreparedLayout: SpacesBarPreparedLayout?
+    private var spacesBarPresentationKey: SpacesBarPresentationKey?
     private var spacesBarFingerprint: [String] = []
     private var spacesBarSpaceChangeSnapshot: [ManagedDisplayDescriptor]?
     private var spacesBarScreenObserver: NSObjectProtocol?
@@ -936,6 +937,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     private func removeSpacesBar(keepTopologyObserver: Bool = false) {
         pendingSpacesBarRefresh = nil
         spacesBarPreparedLayout = nil
+        spacesBarPresentationKey = nil
         spaceFilterIntent = SpaceFilterIntent()
         cancelContentsDrag()
         windowSwitcherCoordinator.spaceDragViewport?.updateDrag(at: nil)
@@ -1004,33 +1006,49 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         let target = spacesBarFrame(relativeTo: grid, size: CGSize(width: width, height: SpacesBarLayout.height(displayCount: spacesBarSections.count)), screen: screen)
         let current = spacesBarSections.first(where: { WindowSpaces.screen(forDisplayIdentifier: $0.id) == screen })?
             .spaces.first(where: \.isCurrent)?.id
-        panel.level = level
-        panel.sharingType = sharingType
-        let barView = SpacesBarView(
-            viewport: panel.viewport, restingSizing: restingSizing, expandedSizing: expandedSizing,
-            labelTextWidths: prepared.textWidths,
-            preparedLayout: prepared,
-            frameForSize: { [weak self] size in self?.spacesBarFrame(relativeTo: grid, size: size, screen: screen) ?? target },
-            screen: screen, sections: spacesBarSections,
-            initialSpace: current, highlightedSpace: windowSwitcherCoordinator.spaceNavigationInputSource == .mouse ? nil : highlightedSpaceID, previewCoordinator: windowSwitcherCoordinator, labels: labels,
-            hover: { [weak self] id, hovering in self?.windowSwitcherCoordinator.hoverSpace(id, hovering: hovering) },
-            filteredSpace: windowSwitcherCoordinator.activeSpaceFilterID,
-            filterControlSpace: highlightedSpaceID ?? windowSwitcherCoordinator.mouseHighlightedSpaceID,
-            clearFilter: { [weak self] in self?.clearSpaceFilter() },
-            applyFilter: { [weak self] id in self?.applySpaceFilter(id) },
-            activateApp: { [weak self] app, entry in Task { @MainActor in await self?.activateSpaceApp(app, in: entry) } },
-            activate: { [weak self] entry in Task { @MainActor in self?.activateSpace(entry) } },
-            dragContents: { [weak self] id, point, ended in self?.updateContentsDrag(from: id, at: point, ended: ended) },
-            spaceMenu: { [weak self] entry, event, view in self?.presentSpaceMenu(entry, event: event, sourceView: view) },
-            allowedGaps: Set(contentsDragSession.flatMap { session in
-                guard !Defaults[.spacesBarRecentlyUsed] else { return nil as [SpaceContentsGap]? }
-                return spacesBarSections.flatMap { display in
-                    (display.spaces.map { SpaceContentsGap(displayID: display.id, beforeSpaceID: $0.id) } + [SpaceContentsGap(displayID: display.id, beforeSpaceID: nil)])
-                        .filter { SpaceContentsLayout.destination(for: $0, source: session.source, displays: session.displays) != nil }
-                }
-            } ?? []),
-            contentsTargetChanged: { [weak self] target in self?.updateContentsDragSymbol(target) }
+        let allowedGaps = Set<SpaceContentsGap>(contentsDragSession.flatMap { session -> [SpaceContentsGap]? in
+            guard !Defaults[.spacesBarRecentlyUsed] else { return nil }
+            return spacesBarSections.flatMap { display in
+                (display.spaces.map { SpaceContentsGap(displayID: display.id, beforeSpaceID: $0.id) } + [SpaceContentsGap(displayID: display.id, beforeSpaceID: nil)])
+                    .filter { SpaceContentsLayout.destination(for: $0, source: session.source, displays: session.displays) != nil }
+            }
+        } ?? [])
+        let highlighted = windowSwitcherCoordinator.spaceNavigationInputSource == .mouse ? nil : highlightedSpaceID
+        let presentationKey = SpacesBarPresentationKey(
+            layout: key, sections: spacesBarSections, grid: grid, target: target,
+            screen: ObjectIdentifier(screen), screenFrame: screen.frame, visibleFrame: screen.visibleFrame,
+            session: windowSwitcherCoordinator.pointerInteractionSessionID, labels: labels, initialSpace: current,
+            highlightedSpace: highlighted, filteredSpace: windowSwitcherCoordinator.activeSpaceFilterID,
+            filterControlSpace: highlightedSpaceID ?? windowSwitcherCoordinator.mouseHighlightedSpaceID, allowedGaps: allowedGaps
         )
+        updateSpacesBarContent(presentationKey, in: panel) {
+            SpacesBarView(
+                viewport: panel.viewport, restingSizing: restingSizing, expandedSizing: expandedSizing,
+                labelTextWidths: prepared.textWidths,
+                preparedLayout: prepared,
+                frameForSize: { [weak self] size in self?.spacesBarFrame(relativeTo: grid, size: size, screen: screen) ?? target },
+                screen: screen, sections: spacesBarSections,
+                initialSpace: current, highlightedSpace: highlighted, previewCoordinator: windowSwitcherCoordinator, labels: labels,
+                hover: { [weak self] id, hovering in self?.windowSwitcherCoordinator.hoverSpace(id, hovering: hovering) },
+                filteredSpace: windowSwitcherCoordinator.activeSpaceFilterID,
+                filterControlSpace: highlightedSpaceID ?? windowSwitcherCoordinator.mouseHighlightedSpaceID,
+                clearFilter: { [weak self] in self?.clearSpaceFilter() },
+                applyFilter: { [weak self] id in self?.applySpaceFilter(id) },
+                activateApp: { [weak self] app, entry in Task { @MainActor in await self?.activateSpaceApp(app, in: entry) } },
+                activate: { [weak self] entry in Task { @MainActor in self?.activateSpace(entry) } },
+                dragContents: { [weak self] id, point, ended in self?.updateContentsDrag(from: id, at: point, ended: ended) },
+                spaceMenu: { [weak self] entry, event, view in self?.presentSpaceMenu(entry, event: event, sourceView: view) },
+                allowedGaps: allowedGaps,
+                contentsTargetChanged: { [weak self] target in self?.updateContentsDragSymbol(target) }
+            )
+        }
+        placeSpacesBar(panel, at: target)
+    }
+
+    private func updateSpacesBarContent(_ key: SpacesBarPresentationKey, in panel: SpacesBarWindow, content: () -> SpacesBarView) {
+        guard spacesBarPresentationKey != key || !(panel.contentView is NSHostingView<SpacesBarView>) else { return }
+        spacesBarPresentationKey = key
+        let barView = content()
         if let hosting = panel.contentView as? NSHostingView<SpacesBarView> {
             hosting.rootView = barView
         } else {
@@ -1038,9 +1056,15 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             hosting.sizingOptions = []
             panel.contentView = hosting
         }
+    }
+
+    private func placeSpacesBar(_ panel: SpacesBarWindow, at target: CGRect) {
+        if panel.level != level { panel.level = level }
+        if panel.sharingType != sharingType { panel.sharingType = sharingType }
         if !panel.isVisible, panel.frame != target { panel.setFrame(target, display: false) }
+        let shouldOrder = !panel.isVisible || panel.parent !== self
         if panel.parent !== self { addChildWindow(panel, ordered: .above) }
-        panel.orderFront(nil)
+        if shouldOrder { panel.orderFront(nil) }
     }
 
     private func spacesBarFrame(relativeTo grid: CGRect, size: CGSize, screen: NSScreen) -> CGRect {

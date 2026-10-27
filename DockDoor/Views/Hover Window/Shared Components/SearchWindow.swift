@@ -1005,6 +1005,23 @@ final class SpacesBarViewport: ObservableObject {
     @Published var contentsDropTarget: SpaceContentsDropTarget?
 }
 
+struct SpacesBarPresentationKey: Equatable {
+    let layout: SpacesBarPreparedLayout.Key
+    let sections: [ManagedSpacePresentation.Display]
+    let grid: CGRect
+    let target: CGRect
+    let screen: ObjectIdentifier
+    let screenFrame: CGRect
+    let visibleFrame: CGRect
+    let session: UInt
+    let labels: SpaceMenuDisplayMode
+    let initialSpace: CGSSpaceID?
+    let highlightedSpace: CGSSpaceID?
+    let filteredSpace: CGSSpaceID?
+    let filterControlSpace: CGSSpaceID?
+    let allowedGaps: Set<SpaceContentsGap>
+}
+
 struct SpacesBarContentKey: Equatable {
     let layout: SpacesBarPreparedLayout.Key
     let sections: [ManagedSpacePresentation.Display]

@@ -19,7 +19,7 @@ source="import AppKit\nimport SwiftUI\nimport Combine\ntypealias CGSSpaceID=UInt
 end
 source+=<<~'SWIFT'
 struct PreviewWindowIdentity:Hashable {let pid:Int32;let windowID:UInt32}
-enum SpaceMenuDisplayMode {case numberOnly,fullName}
+enum SpaceMenuDisplayMode:Equatable {case numberOnly,fullName}
 enum ManagedSpacePresentation {
 SWIFT
 model=block(shared,'enum ManagedSpacePresentation {')
@@ -29,10 +29,39 @@ source+=<<~'SWIFT'
 struct SpacesBarPreparedLayout {struct Key:Equatable {var value=0}}
 struct BackgroundAppearance:Equatable {var tint:Double=0}
 SWIFT
-%w[SpacesBarContentKey SpacesBarInteraction].each{|name|source+=block(bar,"struct #{name}:")+"\n"}
+%w[SpacesBarContentKey SpacesBarInteraction SpacesBarPresentationKey].each{|name|source+=block(bar,"struct #{name}:")+"\n"}
 %w[SpacesBarHostedState SpacesBarHostedContent].each{|name|source+=block(bar,"#{name=='SpacesBarHostedState' ? 'final class':'struct'} #{name}:")+"\n"}
 formatting=block(preview,'enum AppIconStripFormatting {')
+panel=File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
 source+=formatting.sub(block(formatting,'    static func attributedIcons('),'')+"\n"
+source+=<<~'SWIFT'
+enum OuterPresentationProbe {
+ struct SpacesBarView {let placement:()->CGRect}
+ final class NSHostingView<Content> {
+  var rootWrites=0
+  var rootView:Content {didSet{rootWrites+=1}}
+  var sizingOptions:[Int]=[1]
+  init(rootView:Content){self.rootView=rootView}
+ }
+ final class SpacesBarWindow {
+  var contentView:Any?
+  var isVisible=false
+  var frame=CGRect.zero
+  var levelWrites=0,sharingWrites=0,frameWrites=0,orders=0
+  var level=0 {didSet{levelWrites+=1}}
+  var sharingType=0 {didSet{sharingWrites+=1}}
+  weak var parent:Probe?
+  func setFrame(_ frame:CGRect,display:Bool){self.frame=frame;frameWrites+=1}
+  func orderFront(_ sender:Any?){orders+=1;isVisible=true}
+ }
+ final class Probe {
+  var spacesBarPresentationKey:SpacesBarPresentationKey?
+  let level=1,sharingType=2
+  var childAdds=0
+  func addChildWindow(_ panel:SpacesBarWindow,ordered:NSWindow.OrderingMode){childAdds+=1;panel.parent=self}
+SWIFT
+%w[updateSpacesBarContent placeSpacesBar].each{|name|source+=block(panel,"    private func #{name}(").sub('private func','func')+"\n"}
+source+="}\n}\n"
 source+=<<~'SWIFT'
 func reference(total:Int,available:CGFloat,icon:CGFloat,font:NSFont,spacing:CGFloat?,maximum:Int?=nil)->Int? {
  guard total>0,available>0 else{return nil}
@@ -121,6 +150,39 @@ struct Slide:AnimatableModifier {
    precondition(publications==before+1,"Changed content/geometry/style/targets must publish")
   }
   print("COUNT 100 scroll/fade-only updates: hosted publications before=100, after=0; real interaction changes publish once each; \(variants.count) presentation invalidations pass")
+let screenToken=NSObject(),nextScreenToken=NSObject()
+func outerKey(layout:SpacesBarPreparedLayout.Key=key.layout,sections:[ManagedSpacePresentation.Display]=key.sections,grid:CGRect=CGRect(x:0,y:0,width:400,height:300),target:CGRect=CGRect(x:0,y:310,width:500,height:100),screen:ObjectIdentifier=ObjectIdentifier(screenToken),screenFrame:CGRect=CGRect(x:0,y:0,width:1000,height:1000),visibleFrame:CGRect=CGRect(x:0,y:0,width:1000,height:900),session:UInt=1,labels:SpaceMenuDisplayMode = .numberOnly,initial:UInt64?=1,highlighted:UInt64?=nil,filtered:UInt64?=nil,control:UInt64?=nil,gaps:Set<SpaceContentsGap>=[])->SpacesBarPresentationKey {
+ .init(layout:layout,sections:sections,grid:grid,target:target,screen:screen,screenFrame:screenFrame,visibleFrame:visibleFrame,session:session,labels:labels,initialSpace:initial,highlightedSpace:highlighted,filteredSpace:filtered,filterControlSpace:control,allowedGaps:gaps)
+}
+let outer=OuterPresentationProbe.Probe(),outerPanel=OuterPresentationProbe.SpacesBarWindow(),base=outerKey()
+var factories=0
+func publish(_ input:SpacesBarPresentationKey){outer.updateSpacesBarContent(input,in:outerPanel){factories+=1;return .init(placement:{input.grid})}}
+publish(base)
+let firstHost=outerPanel.contentView as! OuterPresentationProbe.NSHostingView<OuterPresentationProbe.SpacesBarView>
+precondition(factories==1 && firstHost.sizingOptions.isEmpty)
+outer.placeSpacesBar(outerPanel,at:base.target)
+for _ in 0..<100 {publish(base);outer.placeSpacesBar(outerPanel,at:base.target)}
+precondition(factories==1 && firstHost.rootWrites==0 && outerPanel.orders==1 && outer.childAdds==1 && outerPanel.levelWrites==1 && outerPanel.sharingWrites==1 && outerPanel.frameWrites==1,"Unchanged placement must skip factories, root publication and panel writes/order")
+let outerVariants=[outerKey(layout:.init(value:1)),outerKey(sections:[.init(id:"test",name:"Renamed",spaces:[entry])]),outerKey(sections:[.init(id:"test",name:"Test",spaces:[newEntry])]),outerKey(grid:CGRect(x:10,y:20,width:300,height:200)),outerKey(target:CGRect(x:50,y:310,width:500,height:100)),outerKey(screen:ObjectIdentifier(nextScreenToken)),outerKey(screenFrame:CGRect(x:1000,y:0,width:1000,height:1000)),outerKey(visibleFrame:CGRect(x:0,y:0,width:1000,height:800)),outerKey(session:2),outerKey(labels:.fullName),outerKey(initial:2),outerKey(highlighted:1),outerKey(filtered:1),outerKey(control:1),outerKey(gaps:[.init(displayID:"test",beforeSpaceID:1)])]
+for variant in outerVariants {
+ publish(base);let before=factories
+ publish(variant)
+ precondition(factories==before+1 && outerPanel.contentView as! OuterPresentationProbe.NSHostingView<OuterPresentationProbe.SpacesBarView> === firstHost,"Changed inputs must update existing hosting exactly once")
+ precondition(firstHost.rootView.placement()==variant.grid,"Callbacks must use current placement inputs")
+}
+publish(base);let beforeMissing=factories;outerPanel.contentView=nil;publish(base)
+precondition(factories==beforeMissing+1,"Missing content must rebuild even with an equal key")
+outer.spacesBarPresentationKey=nil;outerPanel.contentView=nil;let beforeReopen=factories;publish(base)
+precondition(factories==beforeReopen+1,"Teardown/reopening must build fresh content")
+outerPanel.isVisible=false;let shifted=CGRect(x:20,y:320,width:500,height:100)
+outer.placeSpacesBar(outerPanel,at:shifted)
+precondition(outerPanel.frame==shifted && outerPanel.frameWrites==2 && outerPanel.orders==2)
+let secondParent=OuterPresentationProbe.Probe();secondParent.placeSpacesBar(outerPanel,at:shifted)
+precondition(secondParent.childAdds==1 && outerPanel.orders==3,"Visible reparenting must restore child ordering")
+outerPanel.level=0;outerPanel.sharingType=0
+secondParent.placeSpacesBar(outerPanel,at:shifted)
+precondition(outerPanel.level==secondParent.level && outerPanel.sharingType==secondParent.sharingType && outerPanel.orders==3)
+print("COUNT 100 unchanged placements: content factories/root assignments/orderFront/level/sharing writes 100 -> 0; initial visibility/reparenting preserved; \(outerVariants.count) invalidations, current callbacks, missing-host and teardown checks pass")
   if CommandLine.arguments.contains("--model-only") {print("SKIP native hosted animation panel (--model-only)");return}
   let app=NSApplication.shared;app.setActivationPolicy(.accessory)
   let panel=NSPanel(contentRect:CGRect(x:20,y:20,width:100,height:40),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
@@ -155,3 +217,6 @@ scroll=block(bar,'struct SpacesBarScroll:')
 abort 'Content factory must not bypass publication gating' unless scroll.include?('view.updateContent(content, key: contentKey, interaction: interaction, animation: contentAnimation)')
 abort 'Prepared fit must retain original fallback' unless bar.include?('let fit = preparedLayout.iconFits[entry.id], fit.total == apps.count,') && bar.include?('fit.requiredWidths.count == min(apps.count, maximumVisible ?? apps.count) + 1') && bar.include?('preparedLayout.key.iconSize == SpacesBarAppLayout.iconSize') && bar.include?('preparedLayout.key.font == font') && bar.include?('AppIconStripFormatting.visibleCount(')
 puts 'PASS production adapter and unknown-layout fitting fallback contracts'
+
+abort 'Presentation key must clear with prepared layout' unless block(panel,'    private func removeSpacesBar(').include?('spacesBarPresentationKey = nil')
+abort 'Placement must remain outside content gating' unless block(panel,'    private func positionSpacesBar(').include?('placeSpacesBar(panel, at: target)')
