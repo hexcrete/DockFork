@@ -217,7 +217,7 @@ No application installation, launch, live settings import or media capture accom
 
 | Changed behavior | Focused checks under `fork/tests/` |
 |---|---|
-| Preview hover transitions, outgoing-card exits or resting fade | `preview_hover.rb`, `preview_keyboard.rb`, `preview_focus_fade.rb` |
+| Preview hover transitions, publication scope, outgoing-card exits or resting fade | `preview_publications.rb` with optional `--native` offscreen SwiftUI observation check; `preview_hover.rb`, `preview_keyboard.rb`, `preview_focus_fade.rb` |
 | Window-cache reconciliation, batching, image-only delivery or suppression | `cache_reconciliation.rb`, `frame_placement.rb`; `space_presentation.rb --refresh-only` for refresh scheduling without unrelated native layout/drag fixtures |
 | Wake/unlock/display recovery, readiness or keyboard-resource health | `wake_recovery.rb`, `preview_keyboard.rb`, `frame_placement.rb` |
 | Full-size preview geometry, request lifetime or cache refresh | `full_preview_geometry.rb`, `frame_placement.rb`, `preview_window_notifications.rb`, `preview_focus_fade.rb` |

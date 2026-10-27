@@ -424,10 +424,13 @@ class PreviewStateCoordinator: ObservableObject {
 
     var pendingSpaceNavigation: (request: SpaceNavigationRequest, screen: NSScreen)?
     enum NavigationTarget: Equatable { case windows, space(CGSSpaceID) }
-    @Published var navigationTarget: NavigationTarget = .windows {
-        didSet {
-            guard oldValue != navigationTarget else { return }
-            if navigationTarget == .windows { spaceNavigationInputSource = .programmatic }
+    @Published private var storedNavigationTarget: NavigationTarget = .windows
+    var navigationTarget: NavigationTarget {
+        get { storedNavigationTarget }
+        set {
+            guard storedNavigationTarget != newValue else { return }
+            storedNavigationTarget = newValue
+            if newValue == .windows { spaceNavigationInputSource = .programmatic }
             tapStateDidChange?()
             onNavigationTargetChanged?()
         }

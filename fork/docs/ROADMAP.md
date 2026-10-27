@@ -1,5 +1,21 @@
 # DockFork Roadmap
 
+## UI smoothness comparison, October 27
+
+Compare against upstream 1.41.0 without assuming equal build performance: the user's comparison used our Debug build and upstream's official Release. The incorporated upstream app source matches that release. Preserve features while reducing avoidable work, then compare matched optimized local builds only after agreeing on the method.
+
+1. Narrowed after adverse manual feedback: guard unchanged navigation targets before publication only. The initial attempt also moved input-source observation into selection state; the user reported worse highlighting and delayed input. Restore the original input-source storage and observer because raw child notifications doubled during exit/entry transitions. This is a plausible cost, not a measured diagnosis. The retained guard reduces parent publications from 100 to zero for 100 entries, or 300 to 200 with exits, while preserving child counts of 100 or 200, snapshot callbacks, keyboard reveal and hover behavior.
+2. Make unused full-size-preview cancellation and disabled active-border refresh idle. Preserve pending requests, fade cleanup and existing confirmation limits. Not started.
+3. Audit already-disabled Spaces teardown. Stage 1's guarded navigation setter removes its unchanged-target publication; avoid a separate patch unless other unnecessary work is found.
+4. Agree on and perform a matched optimized-build comparison without distributing development builds or changing identity/preferences.
+5. Profile adaptive toolbar measurement and hosted-card refresh before authorizing renderer/cache changes. Hidden measuring content currently preserves control identity and animations; whole-grid updates also exist upstream.
+
+Initial Stage 1 publication/hover/keyboard/filter/batch fixtures and the offscreen SwiftUI observer check passed, but manual testing reported worse highlighting. Those checks establish state/publication behavior, not UI smoothness. The original range native checkbox check skipped without a display. Revised publication/hover and offscreen SwiftUI checks pass with unchanged child counts. Await revised build verification and manual comparison before commit or Stage 2. No matched-build timing or frame-profile claim.
+
+Superseded development build DockFork-9d48fba-working-CDdtxr was source/binary/signature/path verified before the negative user report. Latest logs show initial rendering took about 373 ms and a concurrent global refresh lasted about 3.7 seconds, including repeated roughly 250 ms discovery calls and image updates. No individual hover timestamps or contemporaneous hang sample establish the source of the brief lag. Do not attribute it solely to publication changes or treat background refresh duration as main-thread blocking. Rebuild the narrowed patch and await manual comparison; no later stage, commit, release or push.
+
+Narrowed build DockFork-9d48fba-working-tKYsTQ succeeds; source patch/base, installed executable/debug library, strict signature and running PID 30581 are verified. Updated publication/hover/keyboard and native SwiftUI checks plus formatter/diff pass. The user confirms the delayed highlight was in the first few seconds after opening, matching refresh overlap but not proving causation. The user subsequently reproduced the same brief first-opening delay consistently in upstream and authorized proceeding without pursuing it. Stage 1 is ready for review/commit; retain the narrowed patch and defer refresh-driven UI profiling unless stronger evidence warrants it.
+
 Release publication is held at the user’s request while developing a larger Spaces Bar release. The audited `07dfcb7d` 0.3.1 package remains an unpublished interim candidate; it does not contain subsequent Spaces Bar development. Do not rebuild or publish Release packages during this feature. Screenshots remain deferred.
 
 ## Title-bar Scrolling and Tab Exclusion

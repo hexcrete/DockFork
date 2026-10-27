@@ -1,5 +1,9 @@
 # DockFork: Changes and Showcase
 
+## October 27 UI publication cleanup, pending verification
+
+Unchanged Windows/Spaces navigation assignments no longer publish the entire preview coordinator. Keep the original input-source storage/observer, snapshot callbacks, same-index keyboard reveal and hover semantics. The attempted input-source isolation was withdrawn after worse manual highlighting feedback; lower parent-notification counts alone did not demonstrate improvement. Revised manual verification and commit remain pending. No setting, preset or release changed.
+
 ## Spaces Bar Stage 3: keyboard pass in progress
 
 October 23 continuation, uncommitted: user verification confirms the one-point hover/stack correction. Review found no blocking issue in the verified layout/filter pass. Add default-Off Allow Space-cycle shortcuts to open the switcher under Window Switcher > Spaces Bar, with reset/search wiring. Closed-switcher cycle bindings use the main dependent modifier; visible sessions retain their effective modifier/side and existing conflict priority. Launch through the held-session coordinator with a one-use Space navigation request, not a new session type or timed focus retry. Apply it after actual presentation, skip initial search focus, and preserve quick-release Space activation before rendering. Window cycling, teardown and direct dismissal clear pending state.
