@@ -72,6 +72,23 @@ struct Slide:AnimatableModifier {
    }
   }}}
   print("PASS prepared/shared icon fitting: \(cases) frozen-reference cases, nil/default spacing and maximum limits; warm fit text measurements=0")
+  var boundedCases=0
+  for total in [0,1,2,5,12,24,100] {for maximum in 0...20 {for fontSize:CGFloat in [13,24,36] {for spacing:CGFloat in [0,6,12] {
+   let font=NSFont.systemFont(ofSize:fontSize),icon=fontSize*1.4
+   var measurements=0,spaces=0
+   let fit=AppIconStripFormatting.PreparedFit(total:total,iconSize:icon,font:font,spacing:spacing,maximumVisible:maximum,measure:{text,font in measurements+=1;if text==" "{spaces+=1};return (text as NSString).size(withAttributes:[.font:font]).width})
+   precondition(fit.total==total && fit.requiredWidths.count==min(total,maximum)+1)
+   precondition(spaces==(total>1 && maximum>0 ? 1:0),"Whitespace is measured at most once")
+   let cold=measurements
+   for width in stride(from:0,through:700,by:7) {
+    let available=CGFloat(width)
+    precondition(fit.visibleCount(availableWidth:available,maximumVisible:maximum)==reference(total:total,available:available,icon:icon,font:font,spacing:spacing,maximum:maximum),"Bounded fitting must match uncapped reference")
+    boundedCases+=1
+   }
+   precondition(measurements==cold,"Bounded warm fitting must not measure text")
+   if total==100 && maximum==6 {precondition(cold==8 && fit.requiredWidths.count==7)}
+  }}}}
+  print("PASS bounded fitting: \(boundedCases) frozen-reference cases; 100 apps/max 6: prepared widths 101 -> 7, text measurements 200 -> 8; warm measurements=0")
   let space=ManagedSpaceDescriptor(id:1,kind:.desktop,number:1,desktopNumber:1,ownerPIDs:[])
   let display=ManagedDisplayDescriptor(identifier:"test",currentSpaceID:1,spaces:[space])
   let entry=ManagedSpacePresentation.Entry(destination:.init(display:display,space:space),apps:[.init(application:.current,windowIdentities:[.init(pid:1,windowID:11)])])
@@ -104,6 +121,7 @@ struct Slide:AnimatableModifier {
    precondition(publications==before+1,"Changed content/geometry/style/targets must publish")
   }
   print("COUNT 100 scroll/fade-only updates: hosted publications before=100, after=0; real interaction changes publish once each; \(variants.count) presentation invalidations pass")
+  if CommandLine.arguments.contains("--model-only") {print("SKIP native hosted animation panel (--model-only)");return}
   let app=NSApplication.shared;app.setActivationPolicy(.accessory)
   let panel=NSPanel(contentRect:CGRect(x:20,y:20,width:100,height:40),styleMask:[.borderless,.nonactivatingPanel],backing:.buffered,defer:false)
   panel.ignoresMouseEvents=true
@@ -131,9 +149,9 @@ SWIFT
 Dir.mktmpdir('dockfork-bar-presentation-') do |dir|
   File.write("#{dir}/checks.swift",source)
   abort 'Presentation compilation failed' unless system('swiftc','-swift-version','5','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
-  abort 'Presentation checks failed' unless system("#{dir}/checks")
+  abort 'Presentation checks failed' unless system("#{dir}/checks",*ARGV)
 end
 scroll=block(bar,'struct SpacesBarScroll:')
 abort 'Content factory must not bypass publication gating' unless scroll.include?('view.updateContent(content, key: contentKey, interaction: interaction, animation: contentAnimation)')
-abort 'Prepared fit must retain original fallback' unless bar.include?('let fit = preparedLayout.iconFits[entry.id], fit.requiredWidths.count == apps.count + 1') && bar.include?('preparedLayout.key.iconSize == SpacesBarAppLayout.iconSize') && bar.include?('preparedLayout.key.font == font') && bar.include?('AppIconStripFormatting.visibleCount(')
+abort 'Prepared fit must retain original fallback' unless bar.include?('let fit = preparedLayout.iconFits[entry.id], fit.total == apps.count,') && bar.include?('fit.requiredWidths.count == min(apps.count, maximumVisible ?? apps.count) + 1') && bar.include?('preparedLayout.key.iconSize == SpacesBarAppLayout.iconSize') && bar.include?('preparedLayout.key.font == font') && bar.include?('AppIconStripFormatting.visibleCount(')
 puts 'PASS production adapter and unknown-layout fitting fallback contracts'

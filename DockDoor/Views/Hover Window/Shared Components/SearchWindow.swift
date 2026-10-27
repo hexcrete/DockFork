@@ -525,15 +525,15 @@ struct SpacesBarPreparedLayout {
         self.key = key
         let measured = key.pills.map { measure($0.title, key.font) }
         textWidths = Dictionary(uniqueKeysWithValues: zip(key.pills.map(\.id), measured))
+        let limits = SpacesBarIconLimits(minimum: key.minimumIcons, maximum: key.maximumIcons)
         let fits = Dictionary(uniqueKeysWithValues: Set(key.pills.map { key.showIcons ? $0.appCount : 0 }).map { total in
-            (total, AppIconStripFormatting.PreparedFit(total: total, iconSize: key.iconSize, font: key.font, spacing: key.iconSpacing))
+            (total, AppIconStripFormatting.PreparedFit(total: total, iconSize: key.iconSize, font: key.font, spacing: key.iconSpacing, maximumVisible: key.fixed ? nil : limits.maximum))
         })
         let iconFits = Dictionary(uniqueKeysWithValues: key.pills.map { ($0.id, fits[key.showIcons ? $0.appCount : 0]!) })
         self.iconFits = iconFits
         let labelWidths = zip(key.pills, measured).map {
             SpacesBarLayout.labelWidth($1 + 2, fullscreen: $0.fullscreen)
         }
-        let limits = SpacesBarIconLimits(minimum: key.minimumIcons, maximum: key.maximumIcons)
         let minimum = zip(key.pills, labelWidths).map { pill, labelWidth -> CGFloat in
             guard !key.fixed else { return key.maximum }
             let total = key.showIcons ? pill.appCount : 0
@@ -801,7 +801,8 @@ struct SpacesBarView: View {
         let fittedCount: Int? = if let preparedLayout, preparedLayout.key.font == font,
                                    preparedLayout.key.iconSize == SpacesBarAppLayout.iconSize,
                                    preparedLayout.key.iconSpacing == SpacesBarAppLayout.spacing,
-                                   let fit = preparedLayout.iconFits[entry.id], fit.requiredWidths.count == apps.count + 1
+                                   let fit = preparedLayout.iconFits[entry.id], fit.total == apps.count,
+                                   fit.requiredWidths.count == min(apps.count, maximumVisible ?? apps.count) + 1
         {
             fit.visibleCount(availableWidth: iconRoom, maximumVisible: maximumVisible)
         } else {

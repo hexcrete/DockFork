@@ -1512,3 +1512,7 @@ Preview hover handoff: regular and Compact preview rows identify their hover exi
 Fade-dependent missed hover follow-up: the real-app trace showed continuing native pointer movement but missing SwiftUI card callbacks. Existing fade monitors now reconcile own-panel mouse hover using the same cached grid geometry as drops/selection and the same card handler. No extra event monitor, polling or AX work is added; duplicate events do not republish unchanged selection. This supplements the separate late-exit correction. Manual confirmation of the reported symptom is pending; temporary tracing is removed.
 
 Native hover recovery is active only while the current mode's resting fade is enabled and eligible. Fade-off operation adds no reconciliation hit testing or monitors; the shared exit-order guard remains useful for ordinary hovering as well.
+
+### October 27: bounded Spaces Bar icon preparation
+
+Flexible pills prepare only reachable icon counts, retaining the full resident-app total for +N. Fixed pills and other shared fitting callers remain uncapped. Whitespace measurement is reused within each preparation. Frozen-reference checks cover 133,623 bounded cases; for 100 apps with maximum six, width entries decrease from 101 to seven and text measurements from 200 to eight. These are preparation counts, not measured frame-rate gains. The signed development build and exact installed/running artifact are verified; manual verification remains pending. Settings, appearance and actions are unchanged.

@@ -683,6 +683,7 @@ for minimum in 0...10 {for maximum in minimum...20 {
   let width=prepared.resting.widths[1]!,title=max(SpacesBarLayout.minimumLabelWidth,ceil(prepared.textWidths[1]!)+2)
   let room=max(0,width-title-SpacesBarLayout.horizontalInset*2-SpacesBarAppLayout.spacing-(fullscreen ? SpacesBarLayout.fullscreenWidth:0))
   let fit=prepared.iconFits[1]!,count=fit.visibleCount(availableWidth:room,maximumVisible:maximum)
+  precondition(fit.total==total && fit.requiredWidths.count==min(total,maximum)+1,"Flexible preparation must be bounded without changing the resident total")
   if total>0 {
    precondition(count != nil && count!>=min(total,minimum) && count!<=min(total,maximum),"Width must honor the icon range and preserve +N, even at zero icons")
    if available==2000{precondition(count==min(total,maximum))}
