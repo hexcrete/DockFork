@@ -487,6 +487,81 @@ struct SpacesBarSizing {
     }
 }
 
+struct SpacesBarGeometry {
+    struct Section {
+        let id: String
+        let name: String
+        let spaceIDs: [CGSSpaceID]
+    }
+
+    let sizing: SpacesBarSizing
+    let contentSize: CGSize
+    let pillFrames: [CGSSpaceID: CGRect]
+    let gapFrames: [SpaceContentsGap: CGRect]
+    let headings: [SpacesBarDisplayHeading]
+
+    init(sections: [Section], sizing: SpacesBarSizing, gapProgress: CGFloat, sourceDisplayIndex: Int?) {
+        self.sizing = sizing
+        let ids = sections.flatMap(\.spaceIDs)
+        let contentWidth = ids.reduce(SpacesBarLayout.innerPadding * 2) { $0 + (sizing.widths[$1] ?? SpacesBarLayout.pillHeight) }
+            + SpacesBarLayout.rowSpacing(spaceCount: ids.count, displayCount: sections.count, gapProgress: gapProgress, sourceDisplayIndex: sourceDisplayIndex)
+        let viewportWidth = max(1, sizing.width - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2)
+        let height = SpacesBarLayout.height(displayCount: sections.count) - SpacesBarLayout.outerPadding * 2 - HoverContainerPadding.scrollOuter * 2
+        contentSize = CGSize(width: max(contentWidth, viewportWidth), height: height)
+        pillFrames = Self.dropFrames(sections: sections, sourceDisplayIndex: sourceDisplayIndex, gapProgress: gapProgress, widths: sizing.widths)
+        gapFrames = Self.gapFrames(sections: sections, sourceDisplayIndex: sourceDisplayIndex, gapProgress: gapProgress, pills: pillFrames)
+        headings = Self.displayHeadings(sections: sections, sourceDisplayIndex: sourceDisplayIndex, gapProgress: gapProgress, widths: sizing.widths)
+    }
+
+    private static func dropFrames(sections: [Section], sourceDisplayIndex: Int?, gapProgress: CGFloat, widths: [CGSSpaceID: CGFloat]) -> [CGSSpaceID: CGRect] {
+        var x = SpacesBarLayout.innerPadding
+        let y = SpacesBarLayout.innerPadding + (sections.count > 1 ? SpacesBarLayout.headingHeight + 4 * SpacesBarLayout.scale : 0)
+        var frames: [CGSSpaceID: CGRect] = [:]
+        for (index, display) in sections.enumerated() {
+            let gaps = SpacesBarLayout.boundaryGaps(displayIndex: index, displayCount: sections.count, sourceDisplayIndex: sourceDisplayIndex)
+            if index > 0 { x += SpacesBarLayout.itemSpacing * 2 + SpacesBarLayout.dividerWidth }
+            if gaps.leading { x += SpacesBarLayout.gapWidth(progress: gapProgress, boundary: true) }
+            for (index, entry) in display.spaceIDs.enumerated() {
+                if index > 0 { x += SpacesBarLayout.gapWidth(progress: gapProgress, boundary: false) }
+                let width = widths[entry] ?? SpacesBarLayout.pillHeight
+                frames[entry] = CGRect(x: x, y: y, width: width, height: SpacesBarLayout.pillHeight)
+                x += width
+            }
+            if gaps.trailing { x += SpacesBarLayout.gapWidth(progress: gapProgress, boundary: true) }
+        }
+        return frames
+    }
+
+    private static func gapFrames(sections: [Section], sourceDisplayIndex: Int?, gapProgress: CGFloat, pills: [CGSSpaceID: CGRect]) -> [SpaceContentsGap: CGRect] {
+        guard gapProgress > 0 else { return [:] }
+        var frames: [SpaceContentsGap: CGRect] = [:]
+        for (displayIndex, display) in sections.enumerated() {
+            let gaps = SpacesBarLayout.boundaryGaps(displayIndex: displayIndex, displayCount: sections.count, sourceDisplayIndex: sourceDisplayIndex)
+            for (index, entry) in display.spaceIDs.enumerated() {
+                if index == 0, !gaps.leading { continue }
+                guard let pill = pills[entry] else { continue }
+                let width = SpacesBarLayout.gapWidth(progress: gapProgress, boundary: index == 0)
+                frames[SpaceContentsGap(displayID: display.id, beforeSpaceID: entry)] = CGRect(x: pill.minX - width, y: pill.minY, width: width, height: pill.height)
+            }
+            if gaps.trailing, let last = display.spaceIDs.last, let pill = pills[last] {
+                frames[SpaceContentsGap(displayID: display.id, beforeSpaceID: nil)] = CGRect(x: pill.maxX, y: pill.minY, width: SpacesBarLayout.gapWidth(progress: gapProgress, boundary: true), height: pill.height)
+            }
+        }
+        return frames
+    }
+
+    private static func displayHeadings(sections: [Section], sourceDisplayIndex: Int?, gapProgress: CGFloat, widths: [CGSSpaceID: CGFloat]) -> [SpacesBarDisplayHeading] {
+        guard sections.count > 1 else { return [] }
+        var start = SpacesBarLayout.innerPadding
+        return sections.enumerated().map { index, display in
+            let gaps = SpacesBarLayout.boundaryGaps(displayIndex: index, displayCount: sections.count, sourceDisplayIndex: sourceDisplayIndex)
+            let width = SpacesBarLayout.sectionWidth(display.spaceIDs.map { widths[$0] ?? 0 }, gapProgress: gapProgress, leadingGap: gaps.leading, trailingGap: gaps.trailing)
+            defer { start += width + SpacesBarLayout.itemSpacing * 2 + SpacesBarLayout.dividerWidth }
+            return SpacesBarDisplayHeading(name: display.name, start: start, width: width)
+        }
+    }
+}
+
 struct SpacesBarPreparedLayout {
     struct Pill: Equatable {
         let id: CGSSpaceID
@@ -513,6 +588,8 @@ struct SpacesBarPreparedLayout {
         let sourceDisplayIndex: Int?
         var iconSize: CGFloat = SpacesBarAppLayout.iconSize
         var iconSpacing: CGFloat = SpacesBarAppLayout.spacing
+        var displayNames: [String] = []
+        var headingHeight: CGFloat = SpacesBarLayout.headingHeight
     }
 
     let key: Key
@@ -520,6 +597,10 @@ struct SpacesBarPreparedLayout {
     let resting: SpacesBarSizing
     let expanded: SpacesBarSizing
     let iconFits: [CGSSpaceID: AppIconStripFormatting.PreparedFit]
+    let geometrySections: [SpacesBarGeometry.Section]
+    let restingGeometry: SpacesBarGeometry
+    let expandedGeometry: SpacesBarGeometry
+    let desktopDropIDs: Set<CGSSpaceID>
 
     init(key: Key, measure: (String, NSFont) -> CGFloat) {
         self.key = key
@@ -560,6 +641,23 @@ struct SpacesBarPreparedLayout {
         }
         resting = sizing(gapProgress: 0)
         expanded = sizing(gapProgress: 1)
+        var offset = 0
+        geometrySections = key.displayIDs.enumerated().map { index, id in
+            let count = key.spaceCounts[index]
+            defer { offset += count }
+            return SpacesBarGeometry.Section(id: id, name: key.displayNames.indices.contains(index) ? key.displayNames[index] : "",
+                                             spaceIDs: key.pills[offset ..< offset + count].map(\.id))
+        }
+        restingGeometry = SpacesBarGeometry(sections: geometrySections, sizing: resting, gapProgress: 0, sourceDisplayIndex: key.sourceDisplayIndex)
+        expandedGeometry = SpacesBarGeometry(sections: geometrySections, sizing: expanded, gapProgress: 1, sourceDisplayIndex: key.sourceDisplayIndex)
+        desktopDropIDs = Set(key.pills.filter { !$0.fullscreen }.map(\.id))
+    }
+
+    func geometry(at progress: CGFloat) -> SpacesBarGeometry {
+        if progress <= 0 { return restingGeometry }
+        if progress >= 1 { return expandedGeometry }
+        return SpacesBarGeometry(sections: geometrySections, sizing: resting.interpolated(to: expanded, progress: progress),
+                                 gapProgress: progress, sourceDisplayIndex: key.sourceDisplayIndex)
     }
 
     static func resolve(_ key: Key, cached: inout Self?,
@@ -650,31 +748,33 @@ struct SpacesBarView: View {
     }
 
     private func bar(gapProgress: CGFloat) -> some View {
-        let sizing = restingSizing.interpolated(to: expandedSizing, progress: gapProgress)
+        let geometry = preparedLayout?.geometry(at: gapProgress) ?? SpacesBarGeometry(
+            sections: sections.map { .init(id: $0.id, name: $0.name, spaceIDs: $0.spaces.map(\.id)) },
+            sizing: restingSizing.interpolated(to: expandedSizing, progress: gapProgress),
+            gapProgress: gapProgress, sourceDisplayIndex: sourceDisplayIndex
+        )
+        let sizing = geometry.sizing
         let widths = sizing.widths
         let viewportWidth = max(1, sizing.width - (SpacesBarLayout.outerPadding + HoverContainerPadding.scrollOuter) * 2)
-        let entries = sections.flatMap(\.spaces)
-        let contentWidth = entries.reduce(SpacesBarLayout.innerPadding * 2) { $0 + (widths[$1.id] ?? SpacesBarLayout.pillHeight) }
-            + SpacesBarLayout.rowSpacing(spaceCount: entries.count, displayCount: sections.count, gapProgress: gapProgress, sourceDisplayIndex: sourceDisplayIndex)
-        let height = SpacesBarLayout.height(displayCount: sections.count) - SpacesBarLayout.outerPadding * 2 - HoverContainerPadding.scrollOuter * 2
+        let height = geometry.contentSize.height
         let target = highlightedSpace ?? initialSpace
-        let frames = dropFrames(gapProgress: gapProgress, widths: widths)
+        let frames = geometry.pillFrames
         let initialCenter = target.flatMap { frames[$0]?.midX }
         return BaseHoverContainer(bestGuessMonitor: screen, content: {
-            SpacesBarScroll(content: { AnyView(spaceContents(gapProgress: gapProgress, widths: widths).frame(width: max(contentWidth, viewportWidth), height: height, alignment: .topLeading)) },
-                            contentSize: CGSize(width: max(contentWidth, viewportWidth), height: height), headings: displayHeadings(gapProgress: gapProgress, widths: widths),
+            SpacesBarScroll(content: { AnyView(spaceContents(gapProgress: gapProgress, widths: widths).frame(width: geometry.contentSize.width, height: height, alignment: .topLeading)) },
+                            contentSize: CGSize(width: geometry.contentSize.width, height: height), headings: geometry.headings,
                             initialCenter: initialCenter, revealRange: highlightedSpace.flatMap { id in initialCenter.map { center in
                                 let halfWidth = (widths[id] ?? 0) / 2
                                 return (center - halfWidth) ... (center + halfWidth)
                             } }, viewport: viewport,
                             panelFrame: frameForSize(CGSize(width: sizing.width, height: SpacesBarLayout.height(displayCount: sections.count))),
-                            gapFrames: gapFrames(gapProgress: gapProgress, pills: frames), allowedGaps: allowedGaps, contentSourceID: viewport.draggedSpaceID,
-                            dropFrames: frames, desktopDropIDs: Set(entries.filter { !$0.isFullscreen }.map(\.id)),
+                            gapFrames: geometry.gapFrames, allowedGaps: allowedGaps, contentSourceID: viewport.draggedSpaceID,
+                            dropFrames: frames, desktopDropIDs: preparedLayout?.desktopDropIDs ?? Set(sections.flatMap(\.spaces).filter { !$0.isFullscreen }.map(\.id)),
                             previewCoordinator: previewCoordinator,
                             contentAnimation: PreviewControlAnimation.animation(duration: controlAnimationDuration, animationsEnabled: showAnimations, reduceMotion: reduceMotion),
                             contentKey: preparedLayout.map { SpacesBarContentKey(
                                 layout: $0.key, sections: sections, widths: widths, gapProgress: gapProgress,
-                                size: CGSize(width: max(contentWidth, viewportWidth), height: height), allowedGaps: allowedGaps,
+                                size: CGSize(width: geometry.contentSize.width, height: height), allowedGaps: allowedGaps,
                                 coordinator: previewCoordinator.map(ObjectIdentifier.init), session: previewCoordinator?.pointerInteractionSessionID,
                                 flags: [showAnimations, reduceMotion, activateAppIcons, enableMouseHoverInSwitcher, uniformCardRadius, hideCardBackground, showActiveWindowBorder, showBadges, dragContents != nil, spaceMenu != nil],
                                 colors: [highlightColor, activeBorderColor],
@@ -691,43 +791,6 @@ struct SpacesBarView: View {
         }, backgroundAppearance: .resolve())
     }
 
-    private func dropFrames(gapProgress: CGFloat, widths: [CGSSpaceID: CGFloat]) -> [CGSSpaceID: CGRect] {
-        var x = SpacesBarLayout.innerPadding
-        let y = SpacesBarLayout.innerPadding + (sections.count > 1 ? SpacesBarLayout.headingHeight + 4 * SpacesBarLayout.scale : 0)
-        var frames: [CGSSpaceID: CGRect] = [:]
-        for (index, display) in sections.enumerated() {
-            let gaps = SpacesBarLayout.boundaryGaps(displayIndex: index, displayCount: sections.count, sourceDisplayIndex: sourceDisplayIndex)
-            if index > 0 { x += SpacesBarLayout.itemSpacing * 2 + SpacesBarLayout.dividerWidth }
-            if gaps.leading { x += SpacesBarLayout.gapWidth(progress: gapProgress, boundary: true) }
-            for (index, entry) in display.spaces.enumerated() {
-                if index > 0 { x += SpacesBarLayout.gapWidth(progress: gapProgress, boundary: false) }
-                let width = widths[entry.id] ?? SpacesBarLayout.pillHeight
-                frames[entry.id] = CGRect(x: x, y: y, width: width, height: SpacesBarLayout.pillHeight)
-                x += width
-            }
-            if gaps.trailing { x += SpacesBarLayout.gapWidth(progress: gapProgress, boundary: true) }
-        }
-        return frames
-    }
-
-    private func gapFrames(gapProgress: CGFloat, pills: [CGSSpaceID: CGRect]) -> [SpaceContentsGap: CGRect] {
-        guard gapProgress > 0 else { return [:] }
-        var frames: [SpaceContentsGap: CGRect] = [:]
-        for (displayIndex, display) in sections.enumerated() {
-            let gaps = SpacesBarLayout.boundaryGaps(displayIndex: displayIndex, displayCount: sections.count, sourceDisplayIndex: sourceDisplayIndex)
-            for (index, entry) in display.spaces.enumerated() {
-                if index == 0, !gaps.leading { continue }
-                guard let pill = pills[entry.id] else { continue }
-                let width = SpacesBarLayout.gapWidth(progress: gapProgress, boundary: index == 0)
-                frames[SpaceContentsGap(displayID: display.id, beforeSpaceID: entry.id)] = CGRect(x: pill.minX - width, y: pill.minY, width: width, height: pill.height)
-            }
-            if gaps.trailing, let last = display.spaces.last, let pill = pills[last.id] {
-                frames[SpaceContentsGap(displayID: display.id, beforeSpaceID: nil)] = CGRect(x: pill.maxX, y: pill.minY, width: SpacesBarLayout.gapWidth(progress: gapProgress, boundary: true), height: pill.height)
-            }
-        }
-        return frames
-    }
-
     private func landingZone(_ gap: SpaceContentsGap, width: CGFloat, progress: CGFloat) -> some View {
         let available = allowedGaps.contains(gap)
         let targeted = viewport.contentsDropTarget == .gap(gap)
@@ -740,17 +803,6 @@ struct SpacesBarView: View {
             .background { if targeted { PreviewDragTargetHighlight(uniformCardRadius: uniformCardRadius, paddingMultiplier: paddingMultiplier, expansionEdges: []) } }
             .allowsHitTesting(false)
             .accessibilityHidden(true)
-    }
-
-    private func displayHeadings(gapProgress: CGFloat, widths: [CGSSpaceID: CGFloat]) -> [SpacesBarDisplayHeading] {
-        guard sections.count > 1 else { return [] }
-        var start = SpacesBarLayout.innerPadding
-        return sections.enumerated().map { index, display in
-            let gaps = SpacesBarLayout.boundaryGaps(displayIndex: index, displayCount: sections.count, sourceDisplayIndex: sourceDisplayIndex)
-            let width = SpacesBarLayout.sectionWidth(display.spaces.map { widths[$0.id] ?? 0 }, gapProgress: gapProgress, leadingGap: gaps.leading, trailingGap: gaps.trailing)
-            defer { start += width + SpacesBarLayout.itemSpacing * 2 + SpacesBarLayout.dividerWidth }
-            return SpacesBarDisplayHeading(name: display.name, start: start, width: width)
-        }
     }
 
     private func spaceContents(gapProgress: CGFloat, widths: [CGSSpaceID: CGFloat]) -> some View {

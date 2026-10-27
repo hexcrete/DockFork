@@ -553,7 +553,61 @@ source += layout.sub("enum SpacesBarLayout {", "enum SpacesBarLayout {\n static 
 source += block(bar, 'enum SpacesBarAppLayout {') + "\n"
 formatting = block(File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview.swift"), 'enum AppIconStripFormatting {')
 source += formatting.sub(block(formatting, '    static func attributedIcons('), '') + "\n"
-source += block(bar, 'struct SpacesBarSizing {') + "\n" + block(bar, 'struct SpacesBarPreparedLayout {') + "\n"
+source += block(shared, 'struct SpaceContentsGap:') + "\n" + block(bar, 'struct SpacesBarDisplayHeading:') + "\n"
+source += "enum GeometryProbe {static var builds=0}\n"
+geometry = block(bar, 'struct SpacesBarGeometry {').sub('self.sizing = sizing', "GeometryProbe.builds += 1\n        self.sizing = sizing")
+source += block(bar, 'struct SpacesBarSizing {') + "\n" + geometry + "\n" + block(bar, 'struct SpacesBarPreparedLayout {') + "\n"
+source += <<~'SWIFT'
+struct ReferenceBarGeometry {
+ let sections:[SpacesBarGeometry.Section]
+ let sourceDisplayIndex:Int?
+    func dropFrames(gapProgress: CGFloat, widths: [CGSSpaceID: CGFloat]) -> [CGSSpaceID: CGRect] {
+        var x = SpacesBarLayout.innerPadding
+        let y = SpacesBarLayout.innerPadding + (sections.count > 1 ? SpacesBarLayout.headingHeight + 4 * SpacesBarLayout.scale : 0)
+        var frames: [CGSSpaceID: CGRect] = [:]
+        for (index, display) in sections.enumerated() {
+            let gaps = SpacesBarLayout.boundaryGaps(displayIndex: index, displayCount: sections.count, sourceDisplayIndex: sourceDisplayIndex)
+            if index > 0 { x += SpacesBarLayout.itemSpacing * 2 + SpacesBarLayout.dividerWidth }
+            if gaps.leading { x += SpacesBarLayout.gapWidth(progress: gapProgress, boundary: true) }
+            for (index, entry) in display.spaceIDs.enumerated() {
+                if index > 0 { x += SpacesBarLayout.gapWidth(progress: gapProgress, boundary: false) }
+                let width = widths[entry] ?? SpacesBarLayout.pillHeight
+                frames[entry] = CGRect(x: x, y: y, width: width, height: SpacesBarLayout.pillHeight)
+                x += width
+            }
+            if gaps.trailing { x += SpacesBarLayout.gapWidth(progress: gapProgress, boundary: true) }
+        }
+        return frames
+    }
+    func gapFrames(gapProgress: CGFloat, pills: [CGSSpaceID: CGRect]) -> [SpaceContentsGap: CGRect] {
+        guard gapProgress > 0 else { return [:] }
+        var frames: [SpaceContentsGap: CGRect] = [:]
+        for (displayIndex, display) in sections.enumerated() {
+            let gaps = SpacesBarLayout.boundaryGaps(displayIndex: displayIndex, displayCount: sections.count, sourceDisplayIndex: sourceDisplayIndex)
+            for (index, entry) in display.spaceIDs.enumerated() {
+                if index == 0, !gaps.leading { continue }
+                guard let pill = pills[entry] else { continue }
+                let width = SpacesBarLayout.gapWidth(progress: gapProgress, boundary: index == 0)
+                frames[SpaceContentsGap(displayID: display.id, beforeSpaceID: entry)] = CGRect(x: pill.minX - width, y: pill.minY, width: width, height: pill.height)
+            }
+            if gaps.trailing, let last = display.spaceIDs.last, let pill = pills[last] {
+                frames[SpaceContentsGap(displayID: display.id, beforeSpaceID: nil)] = CGRect(x: pill.maxX, y: pill.minY, width: SpacesBarLayout.gapWidth(progress: gapProgress, boundary: true), height: pill.height)
+            }
+        }
+        return frames
+    }
+    func displayHeadings(gapProgress: CGFloat, widths: [CGSSpaceID: CGFloat]) -> [SpacesBarDisplayHeading] {
+        guard sections.count > 1 else { return [] }
+        var start = SpacesBarLayout.innerPadding
+        return sections.enumerated().map { index, display in
+            let gaps = SpacesBarLayout.boundaryGaps(displayIndex: index, displayCount: sections.count, sourceDisplayIndex: sourceDisplayIndex)
+            let width = SpacesBarLayout.sectionWidth(display.spaceIDs.map { widths[$0] ?? 0 }, gapProgress: gapProgress, leadingGap: gaps.leading, trailingGap: gaps.trailing)
+            defer { start += width + SpacesBarLayout.itemSpacing * 2 + SpacesBarLayout.dividerWidth }
+            return SpacesBarDisplayHeading(name: display.name, start: start, width: width)
+        }
+    }
+}
+SWIFT
 source += <<~'SWIFT'
 @MainActor func checkPreparedLayouts() {
  typealias Prepared = SpacesBarPreparedLayout
@@ -562,7 +616,7 @@ source += <<~'SWIFT'
 func key(_ pills:[Pill], _ fixed:Bool, _ tenIcons:Bool, _ icons:Bool, _ available:CGFloat, _ requested:CGFloat, _ minimum:Int, _ split:Bool, _ source:Int?, _ backing:CGFloat=2, _ font:NSFont?=nil)->Key {
  let usable=max(1,available-(SpacesBarLayout.outerPadding+HoverContainerPadding.scrollOuter+SpacesBarLayout.innerPadding)*2)
  let maximum=fixed ? min(usable,max(SpacesBarLayout.minimumPillWidth,requested)) : usable
- return Key(pills:pills,displayIDs:split ? ["one","two"] : ["one"],spaceCounts:split ? [1,pills.count-1] : [pills.count],available:available,backingScale:backing,font:font ?? SpacesBarLayout.textFont,pillHeight:SpacesBarLayout.pillHeight,innerPadding:SpacesBarLayout.innerPadding,fixed:fixed,maximum:maximum,minimumIcons:minimum,maximumIcons:tenIcons ? 10:6,showIcons:icons,sourceDisplayIndex:source)
+ return Key(pills:pills,displayIDs:split ? ["one","two"] : ["one"],spaceCounts:split ? [1,pills.count-1] : [pills.count],available:available,backingScale:backing,font:font ?? SpacesBarLayout.textFont,pillHeight:SpacesBarLayout.pillHeight,innerPadding:SpacesBarLayout.innerPadding,fixed:fixed,maximum:maximum,minimumIcons:minimum,maximumIcons:tenIcons ? 10:6,showIcons:icons,sourceDisplayIndex:source,displayNames:split ? ["Built-in Display","A very long external display name"]:["Built-in Display"])
 }
 // Uncached reference with independently measured icon/overflow widths.
 func reference(_ k:Key,_ progress:CGFloat)->SpacesBarSizing {
@@ -604,20 +658,34 @@ func reference(_ k:Key,_ progress:CGFloat)->SpacesBarSizing {
          let k=key(pills,mode==0,mode==1,icons,available,240,2,split,source)
          var cached:Prepared?
          var measured=0
+         let beforePreparation=GeometryProbe.builds
          let prepared=Prepared.resolve(k,cached:&cached,measure:{s,f in measured+=1;return (s as NSString).size(withAttributes:[.font:f]).width})
-         precondition(measured==pills.count && cached?.key==k)
+         precondition(measured==pills.count && cached?.key==k && GeometryProbe.builds-beforePreparation==2,"Prepare exactly two endpoint geometries per layout")
          let rest=reference(k,0),expanded=reference(k,1)
+         precondition(prepared.desktopDropIDs==Set(pills.filter{!$0.fullscreen}.map(\.id)))
          precondition(prepared.resting.widths==rest.widths && prepared.resting.width==rest.width && prepared.expanded.widths==expanded.widths && prepared.expanded.width==expanded.width,"Prepared widths must exactly match the uncached calculation")
          for p:CGFloat in [0,0.1,0.5,0.9,1] {
           let actual=prepared.resting.interpolated(to:prepared.expanded,progress:p)
           let expected=rest.interpolated(to:expanded,progress:p)
-          precondition(actual.widths==expected.widths && actual.width==expected.width)
+precondition(actual.widths==expected.widths && actual.width==expected.width)
+let before=GeometryProbe.builds
+let geometry=prepared.geometry(at:p)
+precondition(GeometryProbe.builds-before == (p==0 || p==1 ? 0:1),"Only intermediate drag progress prepares geometry")
+let baseline=ReferenceBarGeometry(sections:prepared.geometrySections,sourceDisplayIndex:k.sourceDisplayIndex)
+let frames=baseline.dropFrames(gapProgress:p,widths:expected.widths)
+precondition(geometry.pillFrames==frames && geometry.gapFrames==baseline.gapFrames(gapProgress:p,pills:frames) && geometry.headings==baseline.displayHeadings(gapProgress:p,widths:expected.widths),"Cached/intermediate geometry must match the frozen view calculations")
+let contentWidth=pills.reduce(SpacesBarLayout.innerPadding*2){$0+(expected.widths[$1.id] ?? SpacesBarLayout.pillHeight)}+SpacesBarLayout.rowSpacing(spaceCount:pills.count,displayCount:k.displayIDs.count,gapProgress:p,sourceDisplayIndex:k.sourceDisplayIndex)
+let viewportWidth=max(1,expected.width-(SpacesBarLayout.outerPadding+HoverContainerPadding.scrollOuter)*2)
+let height=SpacesBarLayout.height(displayCount:k.displayIDs.count)-SpacesBarLayout.outerPadding*2-HoverContainerPadding.scrollOuter*2
+precondition(geometry.contentSize==CGSize(width:max(contentWidth,viewportWidth),height:height))
          }
+         let beforeWarm=GeometryProbe.builds
          for _ in 0..<5 {
           let hit=Prepared.resolve(k,cached:&cached,measure:{_,_ in preconditionFailure("Highlight/filter/glyph updates must not remeasure")})
           precondition(hit.textWidths==prepared.textWidths)
+          _=hit.geometry(at:0);_=hit.geometry(at:1)
          }
-         precondition(measured==pills.count)
+         precondition(measured==pills.count && GeometryProbe.builds==beforeWarm,"Warm interaction must prepare no geometry")
          cases+=1
         }
        }
@@ -634,8 +702,9 @@ func reference(_ k:Key,_ progress:CGFloat)->SpacesBarSizing {
  func changed(_ k:Key) {
   precondition(k != base)
   var cache=cached,measures=0
+  let before=GeometryProbe.builds
   _=Prepared.resolve(k,cached:&cache,measure:{s,f in measures+=1;return (s as NSString).size(withAttributes:[.font:f]).width})
-  precondition(measures==k.pills.count && cache?.key==k)
+  precondition(measures==k.pills.count && cache?.key==k && GeometryProbe.builds-before==2)
  }
  changed(key(named,false,false,true,900,240,2,true,nil))
  changed(key(Array(numeric.reversed()),false,false,true,900,240,2,true,nil))
@@ -651,6 +720,8 @@ func reference(_ k:Key,_ progress:CGFloat)->SpacesBarSizing {
  changed(key(numeric,false,false,true,900,240,2,true,1))
  changed(key(numeric,false,false,true,900,240,2,true,nil,1))
  changed(key(numeric,false,false,true,900,240,2,true,nil,2,.systemFont(ofSize:29,weight:.bold)))
+ var displayNamesKey=base;displayNamesKey.displayNames=["Renamed display"];changed(displayNamesKey)
+ var headingHeightKey=base;headingHeightKey.headingHeight+=1;changed(headingHeightKey)
  var iconSizeKey=base;iconSizeKey.iconSize+=2;changed(iconSizeKey)
  var iconSpacingKey=base;iconSpacingKey.iconSpacing+=2;changed(iconSpacingKey)
  Defaults.padding=1.5;changed(key(numeric,false,false,true,900,240,2,true,nil));Defaults.padding=1
@@ -696,6 +767,7 @@ precondition(malformed.minimum==0 && malformed.maximum==0)
 let oversized=SpacesBarIconLimits(minimum:99,maximum:99)
 precondition(oversized.minimum==10 && oversized.maximum==20)
 print("PASS icon limits: \(boundsCases) min/max/count/viewport/fullscreen cases, production bindings clamp without moving the other value, zero-icon overflow and invalid imported bounds")
+ print("PASS cached viewport geometry: 18,900 frozen-reference comparisons; warm endpoint updates prepare zero geometry; intermediate animation frames stay live")
  print("PASS production prepared pill layout: \(cases) exact uncached-reference cases across seven sizes, padding, width modes, labels, icons, narrow screens, display/source boundaries and animated endpoints; five warm updates add 0 measurements; key invalidation and cache release")
 }
 SWIFT
@@ -1069,7 +1141,7 @@ native_source += block(bar, 'final class SpacesBarViewport:') + "\n"
 native_source += block(bar, 'final class SpacesBarWindow:') + "\n"
 native_source += block(bar, 'struct SpacesBarContentKey:') + "\n" + block(bar, 'struct SpacesBarInteraction:') + "\n"
 native_source += block(bar, 'final class SpacesBarHostedState:') + "\n" + block(bar, 'struct SpacesBarHostedContent:') + "\n"
-native_source += block(bar, 'struct SpacesBarSizing {')+"\n"
+native_source += block(bar, 'struct SpacesBarSizing {')+"\n"+block(bar, 'struct SpacesBarGeometry {')+"\n"
 native_source += block(bar, 'private enum SpaceFilterLeadingAlignment:')+"\n"+block(bar, 'extension HorizontalAlignment {')+"\n"
 native_source += block(bar, 'struct SpacesBarGapAnimation<')+"\n"
 native_source += block(bar, 'struct SpacesBarScroll:') + "\n"
@@ -1248,11 +1320,14 @@ final class CompanionProbe: NSPanel {
  deinit { NotificationCenter.default.removeObserver(self) }
 SWIFT
 native_source += block(panel, '    @objc private func positionCompanionWindows()').sub('panelAnchor?.screen ?? screen','screen') + "\n}\n"
-native_source += "extension SpacesBarLayout {\n" + bar.lines.grep(/static var dropGapWidth:/).join + bar.lines.grep(/static func sectionExtraWidth/).join + "\n" + block(bar, '    static func gapWidth(') + "\n" + block(bar, '    static func rowSpacing(') + "\n" + block(bar, '    static func boundaryGaps(') + "\n" + block(bar, '    static func sectionWidth(') + "\n}\n"
-native_source += "struct PillFrameProbe: View {\n struct Item: Identifiable { let id: UInt64 }\n struct Section: Identifiable { var id: String = \"display\"; let spaces: [Item] }\n let sections: [Section]\n let widths: [UInt64: CGFloat]\n var gapProgress: CGFloat = 0\n var sourceDisplayIndex: Int? = nil\n" + block(bar, '    private func dropFrames(').sub('private func','func') + "\n" + block(bar, '    private func gapFrames(').sub('private func','func') + "\n" + block(bar, '    private func spaceContents(').sub('private func','func') + "\n" + <<~'SWIFT'
+native_source += "extension SpacesBarLayout {\n" + block(bar, '    static func height(') + "\n" + bar.lines.grep(/static var dropGapWidth:/).join + bar.lines.grep(/static func sectionExtraWidth/).join + "\n" + block(bar, '    static func gapWidth(') + "\n" + block(bar, '    static func rowSpacing(') + "\n" + block(bar, '    static func boundaryGaps(') + "\n" + block(bar, '    static func sectionWidth(') + "\n}\n"
+native_source += "struct PillFrameProbe: View {\n struct Item: Identifiable { let id: UInt64 }\n struct Section: Identifiable { var id: String = \"display\"; let spaces: [Item] }\n let sections: [Section]\n let widths: [UInt64: CGFloat]\n var gapProgress: CGFloat = 0\n var sourceDisplayIndex: Int? = nil\n" + "\n" + block(bar, '    private func spaceContents(').sub('private func','func') + "\n" + <<~'SWIFT'
  var body: some View { spaceContents(gapProgress:gapProgress,widths:widths) }
-func dropFrames(gapProgress:CGFloat)->[UInt64:CGRect] {dropFrames(gapProgress:gapProgress,widths:widths)}
-func gapFrames(gapProgress:CGFloat)->[SpaceContentsGap:CGRect] {gapFrames(gapProgress:gapProgress,pills:dropFrames(gapProgress:gapProgress))}
+func geometry(_ progress:CGFloat)->SpacesBarGeometry {
+ SpacesBarGeometry(sections:sections.map{.init(id:$0.id,name:"",spaceIDs:$0.spaces.map(\.id))},sizing:.init(widths:widths,width:400),gapProgress:progress,sourceDisplayIndex:sourceDisplayIndex)
+}
+func dropFrames(gapProgress:CGFloat)->[UInt64:CGRect] {geometry(gapProgress).pillFrames}
+func gapFrames(gapProgress:CGFloat)->[SpaceContentsGap:CGRect] {geometry(gapProgress).gapFrames}
  func pill(_ entry: Item,width:CGFloat) -> some View { GapMarker(id:entry.id).frame(width:width,height:SpacesBarLayout.pillHeight) }
  func landingZone(_ gap:SpaceContentsGap,width:CGFloat,progress:CGFloat) -> some View { Color.clear.frame(width:width,height:SpacesBarLayout.pillHeight) }
 }

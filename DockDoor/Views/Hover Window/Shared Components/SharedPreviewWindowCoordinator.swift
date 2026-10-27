@@ -994,7 +994,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             available: available, backingScale: screen.backingScaleFactor, font: font,
             pillHeight: SpacesBarLayout.pillHeight, innerPadding: SpacesBarLayout.innerPadding,
             fixed: fixed, maximum: maximum, minimumIcons: limits.minimum, maximumIcons: limits.maximum,
-            showIcons: Defaults[.spacesBarShowAppIcons], sourceDisplayIndex: sourceDisplayIndex
+            showIcons: Defaults[.spacesBarShowAppIcons], sourceDisplayIndex: sourceDisplayIndex,
+            displayNames: spacesBarSections.map(\.name)
         )
         let prepared = SpacesBarPreparedLayout.resolve(key, cached: &spacesBarPreparedLayout)
         let restingSizing = prepared.resting
