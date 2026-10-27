@@ -875,7 +875,7 @@ extension Defaults.Keys {
     static let spacesBarLabels = Key<SpaceMenuDisplayMode>("spacesBarLabels", default: .numberOnly)
     static let spacesBarFixedWidth = Key<Bool>("spacesBarFixedWidth", default: false)
     static let spacesBarMinimumIcons = Key<Int>("spacesBarMinimumIcons", default: 2)
-    static let spacesBarMaximumIcons = Key<Int>("spacesBarMaximumIcons", default: 8)
+    static let spacesBarMaximumIcons = Key<Int>("spacesBarMaximumIcons", default: 6)
     // Retired flexible pixel-width preferences; no migration.
     static let spacesBarPreferDetails = Key<Bool>("spacesBarPreferDetails", default: true)
     static let spacesBarMinimumWidth = Key<Double>("spacesBarMinimumWidth", default: 160)

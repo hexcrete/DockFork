@@ -8,7 +8,7 @@
 | Spaces Bar item size | Medium, matching Compact Mode's default |
 | Pill width mode | Flexible |
 | Flexible minimum app icons | 2 |
-| Flexible maximum app icons | 8 |
+| Flexible maximum app icons | 6 |
 | Fixed pill width | 160 points |
 | Activate apps by clicking their icons | On |
 | Highlight Current Space in Dock, Cmd+Tab and Window Switcher | On |
@@ -18,7 +18,7 @@ October 27 default updates preserve preference keys, stored choices, reset/searc
 
 ## Flexible Space pills by app count
 
-Pill width now has only Fixed and Flexible modes. Fixed keeps its pixel-width setting. Flexible uses two native sliders, Minimum icons and Maximum icons, with Minimum icons ranging from 0 through 10 and Maximum icons from 0 through 20, in whole steps, defaulting to 2 and 8. Values clamp at each other without moving the other slider; equality is valid. Counts refer to distinct app icons, not windows, and exclude the +N overflow text.
+Pill width now has only Fixed and Flexible modes. Fixed keeps its pixel-width setting. Flexible uses two native sliders, Minimum icons and Maximum icons, with Minimum icons ranging from 0 through 10 and Maximum icons from 0 through 20, in whole steps, defaulting to 2 and 6. Values clamp at each other without moving the other slider; equality is valid. Counts refer to distinct app icons, not windows, and exclude the +N overflow text.
 
 Flexible pills size between the configured icon counts to fit the display. Fewer resident apps use less room without empty slots. When minimum sizes no longer fit, the bar scrolls. Labels/fullscreen indicators retain their normal padded width. A Flexible pill that cannot fit the viewport keeps its minimum and scrolls within the screen-bounded bar instead of violating the icon limits. +N has its own width budget and remains visible with a zero maximum when apps are omitted, except for a known single-window fullscreen Space: its redundant +1 and reserved gap are omitted. Split View, ordinary Desktops and uncertain multi-owner discovery retain their overflow counts. Hidden app icons still produce label-only pills.
 

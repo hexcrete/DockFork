@@ -416,7 +416,7 @@ reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")
 constants = File.read("#{root}/DockDoor/consts.swift")
 abort 'Space app-icon activation must default On' unless constants.include?('static let spacesBarActivateAppIcons = Key<Bool>("spacesBarActivateAppIcons", default: true)')
 abort 'Compact and Space items must both default to Medium' unless constants.include?('Key<CompactModeItemSize>("compactModeItemSize", default: .medium)') && constants.include?('Key<SpacesBarItemSize>("spacesBarItemSize", default: .medium)')
-abort 'Flexible icon limits must default to 2-8' unless constants.include?('Key<Int>("spacesBarMinimumIcons", default: 2)') && constants.include?('Key<Int>("spacesBarMaximumIcons", default: 8)')
+abort 'Flexible icon limits must default to 2-6' unless constants.include?('Key<Int>("spacesBarMinimumIcons", default: 2)') && constants.include?('Key<Int>("spacesBarMaximumIcons", default: 6)')
 [['dockPreview','DockPreview'],['switcher','Switcher'],['cmdTab','CmdTab']].each do |mode,highlight_mode|
   placement="#{mode}SpaceNumberIndicatorPlacement"
   highlight="highlight#{highlight_mode}CurrentSpaceIndicator"
