@@ -483,7 +483,7 @@ struct WindowPreviewHoverContainer: View {
         performHighlightActionIfNeeded()
     }
 
-    private func handleHoverIndexChange(_ hoveredIndex: Int?, _ location: CGPoint?) -> Bool {
+    private func handleHoverIndexChange(_ hoveredIndex: Int, _ location: CGPoint?) -> Bool {
         guard !previewStateCoordinator.isDraggingPreview, !previewStateCoordinator.isPointerSelecting else { return false }
         let isWindowSwitcher = previewStateCoordinator.windowSwitcherActive
         let isCmdTabPreview = !isWindowSwitcher && dockPosition == .cmdTab
@@ -492,8 +492,9 @@ struct WindowPreviewHoverContainer: View {
         if isWindowSwitcher, !enableMouseHoverInSwitcher { return false }
         guard edgeScrollRequest == nil else { return false }
 
-        guard let hoveredIndex else {
-            if isDockPreview || isWindowSwitcher || isCmdTabPreview {
+        guard location != nil else {
+            // An outgoing card's exit can arrive after the next card's entry.
+            if hoveredIndex == previewStateCoordinator.currIndex {
                 previewStateCoordinator.clearSelectionIfMouseSource(shouldScroll: false)
                 refreshHighlightActionIfNeeded()
             }
@@ -1323,6 +1324,7 @@ struct WindowPreviewHoverContainer: View {
                 edgeScrollRequest: edgeScrollRequest,
                 edgeScrollSpeed: edgeAutoScrollSpeed,
                 selectionEdgeAutoScrollEnabled: edgeAutoScrollEnabled,
+                onHoverIndexChange: handleHoverIndexChange,
                 makeCard: { item in
                     AnyView(buildFlowItem(
                         item: item,

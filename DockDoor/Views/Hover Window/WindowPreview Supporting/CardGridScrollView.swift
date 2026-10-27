@@ -36,6 +36,7 @@ struct CardGridScrollView: NSViewRepresentable {
     let edgeScrollRequest: EdgeScrollRequest?
     let edgeScrollSpeed: CGFloat
     var selectionEdgeAutoScrollEnabled = false
+    var onHoverIndexChange: ((Int, CGPoint?) -> Bool)?
     let makeCard: (FlowItem) -> AnyView
 
     func makeNSView(context: Context) -> ContainerView {
@@ -289,6 +290,7 @@ struct CardGridScrollView: NSViewRepresentable {
         private var scrolledFromStart: Binding<Bool>?
         private var scrolledToEnd: Binding<Bool>?
         private var makeCard: ((FlowItem) -> AnyView)?
+        private var onHoverIndexChange: ((Int, CGPoint?) -> Bool)?
         private var pendingItems: [FlowItem] = []
         private var cancellables: Set<AnyCancellable> = []
         private(set) var contentSize: CGSize = .zero
@@ -356,6 +358,8 @@ struct CardGridScrollView: NSViewRepresentable {
                 previewCoordinator?.setPreviewDragTarget(nil)
             }
             if previewCoordinator?.actionFeedbackGrid === self { previewCoordinator?.actionFeedbackGrid = nil }
+            if previewCoordinator?.hoverGrid === self { previewCoordinator?.hoverGrid = nil }
+            onHoverIndexChange = nil
             ActionFeedbackController.existing?.refreshAnchors()
             cancellables.removeAll()
             container = nil
@@ -364,6 +368,12 @@ struct CardGridScrollView: NSViewRepresentable {
         func update(representable: CardGridScrollView) {
             guard let container else { return }
             selectionEdgeAutoScrollEnabled = representable.selectionEdgeAutoScrollEnabled
+            onHoverIndexChange = representable.onHoverIndexChange
+            if representable.isInteractive {
+                previewCoordinator?.hoverGrid = self
+            } else if previewCoordinator?.hoverGrid === self {
+                previewCoordinator?.hoverGrid = nil
+            }
             edgeScrollSpeed = representable.edgeScrollSpeed
             if representable.isInteractive, representable.layout.appearance.enableMultiWindowSelection {
                 previewCoordinator?.selectionGrid = self
@@ -437,6 +447,16 @@ struct CardGridScrollView: NSViewRepresentable {
         }
 
         func windowForDrop(at screenPoint: CGPoint) -> WindowInfo? {
+            guard let index = windowIndex(at: screenPoint) else { return nil }
+            return previewCoordinator?.windows[index]
+        }
+
+        func updateHover(at screenPoint: CGPoint) {
+            guard let index = windowIndex(at: screenPoint), index != previewCoordinator?.currIndex else { return }
+            _ = onHoverIndexChange?(index, screenPoint)
+        }
+
+        private func windowIndex(at screenPoint: CGPoint) -> Int? {
             guard let container, container.isInteractive,
                   let window = container.window, window.isVisible,
                   let point = container.contentPoint(for: container.convert(window.convertPoint(fromScreen: screenPoint), from: nil)),
@@ -448,7 +468,7 @@ struct CardGridScrollView: NSViewRepresentable {
             let target = previewCoordinator.windows[index]
             let rendered = contentKey[index]
             guard target.id == rendered.id, target.app.processIdentifier == rendered.pid else { return nil }
-            return target
+            return index
         }
 
         private func rebuild(in container: ContainerView, representable: CardGridScrollView) {

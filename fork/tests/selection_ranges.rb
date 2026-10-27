@@ -20,7 +20,7 @@ container = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewHoverCon
 keybinds = File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift")
 interaction = block(container, '    private func selectionInteraction(for window:')
 abort 'Pointer sweep must replace, not retain, an old hover-scroll request' unless interaction.match?(/if !previewStateCoordinator.isPointerSelecting \{\s+cancelDockHighlightAction\(\)\s+edgeScrollRequest = nil/)
-abort 'Selection scrolling must reuse the live grid offset' unless block(grid, '        private func offsetChanged(').include?('updatePointerSelectionRange()') && block(grid, '        func windowForDrop(').include?('container.contentPoint(')
+abort 'Selection scrolling must reuse the live grid offset' unless block(grid, '        private func offsetChanged(').include?('updatePointerSelectionRange()') && block(grid, '        func windowForDrop(').include?('windowIndex(at:') && block(grid, '        private func windowIndex(').include?('container.contentPoint(')
 abort 'Selection must not require drag-to-tile' unless grid.include?('representable.layout.appearance.enableMultiWindowSelection') && grid.include?('previewCoordinator?.selectionGrid = self')
 abort 'Grid teardown must stop selection' unless block(grid, '        func detach(').include?('endSelectionRange()')
 source = <<~'SWIFT'

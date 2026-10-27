@@ -1379,7 +1379,7 @@ struct WindowPreview: View, Equatable {
     let dimensions: WindowPreviewHoverContainer.WindowDimensions
     let showAppIconOnly: Bool
     let mockPreviewActive: Bool
-    let onHoverIndexChange: ((Int?, CGPoint?) -> Bool)?
+    let onHoverIndexChange: ((Int, CGPoint?) -> Bool)?
     let onDragHoverIndexChange: ((Int?) -> Void)?
     let useLivePreview: Bool
     var skeletonMode: Bool = false
@@ -2347,7 +2347,7 @@ struct WindowPreview: View, Equatable {
                 let shouldShowHover = onHoverIndexChange?(index, location) ?? true
                 if currentHoverState != shouldShowHover { setHoverState(shouldShowHover) }
             case .ended:
-                _ = onHoverIndexChange?(nil, nil)
+                _ = onHoverIndexChange?(index, nil)
                 if currentHoverState {
                     setHoverState(false)
                 }

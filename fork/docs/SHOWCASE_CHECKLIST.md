@@ -571,3 +571,7 @@ Wake recovery manual setup: after unlock or display wake/change, open Window Swi
 Wake-recovery verification follow-up: with all Finder windows closed, verify the desktop-only Accessibility response passes readiness without waiting through all retries. Retain malformed/error and real wake/display checks. No new capture ID or media claim.
 
 Filter-cache measurement checkpoint adds no screenshot candidate or frame-rate claim. Existing image-update/filter-order capture scenarios remain applicable; cache policy and appearance are unchanged.
+
+Hover handoff follow-up: move repeatedly between neighboring previews in both directions, in regular/Compact layouts and all modes; include normal visible containers as well as faded/restored containers with full-size previews. Verify highlight and full-size-preview transitions, keyboard takeover, control hover and leaving/re-entering the container. No new media captured; event-order regression checks do not substitute for native user verification.
+
+Fade-dependent hover verification: rapidly cross cards before the fade timer fires, then rest, restore and cross again without leaving the container. Compare fade On/Off, zero/normal opacity, regular/Compact layouts, all three modes, scrolling and keyboard/search/menu takeover. The old card remaining selected was traced to missing card callbacks; verify native reconciliation updates selection without flicker or unwanted hover actions. No media captured or full native-regression pass claimed.

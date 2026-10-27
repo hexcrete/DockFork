@@ -400,11 +400,11 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                                                .scrollWheel,
                                                .leftMouseDown, .rightMouseDown, .otherMouseDown]
             focusFadeLocalMonitor = NSEvent.addLocalMonitorForEvents(matching: mask) { [weak self] event in
-                self?.registerPreviewFocusActivity()
+                self?.registerPreviewFocusPointerActivity(event)
                 return event
             }
-            focusFadeGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] _ in
-                self?.registerPreviewFocusActivity()
+            focusFadeGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: mask) { [weak self] event in
+                self?.registerPreviewFocusPointerActivity(event)
             }
             focusFadeSelection = windowSwitcherCoordinator.currIndex
             schedulePreviewFocusFade()
@@ -415,6 +415,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         if isPreviewFocusFaded {
             setPreviewFocusOpacity(Float(PreviewFocusFadePolicy.bounded(Defaults[previewFocusFadeMode.opacityKey], fallback: 0.2, range: 0 ... 0.5)), duration: 0, onlyNewContent: true)
         }
+    }
+
+    private func registerPreviewFocusPointerActivity(_ event: NSEvent) {
+        registerPreviewFocusActivity()
+        guard event.type == .mouseMoved, event.windowNumber == windowNumber,
+              isVisible, canRunPreviewFocusFade, trackingMenus.isEmpty else { return }
+        // Fading a hosting layer can interrupt SwiftUI hover delivery without stopping native movement.
+        windowSwitcherCoordinator.hoverGrid?.updateHover(at: NSEvent.mouseLocation)
     }
 
     func registerPreviewFocusActivity() {

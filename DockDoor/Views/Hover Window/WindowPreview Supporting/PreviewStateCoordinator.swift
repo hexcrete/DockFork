@@ -109,6 +109,7 @@ class PreviewStateCoordinator: ObservableObject {
     @Published var isDraggingPreview = false
     weak var dragTargetGrid: CardGridScrollView.Coordinator?
     weak var selectionGrid: CardGridScrollView.Coordinator?
+    weak var hoverGrid: CardGridScrollView.Coordinator?
 
     private enum SelectionRangeInput: Equatable {
         case pointer

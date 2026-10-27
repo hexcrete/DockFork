@@ -1466,3 +1466,9 @@ Recovery leaves a valid enabled keyboard tap/run-loop source intact when Accessi
 Finder readiness also accepts its desktop-only AXScrollArea response when no ordinary Finder windows are open. An empty window list is not the only legitimate no-window response. Existing role reads, error rejection and retry limits are retained, with no added queries.
 
 Filter-cache measurement follow-up: conservative invalidation remains unchanged. Synthetic source-extracted tests confirm dedicated image updates preserve prepared candidates; generic writes still invalidate, including unchanged writes. Additional metadata scanning was measured only in tests, not added to the app. No new performance claim or user-facing behavior follows from this checkpoint.
+
+Preview hover handoff: regular and Compact preview rows identify their hover exits so a delayed exit from the previous card cannot clear the next card's highlight. The shared fix applies to Dock, Cmd+Tab and Window Switcher without changing resting-fade settings or timing. Deterministic event-order checks pass; manual reproduction verification remains pending.
+
+Fade-dependent missed hover follow-up: the real-app trace showed continuing native pointer movement but missing SwiftUI card callbacks. Existing fade monitors now reconcile own-panel mouse hover using the same cached grid geometry as drops/selection and the same card handler. No extra event monitor, polling or AX work is added; duplicate events do not republish unchanged selection. This supplements the separate late-exit correction. Manual confirmation of the reported symptom is pending; temporary tracing is removed.
+
+Native hover recovery is active only while the current mode's resting fade is enabled and eligible. Fade-off operation adds no reconciliation hit testing or monitors; the shared exit-order guard remains useful for ordinary hovering as well.

@@ -30,7 +30,7 @@ struct WindowPreviewCompact: View, Equatable {
     let windowSwitcherActive: Bool
     let mockPreviewActive: Bool
     let onTap: (() -> Void)?
-    let onHoverIndexChange: ((Int?, CGPoint?) -> Bool)?
+    let onHoverIndexChange: ((Int, CGPoint?) -> Bool)?
     let onDragHoverIndexChange: ((Int?) -> Void)?
     let widthOverride: CGFloat?
     var appearance: PreviewAppearanceSettings
@@ -253,7 +253,7 @@ struct WindowPreviewCompact: View, Equatable {
                     let shouldShowHover = onHoverIndexChange?(index, location) ?? true
                     if isHovering != shouldShowHover { setHoverState(shouldShowHover) }
                 case .ended:
-                    _ = onHoverIndexChange?(nil, nil)
+                    _ = onHoverIndexChange?(index, nil)
                     if isHovering { setHoverState(false) }
                 }
             }
