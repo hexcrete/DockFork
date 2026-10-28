@@ -1,6 +1,10 @@
 # DockFork 0.4.0 Candidate Preparation
 
-Status: stable Release candidate built and artifact-audited; **not published or approved for publication**. The user authorized packaging after upstream merge verification. No prerelease flag is intended. Do not tag, upload or publish until the exact candidate is tested and approved.
+Status: stable Release candidate built, artifact-audited and user-tested; **not published; explicit publication authorization pending**. The user authorized packaging after upstream merge verification and reported successful candidate testing on October 28. No prerelease flag is intended. Do not tag, upload or publish until separately authorized.
+
+## October 28 User Verification
+
+The user reports testing the candidate successfully. All nine manifest-listed asset checksums were rechecked and pass; source remains `23850ba04cf7c5e523d53ea2be45607419327e57`. The discarded text-shadow experiment is absent from the clean working tree and did not change the package. No rebuild is needed. This report does not specify browser-quarantine, older-macOS, exhaustive display coverage or preset-import tests; those remain unverified individually. Publication authorization remains separate from this successful test report.
 
 ## Release Inputs
 

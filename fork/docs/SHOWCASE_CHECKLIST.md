@@ -2,6 +2,8 @@
 
 ## 0.4.0 Capture Status
 
+October 28: the user reports the unchanged candidate works. This is test feedback, not captured/approved media or a report of every installation/display case. Publication is still pending separate authorization; capture IDs and media status remain unchanged.
+
 Screenshots and recordings remain deferred. Existing capture IDs and completion states are unchanged. The October 27 optional preset is prepared for 0.4.0 with 273 preferences and 15 generic-ID shortcuts, numeric Flexible Spaces pills at 2/6 icons, toolbar indicators and minimal-reveal scrolling. It is not imported automatically; back up settings before any later import.
 
 The stable Release candidate from `23850ba04cf7c5e523d53ea2be45607419327e57` is built and artifact-audited, not installed, published or approved. Use its exact ZIP and matching preset for later release validation/captures. Artifact checks do not establish native rendering, imported-setting behavior or captured media approval. See the [candidate handoff](RELEASE_NOTES_0.4.0.md#candidate-handoff).
