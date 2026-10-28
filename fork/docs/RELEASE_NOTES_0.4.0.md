@@ -1,6 +1,14 @@
-# DockFork 0.4.0 Candidate Preparation
+# DockFork 0.4.0 Release Record
 
-Status: stable Release candidate built, artifact-audited, user-tested and authorized for publication on October 28, conditional on final checks passing. **Publication is not yet complete.** Use the exact tested package without rebuilding. Publish without the prerelease flag.
+Status: **[published as the latest stable release](https://github.com/hexcrete/DockFork/releases/tag/v0.4.0)** on October 28, 2026. Release ID `426280319`; draft false, prerelease false. The exact tested package was published without rebuilding.
+
+## Publication Verification
+
+The annotated remote tag v0.4.0 resolves to `23850ba04cf7c5e523d53ea2be45607419327e57`. GitHub's latest-release endpoint returns v0.4.0. Published title/body match the prepared notes. Exactly the ten inventory assets below are attached; no build log or unpacked app was uploaded. All ten draft downloads and all ten unauthenticated public asset downloads match the audited local SHA-256 values. Public HTTP downloads do not simulate browser quarantine or installation.
+
+Final pre-publication recheck confirms exact source archive/sidecar/overlay correspondence, unchanged app/preset/packaging inputs, ZIP extraction correspondence, metadata/updater isolation, arm64 and seven unique ad-hoc-signed Mach-O executables. It inspects 547 raw ZIP entries including resource metadata and checks 482 extracted app/source/sidecar files for configured local-path, actual development-identity and private-key markers. These are narrower recounts, not a rerun of all 1,599 original assertions. Generic public certificate terminology in the packaging script is not treated as a private identity. Preset privacy and all 19 version metadata cases pass.
+
+The user reports successful candidate testing and explicitly authorized publication after final checks. No rebuild, Release launch, preference import/reset or new native-window test occurred during publication. Browser-quarantine installation, older macOS, exhaustive display coverage and the known unrun native Compact drag fixture remain explicit limits. Screenshots are deferred. The discarded text-shadow experiment is absent.
 
 ## October 28 Publication Authorization
 
@@ -39,7 +47,7 @@ The artifact audit passes 1,599 assertions across the ten allowlisted assets, 21
 
 The running development executable and debug library remain byte-identical to their pre-build hashes. Release packaging did not install or launch the candidate or import the preset. The supplied export's SHA-256 remains unchanged.
 
-After packaging, the user must test the exact ZIP as an upgrade and optionally import the preset after backing up. Browser-quarantine/Gatekeeper approval, first launch, permissions, older-macOS and exhaustive display/app coverage remain unverified until explicitly reported. After approval, tag this exact source as v0.4.0, create/verify a draft with exactly the allowlisted assets, then publish without the prerelease flag. Publication is a separate authorization step.
+The user reported successful candidate testing and then separately authorized publication. The exact tag, draft bytes, stable publication and public downloads were verified as recorded above. Browser-quarantine/Gatekeeper approval, specific upgrade-permission scenarios, older-macOS and exhaustive display/app coverage remain individually unverified unless explicitly reported. Optional preset import still requires backing up existing settings.
 
 ## Preparation Checks
 
@@ -53,7 +61,7 @@ The first Release attempt from preparation commit 314bf726 failed before packagi
 
 ## Exact Asset Inventory
 
-Only these files are eligible for upload after approval. All SHA-256 values were checked against the actual files.
+Exactly these files are published. All SHA-256 values match both local files and their draft/public downloads.
 
 | File | SHA-256 |
 |---|---|

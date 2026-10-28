@@ -7,7 +7,7 @@ Based on **[DockDoor by ejbills](https://github.com/ejbills/DockDoor)**, with ad
 - [Showcase capture checklist](fork/docs/SHOWCASE_CHECKLIST.md)
 - [Complete fork commit ledger](fork/docs/COMMIT_LEDGER.md)
 
-**Preparing DockFork 0.4.0:** a stable Release candidate is built and artifact-audited. It adds the Window Switcher Spaces Bar and the refinements described in the [release notes](fork/docs/RELEASE_BODY_0.4.0.md). Exact-candidate installation testing and publication approval remain pending; [0.3.0](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) is still the latest published download. No 0.4.0 release is published yet.
+**[DockFork 0.4.0 is available](https://github.com/hexcrete/DockFork/releases/tag/v0.4.0)** as the latest stable release. It adds the Window Switcher Spaces Bar and the refinements described in the [release notes](fork/docs/RELEASE_BODY_0.4.0.md). The exact user-tested package was published without rebuilding; public downloads and checksums are verified. See the [release record](fork/docs/RELEASE_NOTES_0.4.0.md) for validation limits.
 
 Apple Silicon packages are ad-hoc signed and not notarized. Updates are manual; replacing an ad-hoc build can require removing and re-adding system permissions. Follow the [installation guide](fork/packaging/INSTALL.md), and export a backup before importing the optional showcase preset. Screenshots and recordings remain deferred.
 

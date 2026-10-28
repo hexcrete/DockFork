@@ -2,12 +2,12 @@
 
 DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). Application features remain in the existing source tree; this directory contains fork-only packaging, optional presets and publication records. Exclude `fork/` and fork-specific root documentation from upstream PRs. Follow the [upstream contribution checklist](docs/UPSTREAM_CONTRIBUTIONS.md).
 
-## Preparing 0.4.0
+## Stable Release 0.4.0
 
-Version **0.4.0** has a built, artifact-audited **stable Release candidate**, not a prerelease. Exact-candidate installation testing and publication approval remain pending. Published [0.3.0](https://github.com/hexcrete/DockFork/releases/tag/v0.3.0) remains the latest download; previous release assets are unchanged.
+Version **[0.4.0](https://github.com/hexcrete/DockFork/releases/tag/v0.4.0)** is published as the latest **stable release**, not a prerelease. The user-tested package from `23850ba04cf7c5e523d53ea2be45607419327e57` was published without rebuilding. All ten public assets download and match the audited local hashes. Previous release assets are unchanged.
 
-- [Public release-note draft](docs/RELEASE_BODY_0.4.0.md)
-- [Candidate preparation, audit and testing status](docs/RELEASE_NOTES_0.4.0.md)
+- [Published release notes](docs/RELEASE_BODY_0.4.0.md)
+- [Release source, asset audit and testing status](docs/RELEASE_NOTES_0.4.0.md)
 - [Changes and showcase](docs/CHANGES_AND_SHOWCASE.md)
 - [Capture checklist](docs/SHOWCASE_CHECKLIST.md)
 - [Commit ledger](docs/COMMIT_LEDGER.md) and [resource audit](docs/RESOURCE_LIFECYCLE_AUDIT.md)
