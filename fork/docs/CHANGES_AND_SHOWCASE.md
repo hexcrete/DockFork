@@ -2,6 +2,8 @@
 
 ## DockFork 0.4.0 Release Preparation
 
+October 28 publication authorization: following successful candidate testing, the user authorizes stable publication if the final checks pass. Use unchanged source/package `23850ba0`, not a rebuild or the documentation tip. Final artifact, draft-upload and public-download verification are separate gates; this authorization record alone does not mean publication succeeded.
+
 October 28: the user reports successful testing of the unchanged `23850ba0` candidate. All nine manifest-listed asset checksums pass again. The uncommitted text-shadow experiment was discarded; no rebuild or replacement candidate is needed. Explicit publication authorization remains pending. Individual downloaded-installation, older-OS and exhaustive display tests are not inferred from the general test report; screenshots remain deferred.
 
 Version 0.4.0 has a built, artifact-audited stable Release candidate from `23850ba04cf7c5e523d53ea2be45607419327e57`. It is not published or approved for publication. The current feature summary is in the [public release-note draft](RELEASE_BODY_0.4.0.md); exact assets and remaining installation/testing gates are in the [candidate record](RELEASE_NOTES_0.4.0.md). Changes are compared with published 0.3.0, including all intervening fixes. Screenshots remain deferred.

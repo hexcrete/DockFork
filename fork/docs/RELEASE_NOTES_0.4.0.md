@@ -1,6 +1,10 @@
 # DockFork 0.4.0 Candidate Preparation
 
-Status: stable Release candidate built, artifact-audited and user-tested; **not published; explicit publication authorization pending**. The user authorized packaging after upstream merge verification and reported successful candidate testing on October 28. No prerelease flag is intended. Do not tag, upload or publish until separately authorized.
+Status: stable Release candidate built, artifact-audited, user-tested and authorized for publication on October 28, conditional on final checks passing. **Publication is not yet complete.** Use the exact tested package without rebuilding. Publish without the prerelease flag.
+
+## October 28 Publication Authorization
+
+The user requested one final check and authorized publication if it passes. Working tree is clean before this record; no application, preset or packaging input differs from candidate source `23850ba04cf7c5e523d53ea2be45607419327e57`. Preset privacy validation and all 19 version metadata cases pass. No v0.4.0 release/tag exists at preflight. Recheck the actual artifacts, tag the exact candidate source, upload only the ten allowlisted assets to a draft, verify remote bytes, then publish stable and verify public downloads. Preserve the package and source archive unchanged.
 
 ## October 28 User Verification
 
