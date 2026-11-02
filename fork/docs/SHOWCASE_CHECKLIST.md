@@ -1,5 +1,7 @@
 # DockFork Showcase Capture Checklist
 
+Unreleased swipe activation restrictions, November 2: show the four checkboxes in Gestures > Trackpad Swipe for Window Switcher. With vertical window navigation and Up disabled, confirm native Mission Control Up remains available, Down opens DockFork, and Up/Down still navigate after a permitted start or in an open switcher. Repeat with horizontal/opposite-axis Spaces, reversed selection, three/four fingers, all directions disabled and held/persistent sessions. No input preferences are changed automatically. November 3: user reports the feature works; no individual hardware/session matrix or captured/approved media is inferred.
+
 ## 0.4.0 Capture Status
 
 October 28: the user-tested package is published as [stable 0.4.0](https://github.com/hexcrete/DockFork/releases/tag/v0.4.0). All ten public downloads match the audited assets. Publication and test feedback do not mean captured/approved media or every installation/display case passed; capture IDs and media status remain unchanged.

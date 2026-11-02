@@ -44,7 +44,9 @@ struct TrackpadSwipeDetector {
     private var switchingSpaces = false
     private(set) var isSwitching = false
 
-    mutating func handle(_ touches: [SwipeTouch], fingers: Int, horizontal: Bool, sensitivity: CGFloat = 1, spacesEnabled: Bool = false) -> TrackpadSwipeEvent? {
+    mutating func handle(_ touches: [SwipeTouch], fingers: Int, horizontal: Bool, sensitivity: CGFloat = 1, spacesEnabled: Bool = false,
+                         disabledActivationDirections: @autoclosure () -> Set<TrackpadSwipeActivationDirection> = [], switcherActive: @autoclosure () -> Bool = false) -> TrackpadSwipeEvent?
+    {
         let distanceScale = 1 / min(max(sensitivity, Self.sensitivityRange.lowerBound), Self.sensitivityRange.upperBound)
 
         if isSwitching {
@@ -102,6 +104,15 @@ struct TrackpadSwipeDetector {
         guard allPositive || allNegative else { return nil }
         guard zip(alongAxis.map(abs), acrossAxis).allSatisfy({ $0 > $1 * Self.axisDominanceRatio }) else { return nil }
 
+        let direction: TrackpadSwipeActivationDirection = gestureHorizontal
+            ? (allPositive ? .right : .left)
+            : (allPositive ? .up : .down)
+        if disabledActivationDirections().contains(direction), !switcherActive() {
+            isSpent = true
+            startPositions.removeAll()
+            return nil
+        }
+
         switchingHorizontal = gestureHorizontal
         switchingSpaces = spacesEnabled && gestureHorizontal != horizontal
         isSwitching = true
@@ -133,8 +144,10 @@ final class TrackpadSwipeTrigger {
     private var unmanagedSelf: Unmanaged<TrackpadSwipeTrigger>?
     private var detector = TrackpadSwipeDetector()
     private let onSwipe: @MainActor (TrackpadSwipeEvent) -> Void
+    private let isSwitcherActive: () -> Bool
 
-    init(onSwipe: @escaping @MainActor (TrackpadSwipeEvent) -> Void) {
+    init(isSwitcherActive: @escaping () -> Bool, onSwipe: @escaping @MainActor (TrackpadSwipeEvent) -> Void) {
+        self.isSwitcherActive = isSwitcherActive
         self.onSwipe = onSwipe
         setupEventTap()
     }
@@ -212,7 +225,8 @@ final class TrackpadSwipeTrigger {
         let horizontal = Defaults[.trackpadSwitcherSwipeDirection] == .horizontal
         let sensitivity = Defaults[.trackpadSwitcherSwipeSensitivity]
         let spacesEnabled = Defaults[.enableSpacesBar] && Defaults[.trackpadSwitcherSwipeSpaces]
-        guard let event = detector.handle(swipeTouches, fingers: fingers, horizontal: horizontal, sensitivity: sensitivity, spacesEnabled: spacesEnabled) else { return }
+        guard let event = detector.handle(swipeTouches, fingers: fingers, horizontal: horizontal, sensitivity: sensitivity, spacesEnabled: spacesEnabled,
+                                          disabledActivationDirections: Defaults[.trackpadSwitcherSwipeDisabledActivationDirections], switcherActive: isSwitcherActive()) else { return }
 
         let onSwipe = onSwipe
         Task { @MainActor in

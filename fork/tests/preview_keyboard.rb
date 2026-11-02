@@ -414,7 +414,7 @@ Dir.mktmpdir('dockfork-spaces-navigation-') do |dir|
 end
 
 swipe = File.read("#{root}/DockDoor/Utilities/TrackpadSwipeTrigger.swift")
-swipe_source = "import Foundation\n" + block(swipe, 'struct SwipeTouch {') + "\n" + block(swipe, 'enum TrackpadSwipeEvent:') + "\n" + block(swipe, 'struct TrackpadSwipeDetector {') + "\n"
+swipe_source = "import Foundation\n" + block(constants, 'enum TrackpadSwipeActivationDirection:').sub(', Defaults.Serializable','') + "\n" + block(swipe, 'struct SwipeTouch {') + "\n" + block(swipe, 'enum TrackpadSwipeEvent:') + "\n" + block(swipe, 'struct TrackpadSwipeDetector {') + "\n"
 swipe_source += block(File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Supporting/PreviewStateCoordinator.swift"), '    enum SpaceNavigationRequest:').gsub('CGSSpaceID','UInt64') + "\n"
 route = block(keybinds, '    private func handleTrackpadSwipe(')
 intent = route[route.index('                var openingBackward:')...route.index('                guard !spaces ||')]
@@ -486,7 +486,47 @@ for configuredHorizontal in [false,true] {
 }
   precondition(TrackpadSwipeEvent.openSpaces(backward:false).reversingSelection(if:true) == .openSpaces(backward:true))
   precondition(TrackpadSwipeEvent.openSpaces(backward:true).reversingSelection(if:true) == .openSpaces(backward:false))
-  print("PASS production two-axis swipe detector: opt-in, both configured axes, three/four fingers, direction/reversal, dominant-axis recognition/latching, sensitivity, release and next-gesture reset; no input events posted")
+  let directions:[TrackpadSwipeActivationDirection] = [.left,.right,.up,.down]
+  for fingers in [3,4] {
+   for direction in directions {
+    let horizontal = direction == .left || direction == .right
+    let positive = direction == .right || direction == .up
+    let delta:CGFloat = positive ? 0.04 : -0.04
+    let x = horizontal ? delta : 0, y = horizontal ? 0 : delta
+    for configuredHorizontal in [false,true] {
+     for active in [false,true] {
+      var d=TrackpadSwipeDetector()
+      _=d.handle(touches(0,0,fingers),fingers:fingers,horizontal:configuredHorizontal,spacesEnabled:true)
+      let first=d.handle(touches(x,y,fingers),fingers:fingers,horizontal:configuredHorizontal,spacesEnabled:true,disabledActivationDirections:[direction],switcherActive:active)
+      if !active {
+       precondition(first==nil && !d.isSwitching,"Disabled physical direction must not open either axis")
+       precondition(d.handle(touches(-x*6,-y*6,fingers),fingers:fingers,horizontal:configuredHorizontal,spacesEnabled:true)==nil,"Rejected swipe must stay ignored after reversing/settings change")
+       precondition(d.handle([],fingers:fingers,horizontal:configuredHorizontal)==nil,"Rejected swipe must not release/activate a session")
+       _=d.handle(touches(0,0,fingers),fingers:fingers,horizontal:configuredHorizontal,spacesEnabled:true)
+       precondition(d.handle(touches(-x,-y,fingers),fingers:fingers,horizontal:configuredHorizontal,spacesEnabled:true,disabledActivationDirections:[direction]) != nil,"New allowed swipe must open after release")
+      } else {
+       precondition(first != nil && d.isSwitching,"Every physical direction must navigate an existing session")
+      }
+     }
+    }
+    var d=TrackpadSwipeDetector()
+    _=d.handle(touches(0,0,fingers),fingers:fingers,horizontal:horizontal)
+    precondition(d.handle(touches(-x,-y,fingers),fingers:fingers,horizontal:horizontal,disabledActivationDirections:[direction]) == .open)
+    precondition(d.handle(touches(x*5,y*5,fingers),fingers:fingers,horizontal:horizontal,disabledActivationDirections:Set(directions)) != nil,"Disabled direction must remain available during an accepted gesture")
+    precondition(d.handle([],fingers:fingers,horizontal:horizontal,disabledActivationDirections:Set(directions)) == .release)
+   }
+  }
+  var configReads=0,sessionReads=0
+  func disabled()->Set<TrackpadSwipeActivationDirection>{configReads+=1;return []}
+  func active()->Bool{sessionReads+=1;return false}
+  var d=TrackpadSwipeDetector()
+  _=d.handle(touches(0,0),fingers:3,horizontal:true,disabledActivationDirections:disabled(),switcherActive:active())
+  precondition(configReads==0 && sessionReads==0,"No configuration/snapshot read before gesture recognition")
+  precondition(d.handle(touches(0.04,0),fingers:3,horizontal:true,disabledActivationDirections:disabled(),switcherActive:active()) == .open)
+  precondition(configReads==1 && sessionReads==0,"Empty restrictions must not read session state")
+  _=d.handle(touches(-0.20,0),fingers:3,horizontal:true,disabledActivationDirections:disabled(),switcherActive:active())
+  precondition(configReads==1 && sessionReads==0,"Ongoing navigation must not consult activation restrictions")
+  print("PASS production two-axis swipe detector and activation exclusions: all physical directions, three/four fingers, both axes, open-session bypass, reverse/release/reset, lazy config/snapshot reads; no input events posted")
  }
 }
 SWIFT
@@ -504,6 +544,8 @@ reset = File.read("#{root}/DockDoor/Views/Settings/MainSettingsView.swift")
 abort 'Opposite-axis swipe setting wiring/default is missing' unless constants.include?('Key<Bool>("trackpadSwitcherSwipeSpaces", default: false)') && swipe_settings.include?('if enableSpacesBar {') && swipe_settings.include?('.settingsSearchTarget("gestures.trackpadSwitcherSwipeSpaces")') && catalog.include?('id: "gestures.trackpadSwitcherSwipeSpaces"') && reset.include?('Defaults[.trackpadSwitcherSwipeSpaces] = Defaults.Keys.trackpadSwitcherSwipeSpaces.defaultValue')
 abort 'Axis label must follow configured direction' unless swipe_settings.include?('Text(trackpadSwitcherSwipeDirection.spacesBarNavigationTitle)') && constants.include?('case .horizontal: String(localized: "Use up/down for Spaces Bar")') && constants.include?('case .vertical: String(localized: "Use left/right for Spaces Bar")')
 abort 'Keep a single gated trackpad detector/tap' unless swipe.scan('CGEvent.tapCreate(').size==1 && swipe.include?('Defaults[.enableSpacesBar] && Defaults[.trackpadSwitcherSwipeSpaces]')
+abort 'Activation restrictions require default-empty, search/reset and native checkbox wiring' unless constants.include?('Key<Set<TrackpadSwipeActivationDirection>>("trackpadSwitcherSwipeDisabledActivationDirections", default: [])') && swipe_settings.include?('.settingsSearchTarget("gestures.trackpadSwitcherSwipeDisabledActivationDirections")') && swipe_settings.include?('.toggleStyle(.checkbox)') && catalog.include?('id: "gestures.trackpadSwitcherSwipeDisabledActivationDirections"') && reset.include?('Defaults[.trackpadSwitcherSwipeDisabledActivationDirections] = Defaults.Keys.trackpadSwitcherSwipeDisabledActivationDirections.defaultValue')
+abort 'Physical activation gate must use existing session snapshot and retain native event passthrough' unless keybinds.include?('previewCoordinator?.tapSnapshot.isKeybindSessionActive == true') && swipe.include?('options: .listenOnly') && swipe.include?('return Unmanaged.passUnretained(event)') && swipe.include?('disabledActivationDirections: Defaults[.trackpadSwitcherSwipeDisabledActivationDirections], switcherActive: isSwitcherActive()')
 routing = block(keybinds, '    private func handleTrackpadSwipe(')
 abort 'Spaces swipe must share session ownership, pending launch and modifier rules' unless routing.include?('spaceNavigation: spaces ? .cycle(backward: backward) : nil') && routing.include?('initializerHeld: isSwitcherModifierKeyPressed') && routing.include?('TrackpadSwipeReleasePolicy.shouldSelect(') && routing.include?('selectOnSwitcherRelease()')
 puts 'PASS Spaces swipe integration: default-off/search/reset, dynamic opposite-axis label, existing event tap, shared session ownership, held-initializer precedence and common pending/release selection'

@@ -8,6 +8,7 @@ struct TrackpadSwitcherSwipeSection: View {
     @Default(.enableTrackpadSwitcherSwipe) var enableTrackpadSwitcherSwipe
     @Default(.trackpadSwitcherSwipeFingers) var trackpadSwitcherSwipeFingers
     @Default(.trackpadSwitcherSwipeDirection) var trackpadSwitcherSwipeDirection
+    @Default(.trackpadSwitcherSwipeDisabledActivationDirections) private var disabledActivationDirections
     @Default(.reverseTrackpadSwipeSelectionDirection) private var reverseTrackpadSwipeSelectionDirection
     @Default(.selectWindowOnPersistentSwitcherSwipe) private var selectWindowOnPersistentSwitcherSwipe
     @Default(.trackpadSwitcherSwipeSensitivity) var trackpadSwitcherSwipeSensitivity
@@ -50,7 +51,27 @@ struct TrackpadSwitcherSwipeSection: View {
                     .fixedSize()
                     .settingsSearchTarget("gestures.trackpadSwitcherSwipeDirection")
 
-                    Text("If macOS uses the same swipe for Mission Control, App Exposé or switching between full-screen apps, turn that gesture off in System Settings > Trackpad > More Gestures.")
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(String(localized: "Disable activation directions"))
+                        HStack(spacing: 16) {
+                            ForEach(TrackpadSwipeActivationDirection.allCases, id: \.self) { direction in
+                                Toggle(direction.localizedName, isOn: Binding(
+                                    get: { disabledActivationDirections.contains(direction) },
+                                    set: { disabled in
+                                        if disabled { disabledActivationDirections.insert(direction) }
+                                        else { disabledActivationDirections.remove(direction) }
+                                    }
+                                ))
+                                .toggleStyle(.checkbox)
+                            }
+                        }
+                        Text(String(localized: "Checked directions won't open the switcher. All directions still navigate an open switcher. macOS gestures are unchanged."))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .settingsSearchTarget("gestures.trackpadSwitcherSwipeDisabledActivationDirections")
+
+                    Text("For directions that open the switcher, disable conflicting macOS gestures in System Settings > Trackpad > More Gestures.")
                         .font(.caption)
                         .foregroundColor(.secondary)
 
@@ -60,7 +81,7 @@ struct TrackpadSwitcherSwipeSection: View {
                         }
                         .settingsSearchTarget("gestures.trackpadSwitcherSwipeSpaces")
                         if trackpadSwitcherSwipeSpaces {
-                            Text("Disable conflicting macOS gestures on both axes in System Settings > Trackpad > More Gestures.")
+                            Text("The activation direction restrictions also apply to Spaces Bar swipes.")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }

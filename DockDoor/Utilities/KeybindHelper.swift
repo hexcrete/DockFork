@@ -885,7 +885,9 @@ class KeybindHelper {
         setupEventTap()
         startMonitoring()
         if Defaults[.enableWindowSwitcher], Defaults[.enableTrackpadSwitcherSwipe] {
-            trackpadSwipeTrigger = TrackpadSwipeTrigger { [weak self] event in
+            trackpadSwipeTrigger = TrackpadSwipeTrigger(isSwitcherActive: { [weak previewCoordinator] in
+                previewCoordinator?.tapSnapshot.isKeybindSessionActive == true
+            }) { [weak self] event in
                 self?.handleTrackpadSwipe(event)
             }
         }

@@ -1114,6 +1114,7 @@ extension Defaults.Keys {
     static let trackpadSwitcherSwipeFingers = Key<Int>("trackpadSwitcherSwipeFingers", default: 3)
     static let trackpadSwitcherSwipeDirection = Key<TrackpadSwipeDirection>("trackpadSwitcherSwipeDirection", default: .horizontal)
     static let trackpadSwitcherSwipeSpaces = Key<Bool>("trackpadSwitcherSwipeSpaces", default: false)
+    static let trackpadSwitcherSwipeDisabledActivationDirections = Key<Set<TrackpadSwipeActivationDirection>>("trackpadSwitcherSwipeDisabledActivationDirections", default: [])
     static let reverseTrackpadSwipeSelectionDirection = Key<Bool>("reverseTrackpadSwipeSelectionDirection", default: false)
     static let selectWindowOnPersistentSwitcherSwipe = Key<Bool>("selectWindowOnPersistentSwitcherSwipe", default: true)
     static let trackpadSwitcherSwipeSensitivity = Key<CGFloat>("trackpadSwitcherSwipeSensitivity", default: 1)
@@ -1880,6 +1881,19 @@ enum MediaDetectionMode: String, CaseIterable, Defaults.Serializable {
             String(localized: "Shows controls for whichever app is currently playing — browsers, third-party players, etc. Only one source is active at a time.", comment: "Media detection mode description")
         case .appleScriptOnly:
             String(localized: "Only shows controls for Spotify and Apple Music. Each app gets its own controls that work independently, even when other apps are playing audio.", comment: "Media detection mode description")
+        }
+    }
+}
+
+enum TrackpadSwipeActivationDirection: String, CaseIterable, Defaults.Serializable {
+    case left, right, up, down
+
+    var localizedName: String {
+        switch self {
+        case .left: String(localized: "Left", comment: "Trackpad swipe activation direction")
+        case .right: String(localized: "Right", comment: "Trackpad swipe activation direction")
+        case .up: String(localized: "Up", comment: "Trackpad swipe activation direction")
+        case .down: String(localized: "Down", comment: "Trackpad swipe activation direction")
         }
     }
 }

@@ -1077,6 +1077,15 @@ enum SettingsSearchCatalog {
             icon: "arrow.up.and.down.and.arrow.left.and.right"
         ),
         SettingsSearchItem(
+            id: "gestures.trackpadSwitcherSwipeDisabledActivationDirections",
+            title: String(localized: "Disable activation directions"),
+            description: String(localized: "Checked directions won't open the switcher. All directions still navigate an open switcher. macOS gestures are unchanged."),
+            keywords: ["trackpad", "swipe", "activation", "disable", "left", "right", "up", "down", "mission control", "expose"],
+            tab: "Gestures",
+            section: String(localized: "Trackpad Swipe for Window Switcher"),
+            icon: "hand.draw"
+        ),
+        SettingsSearchItem(
             id: "gestures.trackpadSwitcherSwipeSensitivity",
             title: String(localized: "Swipe Sensitivity"),
             description: String(localized: "Higher values open the switcher and change the selection with shorter swipes."),
