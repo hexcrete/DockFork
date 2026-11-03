@@ -205,7 +205,7 @@ struct DockPreviewsSettingsView: View {
                     Text($0.localizedName).tag($0)
                 }
             }
-            .pickerStyle(MenuPickerStyle())
+            .pickerStyle(.menu)
             .settingsSearchTarget("dockPreviews.activationTrigger")
 
             Text("Show previews automatically on hover, or require a click trigger on the Dock icon.")
@@ -218,7 +218,7 @@ struct DockPreviewsSettingsView: View {
                     Text($0.localizedName).tag($0)
                 }
             }
-            .pickerStyle(MenuPickerStyle())
+            .pickerStyle(.menu)
             .settingsSearchTarget("dockPreviews.activationModifier")
             .padding(.leading, 20)
             .disabled(dockPreviewActivationMode != .modifierClick)
@@ -226,7 +226,7 @@ struct DockPreviewsSettingsView: View {
             Picker("Dock Preview Hover Action", selection: $previewHoverAction) {
                 ForEach(PreviewHoverAction.allCases, id: \.self) { Text($0.localizedName).tag($0) }
             }
-            .pickerStyle(MenuPickerStyle())
+            .pickerStyle(.menu)
             .settingsSearchTarget("dockPreviews.hoverAction")
 
             Toggle(isOn: $keepPreviewOnHoverActivation) {
@@ -271,7 +271,7 @@ struct DockPreviewsSettingsView: View {
                         Text($0.localizedName).tag($0)
                     }
                 }
-                .pickerStyle(MenuPickerStyle())
+                .pickerStyle(.menu)
                 .padding(.leading, 20)
                 .settingsSearchTarget("dockPreviews.clickAction")
                 if dockClickAction == .cycleWindows {
@@ -304,7 +304,7 @@ struct DockPreviewsSettingsView: View {
                     Button("Select...") {
                         showQuitExclusionsSheet = true
                     }
-                    .buttonStyle(AccentButtonStyle(small: true))
+                    .buttonStyle(.settings)
                 }
                 .padding(.leading, 20)
                 .settingsSearchTarget("dockPreviews.quitOnCloseExclusions")
@@ -368,7 +368,7 @@ struct DockPreviewAppearanceSection: View {
                         .tag(position)
                 }
             }
-            .pickerStyle(MenuPickerStyle())
+            .pickerStyle(.menu)
             .settingsSearchTarget("appearance.dockControlPosition")
 
             Toggle(isOn: $showWindowTitle) {

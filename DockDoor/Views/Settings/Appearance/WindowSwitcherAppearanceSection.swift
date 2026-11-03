@@ -102,7 +102,7 @@ struct WindowSwitcherAppearanceSection: View {
                         .tag(position)
                 }
             }
-            .pickerStyle(MenuPickerStyle())
+            .pickerStyle(.menu)
             .settingsSearchTarget("appearance.switcherControlPosition")
 
             Divider().padding(.vertical, 2)

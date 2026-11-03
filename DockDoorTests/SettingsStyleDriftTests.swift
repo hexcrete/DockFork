@@ -58,6 +58,13 @@ struct SettingsStyleDriftTests {
             }
         }
 
+        let constants = try String(contentsOf: appRoot.appendingPathComponent("consts.swift"), encoding: .utf8)
+        let modePrefixes = Self.matches(of: #"(?s)var searchPrefix: String \{(.*?)\n    \}"#, in: constants)
+            .flatMap { Self.matches(of: #"case \.\w+: "([^"]+)""#, in: $0) }
+        let sliderSource = try String(contentsOf: sourceRoot.appendingPathComponent("Shared Components/SettingsSliderRow.swift"), encoding: .utf8)
+        let modeSuffixes = Self.matches(of: #"settingsSearchTarget\(mode.searchPrefix \+ "([^"]+)"\)"#, in: sliderSource)
+        targets.formUnion(modePrefixes.flatMap { prefix in modeSuffixes.map { prefix + $0 } })
+
         let idsWithoutTarget = ids.filter { id in !targets.contains(id) && !prefixes.contains { id.hasPrefix($0) } }
         #expect(idsWithoutTarget.isEmpty, "Catalog ids with no settingsSearchTarget: \(idsWithoutTarget.sorted())")
         let targetsWithoutEntry = targets.subtracting(ids)

@@ -38,7 +38,7 @@ struct CmdKeyShortcutsSection: View {
                 Button("Reset to Defaults") {
                     cmdShortcuts = Defaults.Keys.cmdShortcuts.defaultValue
                 }
-                .buttonStyle(AccentButtonStyle(small: true))
+                .buttonStyle(.settings)
             }
             .padding(.top, 4)
             .settingsSearchTarget("gestures.cmdShortcuts")

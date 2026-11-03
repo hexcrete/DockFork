@@ -49,7 +49,7 @@ struct CmdTabAppearanceSection: View {
                         .tag(position)
                 }
             }
-            .pickerStyle(MenuPickerStyle())
+            .pickerStyle(.menu)
             .settingsSearchTarget("appearance.cmdTabControlPosition")
 
             Toggle("Show Window Title", isOn: $cmdTabShowWindowTitle)

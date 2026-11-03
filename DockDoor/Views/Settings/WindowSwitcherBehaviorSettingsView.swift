@@ -335,7 +335,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
                     Button("Select...") {
                         showGroupedAppsSheet = true
                     }
-                    .buttonStyle(AccentButtonStyle(small: true))
+                    .buttonStyle(.settings)
                 }
                 Text("Selected apps show only their most recent window. All windows shown in active-app-only mode.")
                     .font(.caption)

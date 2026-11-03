@@ -120,81 +120,81 @@
                      defer { try? FileManager.default.removeItem(at: temporaryRootURL) }
 --- a/DockDoor/Views/Settings/SupportSettingsView.swift
 +++ b/DockDoor/Views/Settings/SupportSettingsView.swift
-@@ -68,6 +68,15 @@
-                         Text("Version \(updaterState.currentVersion)")
-                             .font(.caption)
-                             .foregroundColor(.secondary)
-+                        if let release = updaterState.upstreamRelease, let commit = updaterState.upstreamCommit {
-+                            Text(updaterState.upstreamIncludesChanges
-+                                 ? String(localized: "Based on DockDoor \(release) + upstream changes · \(String(commit.prefix(7)))")
-+                                 : String(localized: "Based on DockDoor \(release) · \(String(commit.prefix(7)))"))
-+                                .font(.caption)
-+                                .foregroundColor(.secondary)
-+                                .textSelection(.enabled)
-+                                .help(String(localized: "Upstream commit: \(commit)"))
-+                        }
-                     }
- 
-                     Spacer()
-@@ -98,6 +107,7 @@
-                     }
-                     .labelsHidden()
-                     .frame(width: 100)
-+                    .disabled(updaterState.updater == nil)
+@@ -55,6 +55,15 @@
+                     Text("Version \(updaterState.currentVersion)")
+                         .font(.caption)
+                         .foregroundStyle(.secondary)
++                    if let release = updaterState.upstreamRelease, let commit = updaterState.upstreamCommit {
++                        Text(updaterState.upstreamIncludesChanges
++                             ? String(localized: "Based on DockDoor \(release) + upstream changes · \(String(commit.prefix(7)))")
++                             : String(localized: "Based on DockDoor \(release) · \(String(commit.prefix(7)))"))
++                            .font(.caption)
++                            .foregroundStyle(.secondary)
++                            .textSelection(.enabled)
++                            .help(String(localized: "Upstream commit: \(commit)"))
++                    }
                  }
-                 .settingsSearchTarget("support.updateChannel")
  
-@@ -146,6 +156,7 @@
-                         set: { _ in updaterState.toggleAutomaticChecks() }
-                     ))
-                     .labelsHidden()
-+                    .disabled(updaterState.updater == nil)
+                 Spacer()
+@@ -82,6 +91,7 @@
                  }
-                 .settingsSearchTarget("support.automaticUpdates")
+                 .labelsHidden()
+                 .frame(width: 100)
++                .disabled(updaterState.updater == nil)
+             }
+             .settingsSearchTarget("support.updateChannel")
  
-@@ -169,24 +180,30 @@
+@@ -125,6 +135,7 @@
+                 ))
+                 .labelsHidden()
+             }
++            .disabled(updaterState.updater == nil)
+             .settingsSearchTarget("support.automaticUpdates")
+ 
+             DebugLoggingRow()
+@@ -143,24 +154,30 @@
  
      @ViewBuilder
      private var updateStatusBadge: some View {
 -        switch updaterState.updateStatus {
 -        case .noUpdates:
--            Label("Up to date", systemImage: "checkmark.circle.fill")
-+        if updaterState.updater == nil {
-+            Label("Manual updates", systemImage: "arrow.down.circle")
-                 .font(.caption)
--                .foregroundColor(.green)
+-            Label("Up to Date", systemImage: "checkmark.circle.fill")
+-                .font(.callout)
+-                .foregroundStyle(.green)
 -        case .checking:
 -            ProgressView()
 -                .scaleEffect(0.7)
 -                .frame(width: 20, height: 20)
 -        case let .available(version, _, _):
 -            Label("v\(version) available", systemImage: "arrow.down.circle.fill")
--                .font(.caption)
--                .foregroundColor(.blue)
+-                .font(.callout)
+-                .foregroundStyle(.blue)
 -        case let .error(message):
 -            Label(message, systemImage: "exclamationmark.triangle.fill")
--                .font(.caption2)
--                .foregroundColor(.red)
++        if updaterState.updater == nil {
++            Label("Manual updates", systemImage: "arrow.down.circle")
+                 .font(.callout)
+-                .foregroundStyle(.red)
 -                .lineLimit(1)
-+                .foregroundColor(.secondary)
++                .foregroundStyle(.secondary)
 +        } else {
 +            switch updaterState.updateStatus {
 +            case .noUpdates:
-+                Label("Up to date", systemImage: "checkmark.circle.fill")
-+                    .font(.caption)
-+                    .foregroundColor(.green)
++                Label("Up to Date", systemImage: "checkmark.circle.fill")
++                    .font(.callout)
++                    .foregroundStyle(.green)
 +            case .checking:
 +                ProgressView()
 +                    .scaleEffect(0.7)
 +                    .frame(width: 20, height: 20)
 +            case let .available(version, _, _):
 +                Label("v\(version) available", systemImage: "arrow.down.circle.fill")
-+                    .font(.caption)
-+                    .foregroundColor(.blue)
++                    .font(.callout)
++                    .foregroundStyle(.blue)
 +            case let .error(message):
 +                Label(message, systemImage: "exclamationmark.triangle.fill")
-+                    .font(.caption2)
-+                    .foregroundColor(.red)
++                    .font(.callout)
++                    .foregroundStyle(.red)
 +                    .lineLimit(1)
 +            }
          }

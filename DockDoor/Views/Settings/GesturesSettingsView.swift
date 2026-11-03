@@ -89,6 +89,7 @@ struct GesturesSettingsView: View {
                     NSWorkspace.shared.open(url)
                 }
             }
+            .buttonStyle(.settings)
             .controlSize(.small)
         }
         .font(.caption)

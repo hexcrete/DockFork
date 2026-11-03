@@ -59,7 +59,7 @@ struct CompactModeSection: View {
                         Button("Grant") {
                             SystemPreferencesHelper.openScreenRecordingPreferences()
                         }
-                        .buttonStyle(AccentButtonStyle(small: true))
+                        .buttonStyle(.settings)
                     }
                     .foregroundColor(.orange)
                     .padding(.leading, 20)

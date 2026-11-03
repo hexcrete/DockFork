@@ -38,7 +38,7 @@ struct DockDoorProBanner: View {
                     } label: {
                         Label(String(localized: "Get DockDoor Pro", comment: "DockDoor Pro banner link"), systemImage: "arrow.up.right")
                     }
-                    .buttonStyle(AccentButtonStyle(color: .mint, small: true))
+                    .buttonStyle(.settings)
 
                     Text(String(localized: "3 Macs · 14-day money-back guarantee", comment: "DockDoor Pro banner fine print"))
                         .font(.caption)

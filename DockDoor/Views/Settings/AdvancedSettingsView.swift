@@ -199,7 +199,7 @@ struct AdvancedSettingsView: View {
                     Text(quality.localizedName).tag(quality)
                 }
             }
-            .pickerStyle(MenuPickerStyle())
+            .pickerStyle(.menu)
             .settingsSearchTarget("advanced.captureQuality")
 
             sliderSetting(title: "Window Image Cache Lifespan", value: $screenCaptureCacheLifespan, range: 0 ... 60, step: 10, unit: "seconds")
@@ -241,7 +241,7 @@ struct AdvancedSettingsView: View {
                         Text(quality.localizedName).tag(quality)
                     }
                 }
-                .pickerStyle(MenuPickerStyle())
+                .pickerStyle(.menu)
                 .padding(.leading, 20)
 
                 Picker("Frame Rate", selection: $dockLivePreviewFrameRate) {
@@ -249,7 +249,7 @@ struct AdvancedSettingsView: View {
                         Text(fps.localizedName).tag(fps)
                     }
                 }
-                .pickerStyle(MenuPickerStyle())
+                .pickerStyle(.menu)
                 .padding(.leading, 20)
             }
         }
@@ -268,7 +268,7 @@ struct AdvancedSettingsView: View {
                         Text(quality.localizedName).tag(quality)
                     }
                 }
-                .pickerStyle(MenuPickerStyle())
+                .pickerStyle(.menu)
                 .padding(.leading, 20)
 
                 Picker("Frame Rate", selection: $windowSwitcherLivePreviewFrameRate) {
@@ -276,7 +276,7 @@ struct AdvancedSettingsView: View {
                         Text(fps.localizedName).tag(fps)
                     }
                 }
-                .pickerStyle(MenuPickerStyle())
+                .pickerStyle(.menu)
                 .padding(.leading, 20)
 
                 Picker("Scope", selection: $windowSwitcherLivePreviewScope) {
@@ -284,7 +284,7 @@ struct AdvancedSettingsView: View {
                         Text(scope.localizedName).tag(scope)
                     }
                 }
-                .pickerStyle(MenuPickerStyle())
+                .pickerStyle(.menu)
                 .padding(.leading, 20)
 
                 Text(windowSwitcherLivePreviewScope.localizedDescription)

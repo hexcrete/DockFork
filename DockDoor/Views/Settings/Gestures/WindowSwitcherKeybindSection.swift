@@ -634,7 +634,7 @@ struct WindowSwitcherKeybindSection: View {
                 Button(action: { showingAddBlacklistAppSheet.toggle() }) {
                     Text("Add App")
                 }
-                .buttonStyle(AccentButtonStyle())
+                .buttonStyle(.settings)
                 .disabled(!enableWindowSwitcher)
 
                 Spacer()

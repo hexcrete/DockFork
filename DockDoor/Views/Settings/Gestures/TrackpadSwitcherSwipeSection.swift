@@ -120,8 +120,8 @@ struct TrackpadSwitcherSwipeSection: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .disabled(!enableWindowSwitcher)
-            .opacity(enableWindowSwitcher ? 1.0 : 0.5)
         }
+        .disabled(!enableWindowSwitcher)
+        .opacity(enableWindowSwitcher ? 1.0 : 0.5)
     }
 }
