@@ -173,6 +173,7 @@ struct MainSettingsView: View {
                 Defaults[.cmdShortcuts] = Defaults.Keys.cmdShortcuts.defaultValue
                 Defaults.reset(.enableActionFeedback, .actionFeedbackPosition, .showMouseFollowsFocusFeedback)
                 Defaults.reset(.disableTitleBarGesturesOverInteractiveElements)
+                Defaults.reset(.strictTitleBarGestureDetection)
                 Defaults.reset(.centerOutOfViewSelections)
                 Defaults.reset(.dockPreviewSpaceNumberIndicatorPlacement, .switcherSpaceNumberIndicatorPlacement, .cmdTabSpaceNumberIndicatorPlacement)
                 Defaults[.movingResizingPostActionBehavior] = Defaults.Keys.movingResizingPostActionBehavior.defaultValue

@@ -904,6 +904,15 @@ enum SettingsSearchCatalog {
             icon: "hand.point.up.left"
         ),
         SettingsSearchItem(
+            id: "windowGestures.strictTitleBarGestureDetection",
+            title: String(localized: "Use stricter title bar detection"),
+            description: String(localized: "Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars."),
+            keywords: ["title bar", "strict", "scroll", "tabs", "firefox", "brave", "custom", "ambiguous"],
+            tab: "Gestures",
+            section: String(localized: "Options"),
+            icon: "hand.point.up.left"
+        ),
+        SettingsSearchItem(
             id: "windowGestures.dockSpace",
             title: String(localized: "Space for a Custom Dock"),
             description: String(localized: "Keep a strip of the screen free so snapped windows don't cover a custom dock."),

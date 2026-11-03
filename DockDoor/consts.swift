@@ -1127,6 +1127,7 @@ extension Defaults.Keys {
     static let windowGestureHaptics = Key<Bool>("windowGestureHaptics", default: true)
     static let windowGestureLivePreview = Key<Bool>("windowGestureLivePreview", default: true)
     static let disableTitleBarGesturesOverInteractiveElements = Key<Bool>("disableTitleBarGesturesOverInteractiveElements", default: false)
+    static let strictTitleBarGestureDetection = Key<Bool>("strictTitleBarGestureDetection", default: false)
     static let customDockReservationEdge = Key<ScreenReservationEdge>("customDockReservationEdge", default: .none)
     static let customDockReservationThickness = Key<CGFloat>("customDockReservationThickness", default: 70)
 

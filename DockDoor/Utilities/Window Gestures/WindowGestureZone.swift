@@ -208,7 +208,8 @@ enum WindowGestureZoneResolver {
             DebugLogger.log("WindowGestures", details: "unsupported window in \(app.localizedName ?? "-") chain=\(describe(chain))")
             return .notHere
         }
-        guard acceptsTitleBarHit(chain, reachedWindow: reachedWindow, excludesScrollingAndTabs: excludesScrollingAndTabs) else { return .notHere }
+        guard acceptsTitleBarHit(chain, reachedWindow: reachedWindow, excludesScrollingAndTabs: excludesScrollingAndTabs,
+                                 strictDetection: excludesScrollingAndTabs && Defaults[.strictTitleBarGestureDetection]) else { return .notHere }
         guard let target = WindowUtil.windowInfo(for: windowElement, app: app, windowID: windowID) else { return .notHere }
 
         let isFullscreen = (try? windowElement.isFullscreen()) == true
@@ -239,11 +240,12 @@ enum WindowGestureZoneResolver {
         return WindowUtil.readCachedWindows(for: pid).first { $0.id == windowID && !$0.isMinimized }
     }
 
-    private static func acceptsTitleBarHit(_ chain: [AXNode], reachedWindow: Bool, excludesScrollingAndTabs: Bool) -> Bool {
-        !excludesScrollingAndTabs || (reachedWindow && chain.allSatisfy {
+    private static func acceptsTitleBarHit(_ chain: [AXNode], reachedWindow: Bool, excludesScrollingAndTabs: Bool, strictDetection: Bool = false) -> Bool {
+        guard excludesScrollingAndTabs else { return true }
+        return reachedWindow && chain.allSatisfy {
             guard let role = $0.role, role != kAXUnknownRole as String else { return false }
             return !contentRoles.contains(role) && role != kAXScrollBarRole as String && role != kAXTabGroupRole as String && $0.subrole != "AXTabButton"
-        })
+        } && (!strictDetection || chain.contains { $0.role != kAXGroupRole as String })
     }
 
     private static func cachedTitleBarZone(windowID: CGWindowID?, bounds: CGRect, offsetFromTop: CGFloat, app: NSRunningApplication) -> Outcome {

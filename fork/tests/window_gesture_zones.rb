@@ -33,6 +33,13 @@ abort 'Strict mode must reject both geometry-only fallback paths' unless window.
 abort 'Scrollable ancestors must be rejected before tab handling or window lookup' unless window.index('guard acceptsTitleBarHit(') < window.index('WindowUtil.windowInfo(') && window.index('guard acceptsTitleBarHit(') < window.index('if let tabIndex')
 abort 'Upstream control exclusions must remain' unless window.include?('if let role = chain.first?.role, interactiveRoles.contains(role)')
 abort 'Parent traversal must distinguish a complete chain' unless window.include?('var reachedWindow = hitNode.role == kAXWindowRole as String') && window.include?('reachedWindow = true')
+strict_key = 'strictTitleBarGestureDetection'
+strict_title = 'Use stricter title bar detection'
+strict_description = "Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars."
+abort 'Stricter detection must default Off with matching search/reset strings' unless keys.include?("Key<Bool>(\"#{strict_key}\", default: false)") && reset.include?("Defaults.reset(.#{strict_key})") && [view,catalog].all? { |s| s.include?("String(localized: \"#{strict_title}\")") && s.include?("String(localized: \"#{strict_description}\")") }
+abort 'Stricter checkbox must be subordinate to the existing exclusion' unless block(view,'                if disableOverInteractiveElements {').include?('.settingsSearchTarget("windowGestures.strictTitleBarGestureDetection")') && catalog.include?('id: "windowGestures.strictTitleBarGestureDetection"') && window.include?('strictDetection: excludesScrollingAndTabs && Defaults[.strictTitleBarGestureDetection]')
+abort 'Temporary browser-specific metadata/tracing must be removed' if zone.match?(/diagnosticMetadata|diagnosticsEnabled|WindowGestures hit|kAXTabsAttribute|kAXHorizontalScrollBarAttribute|kAXVerticalScrollBarAttribute|org\.mozilla\.firefox|com\.brave\.Browser/)
+abort 'Keep original three-attribute batch and traversal budget' unless zone.include?('let attributes = [kAXRoleAttribute, kAXSubroleAttribute, kAXParentAttribute] as CFArray') && zone.include?('private static let classificationDepth = 8') && zone.include?('private static let resolutionBudget: CFAbsoluteTime = 0.2')
 
 source = <<~'SWIFT'
 import AppKit
@@ -63,9 +70,9 @@ source += block(controller, '    private func zone(at point:').sub('private ', '
 source += <<~'SWIFT'
 @main struct Checks {
  static func main() {
-  func hit(_ roles: [String?], complete: Bool = true, strict: Bool = true, tabIndex: Int? = nil) -> Bool {
+  func hit(_ roles: [String?], complete: Bool = true, strict: Bool = true, tabIndex: Int? = nil, harden: Bool = false) -> Bool {
    let chain = roles.enumerated().map { Classification.AXNode(element: $0.offset, role: $0.element, subrole: tabIndex == $0.offset ? "AXTabButton" : nil, parent: nil) }
-   return Classification.acceptsTitleBarHit(chain, reachedWindow: complete, excludesScrollingAndTabs: strict)
+   return Classification.acceptsTitleBarHit(chain, reachedWindow: complete, excludesScrollingAndTabs: strict, strictDetection: harden)
   }
   let allowed: [String?] = ["AXGroup", "AXToolbar", "AXStaticText", "AXImage", "AXButton", "AXCheckBox", "AXRadioButton", "AXPopUpButton", "AXMenuButton", "AXLink", "AXDisclosureTriangle", "AXTextField", "AXSlider", "AXComboBox", "AXIncrementor", "AXValueIndicator"]
   let rejected: [String?] = ["AXTabGroup", "AXTextArea", "AXScrollBar", "AXScrollArea", "AXTable", "AXOutline", "AXList", "AXBrowser", "AXGrid", "AXLayoutArea", "AXWebArea", "AXUnknown", nil]
@@ -83,6 +90,19 @@ source += <<~'SWIFT'
   precondition(!hit(["AXRadioButton", "AXToolbar"], tabIndex: 0), "Standalone tab buttons must be rejected without a tab group")
   precondition(!hit(["AXImage", "AXButton", "AXGroup"], tabIndex: 1), "Tab subroles on ancestors must block child icons")
   precondition(hit(["AXRadioButton", "AXToolbar"], strict: false, tabIndex: 0), "Disabled option must retain upstream tab behavior")
+  for roles:[String?] in [[],["AXGroup"],Array(repeating:"AXGroup",count:7)] {
+   precondition(hit(roles),"Default-Off strict detection preserves existing blank/group behavior")
+   precondition(!hit(roles,harden:true),"Firefox window-only and Brave generic-group hits must pass through in strict mode")
+   precondition(hit(roles,strict:false,harden:true),"Disabling the parent must bypass saved stricter preference")
+  }
+  for role in allowed where role != "AXGroup" {
+   precondition(hit([role],harden:true) && hit(["AXGroup",role,"AXGroup"],harden:true),"Recognizable controls and toolbars retain existing policy")
+   precondition(!hit([role],complete:false,harden:true),"Hardening cannot admit incomplete ancestry")
+  }
+  for role in rejected {
+   precondition(!hit(["AXGroup",role,"AXToolbar"],harden:true),"Recognizable toolbar cannot override existing content exclusions")
+  }
+  precondition(!hit(["AXRadioButton","AXToolbar"],tabIndex:0,harden:true),"Hardening preserves tab subrole rejection")
   let cache = Cache(), origin = CGPoint(x: 100,y: 100), nearby = CGPoint(x: 102,y: 100)
   let window = Zone(window: 1,name: "window"), dock = Zone(window: nil,name: "dock"), menu = Zone(window: nil,name: "menu")
   WindowGestureZoneResolver.result = window
@@ -104,7 +124,7 @@ source += <<~'SWIFT'
    _ = cache.zone(at: origin, now: 1); _ = cache.zone(at: nearby, now: 1.1)
    precondition(WindowGestureZoneResolver.calls == before + 1, "Dock/menu caching must stay unchanged")
   }
-  print("PASS production scrolling/tab policy, ordinary controls, tab ancestry/subroles without scrolling metadata, unknown/incomplete hits, default-Off behavior, setting transitions and cache isolation")
+  print("PASS production scrolling/tab and opt-in strict policy, captured Firefox/Brave patterns, ordinary controls, unknown/incomplete hits, default-Off/parent bypass, setting transitions and cache isolation")
  }
 }
 SWIFT

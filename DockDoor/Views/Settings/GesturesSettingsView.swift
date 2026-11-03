@@ -8,6 +8,7 @@ struct GesturesSettingsView: View {
     @Default(.windowGestureHaptics) var haptics
     @Default(.windowGestureLivePreview) var livePreview
     @Default(.disableTitleBarGesturesOverInteractiveElements) var disableOverInteractiveElements
+    @Default(.strictTitleBarGestureDetection) private var strictTitleBarGestureDetection
     @Default(.customDockReservationEdge) var reservationEdge
     @Default(.customDockReservationThickness) var reservationThickness
 
@@ -161,6 +162,17 @@ struct GesturesSettingsView: View {
                 Text("Skip scrollable areas and tab bars. Other controls follow the standard gesture rules.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if disableOverInteractiveElements {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Toggle(String(localized: "Use stricter title bar detection"), isOn: $strictTitleBarGestureDetection)
+                            .settingsSearchTarget("windowGestures.strictTitleBarGestureDetection")
+                        Text(String(localized: "Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.leading, 16)
+                }
             }
         }
     }
