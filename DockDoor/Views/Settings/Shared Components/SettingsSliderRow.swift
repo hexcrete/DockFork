@@ -9,13 +9,30 @@ struct SettingsSliderRow<T: BinaryFloatingPoint>: View where T.Stride: BinaryFlo
     var unit = ""
     var step: T.Stride = 1
     var decimals = 0
+    var valueText: ((T) -> String)?
     var onEditingChanged: ((Bool) -> Void)?
 
+    private var effectiveDecimals: Int {
+        guard decimals == 0, Double(step) < 1 else { return decimals }
+        return Double(step) < 0.1 ? 2 : 1
+    }
+
     private var displayValue: String {
-        if decimals > 0 {
-            return String(format: "%.\(decimals)f", Double(value))
+        if let valueText {
+            return valueText(value)
         }
-        return "\(Int(value))"
+        return String(format: "%.\(effectiveDecimals)f", Double(value)) + unit
+    }
+
+    private var snappedValue: Binding<T> {
+        Binding {
+            value
+        } set: { newValue in
+            let stepSize = T(step)
+            guard stepSize > 0 else { return value = newValue }
+            let snapped = range.lowerBound + ((newValue - range.lowerBound) / stepSize).rounded() * stepSize
+            value = min(max(snapped, range.lowerBound), range.upperBound)
+        }
     }
 
     private var isModified: Bool {
@@ -24,40 +41,31 @@ struct SettingsSliderRow<T: BinaryFloatingPoint>: View where T.Stride: BinaryFlo
     }
 
     var body: some View {
-        HStack(spacing: 16) {
-            Text(title)
-                .font(.body)
-                .frame(width: 180, alignment: .leading)
-
-            Slider(value: $value, in: range, step: step) { isEditing in
-                onEditingChanged?(isEditing)
-            }
-            .controlSize(.small)
-
-            HStack(spacing: 4) {
-                Text(displayValue + unit)
-                    .font(.system(.body, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 60, alignment: .trailing)
-
-                if let defaultValue {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            value = defaultValue
-                        }
-                    } label: {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .opacity(isModified ? 1 : 0)
-                    .frame(width: 20)
+        LabeledContent {
+            HStack(spacing: 8) {
+                Slider(value: snappedValue, in: range) { isEditing in
+                    onEditingChanged?(isEditing)
                 }
+                .labelsHidden()
+                .frame(width: 180)
+
+                Text(displayValue)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(width: 72, alignment: .trailing)
+
+                SettingsResetButton(isModified: isModified) {
+                    guard let defaultValue else { return }
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        value = defaultValue
+                    }
+                }
+                .frame(width: 16)
             }
+        } label: {
+            Text(title)
         }
-        .padding(.vertical, 6)
-        .padding(.leading, 40)
     }
 }
 
@@ -94,6 +102,36 @@ struct PreviewFocusFadeSettings: View {
                 sliderSetting(title: "Target Minimum Opacity", value: $opacity, range: 0 ... 0.5, step: 0.05, unit: "", formatter: NumberFormatter.percentFormatter)
                     .settingsSearchTarget(mode.searchPrefix + ".focusFadeOpacity")
             }
+        }
+    }
+}
+
+func sliderSetting<T: BinaryFloatingPoint>(
+    title: LocalizedStringKey,
+    value: Binding<T>,
+    range: ClosedRange<T>,
+    step: T.Stride,
+    unit: LocalizedStringKey,
+    formatter: NumberFormatter = NumberFormatter.defaultFormatter,
+    onEditingChanged: ((Bool) -> Void)? = nil
+) -> some View where T.Stride: BinaryFloatingPoint {
+    VStack(alignment: .leading, spacing: 5) {
+        Text(title)
+            .font(.body)
+        HStack {
+            Slider(
+                value: value,
+                in: range,
+                step: step,
+                onEditingChanged: { isEditing in
+                    onEditingChanged?(isEditing)
+                }
+            )
+            TextField("", value: value, formatter: formatter)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .frame(width: 50)
+            Text(unit)
+                .font(.footnote)
         }
     }
 }

@@ -917,6 +917,7 @@ extension Defaults.Keys {
     static let ignoreAppsWithSingleWindowInCmdTab = Key<Bool>("ignoreAppsWithSingleWindowInCmdTab", default: false)
     static let groupAppInstancesInDock = Key<Bool>("groupAppInstancesInDock", default: true)
     static let collapseNativeTabsIntoSingleWindow = Key<Bool>("collapseNativeTabsIntoSingleWindow", default: false)
+    static let showSettingsDescriptions = Key<Bool>("showSettingsDescriptions", default: true)
     static let showMenuBarIcon = Key<Bool>("showMenuBarIcon", default: true)
     static let openWindowSwitcherFromMenuBarIcon = Key<Bool>("openWindowSwitcherFromMenuBarIcon", default: false)
     static let menuBarIconWindowSwitcherClick = Key<MenuBarIconWindowSwitcherClick>("menuBarIconWindowSwitcherClick", default: .leftClick)
@@ -2080,7 +2081,7 @@ enum WindowPreviewSortOrder: String, CaseIterable, Defaults.Serializable, Identi
     }
 }
 
-enum SwitcherInvocationMode: String, CaseIterable, Codable, Defaults.Serializable, Identifiable {
+enum SwitcherInvocationMode: String, CaseIterable, Codable, Defaults.Serializable, Defaults.PreferRawRepresentable, Identifiable {
     case allWindows
     case globalAllWindows
     case activeAppOnly

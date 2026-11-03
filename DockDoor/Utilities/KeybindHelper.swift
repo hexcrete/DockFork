@@ -35,6 +35,58 @@ struct UserKeyBind: Codable, Defaults.Serializable, Equatable, Hashable {
     }
 }
 
+enum ShortcutModifier: CaseIterable, Identifiable {
+    case control
+    case option
+    case command
+
+    var id: Self { self }
+
+    var mask: Int {
+        switch self {
+        case .control: Defaults[.Int64maskControl]
+        case .option: Defaults[.Int64maskAlternate]
+        case .command: Defaults[.Int64maskCommand]
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .control: "⌃"
+        case .option: "⌥"
+        case .command: "⌘"
+        }
+    }
+
+    var localizedName: String {
+        switch self {
+        case .control: String(localized: "Control")
+        case .option: String(localized: "Option")
+        case .command: String(localized: "Command")
+        }
+    }
+
+    private var eventFlag: CGEventFlags {
+        switch self {
+        case .control: .maskControl
+        case .option: .maskAlternate
+        case .command: .maskCommand
+        }
+    }
+
+    func isContained(in modifierFlags: Int) -> Bool {
+        modifierFlags & Int(eventFlag.rawValue) != 0
+    }
+
+    static func contained(in modifierFlags: Int) -> [ShortcutModifier] {
+        allCases.filter { $0.isContained(in: modifierFlags) }
+    }
+
+    static func modifierFlags(for modifiers: [ShortcutModifier]) -> Int {
+        modifiers.reduce(0) { $0 | $1.mask }
+    }
+}
+
 enum WindowSwitcherLaunchSource: Equatable {
     case keyboard
     case persistent

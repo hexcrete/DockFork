@@ -16,24 +16,19 @@ struct KeyCaptureButton: View {
     @State private var monitors: [Any] = []
 
     var body: some View {
-        Group {
-            if isCapturing {
-                Text("Press a key…")
-                    .font(.system(size: 12))
-                    .foregroundColor(.accentColor)
-                    .frame(minWidth: 50)
-            } else {
-                Button(action: startCapture) {
-                    Text(displayLabel)
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.secondary.opacity(showingEmptyLabel ? 0.1 : 0.2))
-                        .cornerRadius(4)
+        Button {
+            if isCapturing { stopCapture(reportAssigned: false) } else { startCapture() }
+        } label: {
+            Group {
+                if isCapturing {
+                    Text("Press a key…").foregroundStyle(Color.accentColor)
+                } else {
+                    Text(displayLabel).foregroundStyle(showingEmptyLabel ? .secondary : .primary)
                 }
-                .buttonStyle(.plain)
             }
+            .frame(minWidth: 36)
         }
+        .buttonStyle(.settings)
         .onAppear {
             if autoStartCapture, !isCapturing {
                 startCapture()

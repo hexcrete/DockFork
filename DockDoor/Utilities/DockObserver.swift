@@ -855,6 +855,14 @@ final class DockObserver {
         }
     }
 
+    func dockItemAppStatus(at point: CGPoint) -> ApplicationReturnType {
+        let status = getDockItemAppStatusUnderMouse()
+        guard let item = status.dockItemElement, isPointOverDockItem(point, item: item) else {
+            return ApplicationReturnType(status: .notFound, dockItemElement: nil)
+        }
+        return status
+    }
+
     static func getMousePosition() -> NSPoint {
         guard let event = CGEvent(source: nil) else {
             fatalError("Unable to get mouse event")
@@ -1078,7 +1086,7 @@ final class DockObserver {
                 return Unmanaged.passUnretained(event)
             }
 
-            let appUnderMouse = getDockItemAppStatusUnderMouse()
+            let appUnderMouse = dockItemAppStatus(at: event.location)
             if case let .success(app) = appUnderMouse.status {
                 let handled = handleDockScroll(app: app, event: event)
                 if handled {
@@ -1092,7 +1100,7 @@ final class DockObserver {
             return Unmanaged.passUnretained(event)
         }
 
-        let appUnderMouse = getDockItemAppStatusUnderMouse()
+        let appUnderMouse = dockItemAppStatus(at: event.location)
 
         if handleDockPreviewActivation(type: type, event: event, appUnderMouse: appUnderMouse) {
             return nil
@@ -1159,7 +1167,7 @@ final class DockObserver {
 
         let mouseLocation = DockObserver.getMousePosition()
 
-        if let folderItem = getHoveredFolderDockItem() {
+        if let folderItem = getHoveredFolderDockItem(), isPointOverDockItem(event.location, item: folderItem.dockItemElement) {
             guard Defaults[.enableFolderWidget],
                   FolderWidgetAuthorization.accessibleURL(for: folderItem.url) != nil
             else {

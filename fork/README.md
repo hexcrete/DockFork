@@ -49,7 +49,7 @@ The development snapshot includes tracked source changes but excludes untracked 
 
 ### Fork and Upstream Versions
 
-`version.json` records DockFork version **0.4.0**, incorporated upstream commit `3044142c907b9cdd49917628847a04970450a8e6`, stable upstream release **1.41.0**, and its exact release commit `3d6a3cbaa9bbee17959122da7f0a349ca43056d0`. The included 1.41.1b1 tag is a beta, not the stable base.
+`version.json` records DockFork version **0.4.0**, incorporated upstream commit `5625291fa6009e05e2fbbd8432cb8dc5cdfed353`, stable upstream release **1.42.2**, and its exact release commit `b6beb0129e9d7b59f2995eafc0d69ce272d7d129`. This November 3 development merge does not rebuild or replace the published DockFork 0.4.0 release.
 
 After a future merge, fetch upstream tags and select the newest published stable release contained in the merged history. Never label an unmerged release as the base or infer it from Xcode's project version. Run `ruby fork/packaging/tests/version_metadata_test.rb`. Packaging validates ancestry/tag identity and embeds version/base metadata in the isolated app and BUILD-METADATA.json for Support > Updates.
 
@@ -128,3 +128,7 @@ For the measurement-only cache-invalidation checkpoint, run `ruby fork/tests/cac
 ## October 27 upstream integration checkpoint
 
 Upstream main through `3044142c` is merged as `3655c66a` before the next release is planned. It adds automatic-quit safety/exclusions, optional cached screen-position sorting, centralized links/identifiers and accessibility/Reduce Motion refinements. The newest incorporated stable release remains **1.41.0**; the included 1.41.1b1 tag is a beta. Preserve the fork's ownership, adaptive controls, asynchronous readiness and reduced-motion fades. Focused checks, version validation and signed/running development verification pass; native manual verification remains pending. No new Release package, version bump, preset import or publication is part of this checkpoint. Optional focused merge checks: `ruby fork/tests/upstream_integration.rb`.
+
+## November 3 Upstream Integration
+
+Upstream main through `5625291fa6009e05e2fbbd8432cb8dc5cdfed353` includes stable 1.42.2, the Settings redesign, combined modifiers, Cmd+Tab fixes, permission publication/polling improvements and AX observer cleanup. Preserve existing fork shortcut storage and all custom settings in native grouped forms; Dock Locking is now under Advanced. Build and native merge verification are pending. No release, publication, push or preset import is included.

@@ -7,29 +7,27 @@ struct AppearanceSettingsView: View {
     @StateObject private var permissionsChecker = PermissionsChecker()
 
     var body: some View {
-        BaseSettingsView {
-            VStack(alignment: .leading, spacing: 16) {
-                if !permissionsChecker.screenRecordingPermission {
-                    CompactModeWarningBanner(
-                        hasScreenRecordingPermission: permissionsChecker.screenRecordingPermission,
-                        disableImagePreview: disableImagePreview
-                    )
-                }
-
-                WindowSizeSettingsSection()
-
-                FullSizePreviewAppearanceSection()
-
-                BackgroundAppearanceSection()
-
-                GeneralAppearanceSection()
-
-                CompactModeSection(hasScreenRecordingPermission: permissionsChecker.screenRecordingPermission)
-
-                SpacesBarAppearanceSection()
-
-                AdvancedAppearanceSection()
+        SettingsFormView {
+            if !permissionsChecker.screenRecordingPermission {
+                CompactModeWarningBanner(
+                    hasScreenRecordingPermission: permissionsChecker.screenRecordingPermission,
+                    disableImagePreview: disableImagePreview
+                )
             }
+
+            WindowSizeSettingsSection()
+
+            FullSizePreviewAppearanceSection()
+
+            BackgroundAppearanceSection()
+
+            GeneralAppearanceSection()
+
+            CompactModeSection(hasScreenRecordingPermission: permissionsChecker.screenRecordingPermission)
+
+            SpacesBarAppearanceSection()
+
+            AdvancedAppearanceSection()
         }
     }
 }
@@ -61,50 +59,48 @@ struct SpacesBarAppearanceSection: View {
     var body: some View {
         Group {
             if enableSpacesBar {
-                SettingsGroup(header: "Spaces Bar") {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Picker("Item Size", selection: $spacesBarItemSize) {
-                            ForEach(SpacesBarItemSize.allCases) { size in
-                                Text(size.localizedName).tag(size)
-                            }
+                SettingsSection("Spaces Bar") {
+                    Picker("Item Size", selection: $spacesBarItemSize) {
+                        ForEach(SpacesBarItemSize.allCases) { size in
+                            Text(size.localizedName).tag(size)
                         }
-                        .pickerStyle(.menu)
-                        .settingsSearchTarget("windowSwitcher.spacesBarItemSize")
-                        Toggle("Show app icons in the Spaces Bar", isOn: $spacesBarShowAppIcons)
-                            .settingsSearchTarget("windowSwitcher.spacesBarShowAppIcons")
-                        Picker("Labels", selection: $spacesBarLabels) {
-                            Text("Numbers").tag(SpaceMenuDisplayMode.numberOnly)
-                            Text("Names").tag(SpaceMenuDisplayMode.fullName)
+                    }
+                    .pickerStyle(.menu)
+                    .settingsSearchTarget("windowSwitcher.spacesBarItemSize")
+                    Toggle("Show app icons in the Spaces Bar", isOn: $spacesBarShowAppIcons)
+                        .settingsSearchTarget("windowSwitcher.spacesBarShowAppIcons")
+                    Picker("Labels", selection: $spacesBarLabels) {
+                        Text("Numbers").tag(SpaceMenuDisplayMode.numberOnly)
+                        Text("Names").tag(SpaceMenuDisplayMode.fullName)
+                    }
+                    .settingsSearchTarget("windowSwitcher.spacesBarLabels")
+                    Picker("Pill width", selection: $spacesBarFixedWidth) {
+                        Text("Fixed").tag(true)
+                        Text("Flexible").tag(false)
+                    }
+                    .settingsSearchTarget("windowSwitcher.spacesBarFixedWidth")
+                    if spacesBarFixedWidth {
+                        HStack {
+                            Text("Pill width")
+                            Slider(value: $spacesBarPillWidth, in: 10 ... 600, step: 10)
+                            Text("\(Int(spacesBarPillWidth))")
                         }
-                        .settingsSearchTarget("windowSwitcher.spacesBarLabels")
-                        Picker("Pill width", selection: $spacesBarFixedWidth) {
-                            Text("Fixed").tag(true)
-                            Text("Flexible").tag(false)
+                        .settingsSearchTarget("windowSwitcher.spacesBarPillWidth")
+                    } else if spacesBarShowAppIcons {
+                        HStack {
+                            Text("Minimum icons")
+                            Slider(value: minimumIcons, in: 0 ... Double(SpacesBarIconLimits.minimumUpperBound), step: 1)
+                                .accessibilityLabel(Text("Minimum icons"))
+                            Text("\(iconLimits.minimum)")
                         }
-                        .settingsSearchTarget("windowSwitcher.spacesBarFixedWidth")
-                        if spacesBarFixedWidth {
-                            HStack {
-                                Text("Pill width")
-                                Slider(value: $spacesBarPillWidth, in: 10 ... 600, step: 10)
-                                Text("\(Int(spacesBarPillWidth))")
-                            }
-                            .settingsSearchTarget("windowSwitcher.spacesBarPillWidth")
-                        } else if spacesBarShowAppIcons {
-                            HStack {
-                                Text("Minimum icons")
-                                Slider(value: minimumIcons, in: 0 ... Double(SpacesBarIconLimits.minimumUpperBound), step: 1)
-                                    .accessibilityLabel(Text("Minimum icons"))
-                                Text("\(iconLimits.minimum)")
-                            }
-                            .settingsSearchTarget("windowSwitcher.spacesBarMinimumIcons")
-                            HStack {
-                                Text("Maximum icons")
-                                Slider(value: maximumIcons, in: 0 ... Double(SpacesBarIconLimits.maximumUpperBound), step: 1)
-                                    .accessibilityLabel(Text("Maximum icons"))
-                                Text("\(iconLimits.maximum)")
-                            }
-                            .settingsSearchTarget("windowSwitcher.spacesBarMaximumIcons")
+                        .settingsSearchTarget("windowSwitcher.spacesBarMinimumIcons")
+                        HStack {
+                            Text("Maximum icons")
+                            Slider(value: maximumIcons, in: 0 ... Double(SpacesBarIconLimits.maximumUpperBound), step: 1)
+                                .accessibilityLabel(Text("Maximum icons"))
+                            Text("\(iconLimits.maximum)")
                         }
+                        .settingsSearchTarget("windowSwitcher.spacesBarMaximumIcons")
                     }
                 }
             }

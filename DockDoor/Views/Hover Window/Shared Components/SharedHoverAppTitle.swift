@@ -253,7 +253,7 @@ struct SharedHoverAppTitle: View {
                                 .scaledToFit()
                                 .zIndex(1)
                                 .frame(width: 24, height: 24)
-                        } else { ProgressView().frame(width: 24, height: 24) }
+                        } else { ProgressView().controlSize(.small).frame(width: 24, height: 24) }
                         hoverTitleLabelView()
                             .animation(nil, value: hoveringAppIcon)
                     }
@@ -269,7 +269,7 @@ struct SharedHoverAppTitle: View {
                                 .scaledToFit()
                                 .zIndex(1)
                                 .frame(width: 24, height: 24)
-                        } else { ProgressView().frame(width: 24, height: 24) }
+                        } else { ProgressView().controlSize(.small).frame(width: 24, height: 24) }
                         hoverTitleLabelView()
                             .animation(nil, value: hoveringAppIcon)
                     }
@@ -286,7 +286,7 @@ struct SharedHoverAppTitle: View {
                                     .scaledToFit()
                                     .zIndex(1)
                                     .frame(width: 24, height: 24)
-                            } else { ProgressView().frame(width: 24, height: 24) }
+                            } else { ProgressView().controlSize(.small).frame(width: 24, height: 24) }
                             hoverTitleLabelView()
                                 .animation(nil, value: hoveringAppIcon)
                         }

@@ -18,20 +18,18 @@ struct GesturesSettingsView: View {
     private static let heroGestures: [WindowGesture] = [.snapHalves, .windowClose, .windowMinimize, .appMinimize]
 
     var body: some View {
-        BaseSettingsView {
-            VStack(alignment: .leading, spacing: 20) {
-                heroSection
-                gestureGroup(title: "On a Window's Title Bar", gestures: WindowGestureArea.titleBar.gestures)
-                gestureGroup(title: "On a Dock Icon", gestures: WindowGestureArea.dock.gestures)
-                gestureGroup(title: "On the Menu Bar", gestures: WindowGestureArea.menuBar.gestures)
-                optionsSection
-                dockSpaceSection
-                SettingsNote(
-                    icon: "info.circle",
-                    text: "While Window Gestures is on, two-finger scrolling on title bars, running Dock icons and the menu bar is used for these gestures."
-                )
-                moreGesturesSection
-            }
+        SettingsFormView {
+            heroSection
+            gestureGroup(title: "On a Window's Title Bar", gestures: WindowGestureArea.titleBar.gestures)
+            gestureGroup(title: "On a Dock Icon", gestures: WindowGestureArea.dock.gestures)
+            gestureGroup(title: "On the Menu Bar", gestures: WindowGestureArea.menuBar.gestures)
+            optionsSection
+            dockSpaceSection
+            SettingsNote(
+                icon: "info.circle",
+                text: "While Window Gestures is on, two-finger scrolling on title bars, running Dock icons and the menu bar is used for these gestures."
+            )
+            moreGesturesSection
         }
         .onAppear {
             requirements = .current()
@@ -47,7 +45,7 @@ struct GesturesSettingsView: View {
     // MARK: - Hero
 
     private var heroSection: some View {
-        SettingsGroup {
+        Section {
             HStack(alignment: .top, spacing: 20) {
                 VStack(alignment: .leading, spacing: 12) {
                     Toggle(isOn: $enableWindowGestures) {
@@ -102,15 +100,13 @@ struct GesturesSettingsView: View {
     // MARK: - Gestures
 
     private func gestureGroup(title: LocalizedStringKey, gestures: [WindowGesture]) -> some View {
-        SettingsGroup(header: title) {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(gestures.enumerated()), id: \.element) { index, gesture in
-                    if index > 0 {
-                        Divider()
-                    }
-                    WindowGestureRow(gesture: gesture, isOn: binding(for: gesture))
-                        .settingsSearchTarget("windowGestures.\(gesture.rawValue)")
+        SettingsSection(title) {
+            ForEach(Array(gestures.enumerated()), id: \.element) { index, gesture in
+                if index > 0 {
+                    Divider()
                 }
+                WindowGestureRow(gesture: gesture, isOn: binding(for: gesture))
+                    .settingsSearchTarget("windowGestures.\(gesture.rawValue)")
             }
         }
     }
@@ -131,48 +127,46 @@ struct GesturesSettingsView: View {
     // MARK: - Options
 
     private var optionsSection: some View {
-        SettingsGroup(header: "Options") {
-            VStack(alignment: .leading, spacing: 12) {
-                let sensitivityBinding = Binding<Double>(
-                    get: { Double(sensitivity) },
-                    set: { sensitivity = CGFloat($0) }
-                )
-                sliderSetting(
-                    title: "Sensitivity",
-                    value: sensitivityBinding,
-                    range: Double(WindowGestureRecognizer.Configuration.sensitivityRange.lowerBound) ... Double(WindowGestureRecognizer.Configuration.sensitivityRange.upperBound),
-                    step: 0.1,
-                    unit: "",
-                    formatter: NumberFormatter.percentFormatter
-                )
-                .settingsSearchTarget("windowGestures.sensitivity")
+        SettingsSection("Options") {
+            let sensitivityBinding = Binding<Double>(
+                get: { Double(sensitivity) },
+                set: { sensitivity = CGFloat($0) }
+            )
+            sliderSetting(
+                title: "Sensitivity",
+                value: sensitivityBinding,
+                range: Double(WindowGestureRecognizer.Configuration.sensitivityRange.lowerBound) ... Double(WindowGestureRecognizer.Configuration.sensitivityRange.upperBound),
+                step: 0.1,
+                unit: "",
+                formatter: NumberFormatter.percentFormatter
+            )
+            .settingsSearchTarget("windowGestures.sensitivity")
 
-                Text("Turn this up if gestures need too much finger movement.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Text("Turn this up if gestures need too much finger movement.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-                Toggle("Show where the window will land", isOn: $livePreview)
-                    .settingsSearchTarget("windowGestures.livePreview")
+            Toggle("Show where the window will land", isOn: $livePreview)
+                .settingsSearchTarget("windowGestures.livePreview")
 
-                Toggle("Haptic feedback", isOn: $haptics)
-                    .settingsSearchTarget("windowGestures.haptics")
+            Toggle("Haptic feedback", isOn: $haptics)
+                .settingsSearchTarget("windowGestures.haptics")
 
-                Toggle("Disable title bar gestures over scrollable areas and tabs", isOn: $disableOverInteractiveElements)
-                    .settingsSearchTarget("windowGestures.disableOverInteractiveElements")
-                Text("Skip scrollable areas and tab bars. Other controls follow the standard gesture rules.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Toggle("Disable title bar gestures over scrollable areas and tabs", isOn: $disableOverInteractiveElements)
+                .settingsSearchTarget("windowGestures.disableOverInteractiveElements")
+            Text("Skip scrollable areas and tab bars. Other controls follow the standard gesture rules.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
-                if disableOverInteractiveElements {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Toggle(String(localized: "Use stricter title bar detection"), isOn: $strictTitleBarGestureDetection)
-                            .settingsSearchTarget("windowGestures.strictTitleBarGestureDetection")
-                        Text(String(localized: "Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars."))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.leading, 16)
+            if disableOverInteractiveElements {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle(String(localized: "Use stricter title bar detection"), isOn: $strictTitleBarGestureDetection)
+                        .settingsSearchTarget("windowGestures.strictTitleBarGestureDetection")
+                    Text(String(localized: "Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
+                .padding(.leading, 16)
             }
         }
     }
@@ -213,48 +207,46 @@ struct GesturesSettingsView: View {
     // MARK: - Custom Dock Space
 
     private var dockSpaceSection: some View {
-        SettingsGroup(header: "Space for a Custom Dock") {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Using a dock other than the macOS Dock? Keep a strip of the screen free so snapped windows don't cover it.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        SettingsSection("Space for a Custom Dock") {
+            Text("Using a dock other than the macOS Dock? Keep a strip of the screen free so snapped windows don't cover it.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-                Picker("Dock edge", selection: $reservationEdge) {
-                    ForEach(ScreenReservationEdge.allCases) { edge in
-                        Text(edge.localizedName).tag(edge)
-                    }
+            Picker("Dock edge", selection: $reservationEdge) {
+                ForEach(ScreenReservationEdge.allCases) { edge in
+                    Text(edge.localizedName).tag(edge)
                 }
-                .pickerStyle(.segmented)
-                .fixedSize()
-                .settingsSearchTarget("windowGestures.dockSpace")
+            }
+            .pickerStyle(.menu)
+            .fixedSize()
+            .settingsSearchTarget("windowGestures.dockSpace")
 
-                if reservationEdge != .none {
-                    let thicknessBinding = Binding<Double>(
-                        get: { Double(reservationThickness) },
-                        set: { reservationThickness = CGFloat($0) }
-                    )
-                    sliderSetting(
-                        title: reservationEdge == .left || reservationEdge == .right ? "Dock Width" : "Dock Height",
-                        value: thicknessBinding,
-                        range: 10 ... 300,
-                        step: 2,
-                        unit: "px",
-                        formatter: {
-                            let formatter = NumberFormatter()
-                            formatter.maximumFractionDigits = 0
-                            return formatter
-                        }()
-                    )
-                }
+            if reservationEdge != .none {
+                let thicknessBinding = Binding<Double>(
+                    get: { Double(reservationThickness) },
+                    set: { reservationThickness = CGFloat($0) }
+                )
+                sliderSetting(
+                    title: reservationEdge == .left || reservationEdge == .right ? "Dock Width" : "Dock Height",
+                    value: thicknessBinding,
+                    range: 10 ... 300,
+                    step: 2,
+                    unit: "px",
+                    formatter: {
+                        let formatter = NumberFormatter()
+                        formatter.maximumFractionDigits = 0
+                        return formatter
+                    }()
+                )
+            }
 
-                if !reports.isEmpty {
-                    Divider()
-                    Text("Reported by Apps")
-                        .font(.caption.weight(.semibold))
-                    ForEach(reports, id: \.source) { report in
-                        ReportedReservationRow(report: report)
-                    }
+            if !reports.isEmpty {
+                Divider()
+                Text("Reported by Apps")
+                    .font(.caption.weight(.semibold))
+                ForEach(reports, id: \.source) { report in
+                    ReportedReservationRow(report: report)
                 }
             }
         }

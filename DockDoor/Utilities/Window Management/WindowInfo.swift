@@ -784,6 +784,8 @@ extension WindowInfo {
             return
         }
 
+        let wasOwnerActive = ownerApp.isActive
+
         var psn = ProcessSerialNumber()
         _ = GetProcessForPID(ownerApp.processIdentifier, &psn)
         _ = _SLPSSetFrontProcessWithOptions(&psn, UInt32(id), SLPSMode.userGenerated.rawValue)
@@ -816,7 +818,19 @@ extension WindowInfo {
                         return
                     }
                     WindowUtil.updateTimestampOptimistically(for: window)
-                    request.finish(true)
+                    if wasOwnerActive {
+                        DispatchQueue.main.async {
+                            guard isActive(), !window.ownerApp.isTerminated else {
+                                request.finish(false)
+                                return
+                            }
+                            NSApp.activate(ignoringOtherApps: true)
+                            window.ownerApp.activate(options: [.activateIgnoringOtherApps])
+                            request.finish(true)
+                        }
+                    } else {
+                        request.finish(true)
+                    }
                     return
                 } catch {
                     guard isActive() else { request.finish(false); return }

@@ -110,3 +110,33 @@ abort 'Quit must retain both upstream guards and shared ownership' unless verify
 buttons = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/Traffic Light Buttons.swift")
 abort 'Native accessible traffic lights must retain shared dimensions' unless buttons.include?('return Button {') && buttons.include?('.accessibilityLabel(action.localizedName)') && buttons.include?('Self.buttonFrameSize * buttonScale')
 puts 'PASS integration source contracts: shared Quit ownership and native accessible/sized traffic lights'
+
+# Merge boundaries: preserve fork routing and use the incoming resource fixes.
+settings_root = "#{root}/DockDoor/Views/Settings"
+settings = Dir.glob("#{settings_root}/**/*.swift").map { |path| File.read(path) }.join("\n")
+keys = File.read("#{root}/DockDoor/consts.swift")
+reset = File.read("#{settings_root}/MainSettingsView.swift")
+search = File.read("#{settings_root}/Search/SettingsSearchCatalog.swift")
+abort 'Description preference needs default, reset and exact search/control wiring' unless keys.include?('Key<Bool>("showSettingsDescriptions", default: true)') && reset.include?('Defaults.reset(.showSettingsDescriptions)') && reset.include?('.settingsSearchTarget("general.showSettingDescriptions")') && search.include?('id: "general.showSettingDescriptions"')
+abort 'Retired Settings shell must not survive the merge' if settings.include?('BaseSettingsView {') || settings.include?('SettingsGroup(')
+abort 'Fork shortcut storage must remain authoritative' unless keys.include?('alternateSwitcherShortcuts') && !keys.include?('additionalAlternateKeybinds') && settings.include?('ModifierKeyToggles(modifierFlags: $keybindModel.modifierKey)')
+%w[DockPreviewsSettingsView CmdTabSettingsView WindowSwitcherBehaviorSettingsView].each do |name|
+  pane = File.read("#{settings_root}/#{name}.swift")
+  abort "#{name} needs the shared pinned preview header" unless pane.include?('} pinnedHeader: {') && pane.include?('SettingsMockPreview(context:')
+end
+abort 'Dock locking search must route to its new pane' unless File.read("#{settings_root}/AdvancedSettingsView.swift").include?('.settingsSearchTarget("dockLocking.enable")') && !search.include?('tab: "DockLocking"')
+mock = File.read("#{settings_root}/Shared Components/SettingsMockPreview.swift")
+container = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift")
+abort 'Mock cache cleanup/appearance parity must survive' unless mock.include?('static func releaseCaches()') && mock.include?('appearanceOverride: resolvedAppearance') && mock.include?('.modifier(ScaledToFit(maxHeight: maxHeight))')
+abort 'Settings mocks must not affect real capture lifetime' unless container.scan('if !mockPreviewActive, Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {').length == 2
+observers = File.read("#{root}/DockDoor/Utilities/Window Management/WindowManipulationObservers.swift")
+removal = block(observers, '    func removeObserver(for pid:')
+abort 'Unschedule the AX source before releasing its observer off-main' unless removal.index('CFRunLoopRemoveSource(CFRunLoopGetMain()') < removal.index('DispatchQueue.global')
+permissions = File.read("#{root}/DockDoor/Components/PermissionsView/PermissionsChecker.swift")
+abort 'Preserve permission transition publication and granted-timer teardown' unless permissions.include?('guard self[keyPath: keyPath] != value else { return }') && permissions.include?('if accessibilityPermission, screenRecordingPermission {') && permissions.include?('timer = nil')
+activation = File.read("#{root}/DockDoor/Utilities/Window Management/WindowInfo.swift")
+raise_action = activation.index('try window.axElement.performAction(kAXRaiseAction)')
+main_write = activation.index('try window.axElement.setAttribute(kAXMainAttribute, true)', raise_action)
+reactivation = activation.index('if wasOwnerActive {', main_write)
+abort 'Already-active reactivation must follow raise/Main and retain cancellation ownership' unless reactivation && activation[reactivation, 650].include?('guard isActive(), !window.ownerApp.isTerminated') && activation[reactivation, 650].include?('request.finish(true)')
+puts 'PASS 1.42.2 merge contracts: fork shortcut/settings preservation, pinned/cached mocks, permission timers, AX observer teardown and guarded post-raise reactivation'

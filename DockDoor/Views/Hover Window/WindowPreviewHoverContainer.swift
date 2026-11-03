@@ -581,13 +581,13 @@ struct WindowPreviewHoverContainer: View {
         .onAppear {
             hasAppeared = true
             loadAppIcon()
-            if Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
+            if !mockPreviewActive, Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
                 LiveCaptureManager.shared.panelOpened()
             }
             if #available(macOS 15.0, *) {
                 dynamicFadeEnabled = true
             }
-            previewStateCoordinator.scheduleActiveFocusedWindowRefresh()
+            if !mockPreviewActive { previewStateCoordinator.scheduleActiveFocusedWindowRefresh() }
             refreshHighlightActionIfNeeded()
         }
         .onDisappear {
@@ -595,7 +595,7 @@ struct WindowPreviewHoverContainer: View {
             previewStateCoordinator.endSelectionRange()
             previewStateCoordinator.endPointerSelectionRange()
             cancelPreviewDrag()
-            if Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
+            if !mockPreviewActive, Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {
                 Task { await LiveCaptureManager.shared.panelClosed() }
             }
             edgeScrollRequest = nil

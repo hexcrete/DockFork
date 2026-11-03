@@ -131,11 +131,7 @@ struct WindowSwitcherAppearanceSection: View {
                             backgroundAppearance: .resolve()
                         )
                     }
-                    EnabledButtonsCheckboxes(
-                        enabledButtons: $switcherEnabledTrafficLightButtons,
-                        visibilityBinding: $switcherTrafficLightButtonsVisibility,
-                        useMonochrome: switcherUseMonochromeTrafficLights
-                    )
+                    EnabledButtonsPicker(enabledButtons: $switcherEnabledTrafficLightButtons) { switcherTrafficLightButtonsVisibility = .never }
                 }
                 Toggle("Use Monochrome Colors", isOn: $switcherUseMonochromeTrafficLights)
                     .settingsSearchTarget("appearance.switcherMonochrome")

@@ -7,42 +7,40 @@ struct CmdKeyShortcutsSection: View {
     @Default(.ignoreMainModifierSideForDependentShortcuts) private var ignoreMainModifierSideForDependentShortcuts
 
     var body: some View {
-        SettingsGroup(header: "Window Preview Keyboard Shortcuts") {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Uses the active Window Switcher modifier for preview actions. Cmd+Tab uses Command while the macOS switcher is active.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+        SettingsSection("Window Preview Keyboard Shortcuts") {
+            Text("Uses the active Window Switcher modifier for preview actions. Cmd+Tab uses Command while the macOS switcher is active.")
+                .font(.caption)
+                .foregroundColor(.secondary)
 
-                Divider()
+            Divider()
 
-                if cmdShortcuts.isEmpty {
-                    HStack(spacing: 8) {
-                        Text("No shortcuts configured.")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-
-                        Spacer(minLength: 0)
-
-                        Button("Add a Shortcut") {
-                            addShortcut(after: nil)
-                        }
-                        .buttonStyle(.bordered)
-                        .disabled(!canAddShortcut)
-                    }
-                } else {
-                    ForEach(indexedShortcuts, id: \.shortcut.id) { item in
-                        cmdShortcutRow(index: item.index, shortcut: item.shortcut)
-                    }
-                }
-
+            if cmdShortcuts.isEmpty {
                 HStack(spacing: 8) {
-                    Button("Reset to Defaults") {
-                        cmdShortcuts = Defaults.Keys.cmdShortcuts.defaultValue
+                    Text("No shortcuts configured.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Spacer(minLength: 0)
+
+                    Button("Add a Shortcut") {
+                        addShortcut(after: nil)
                     }
-                    .buttonStyle(AccentButtonStyle(small: true))
+                    .buttonStyle(.settings)
+                    .disabled(!canAddShortcut)
                 }
-                .padding(.top, 4)
+            } else {
+                ForEach(indexedShortcuts, id: \.shortcut.id) { item in
+                    cmdShortcutRow(index: item.index, shortcut: item.shortcut)
+                }
             }
+
+            HStack(spacing: 8) {
+                Button("Reset to Defaults") {
+                    cmdShortcuts = Defaults.Keys.cmdShortcuts.defaultValue
+                }
+                .buttonStyle(AccentButtonStyle(small: true))
+            }
+            .padding(.top, 4)
             .settingsSearchTarget("gestures.cmdShortcuts")
         }
     }
@@ -196,60 +194,58 @@ struct PreviewPostActionBehaviorSection: View {
     @Default(.moveResizeBringToForeground) private var moveResizeBringToForeground
 
     var body: some View {
-        SettingsGroup(header: "Keep previews open after action") {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Select action types that should keep previews open. Unchecked actions close previews after running. Some actions may still change focus based on app/macOS behavior.")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+        SettingsSection("Keep previews open after action") {
+            Text("Select action types that should keep previews open. Unchecked actions close previews after running. Some actions may still change focus based on app/macOS behavior.")
+                .font(.caption2)
+                .foregroundColor(.secondary)
 
-                Divider()
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                postActionBehaviorRow(
+                    category: .closing,
+                    icon: "xmark.circle",
+                    selection: $closingBehavior
+                )
+                .settingsSearchTarget("gestures.postActionClosing")
+
+                postActionBehaviorRow(
+                    category: .hiding,
+                    icon: "eye.slash",
+                    selection: $hidingBehavior
+                )
+                .settingsSearchTarget("gestures.postActionHiding")
+
+                postActionBehaviorRow(
+                    category: .unhiding,
+                    icon: "eye",
+                    selection: $unhidingBehavior
+                )
+                .settingsSearchTarget("gestures.postActionUnhiding")
+
+                postActionBehaviorRow(
+                    category: .newWindow,
+                    icon: "plus.rectangle.on.rectangle",
+                    selection: $newWindowBehavior
+                )
+                .settingsSearchTarget("gestures.postActionNewWindow")
 
                 VStack(alignment: .leading, spacing: 8) {
                     postActionBehaviorRow(
-                        category: .closing,
-                        icon: "xmark.circle",
-                        selection: $closingBehavior
+                        category: .movingAndResizing,
+                        icon: "arrow.up.left.and.arrow.down.right",
+                        selection: $movingResizingBehavior
                     )
-                    .settingsSearchTarget("gestures.postActionClosing")
+                    .settingsSearchTarget("gestures.postActionMovingResizing")
 
-                    postActionBehaviorRow(
-                        category: .hiding,
-                        icon: "eye.slash",
-                        selection: $hidingBehavior
-                    )
-                    .settingsSearchTarget("gestures.postActionHiding")
-
-                    postActionBehaviorRow(
-                        category: .unhiding,
-                        icon: "eye",
-                        selection: $unhidingBehavior
-                    )
-                    .settingsSearchTarget("gestures.postActionUnhiding")
-
-                    postActionBehaviorRow(
-                        category: .newWindow,
-                        icon: "plus.rectangle.on.rectangle",
-                        selection: $newWindowBehavior
-                    )
-                    .settingsSearchTarget("gestures.postActionNewWindow")
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        postActionBehaviorRow(
-                            category: .movingAndResizing,
-                            icon: "arrow.up.left.and.arrow.down.right",
-                            selection: $movingResizingBehavior
-                        )
-                        .settingsSearchTarget("gestures.postActionMovingResizing")
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
-                            Text("Focus windows after moving, resizing, or tiling them. Dragging always focuses windows.")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                        .settingsSearchTarget("gestures.moveResizeForeground")
-                        .padding(.leading, 32)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
+                        Text("Focus windows after moving, resizing, or tiling them. Dragging always focuses windows.")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
                     }
+                    .settingsSearchTarget("gestures.moveResizeForeground")
+                    .padding(.leading, 32)
                 }
             }
         }

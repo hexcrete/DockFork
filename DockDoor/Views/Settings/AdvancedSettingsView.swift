@@ -33,23 +33,26 @@ struct AdvancedSettingsView: View {
     @Default(.windowSwitcherLivePreviewScope) var windowSwitcherLivePreviewScope
     @Default(.livePreviewStreamKeepAlive) var livePreviewStreamKeepAlive
 
+    @Default(.enableDockLocking) private var enableDockLocking
+    @Default(.lockedDockScreenIdentifier) private var lockedDockScreenIdentifier
+    @Default(.dockLockOverrideModifier) private var dockLockOverrideModifier
+
     @FocusState private var isKeepAliveFieldFocused: Bool
     @State private var lastKeepAliveDuration: Int = 5
     @State private var keepAliveDurationText = "5"
 
     var body: some View {
-        BaseSettingsView {
-            VStack(alignment: .leading, spacing: 16) {
-                performanceTuningSection
-                springLoadingSection
-                previewQualitySection
-                livePreviewSection
+        SettingsFormView {
+            performanceTuningSection
+            springLoadingSection
+            previewQualitySection
+            dockLockingSection
+            livePreviewSection
 
-                if enableLivePreview {
-                    dockLivePreviewSection
-                    switcherLivePreviewSection
-                    streamManagementSection
-                }
+            if enableLivePreview {
+                dockLivePreviewSection
+                switcherLivePreviewSection
+                streamManagementSection
             }
         }
         .onAppear {
@@ -70,35 +73,33 @@ struct AdvancedSettingsView: View {
     // MARK: - Spring-loading
 
     private var springLoadingSection: some View {
-        SettingsGroup(header: "Spring-loading") {
-            VStack(alignment: .leading, spacing: 10) {
-                Toggle(isOn: $enableSpringLoading) {
-                    Text("Enable spring-loading")
+        SettingsSection("Spring-loading") {
+            Toggle(isOn: $enableSpringLoading) {
+                Text("Enable spring-loading")
+            }
+            .settingsSearchTarget("advanced.enableSpringLoading")
+
+            Text("Spring-loading reveals and activates a window after you drag an item over its preview in Dock previews, Window Switcher, or Cmd+Tab.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
+
+            if enableSpringLoading {
+                Toggle(isOn: $useSystemSpringLoadingSpeed) {
+                    Text("Use system spring-loading speed")
                 }
-                .settingsSearchTarget("advanced.enableSpringLoading")
+                .settingsSearchTarget("advanced.useSystemSpringLoadingSpeed")
 
-                Text("Spring-loading reveals and activates a window after you drag an item over its preview in Dock previews, Window Switcher, or Cmd+Tab.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
-
-                if enableSpringLoading {
-                    Toggle(isOn: $useSystemSpringLoadingSpeed) {
-                        Text("Use system spring-loading speed")
-                    }
-                    .settingsSearchTarget("advanced.useSystemSpringLoadingSpeed")
-
-                    if !useSystemSpringLoadingSpeed {
-                        sliderSetting(
-                            title: "Spring-loading delay",
-                            value: $springLoadingDelay,
-                            range: 0.5 ... 2,
-                            step: 0.05,
-                            unit: "seconds",
-                            formatter: NumberFormatter.twoDecimalFormatter
-                        )
-                        .settingsSearchTarget("advanced.springLoadingDelay")
-                    }
+                if !useSystemSpringLoadingSpeed {
+                    sliderSetting(
+                        title: "Spring-loading delay",
+                        value: $springLoadingDelay,
+                        range: 0.5 ... 2,
+                        step: 0.05,
+                        unit: "seconds",
+                        formatter: NumberFormatter.twoDecimalFormatter
+                    )
+                    .settingsSearchTarget("advanced.springLoadingDelay")
                 }
             }
         }
@@ -107,80 +108,78 @@ struct AdvancedSettingsView: View {
     // MARK: - Performance Tuning
 
     private var performanceTuningSection: some View {
-        SettingsGroup(header: "Performance Tuning") {
-            VStack(alignment: .leading, spacing: 10) {
-                sliderSetting(title: "Preview Window Open Delay", value: $hoverWindowOpenDelay, range: 0 ... 2, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
-                    .settingsSearchTarget("advanced.openDelay")
+        SettingsSection("Performance Tuning") {
+            sliderSetting(title: "Preview Window Open Delay", value: $hoverWindowOpenDelay, range: 0 ... 2, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
+                .settingsSearchTarget("advanced.openDelay")
 
-                Toggle(isOn: $useDelayOnlyForInitialOpen) {
-                    Text("Only use delay for initial window opening")
-                }
-                .settingsSearchTarget("advanced.delayOnlyInitial")
-                Text("Switching between dock icons while a preview is already open will show previews instantly.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
-
-                sliderSetting(title: "Preview Window Fade Out Duration", value: $fadeOutDuration, range: 0 ... 2, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
-                    .settingsSearchTarget("advanced.fadeOut")
-                sliderSetting(title: "Preview Window Inactivity Timer", value: $inactivityTimeout, range: 0 ... 3, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
-                    .settingsSearchTarget("advanced.inactivity")
-                sliderSetting(title: "Window Processing Debounce Interval", value: $windowProcessingDebounceInterval, range: 0 ... 3, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter, onEditingChanged: { isEditing in
-                    if !isEditing {
-                        askUserToRestartApplication()
-                    }
-                })
-                .settingsSearchTarget("advanced.debounce")
-                sliderSetting(title: "Programmatic Resize Preview Refresh Delay", value: $programmaticResizePreviewRefreshDelay, range: 0 ... 1, step: 0.01, unit: "seconds", formatter: NumberFormatter.twoDecimalFormatter)
-                    .settingsSearchTarget("advanced.programmaticResizeRefreshDelay")
-                sliderSetting(title: "Native Resize Preview Refresh Delay", value: $nativeResizePreviewRefreshDelay, range: 0 ... 1, step: 0.01, unit: "seconds", formatter: NumberFormatter.twoDecimalFormatter)
-                    .settingsSearchTarget("advanced.nativeResizeRefreshDelay")
-
-                Toggle(isOn: $anchorDockPreviewPosition) {
-                    Text("Anchor preview to initial dock icon position")
-                }
-                .settingsSearchTarget("advanced.anchorPosition")
-                Text("Keeps the preview pinned where the dock icon was when first hovered, preventing it from jumping when the dock auto-hides.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
-
-                Toggle(isOn: $preventDockHide) { Text("Prevent dock from hiding during previews") }
-                    .settingsSearchTarget("advanced.preventDockHide")
-                Toggle(isOn: $raisedWindowLevel) { Text("Show preview above app labels") }
-                    .settingsSearchTarget("advanced.raisedLevel")
-                    .onChange(of: raisedWindowLevel) { _ in askUserToRestartApplication() }
-
-                Toggle(isOn: $disableMinWindowSizeFilter) {
-                    Text("Show small windows (under 100px)")
-                }
-                .settingsSearchTarget("advanced.smallWindows")
-                Text("Includes small windows like Finder's copy progress dialog in previews.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
-
-                Toggle(isOn: $preventPreviewReentryDuringFadeOut) {
-                    Text("Prevent preview reappearance during fade-out")
-                }
-                .settingsSearchTarget("advanced.preventReentry")
-                Text("Moving the mouse back over the preview during fade-out will not reactivate it.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
-
-                Picker(String(localized: "Clicking windowless apps", comment: "Setting label for behavior when activating apps with no windows"), selection: $windowlessAppActivationMode) {
-                    ForEach(WindowlessAppActivationMode.allCases, id: \.self) { mode in
-                        Text(mode.localizedName).tag(mode)
-                    }
-                }
-                .pickerStyle(.menu)
-                .settingsSearchTarget("advanced.openNewWindow")
-                Text(windowlessAppActivationMode.localizedDescription)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
+            Toggle(isOn: $useDelayOnlyForInitialOpen) {
+                Text("Only use delay for initial window opening")
             }
+            .settingsSearchTarget("advanced.delayOnlyInitial")
+            Text("Switching between dock icons while a preview is already open will show previews instantly.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
+
+            sliderSetting(title: "Preview Window Fade Out Duration", value: $fadeOutDuration, range: 0 ... 2, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
+                .settingsSearchTarget("advanced.fadeOut")
+            sliderSetting(title: "Preview Window Inactivity Timer", value: $inactivityTimeout, range: 0 ... 3, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
+                .settingsSearchTarget("advanced.inactivity")
+            sliderSetting(title: "Window Processing Debounce Interval", value: $windowProcessingDebounceInterval, range: 0 ... 3, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter, onEditingChanged: { isEditing in
+                if !isEditing {
+                    askUserToRestartApplication()
+                }
+            })
+            .settingsSearchTarget("advanced.debounce")
+            sliderSetting(title: "Programmatic Resize Preview Refresh Delay", value: $programmaticResizePreviewRefreshDelay, range: 0 ... 1, step: 0.01, unit: "seconds", formatter: NumberFormatter.twoDecimalFormatter)
+                .settingsSearchTarget("advanced.programmaticResizeRefreshDelay")
+            sliderSetting(title: "Native Resize Preview Refresh Delay", value: $nativeResizePreviewRefreshDelay, range: 0 ... 1, step: 0.01, unit: "seconds", formatter: NumberFormatter.twoDecimalFormatter)
+                .settingsSearchTarget("advanced.nativeResizeRefreshDelay")
+
+            Toggle(isOn: $anchorDockPreviewPosition) {
+                Text("Anchor preview to initial dock icon position")
+            }
+            .settingsSearchTarget("advanced.anchorPosition")
+            Text("Keeps the preview pinned where the dock icon was when first hovered, preventing it from jumping when the dock auto-hides.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
+
+            Toggle(isOn: $preventDockHide) { Text("Prevent dock from hiding during previews") }
+                .settingsSearchTarget("advanced.preventDockHide")
+            Toggle(isOn: $raisedWindowLevel) { Text("Show preview above app labels") }
+                .settingsSearchTarget("advanced.raisedLevel")
+                .onChange(of: raisedWindowLevel) { _ in askUserToRestartApplication() }
+
+            Toggle(isOn: $disableMinWindowSizeFilter) {
+                Text("Show small windows (under 100px)")
+            }
+            .settingsSearchTarget("advanced.smallWindows")
+            Text("Includes small windows like Finder's copy progress dialog in previews.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
+
+            Toggle(isOn: $preventPreviewReentryDuringFadeOut) {
+                Text("Prevent preview reappearance during fade-out")
+            }
+            .settingsSearchTarget("advanced.preventReentry")
+            Text("Moving the mouse back over the preview during fade-out will not reactivate it.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
+
+            Picker(String(localized: "Clicking windowless apps", comment: "Setting label for behavior when activating apps with no windows"), selection: $windowlessAppActivationMode) {
+                ForEach(WindowlessAppActivationMode.allCases, id: \.self) { mode in
+                    Text(mode.localizedName).tag(mode)
+                }
+            }
+            .pickerStyle(.menu)
+            .settingsSearchTarget("advanced.openNewWindow")
+            Text(windowlessAppActivationMode.localizedDescription)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
         }
     }
 
@@ -194,41 +193,37 @@ struct AdvancedSettingsView: View {
     // MARK: - Preview Quality
 
     private var previewQualitySection: some View {
-        SettingsGroup(header: "Preview Quality") {
-            VStack(alignment: .leading, spacing: 10) {
-                Picker("Window Image Capture Quality", selection: $windowImageCaptureQuality) {
-                    ForEach(WindowImageCaptureQuality.allCases, id: \.self) { quality in
-                        Text(quality.localizedName).tag(quality)
-                    }
+        SettingsSection("Preview Quality") {
+            Picker("Window Image Capture Quality", selection: $windowImageCaptureQuality) {
+                ForEach(WindowImageCaptureQuality.allCases, id: \.self) { quality in
+                    Text(quality.localizedName).tag(quality)
                 }
-                .pickerStyle(MenuPickerStyle())
-                .settingsSearchTarget("advanced.captureQuality")
-
-                sliderSetting(title: "Window Image Cache Lifespan", value: $screenCaptureCacheLifespan, range: 0 ... 60, step: 10, unit: "seconds")
-                    .settingsSearchTarget("advanced.cacheLifespan")
-                sliderSetting(title: "Window Image Resolution Scale (1=Best)", value: $windowPreviewImageScale, range: 1 ... 4, step: 1, unit: "")
-                    .settingsSearchTarget("advanced.imageScale")
             }
+            .pickerStyle(MenuPickerStyle())
+            .settingsSearchTarget("advanced.captureQuality")
+
+            sliderSetting(title: "Window Image Cache Lifespan", value: $screenCaptureCacheLifespan, range: 0 ... 60, step: 10, unit: "seconds")
+                .settingsSearchTarget("advanced.cacheLifespan")
+            sliderSetting(title: "Window Image Resolution Scale (1=Best)", value: $windowPreviewImageScale, range: 1 ... 4, step: 1, unit: "")
+                .settingsSearchTarget("advanced.imageScale")
         }
     }
 
     // MARK: - Live Preview
 
     private var livePreviewSection: some View {
-        SettingsGroup(header: "Live Preview") {
-            VStack(alignment: .leading, spacing: 10) {
-                Toggle(isOn: $enableLivePreview) { Text("Enable Live Preview (Video)") }
-                    .settingsSearchTarget("advanced.livePreview")
-                Text("Window previews show live video instead of static screenshots. Uses ScreenCaptureKit for real-time capture.")
+        SettingsSection("Live Preview") {
+            Toggle(isOn: $enableLivePreview) { Text("Enable Live Preview (Video)") }
+                .settingsSearchTarget("advanced.livePreview")
+            Text("Window previews show live video instead of static screenshots. Uses ScreenCaptureKit for real-time capture.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
+
+            if enableLivePreview {
+                Text("Higher quality and frame rate use more CPU/GPU resources. Use lower settings for Window Switcher if you experience lag.")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                    .padding(.leading, 20)
-
-                if enableLivePreview {
-                    Text("Higher quality and frame rate use more CPU/GPU resources. Use lower settings for Window Switcher if you experience lag.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
             }
         }
     }
@@ -236,28 +231,26 @@ struct AdvancedSettingsView: View {
     // MARK: - Dock Live Preview
 
     private var dockLivePreviewSection: some View {
-        SettingsGroup(header: "Dock Live Preview") {
-            VStack(alignment: .leading, spacing: 10) {
-                Toggle(isOn: $enableLivePreviewForDock) { Text("Enable for Dock Preview") }
-                    .settingsSearchTarget("advanced.livePreviewDock")
+        SettingsSection("Dock Live Preview") {
+            Toggle(isOn: $enableLivePreviewForDock) { Text("Enable for Dock Preview") }
+                .settingsSearchTarget("advanced.livePreviewDock")
 
-                if enableLivePreviewForDock {
-                    Picker("Quality", selection: $dockLivePreviewQuality) {
-                        ForEach(LivePreviewQuality.allCases, id: \.self) { quality in
-                            Text(quality.localizedName).tag(quality)
-                        }
+            if enableLivePreviewForDock {
+                Picker("Quality", selection: $dockLivePreviewQuality) {
+                    ForEach(LivePreviewQuality.allCases, id: \.self) { quality in
+                        Text(quality.localizedName).tag(quality)
                     }
-                    .pickerStyle(MenuPickerStyle())
-                    .padding(.leading, 20)
-
-                    Picker("Frame Rate", selection: $dockLivePreviewFrameRate) {
-                        ForEach(LivePreviewFrameRate.allCases, id: \.self) { fps in
-                            Text(fps.localizedName).tag(fps)
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .padding(.leading, 20)
                 }
+                .pickerStyle(MenuPickerStyle())
+                .padding(.leading, 20)
+
+                Picker("Frame Rate", selection: $dockLivePreviewFrameRate) {
+                    ForEach(LivePreviewFrameRate.allCases, id: \.self) { fps in
+                        Text(fps.localizedName).tag(fps)
+                    }
+                }
+                .pickerStyle(MenuPickerStyle())
+                .padding(.leading, 20)
             }
         }
     }
@@ -265,41 +258,39 @@ struct AdvancedSettingsView: View {
     // MARK: - Switcher Live Preview
 
     private var switcherLivePreviewSection: some View {
-        SettingsGroup(header: "Switcher Live Preview") {
-            VStack(alignment: .leading, spacing: 10) {
-                Toggle(isOn: $enableLivePreviewForWindowSwitcher) { Text("Enable for Window Switcher") }
-                    .settingsSearchTarget("advanced.livePreviewSwitcher")
+        SettingsSection("Switcher Live Preview") {
+            Toggle(isOn: $enableLivePreviewForWindowSwitcher) { Text("Enable for Window Switcher") }
+                .settingsSearchTarget("advanced.livePreviewSwitcher")
 
-                if enableLivePreviewForWindowSwitcher {
-                    Picker("Quality", selection: $windowSwitcherLivePreviewQuality) {
-                        ForEach(LivePreviewQuality.allCases, id: \.self) { quality in
-                            Text(quality.localizedName).tag(quality)
-                        }
+            if enableLivePreviewForWindowSwitcher {
+                Picker("Quality", selection: $windowSwitcherLivePreviewQuality) {
+                    ForEach(LivePreviewQuality.allCases, id: \.self) { quality in
+                        Text(quality.localizedName).tag(quality)
                     }
-                    .pickerStyle(MenuPickerStyle())
-                    .padding(.leading, 20)
-
-                    Picker("Frame Rate", selection: $windowSwitcherLivePreviewFrameRate) {
-                        ForEach(LivePreviewFrameRate.allCases, id: \.self) { fps in
-                            Text(fps.localizedName).tag(fps)
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .padding(.leading, 20)
-
-                    Picker("Scope", selection: $windowSwitcherLivePreviewScope) {
-                        ForEach(WindowSwitcherLivePreviewScope.allCases, id: \.self) { scope in
-                            Text(scope.localizedName).tag(scope)
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .padding(.leading, 20)
-
-                    Text(windowSwitcherLivePreviewScope.localizedDescription)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 20)
                 }
+                .pickerStyle(MenuPickerStyle())
+                .padding(.leading, 20)
+
+                Picker("Frame Rate", selection: $windowSwitcherLivePreviewFrameRate) {
+                    ForEach(LivePreviewFrameRate.allCases, id: \.self) { fps in
+                        Text(fps.localizedName).tag(fps)
+                    }
+                }
+                .pickerStyle(MenuPickerStyle())
+                .padding(.leading, 20)
+
+                Picker("Scope", selection: $windowSwitcherLivePreviewScope) {
+                    ForEach(WindowSwitcherLivePreviewScope.allCases, id: \.self) { scope in
+                        Text(scope.localizedName).tag(scope)
+                    }
+                }
+                .pickerStyle(MenuPickerStyle())
+                .padding(.leading, 20)
+
+                Text(windowSwitcherLivePreviewScope.localizedDescription)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.leading, 20)
             }
         }
     }
@@ -307,89 +298,87 @@ struct AdvancedSettingsView: View {
     // MARK: - Stream Management
 
     private var streamManagementSection: some View {
-        SettingsGroup(header: "Stream Management") {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Stream Keep-Alive Duration")
-                    .onTapGesture { isKeepAliveFieldFocused = false }
+        SettingsSection("Stream Management") {
+            Text("Stream Keep-Alive Duration")
+                .onTapGesture { isKeepAliveFieldFocused = false }
 
-                HStack(spacing: 0) {
-                    Button(action: {
-                        setKeepAliveMode(0)
-                    }) {
-                        Text("Immediately close")
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .background(livePreviewStreamKeepAlive == 0 ? Color.accentColor : Color.secondary.opacity(0.15))
-                    .foregroundColor(livePreviewStreamKeepAlive == 0 ? .white : .primary)
-                    .contentShape(Rectangle())
+            HStack(spacing: 0) {
+                Button(action: {
+                    setKeepAliveMode(0)
+                }) {
+                    Text("Immediately close")
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .background(livePreviewStreamKeepAlive == 0 ? Color.accentColor : Color.secondary.opacity(0.15))
+                .foregroundColor(livePreviewStreamKeepAlive == 0 ? .white : .primary)
+                .contentShape(Rectangle())
 
-                    HStack(spacing: 4) {
-                        TextField("", text: $keepAliveDurationText)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 40)
-                            .multilineTextAlignment(.center)
-                            .focused($isKeepAliveFieldFocused)
-                            .onSubmit {
+                HStack(spacing: 4) {
+                    TextField("", text: $keepAliveDurationText)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 40)
+                        .multilineTextAlignment(.center)
+                        .focused($isKeepAliveFieldFocused)
+                        .onSubmit {
+                            commitKeepAliveDurationText()
+                        }
+                        .onChange(of: isKeepAliveFieldFocused) { focused in
+                            if focused {
+                                selectKeepAliveDuration()
+                            } else {
                                 commitKeepAliveDurationText()
                             }
-                            .onChange(of: isKeepAliveFieldFocused) { focused in
-                                if focused {
-                                    selectKeepAliveDuration()
-                                } else {
-                                    commitKeepAliveDurationText()
-                                }
-                            }
-                        Button(action: { isKeepAliveFieldFocused = true }) {
-                            Text("seconds")
-                                .foregroundColor(livePreviewStreamKeepAlive > 0 ? .white : .primary)
                         }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(livePreviewStreamKeepAlive > 0 ? Color.accentColor : Color.secondary.opacity(0.15))
-                    .contentShape(Rectangle())
-
-                    Button(action: {
-                        setKeepAliveMode(-1)
-                    }) {
-                        Text("Keep Open")
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .contentShape(Rectangle())
+                    Button(action: { isKeepAliveFieldFocused = true }) {
+                        Text("seconds")
+                            .foregroundColor(livePreviewStreamKeepAlive > 0 ? .white : .primary)
                     }
                     .buttonStyle(.plain)
-                    .background(livePreviewStreamKeepAlive == -1 ? Color.accentColor : Color.secondary.opacity(0.15))
-                    .foregroundColor(livePreviewStreamKeepAlive == -1 ? .white : .primary)
-                    .contentShape(Rectangle())
                 }
-                .cornerRadius(6)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 6)
-                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                )
-                .onChange(of: livePreviewStreamKeepAlive) { newValue in
-                    if newValue > 0 {
-                        lastKeepAliveDuration = newValue
-                        if !isKeepAliveFieldFocused {
-                            keepAliveDurationText = "\(newValue)"
-                        }
-                    }
-                    if newValue == 0 {
-                        Task { await LiveCaptureManager.stopAllIfInitialized() }
-                    }
-                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(livePreviewStreamKeepAlive > 0 ? Color.accentColor : Color.secondary.opacity(0.15))
+                .contentShape(Rectangle())
 
-                Text("How long to keep video streams active after closing preview. Longer duration means faster reopening but uses more resources.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .onTapGesture { isKeepAliveFieldFocused = false }
+                Button(action: {
+                    setKeepAliveMode(-1)
+                }) {
+                    Text("Keep Open")
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .background(livePreviewStreamKeepAlive == -1 ? Color.accentColor : Color.secondary.opacity(0.15))
+                .foregroundColor(livePreviewStreamKeepAlive == -1 ? .white : .primary)
+                .contentShape(Rectangle())
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .settingsSearchTarget("advanced.streamKeepAlive")
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+            )
+            .onChange(of: livePreviewStreamKeepAlive) { newValue in
+                if newValue > 0 {
+                    lastKeepAliveDuration = newValue
+                    if !isKeepAliveFieldFocused {
+                        keepAliveDurationText = "\(newValue)"
+                    }
+                }
+                if newValue == 0 {
+                    Task { await LiveCaptureManager.stopAllIfInitialized() }
+                }
+            }
+
+            Text("How long to keep video streams active after closing preview. Longer duration means faster reopening but uses more resources.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .onTapGesture { isKeepAliveFieldFocused = false }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .settingsSearchTarget("advanced.streamKeepAlive")
         }
     }
 
@@ -427,5 +416,79 @@ struct AdvancedSettingsView: View {
         let text = keepAliveDurationText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let duration = Int(text) else { return nil }
         return max(1, duration)
+    }
+
+    // MARK: - Dock Locking
+
+    private var isLockedScreenDisconnected: Bool {
+        !lockedDockScreenIdentifier.isEmpty
+            && NSScreen.findScreen(byIdentifier: lockedDockScreenIdentifier) == nil
+    }
+
+    private var isLockedScreenEdgeCovered: Bool {
+        guard NSScreen.screens.count > 1,
+              let screen = NSScreen.findScreen(byIdentifier: lockedDockScreenIdentifier)
+        else { return false }
+        let dockPosition = DockUtils.getDockPosition()
+        guard dockPosition == .bottom || dockPosition == .left || dockPosition == .right else { return false }
+        return DockLockerGeometry.exposedIntervals(
+            for: screen.cgFrame,
+            dockPosition: dockPosition,
+            allFrames: NSScreen.screens.map(\.cgFrame)
+        ).isEmpty
+    }
+
+    private var dockLockingSection: some View {
+        SettingsSection("Dock Locking") {
+            Toggle(isOn: $enableDockLocking) { Text("Lock Dock to Screen") }
+                .settingsSearchTarget("dockLocking.enable")
+                .settingsAnnotation("Prevent the Dock from jumping to other monitors when your cursor reaches the screen edge.")
+                .onChange(of: enableDockLocking) { isOn in
+                    if isOn, lockedDockScreenIdentifier.isEmpty {
+                        lockedDockScreenIdentifier = NSScreen.systemMainDisplayIdentifier
+                    }
+                    askUserToRestartApplication()
+                }
+
+            if enableDockLocking {
+                dockLockingConfiguration
+                SettingsNote(
+                    icon: "info.circle",
+                    text: "Dock Locking works best with a bottom-positioned Dock in a multi-monitor setup where \"Displays have separate Spaces\" is enabled in System Settings → Desktop & Dock → Mission Control. The Dock won't jump to another monitor while this feature is enabled."
+                )
+            }
+        }
+    }
+
+    private var dockLockingConfiguration: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("Lock Dock to", selection: $lockedDockScreenIdentifier) {
+                Text("System Main Display").tag(NSScreen.systemMainDisplayIdentifier)
+                ForEach(NSScreen.screens, id: \.self) { screen in
+                    Text(screen.displayName).tag(screen.uniqueIdentifier())
+                }
+                if isLockedScreenDisconnected {
+                    Text("Disconnected Display").tag(lockedDockScreenIdentifier)
+                }
+            }
+            .settingsSearchTarget("dockLocking.screen")
+            .onAppear { NSScreen.migrateScreenIdentifier(.lockedDockScreenIdentifier) }
+
+            if isLockedScreenDisconnected {
+                SettingsCallout(message: Text("This display is currently disconnected. Dock locking will be disabled until it reconnects."))
+            } else if isLockedScreenEdgeCovered {
+                SettingsWarningBanner(text: "macOS can't place the Dock on this display because another display sits directly against its Dock edge. Rearrange your displays in System Settings → Displays so part of that edge is free.")
+            } else {
+                SettingsCallout(tone: .info, message: Text("System Main Display follows whichever screen holds the menu bar. DockDoor moves the Dock to the locked screen automatically; you can also push the cursor against that screen's Dock edge."))
+            }
+
+            Picker("Bypass modifier key", selection: $dockLockOverrideModifier) {
+                ForEach(DockLockModifier.allCases, id: \.rawValue) { modifier in
+                    Text(modifier.localizedName).tag(modifier.rawValue)
+                }
+            }
+            .settingsSearchTarget("dockLocking.bypass")
+            .settingsAnnotation("Hold this key to temporarily allow the Dock to move freely.")
+        }
     }
 }

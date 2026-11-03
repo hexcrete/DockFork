@@ -1,5 +1,9 @@
 # DockFork: Changes and Showcase
 
+November 3 upstream integration: merge main `5625291fa6009e05e2fbbd8432cb8dc5cdfed353` including stable 1.42.2. This is development integration only; published DockFork 0.4.0 packages and curated presets remain unchanged. No new release or push is authorized.
+
+Adopt upstream's Settings sidebar/search, native grouped forms, pinned mock previews, permission transition-only publication, stop-polling-after-grant policy, bounded mock wallpaper loading, main-run-loop AX observer removal, Dock hit validation and already-active app reactivation after raising. Preserve the fork's existing multi-alternate/side-aware shortcut storage, conflict handling, initializer-aware preview actions, Cmd+Tab discovery generation checks/windowless placeholders, action ownership, adaptive controls, Spaces Bar, feedback and all existing preferences. Combined modifier toggles/recording now use upstream's native shared controls; no parallel alternate-key preference system is introduced. Dock Locking moves into Advanced with searchable targets. Native user testing, merged development build and final artifact verification are pending; do not infer validation from source reconciliation.
+
 ## Unreleased Stricter Title Bar Detection
 
 November 3: Gestures > Options adds Use stricter title bar detection, default Off and shown only beneath an enabled Disable title bar gestures over scrollable areas and tabs. Skip window-only and entirely generic-group hits using the existing ancestry data; preserve recognizable toolbar/control paths and existing content/tab exclusions. This conservative fallback applies to hit quality rather than app/toolkit identity and may disable gestures over legitimate blank title-bar areas. Parent Off bypasses the stored child setting; changes need no restart. Search/reset wiring is included.

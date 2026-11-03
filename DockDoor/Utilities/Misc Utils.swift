@@ -59,31 +59,15 @@ enum modifierConverter {
     }
 
     static func toString(_ modifierIntValue: Int) -> String {
-        if (modifierIntValue & Int(CGEventFlags.maskShift.rawValue)) != 0 {
-            String(localized: "Shift")
-        } else if (modifierIntValue & Int(CGEventFlags.maskCommand.rawValue)) != 0 {
-            String(localized: "Command")
-        } else if (modifierIntValue & Int(CGEventFlags.maskAlternate.rawValue)) != 0 {
-            String(localized: "Option")
-        } else if (modifierIntValue & Int(CGEventFlags.maskControl.rawValue)) != 0 {
-            String(localized: "Control")
-        } else {
-            ""
-        }
+        var names = ShortcutModifier.contained(in: modifierIntValue).map(\.localizedName)
+        if modifierIntValue & Int(CGEventFlags.maskShift.rawValue) != 0 { names.insert(String(localized: "Shift"), at: 0) }
+        return names.joined(separator: " + ")
     }
 
     static func toSymbol(_ modifierIntValue: Int) -> String {
-        if (modifierIntValue & Int(CGEventFlags.maskShift.rawValue)) != 0 {
-            "⇧"
-        } else if (modifierIntValue & Int(CGEventFlags.maskCommand.rawValue)) != 0 {
-            "⌘"
-        } else if (modifierIntValue & Int(CGEventFlags.maskAlternate.rawValue)) != 0 {
-            "⌥"
-        } else if (modifierIntValue & Int(CGEventFlags.maskControl.rawValue)) != 0 {
-            "⌃"
-        } else {
-            ""
-        }
+        var symbols = ShortcutModifier.contained(in: modifierIntValue).map(\.symbol)
+        if modifierIntValue & Int(CGEventFlags.maskShift.rawValue) != 0 { symbols.insert("⇧", at: 0) }
+        return symbols.joined()
     }
 }
 

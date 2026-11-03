@@ -24,8 +24,10 @@ enum SettingsMockPreviewContext {
 
 struct SettingsMockPreview: View {
     let context: SettingsMockPreviewContext
+    var maxHeight: CGFloat = 200
 
     @StateObject private var coordinator: PreviewStateCoordinator
+    @State private var wallpaperImage: NSImage? = SettingsWallpaper.cached
 
     // MARK: - Dock appearance settings
 
@@ -139,9 +141,10 @@ struct SettingsMockPreview: View {
     @Default(.previewMaxColumns) private var previewMaxColumns
     @Default(.switcherMaxRows) private var switcherMaxRows
 
-    init(context: SettingsMockPreviewContext) {
+    init(context: SettingsMockPreviewContext, maxHeight: CGFloat = 200) {
         self.context = context
-        let windows = Self.generateMockWindows()
+        self.maxHeight = maxHeight
+        let windows = Self.mockWindows
         _coordinator = StateObject(wrappedValue: Self.makeCoordinator(
             windows: windows,
             context: context
@@ -358,7 +361,43 @@ struct SettingsMockPreview: View {
                 appearanceOverride: resolvedAppearance
             )
             .allowsHitTesting(false)
+            .modifier(ScaledToFit(maxHeight: maxHeight))
+            .background {
+                GeometryReader { proxy in
+                    if let wallpaperImage {
+                        Image(nsImage: wallpaperImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: proxy.size.width, height: proxy.size.height)
+                            .clipped()
+                    } else {
+                        LinearGradient(
+                            colors: [Color(nsColor: .controlAccentColor).opacity(0.35), .teal.opacity(0.35)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .onAppear {
+                SettingsWallpaper.load { wallpaperImage = $0 }
+            }
         }
+    }
+
+    private static var cachedMockWindows: [WindowInfo]?
+
+    private static var mockWindows: [WindowInfo] {
+        if let cachedMockWindows { return cachedMockWindows }
+        let windows = generateMockWindows()
+        cachedMockWindows = windows
+        return windows
+    }
+
+    static func releaseCaches() {
+        cachedMockWindows = nil
+        SettingsWallpaper.release()
     }
 
     private static func generateMockWindows(count: Int = 2) -> [WindowInfo] {
@@ -419,5 +458,93 @@ struct SettingsMockPreview: View {
             coordinator.setIndex(to: 0)
         }
         return coordinator
+    }
+}
+
+private struct ScaledToFit: ViewModifier {
+    let maxHeight: CGFloat
+    @State private var contentSize: CGSize = .zero
+    @State private var availableWidth: CGFloat = 0
+
+    private var scale: CGFloat {
+        guard contentSize.width > 0, contentSize.height > 0, availableWidth > 0 else { return 1 }
+        return min(1, availableWidth / contentSize.width, maxHeight / contentSize.height)
+    }
+
+    func body(content: Content) -> some View {
+        Color.clear
+            .frame(height: contentSize == .zero ? maxHeight : contentSize.height * scale)
+            .frame(maxWidth: .infinity)
+            .background {
+                GeometryReader { proxy in
+                    Color.clear
+                        .onAppear { availableWidth = proxy.size.width }
+                        .onChange(of: proxy.size.width) { availableWidth = $0 }
+                }
+            }
+            .overlay {
+                content
+                    .padding(.vertical, 24)
+                    .padding(.horizontal, 16)
+                    .fixedSize()
+                    .background {
+                        GeometryReader { proxy in
+                            Color.clear
+                                .onAppear { contentSize = proxy.size }
+                                .onChange(of: proxy.size) { contentSize = $0 }
+                        }
+                    }
+                    .scaleEffect(scale)
+            }
+    }
+}
+
+@MainActor
+private enum SettingsWallpaper {
+    private static var cachedURL: URL?
+    private(set) static var cached: NSImage?
+
+    private static let privacyProtectedFolders: [String] = {
+        let fileManager = FileManager.default
+        let userFolders = [FileManager.SearchPathDirectory.desktopDirectory, .documentDirectory, .downloadsDirectory]
+            .compactMap { fileManager.urls(for: $0, in: .userDomainMask).first }
+        let others = [fileManager.homeDirectoryForCurrentUser.appendingPathComponent("Library/Mobile Documents"), URL(fileURLWithPath: "/Volumes")]
+        return (userFolders + others).map { $0.standardizedFileURL.path + "/" }
+    }()
+
+    static func release() {
+        cachedURL = nil
+        cached = nil
+    }
+
+    static func load(completion: @escaping (NSImage?) -> Void) {
+        guard let screen = NSScreen.main ?? NSScreen.screens.first,
+              let url = NSWorkspace.shared.desktopImageURL(for: screen)
+        else { return completion(nil) }
+        let path = url.standardizedFileURL.path
+        guard !privacyProtectedFolders.contains(where: { path.hasPrefix($0) }) else { return completion(nil) }
+        if url == cachedURL, let cached {
+            return completion(cached)
+        }
+
+        DispatchQueue.global(qos: .utility).async {
+            let image = thumbnail(at: url, maxPixelSize: 1200)
+            DispatchQueue.main.async {
+                cachedURL = url
+                cached = image
+                completion(image)
+            }
+        }
+    }
+
+    private nonisolated static func thumbnail(at url: URL, maxPixelSize: Int) -> NSImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixelSize,
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
+        return NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height))
     }
 }
