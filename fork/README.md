@@ -4,7 +4,7 @@ DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). A
 
 ## Candidate 0.5.0
 
-The stable 0.5.0 candidate is being prepared, not published. See [candidate record](docs/RELEASE_NOTES_0.5.0.md) and [draft public notes](docs/RELEASE_BODY_0.5.0.md). Test and approve the exact package before publication.
+The stable 0.5.0 candidate is built and audited, ready for user testing, not published. Package `fork/dist/DockFork-5da3459-NVxV9w/DockFork-0.5.0-5da3459-arm64.zip` uses source `5da345933511899c2c315a7c2a2edbb1be63244b`. See [candidate record and checksums](docs/RELEASE_NOTES_0.5.0.md) and [draft public notes](docs/RELEASE_BODY_0.5.0.md). Test and approve this exact package before publication.
 
 ## Stable Release 0.4.0
 
