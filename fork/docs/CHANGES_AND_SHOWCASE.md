@@ -1,5 +1,7 @@
 # DockFork: Changes and Showcase
 
+For current screenshot setup, use the [capture plan and consolidated settings locations](SHOWCASE_CHECKLIST.md#current-settings-locations). Its rows describe current UI rather than development stages. Existing capture IDs and pending media status are preserved; published release packages and presets are unchanged.
+
 November 3 upstream integration: merge main `5625291fa6009e05e2fbbd8432cb8dc5cdfed353` including stable 1.42.2. This is development integration only; published DockFork 0.4.0 packages and curated presets remain unchanged. No new release or push is authorized.
 
 Adopt upstream's Settings sidebar/search, native grouped forms, pinned mock previews, permission transition-only publication, stop-polling-after-grant policy, bounded mock wallpaper loading, main-run-loop AX observer removal, Dock hit validation and already-active app reactivation after raising. Preserve the fork's existing multi-alternate/side-aware shortcut storage, conflict handling, initializer-aware preview actions, Cmd+Tab discovery generation checks/windowless placeholders, action ownership, adaptive controls, Spaces Bar, feedback and all existing preferences. Combined modifier toggles/recording now use upstream's native shared controls; no parallel alternate-key preference system is introduced. Dock Locking moves into Advanced with searchable targets. Fourteen focused suites, seven upstream Settings layout/search tests, version/preset/tooling checks and formatter/diff checks pass. The final signed development build and exact installed/running source/binary verification pass. The Support packaging overlay is refreshed for native forms; manual user merge testing remains pending. No complete native/Xcode test-matrix claim.
@@ -12,7 +14,7 @@ Temporary Firefox/Brave tracing confirmed accepted Brave tab-strip hits with sev
 
 ## Unreleased Swipe Activation Directions
 
-November 2: Gestures > Trackpad Swipe for Window Switcher adds Disable activation directions, with one row of native Left/Right/Up/Down checkboxes. Default is none disabled. Restrictions use physical finger movement before selection reversal and cover both window and opposite-axis Space activation. They affect opening only: an existing switcher session and an accepted in-progress swipe keep normal navigation, ownership and release behavior. A rejected swipe stays ignored until fingers lift, so reversal cannot accidentally open the switcher. Existing listen-only delivery leaves macOS gestures unchanged; disable only conflicting native gestures in directions still used to open DockFork. Search/reset wiring is included; no restart is needed for checkbox changes. Focused keyboard/swipe tests, six-file SwiftFormat lint, Ruby syntax and diff/document-link checks pass. Development artifact DockFork-24da900-working-6ONqoW builds, signs, installs and runs from the verified path with exact source/executable/debug-library correspondence; guarded cleanup completed. On November 3 the user reports the feature works and authorizes review/commit/push. Final review finds no blockers; focused keyboard/swipe tests and six-file lint/diff checks pass again. Current source and installed binaries still match the tested build, so no rebuild is needed. The general user report does not establish exhaustive hardware/OS/held/persistent coverage. Published 0.4.0 assets, curated preset and existing preferences are unchanged.
+November 2: Trackpad Swipe for Window Switcher (now under Window Switcher) adds Disable activation directions, with one row of native Left/Right/Up/Down checkboxes. Default is none disabled. Restrictions use physical finger movement before selection reversal and cover both window and opposite-axis Space activation. They affect opening only: an existing switcher session and an accepted in-progress swipe keep normal navigation, ownership and release behavior. A rejected swipe stays ignored until fingers lift, so reversal cannot accidentally open the switcher. Existing listen-only delivery leaves macOS gestures unchanged; disable only conflicting native gestures in directions still used to open DockFork. Search/reset wiring is included; no restart is needed for checkbox changes. Focused keyboard/swipe tests, six-file SwiftFormat lint, Ruby syntax and diff/document-link checks pass. Development artifact DockFork-24da900-working-6ONqoW builds, signs, installs and runs from the verified path with exact source/executable/debug-library correspondence; guarded cleanup completed. On November 3 the user reports the feature works and authorizes review/commit/push. Final review finds no blockers; focused keyboard/swipe tests and six-file lint/diff checks pass again. Current source and installed binaries still match the tested build, so no rebuild is needed. The general user report does not establish exhaustive hardware/OS/held/persistent coverage. Published 0.4.0 assets, curated preset and existing preferences are unchanged.
 
 ## DockFork 0.4.0 Stable Release
 
@@ -369,7 +371,7 @@ October 18 app-header wording follow-up: popup titles use **Close**, **Minimize*
 
 Implemented in `70d56b90` after 0.2.0; not included in the published prerelease. The user reports the final popup behavior looking good on October 18. Final source review and automated checks passed; the remaining test gaps are recorded below.
 
-**Keybinds > Action Feedback**, between the post-action settings and Spaces, adds a default-Off feedback option. Position defaults to **Based on trigger type**; **At cursor**, **Based on preview focus** and **At preview** are also available. Progress, confirmations and failure feedback are included together; there are no duration settings.
+**Appearance > Action Feedback** contains the default-Off feedback option (moved from Keybinds during the Settings reconciliation). Position defaults to **Based on trigger type**; **At cursor**, **Based on preview focus** and **At preview** are also available. Progress, confirmations and failure feedback are included together; there are no duration settings.
 
 Post-0.2.0 follow-up (`4ad22fc1`): **Show feedback when Mouse Follows Focus** was introduced as a default-Off option under Action Feedback, visible only while feedback was enabled. The settings-placement commit `c5d64dc6` renames and relocates it without changing its preference or runtime gates. After a successful shared Mouse Follows Focus warp to a different cursor position, it shows **Mouse Followed Focus** with `pointer.arrow.motionlines` at the live cursor, independent of the main Position choice. It uses the existing 0.35-second result duration, normal fades and symbol styling, without a success checkmark, spinner or counter. A failed/no-op warp, Never mode or a same-display skip produces no hint. This is an explicit cursor-location hint during activation, not general activation feedback. Space-navigation cursor moves and Dock-lock cursor restoration are unchanged. Existing feedback presentation is replaced through the same latest-presentation policy. All seven regression suites and a separate native presenter/symbol-availability run passed. Source-extracted cursor fixtures use fake OS operations and do not move the real pointer. The signed Debug build and development-script relaunch passed; installed executable/debug-library, strict signature and exact running-path checks passed. The user reports the feature and corrected capitalization working on October 18. Final source review and repeated regression/native checks passed. Exhaustive all-mode/multi-display testing and media remain pending.
 
@@ -415,7 +417,7 @@ The user-edited fork helper text was applied before release, with minor grammar 
 
 Copy validation: all 35 review blocks match their source text, the settings-wiring audit passes, and the app diff contains only string-literal changes. The signed Debug build and fixed-path relaunch pass. Manual inspection of the revised copy and the 0.2.0 Release package remain pending.
 
-Current 0.2.0 development settings are under Keybinds. Tiling settings are available even when UI selection is disabled, because scripts can provide window lists directly. Existing saved choices remain in effect; these are fresh defaults, not an automatic preset import.
+Current selection and tiling settings are under Keybinds. Auto Tile controls share Tiling rather than a separate subsection; preview mouse actions are under Gestures > Mouse Actions. Tiling settings are available even when UI selection is disabled, because scripts can provide window lists directly. Existing saved choices remain in effect; these are fresh defaults, not an automatic preset import.
 
 | Location | Setting | Default |
 |---|---|---|
@@ -427,10 +429,10 @@ Current 0.2.0 development settings are under Keybinds. Tiling settings are avail
 | Window Selection | Checkbox visibility | On preview hover |
 | Tiling | "Fill" actions on multiple selected windows trigger "Auto Tile" | Off |
 | Tiling | Link tiled windows when resizing | Off |
-| Tiling > Auto Tile | Maximum tiling rows | 2 |
-| Tiling > Auto Tile | Maximum tiling columns | 3 |
-| Tiling > Auto Tile | Tile only what fits | Off |
-| Mouse Actions | Enable dragging windows together to tile them | Off |
+| Tiling | Auto Tile maximum rows | 2 |
+| Tiling | Auto Tile maximum columns | 3 |
+| Tiling | Auto Tile only what fits | Off |
+| Gestures > Mouse Actions | Enable dragging windows together to tile them | Off |
 
 With group Fill Off, Half/Quarter actions resize each applicable window on its own display and Desktop, foregrounding only windows on active Spaces. With it On, a multi-window Fill uses direction-aware Auto Tile on the current Desktop. One selected window stays an ordinary Fill. The Auto Tile shortcut/menu action, Tile Windows summary button, explicit `tile windows` script command and drag-to-tile always use Auto Tile, independently of the Fill switch.
 
@@ -790,7 +792,7 @@ Unstyled, non-embedded indicators do not reserve a horizontal gap for hover-hidd
 
 The clickable Space indicator uses its full label bounds, including the unstyled number ring's interior and edges, without changing visible size or layout spacing. Fixed in `6a5599d`; Debug build/relaunch and user verification passed.
 
-**Showcase:** I01-I04. Entry points: each mode's Window State Indicator settings and Appearance > General. Representative commits: `411618f`, `20d3b2f`, `356af10`, `6248aab`, `b435c0a`, `f7b64c9`, `f933cd0`.
+**Showcase:** I01-I04. Entry points: each mode's Window State Indicator settings; Space placement is per-mode, not a global Appearance toggle. Representative commits: `411618f`, `20d3b2f`, `356af10`, `6248aab`, `b435c0a`, `f7b64c9`, `f933cd0`.
 
 ## Moving and Switching Spaces
 
@@ -800,17 +802,17 @@ Confirmed window moves can optionally follow the destination. The same picker is
 
 With a selected real preview, a numbered shortcut moves that window to an eligible Desktop. With a standalone Window Switcher open and no selection, it navigates to the numbered Desktop or fullscreen Space; this is distinct from moving a window. Fullscreen destination navigation must not be presented as permission to move another window into a fullscreen Space.
 
-**Showcase:** S01-S05. Entry point: Gestures & Keybinds > Spaces. Representative commits: `cdd7b82`, `1c4ce38`, `381e839`, `0dce6a7`, `5ef868b`.
+**Showcase:** S01-S05 and SB01-SB06. Entry points: Keybinds > Spaces, Window Switcher > Spaces Bar and Appearance > Spaces Bar. Representative commits: `cdd7b82`, `1c4ce38`, `381e839`, `0dce6a7`, `5ef868b`.
 
 ## Configurable Shortcuts and Scopes
 
-Window Preview Keyboard Shortcuts and alternate launcher lists use editable rows with add/remove controls. Rows can be configured before recording a trigger. Effective-trigger conflicts are indicated rather than executing duplicate assignments.
+Window Preview Keyboard Shortcuts and Alternate Shortcuts use Remove on each row and one Add button below, alongside Reset to Defaults. Preview assignments align left and action pickers align right. Rows can be configured before recording; compact clash glyphs beside assignments expose details in help.
 
-Main and regular alternate initializer modifiers support Left, Right, or Either. Dependent preview shortcuts can ignore the main modifier's side when configured. Persistent and last-focused launchers support full combinations or modifier double taps, including physical side selection. Cmd+Tab preview actions use Command rather than the main Window Switcher modifier.
+One Alternate Shortcuts list contains scope, Persistent, No Highlight and Quick Switch. Ordinary key triggers support combined modifiers and Left, Right or Either. Double-tap instead chooses one modifier and side. No Highlight applies to held and persistent sessions; Quick Switch disables Persistent/No Highlight without clearing their stored values. Dependent preview shortcuts can ignore the main modifier's side when configured. Cmd+Tab preview actions use Command rather than the main Window Switcher modifier.
 
-The shared, alphabetically displayed scope list contains Active App + Current Space, Active App Only, All Windows, Current Monitor + Current Space, Current Monitor Only, Current Space Only, and Window Switcher Defaults. All Windows is a global scope, whereas Window Switcher Defaults applies configured restrictions. Optional exclusions keep windowless apps out of location scopes. Lists allow up to the scope count; duplicate scopes are allowed, but conflicting triggers are not active.
+The shared, alphabetically displayed scope list contains Active App + Current Space, Active App Only, All Windows, Current Monitor + Current Space, Current Monitor Only, Current Space Only, and Window Switcher Defaults. All Windows is a global scope, whereas Window Switcher Defaults applies configured restrictions. Optional exclusions keep windowless apps out of location scopes. Row count is not limited by scope count. Duplicate scopes are allowed; conflicting triggers remain assigned but inactive according to shared precedence.
 
-**Showcase:** K01-K04. Entry point: Gestures & Keybinds. Representative commits: `6b62149`, `94b4361`, `19d4888`, `d2d063c`, `982c6d0`, `93074e7`, `d013ee1`, `be73708`.
+**Showcase:** K01-K04. Entry points: Keybinds > Window Preview Keyboard Shortcuts and Alternate Shortcuts. Current editor: `aea03098`. Representative commits: `6b62149`, `94b4361`, `19d4888`, `d2d063c`, `982c6d0`, `93074e7`, `d013ee1`, `be73708`.
 
 ## Persistent, Menu-Bar, and Swipe Sessions
 
@@ -822,13 +824,13 @@ Label/search-title update `1f72ecb`, validated October 11, 2026: matching source
 
 The base global swipe launcher came from upstream; these commits refine its selection direction and session ownership. Do not describe the entire upstream gesture launcher as newly invented by this fork.
 
-**Showcase:** P01-P04. Entry point: Gestures & Keybinds > Window Switcher Shortcuts and Trackpad Gestures. Representative commits: `c9adbf9`, `2898dc6`, `78bfbf6`, `7797cdf`, `ae93b49`.
+**Showcase:** P01-P04. Entry points: Keybinds > Alternate Shortcuts and Menu Bar Icon; Window Switcher > Trackpad Swipe for Window Switcher. Representative commits: `c9adbf9`, `2898dc6`, `78bfbf6`, `7797cdf`, `ae93b49`.
 
 ## Last-Focused Window Switching
 
-Multiple scoped last-focused shortcuts activate the next eligible window in the shared chronological ordering without opening the switcher. Triggers use the same full-combination/double-tap editor. This path respects filters, distinguishes real windows from windowless entries, and follows the Mouse Follows Focus setting.
+Quick Switch on an Alternate Shortcuts row activates the next eligible window in the shared chronological ordering without opening the switcher. Each row retains its scope and ordinary-key or single-modifier Double-tap trigger. This path respects filters, distinguishes real windows from windowless entries, and follows Mouse follows focus. There is no separate last-focused shortcut editor.
 
-**Showcase:** R01. Entry point: Gestures & Keybinds > Switch to Last Focused Window. Representative commits: `af0bbcd`, `69507bc`, `bfaf5f4`. No latency improvement is claimed without measurements.
+**Showcase:** R01. Entry point: Keybinds > Alternate Shortcuts > Quick Switch. Current editor: `aea03098`. Representative commits: `af0bbcd`, `69507bc`, `bfaf5f4`. No latency improvement is claimed without measurements.
 
 ## Window and App Actions
 
