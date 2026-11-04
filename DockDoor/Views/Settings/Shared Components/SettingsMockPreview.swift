@@ -496,6 +496,8 @@ private struct ScaledToFit: ViewModifier {
                     }
                     .scaleEffect(scale)
             }
+            .clipped()
+            .allowsHitTesting(false)
     }
 }
 
