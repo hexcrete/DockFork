@@ -6,9 +6,9 @@ Current capture plan, reviewed November 4, 2026 against the Settings merge repai
 
 All existing capture IDs and unchecked states are preserved. Screenshots and recordings remain deferred; no media is marked captured or approved. Selection M01/M02 and menu M01/M02 retain their original IDs; qualify them by section.
 
-Published stable [0.4.0](https://github.com/hexcrete/DockFork/releases/tag/v0.4.0) is unchanged. For current Settings screenshots, use the 0.5.0 candidate or reviewed development build and label its status accurately; do not present unreleased Settings as shipped 0.4.0 UI. Use the published package and its attached preset only for release-specific captures. Record the exact version/source used.
+Published stable [0.5.0](https://github.com/hexcrete/DockFork/releases/tag/v0.5.0) includes the current Settings. Use that package or a reviewed development build and label the exact source accurately; do not present its Settings as shipped 0.4.0 UI. Use the published package and its attached preset only for release-specific captures. Record the exact version/source used.
 
-The maintained preset is the sanitized November 4 export for the 0.5.0 candidate: 270 preferences, 15 generic-ID shortcut rows and no retired keys. Import is optional and replaces settings; export a backup first. Published 0.4.0 retains its attached historical preset. Capture selections and approval states remain unchanged.
+The maintained preset is the sanitized November 4 export included with 0.5.0: 270 preferences, 15 generic-ID shortcut rows and no retired keys. Import is optional and replaces settings; export a backup first. Published 0.4.0 retains its attached historical preset. Capture selections and approval states remain unchanged.
 
 ## Current Settings Locations
 

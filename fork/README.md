@@ -2,13 +2,13 @@
 
 DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). Application features remain in the existing source tree; this directory contains fork-only packaging, optional presets and publication records. Exclude `fork/` and fork-specific root documentation from upstream PRs. Follow the [upstream contribution checklist](docs/UPSTREAM_CONTRIBUTIONS.md).
 
-## Candidate 0.5.0
+## Stable Release 0.5.0
 
-The stable 0.5.0 candidate is built and audited, ready for user testing, not published. Package `fork/dist/DockFork-5da3459-NVxV9w/DockFork-0.5.0-5da3459-arm64.zip` uses source `5da345933511899c2c315a7c2a2edbb1be63244b`. See [candidate record and checksums](docs/RELEASE_NOTES_0.5.0.md) and [draft public notes](docs/RELEASE_BODY_0.5.0.md). Test and approve this exact package before publication.
+Version **[0.5.0](https://github.com/hexcrete/DockFork/releases/tag/v0.5.0)** is published as the latest stable release with user authorization. The audited package from `5da345933511899c2c315a7c2a2edbb1be63244b` was published without rebuilding. See [release record and checksums](docs/RELEASE_NOTES_0.5.0.md) and [public notes](docs/RELEASE_BODY_0.5.0.md). Screenshots remain deferred; installation and compatibility coverage are separate from publication.
 
 ## Stable Release 0.4.0
 
-Version **[0.4.0](https://github.com/hexcrete/DockFork/releases/tag/v0.4.0)** is published as the latest **stable release**, not a prerelease. The user-tested package from `23850ba04cf7c5e523d53ea2be45607419327e57` was published without rebuilding. All ten public assets download and match the audited local hashes. Previous release assets are unchanged.
+Version **[0.4.0](https://github.com/hexcrete/DockFork/releases/tag/v0.4.0)** remains available as the previous stable release. The user-tested package from `23850ba04cf7c5e523d53ea2be45607419327e57` was published without rebuilding. All ten public assets download and match the audited local hashes. Previous release assets are unchanged.
 
 - [Published release notes](docs/RELEASE_BODY_0.4.0.md)
 - [Release source, asset audit and testing status](docs/RELEASE_NOTES_0.4.0.md)
@@ -53,7 +53,7 @@ The development snapshot includes tracked source changes but excludes untracked 
 
 ### Fork and Upstream Versions
 
-`version.json` records candidate DockFork version **0.5.0**, incorporated upstream commit `c58cf6c0ca0d0e35388ac8aa4790c80c5fbccfb8`, stable upstream release **1.42.2**, and its exact release commit `b6beb0129e9d7b59f2995eafc0d69ce272d7d129`. This candidate does not replace the published DockFork 0.4.0 release until separately approved and published.
+`version.json` records published DockFork version **0.5.0**, incorporated upstream commit `c58cf6c0ca0d0e35388ac8aa4790c80c5fbccfb8`, stable upstream release **1.42.2**, and its exact release commit `b6beb0129e9d7b59f2995eafc0d69ce272d7d129`. DockFork 0.5.0 is now the latest stable release.
 
 After a future merge, fetch upstream tags and select the newest published stable release contained in the merged history. Never label an unmerged release as the base or infer it from Xcode's project version. Run `ruby fork/packaging/tests/version_metadata_test.rb`. Packaging validates ancestry/tag identity and embeds version/base metadata in the isolated app and BUILD-METADATA.json for Support > Updates.
 
@@ -80,7 +80,7 @@ See [installation and signing limitations](packaging/INSTALL.md). Ad-hoc signing
 
 ## Optional Showcase Preset
 
-[DockFork-Showcase.json](presets/DockFork-Showcase.json) is the sanitized November 4 export for the 0.5.0 candidate. It uses one Alternate Shortcuts list, generic shortcut IDs and debug logging Off; retired shortcut, Space-layout and indicator keys and private/system state are removed. Import is optional and replaces settings: export a backup first. The original export is untouched. No import or installation validation is implied. Published 0.4.0 retains its attached historical preset.
+[DockFork-Showcase.json](presets/DockFork-Showcase.json) is the sanitized November 4 export included with 0.5.0. It uses one Alternate Shortcuts list, generic shortcut IDs and debug logging Off; retired shortcut, Space-layout and indicator keys and private/system state are removed. Import is optional and replaces settings: export a backup first. The original export is untouched. No import or installation validation is implied. Published 0.4.0 retains its attached historical preset.
 
 Fresh defaults and supplied showcase choices are distinct; no application defaults change during release preparation.
 

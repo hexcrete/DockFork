@@ -1,6 +1,6 @@
-# DockFork 0.5.0 Release Candidate
+# DockFork 0.5.0 Release Record
 
-Status: publication authorized by the user after reviewing the corrected release notes. Publish the existing audited package without rebuilding. Published 0.4.0 assets remain unchanged.
+Status: [0.5.0 published](https://github.com/hexcrete/DockFork/releases/tag/v0.5.0) on November 4, 2026 as latest stable, not a prerelease. User authorized publication after reviewing corrected notes. The existing audited package was published without rebuilding; 0.4.0 assets remain unchanged.
 
 ## Inputs
 
@@ -27,10 +27,16 @@ Preset audit: 270 recognized preferences and 15 shortcut rows. Removed 13 obsole
 
 `./fork/package.sh --clean-old-builds` built committed Release sources without installing or launching them. ZIP integrity and all nine checksum-manifest entries pass. The extracted app matches all 220 original bundle entries, including file modes, symlinks and bytes. Strict deep signature verification passes; all seven Mach-O files use ad-hoc signatures. The executable is arm64, has the unchanged DockFork identity and embeds the recorded source/upstream versions. Automatic updates remain disabled. No development marker, coverage instrumentation or checked private build-path strings occur in the distributed binaries.
 
-The source archive matches `git archive` of the exact source commit. Its packaging overlay applies cleanly. The preset, overlay, installation guide and license match committed inputs. Only the ten allowlisted assets in the build guide are eligible for eventual upload; the app directory and build log stay local.
+The source archive matches `git archive` of the exact source commit. Its packaging overlay applies cleanly. The preset, overlay, installation guide and license match committed inputs. Only the ten allowlisted assets in the build guide were uploaded; the app directory and build log stay local.
 
 ## Preparation Checks
 
 Twelve focused suites pass: showcase preset, upstream integration, settings merge, settings mock previews, preview keyboard, preview publications, preview idle cleanup, preview batch reconciliation, preview chrome measurements, action ownership, native-tab Close and Wine discovery. Packaging cleanup, development-option and version-metadata tests also pass, including 19 version cases. `git diff --check` passes. Preparation changes no Swift source, runtime defaults, project configuration or signing policy.
 
-No live UI inspection, working-window manipulation, preset import or Release launch was performed during preparation. Existing manual approvals apply to the development implementation, not installation of this exact ZIP. Before publication, test the extracted Release app's launch/permissions, unified shortcuts, pinned examples, Spaces Bar and normal actions. Import the optional preset only after exporting a backup. Download/quarantine, multi-display, VoiceOver and older-macOS coverage remain separate checks, not inferred from this build.
+No live UI inspection, working-window manipulation, preset import or Release launch was performed during preparation. Existing manual approvals apply to the development implementation, not installation of this exact ZIP. Recommended installation checks cover launch/permissions, unified shortcuts, pinned examples, Spaces Bar and normal actions; publication authorization does not claim these were performed. Import the optional preset only after exporting a backup. Download/quarantine, multi-display, VoiceOver and older-macOS coverage remain separate checks, not inferred from this build.
+
+## Publication Verification
+
+Tag `v0.5.0` points to exact packaged source `5da345933511899c2c315a7c2a2edbb1be63244b`. All ten allowlisted uploads match the audited originals byte-for-byte; the release body matches the approved attribution-corrected notes. GitHub reports 0.5.0 as public, latest and not prerelease. No development build, unpacked app or build log was uploaded. Publication does not establish additional installation, permission or compatibility testing.
+
+All ten published assets were downloaded again after publication. Their checksum manifest matches the local original and all nine listed checksums pass.

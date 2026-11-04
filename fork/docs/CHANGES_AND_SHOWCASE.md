@@ -1,10 +1,10 @@
 # DockFork: Changes and Showcase
 
-## 0.5.0 Stable Candidate Preparation
+## 0.5.0 Stable Release
 
-Prepare the Settings/shortcuts and gesture update as stable 0.5.0, without publication. The November 4 showcase export replaces the maintained preset: 270 recognized preferences, 15 generic-ID shortcut rows, debug logging Off and obsolete/private keys removed. No app defaults or live settings change. See [draft public notes](RELEASE_BODY_0.5.0.md) and [candidate record](RELEASE_NOTES_0.5.0.md). Published assets and deferred media states are unchanged.
+The Settings/shortcuts and gesture update is published as [stable 0.5.0](https://github.com/hexcrete/DockFork/releases/tag/v0.5.0) with user authorization, without rebuilding the audited package. The November 4 showcase export replaces the maintained preset: 270 recognized preferences, 15 generic-ID shortcut rows, debug logging Off and obsolete/private keys removed. No app defaults or live settings change. See [public notes](RELEASE_BODY_0.5.0.md) and [release record](RELEASE_NOTES_0.5.0.md). Previous release assets and deferred media states are unchanged.
 
-The committed-source Release candidate at `5da345933511899c2c315a7c2a2edbb1be63244b` is built and artifact-audited. Checksums, archive/source correspondence, nested ad-hoc signatures, updater isolation and preset privacy pass. Exact Release installation, permissions and optional import require user testing before publication; no Release launch or import was performed.
+The committed-source Release candidate at `5da345933511899c2c315a7c2a2edbb1be63244b` is built and artifact-audited. Checksums, archive/source correspondence, nested ad-hoc signatures, updater isolation and preset privacy pass. No Release launch or import was performed during preparation; publication approval does not imply additional installation or compatibility coverage.
 
 Public notes distinguish upstream's Settings redesign, pinned previews, multiple Alternate Shortcuts and combined modifiers from fork-specific extensions and merge repairs. Preserved Double-tap is not a new release feature. This attribution correction changes public copy only, not the audited candidate.
 
