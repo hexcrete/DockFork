@@ -260,7 +260,7 @@ Incoming upstream main through `5625291f`, stable 1.42.2, is already merged as `
 | `51edfb2b` | Multiple alternate shortcuts use the existing fork stable-ID array and resolver, retaining filter/persistent/history scopes and conflicts. Do not introduce a competing upstream alternate-key store. |
 | `cecf0b7a` | Combined modifiers now use the same native renderer for primary and alternate rows. Preserve fork Shift, side selection and zero-modifier inheritance; no opening-time preference migration. |
 | `60f00c2d` | PermissionsChecker matches upstream: publish transitions, stop polling after both grants, recheck on activation and clean up. |
-| `dd442d4b` | Retain mock live-capture/active-window guards. Keep the fork's explicit appearance snapshot needed by its additional controls; do not discard it merely to match upstream's smaller mock. |
+| `dd442d4b` | Retain mock live-capture/active-window guards. The initial merge retained a separate fork appearance snapshot; the November 4 example-isolation follow-up replaces it with the now-complete shared resolver, including fork controls. |
 | `a7bb70f3` | Reconcile the full Settings redesign against actual upstream panes and shared rows, not a wrapper rename. Restore placements, grouped sections, descriptions, sliders, pickers, samples and searchable targets; layer fork controls into that structure. |
 | `1bb7e70a` | Keep Crowdin catalog unchanged. New fork source strings use existing localization conventions; no manual catalog rewrite. |
 | `5a047caa` | Retain upstream 1.42.0 appcast history. Fork distribution still uses its isolated manual-update packaging policy. |
@@ -283,3 +283,9 @@ Dependent-row indentation and pinned-preview hit testing are separate upstream-q
 Attribution: upstream's matcher ignores Shift and uses zero as an unset alternate key, excluding A. The fork's modifier-side bypass, initial backward-key leakage, broad duplicate matching and persistent Cmd+Tab omission were integration defects, not all upstream bugs. Production-source checks reproduce the original Shift omission. Preserve that distinction in any future issue or PR.
 
 No complete fork-branch PR, push or release is authorized. Extract an agreed focused issue from current upstream, exclude fork records/identity/presets, retain required dependencies and review the complete final PR diff. No native screenshot, hardware or Xcode-target pass is inferred from focused fixtures.
+
+### Settings Example Interaction Follow-up
+
+The native grid originates upstream (`23fccf23`); upstream's `df359da2` attempts to keep AppKit-hosted mocks inert through hit-test guards. Independently hosted cards still own tracking areas. The fork widened hover routing in `7444347`, later retained the mock full-opacity exception in `48b7f64`, and excluded mock checkboxes with selection support (`fa76e57`/`e735dc38`). Those mixed policies were not an intentional, fully isolated demo mode.
+
+The November 4 follow-up (`e21fe4a2`) makes appearance-only sample interaction an explicit fork difference: shared appearance/dimming/checkbox rules, local state and no real action or cache/focus lifecycle. Sample cards remain in one scaled SwiftUI hierarchy rather than separately hosted native cards; the real virtualized grid is unchanged. The samples use `.current` as app metadata; allowing the normal action/refresh path could therefore substitute DockFork's actual windows. Source inspection identifies this unsafe route, not a captured native reproduction of the reported replacement. Keep the fork-specific interactive demo and records out of any unrelated upstream PR. A focused upstream isolation/hit-testing fix would require its own agreed scope and validation.

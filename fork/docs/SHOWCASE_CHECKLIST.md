@@ -1,6 +1,6 @@
 # DockFork Showcase Capture Checklist
 
-Current capture plan, reviewed November 4, 2026 against the Settings merge repairs through `6aef3111`. This is a menu of screenshots and short recordings, not a development/test diary. Implementation history and validation belong in the [commit ledger](COMMIT_LEDGER.md); feature explanations belong in [Changes and Showcase](CHANGES_AND_SHOWCASE.md).
+Current capture plan, reviewed November 4, 2026 against the Settings merge repairs and example interactions through `e21fe4a2`. This is a menu of screenshots and short recordings, not a development/test diary. Implementation history and validation belong in the [commit ledger](COMMIT_LEDGER.md); feature explanations belong in [Changes and Showcase](CHANGES_AND_SHOWCASE.md).
 
 ## Capture Status
 
@@ -33,6 +33,8 @@ The curated showcase preset is unchanged and is not imported automatically. It c
 | Folder widgets | Widgets |
 
 Double-tap currently selects one modifier and its side. Ordinary key shortcuts support combined modifiers. Quick Switch uses the row's scope and disables Persistent/No Highlight without erasing their values. Settings screenshots should show these distinctions, compact clash glyphs with hover help, dependent-row indentation and reset glyphs only where the upstream control type uses them.
+
+Pinned examples are a fork-specific appearance demonstration: hover the cards, titles/icons and traffic lights, then toggle sample checkboxes with selection enabled. Dimming must remain until the buttons themselves are hovered; test their visible edges after scaling. For On title hover, move over the title in Dock/Cmd+Tab or the app icon in Compact Mode. The two sample windows remain unchanged by real window activity; example controls never activate, close, resize or otherwise operate on real windows. Include the settings immediately below the examples in K01 to show their bounded interaction area. No new capture ID or completion state is added.
 
 ## Capture Conventions
 
@@ -111,7 +113,7 @@ The following dedicated IDs cover bar interactions previously described only in 
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | K01 | Video: configure rows before recording | In Keybinds, show preview-action rows with assignment left, action right and Remove at the end; Add and Reset to Defaults share the footer. Compare Alternate Shortcuts, the Search Trigger Key reset alignment and compact clash glyphs beside assignments. Show controls immediately below pinned previews. | `6b62149`, `94b4361`, `93074e7`, `aea03098` |
+| [ ] | K01 | Video: configure rows before recording | In Keybinds, show preview-action rows with assignment left, action right and Remove at the end; Add and Reset to Defaults share the footer. Compare Alternate Shortcuts, the Search Trigger Key reset alignment and compact clash glyphs beside assignments. Show controls immediately below pinned previews. | `6b62149`, `94b4361`, `93074e7`, `aea03098`, `e21fe4a2` |
 | [ ] | K02 | Screenshot: scope catalog | Show the shared scope picker in Alternate Shortcuts, its trailing alignment and Defaults versus All Windows. Change scope without replacing the row or trigger. | `94b4361`, `d2d063c`, `982c6d0`, `aea03098` |
 | [ ] | K03 | Settings screenshot + video: modifier side | Show combined initializer modifiers, Left/Right/Either, inherited-side override and side-aware Backward Key recording. Use harmless bindings; demonstrate exact Shift matching and capture/cancel without executing an app action. | `d013ee1`, `428b2af`, `aea03098` |
 | [ ] | K04 | Video: unified alternate shortcut modes | Use the unified Alternate Shortcuts editor: modifier/key/scope on the first row and Double-tap, Persistent, No Highlight and Quick Switch below. Contrast ordinary multi-modifier triggers with the single-modifier/side Double-tap picker. Show tooltips and no activation after a single tap. | `19d4888`, `af0bbcd`, `06c9471`, `aea03098` |

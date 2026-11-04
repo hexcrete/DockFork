@@ -117,6 +117,7 @@ Ledger entries record exact hashes/category/purpose/file counts once each, throu
 | Popup execution, styling or lifetime | `action_feedback.rb` |
 | Cmd+Tab app actions, Quit or scripting | `cmd_tab_close.rb`, `quit_actions.rb`, `script_actions.rb` |
 | Title-bar hit classification or Wine discovery | `window_gesture_zones.rb`, `wine_discovery.rb` |
+| Pinned Settings examples, sample hover, checkbox presentation or isolation | `settings_mock_preview.rb`, `settings_merge.rb`, `upstream_integration.rb`; `preview_idle.rb`, `preview_publications.rb`, `selection_ranges.rb` for shared boundaries |
 | Curated preset changes | `showcase_preset.rb` |
 
 Use `ruby fork/tests/<name>.rb` for an applicable check; include related rows when shared behavior changes. Packaging/version/preset asset validation remains separate from application regressions. Full-suite runs are appropriate for broad shared-operation changes, merges with a broad impact, or release preparation, not every cosmetic rebuild. Builds and source assertions do not replace manual interaction or downloaded-installation testing.
@@ -140,3 +141,11 @@ Action Feedback is under Appearance; Auto Tile-prefixed controls share Tiling; n
 Run focused Settings/shortcut checks with `ruby fork/tests/settings_merge.rb`; synthetic-event checks require access to the system double-click interval but post no input. The build script does not run regression suites. Full Xcode/native display/animation/VoiceOver coverage and the known Compact drag fixture are separate gaps, not inferred passes.
 
 Space fixture update: the complete Space presentation suite now passes after repairing its synthetic mouse-event timing and stale source checks. The native drag harness also passed three consecutive runs with its assertions unchanged. The independent Compact drag fixture gap remains; this does not certify every native hardware/UI path. The settings, indentation, pinned-preview, shortcut and test-fixture repairs are separate commits; the ledger records their exact hashes.
+
+## Settings Example Previews
+
+The fork intentionally allows appearance-only hover in the pinned Dock, Cmd+Tab and Window Switcher examples. They use the live cards' shared appearance resolver, traffic-light dimming and checkbox visibility. The two examples stay in one SwiftUI layout so scaling transforms their visible controls and hover targets together; live previews retain the native virtualized grid. With multi-window selection enabled, checkbox clicks change only the two sample entries. Activation, window actions, native menus, file spring-loading and window dragging are excluded; no real windows or selection are affected. Sample coordinators do not query active-window Accessibility state or consume live window-cache replacements. The pinned/scaled bounds remain clipped so settings below stay reachable.
+
+Run `ruby fork/tests/settings_mock_preview.rb` for source-derived mock isolation/dimming checks. Add `--native` for opt-in scaled-control click checks in a disposable nonactivating panel, with an unlocked display; these do not move the pointer or target working windows. Visual parity, pointer interaction and the controls below the examples require manual verification; automated checks do not imply a UI capture or approval.
+
+The corrected examples are user-verified and committed as `e21fe4a2`; the shared resolver, local-state isolation and single-hierarchy scaling are one focused change. This does not certify every appearance/display/accessibility combination.
