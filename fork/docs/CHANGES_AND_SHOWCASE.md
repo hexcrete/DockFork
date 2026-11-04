@@ -1609,3 +1609,5 @@ Combined-modifier Double-tap remains a deferred feature: the current Double-tap 
 Final review evidence and approved commit boundaries are recorded in the ledger. The native Space fixture is repaired in test code only: synthetic mouse sequences end at the current uptime, event draining has one fixed deadline, and unchanged drag/click assertions include diagnostic callback counts. Three repeated native-harness runs and the complete Space presentation suite pass, including native headers and 180 indicator-placement cases. Stale settings/highlight source assertions now follow the shared implementation. The independent Compact fixture gap remains.
 
 No release, push, preset import, project/identity change or working-window manipulation is included. Final signed development artifact verification is recorded separately from manual testing and publication.
+
+November 4 shortcut wording: Alternate Shortcuts now explains Quick Switch alongside modifier inheritance, Persistent and Double-tap. The matching search description uses the same text. Behavior and defaults are unchanged.

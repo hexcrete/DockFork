@@ -105,7 +105,7 @@ struct WindowSwitcherKeybindSection: View {
                 }
             }
         } footer: {
-            Text("No modifiers selected inherits the main shortcut's modifiers and side. Persistent keeps the switcher open after release. Double-tap uses the chosen modifier twice instead of a trigger key.")
+            Text("When no modifiers are selected, the main shortcut's modifiers and side are inherited. Persistent keeps the switcher open after release. Double-tap uses the chosen modifier twice instead of a trigger key. Quick Switch activates the last-focused window within the selected filter mode without opening the switcher.")
         }
         .settingsSearchTarget("gestures.alternateShortcut")
         SettingsSection("Menu Bar Icon") { menuBarIconSection }

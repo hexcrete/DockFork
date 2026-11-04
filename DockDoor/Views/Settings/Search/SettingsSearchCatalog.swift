@@ -1519,7 +1519,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.alternateShortcut",
             title: String(localized: "Alternate Shortcuts"),
-            description: String(localized: "Additional shortcuts open the switcher with their selected filter mode. Persistent keeps it open after releasing the modifiers."),
+            description: String(localized: "When no modifiers are selected, the main shortcut's modifiers and side are inherited. Persistent keeps the switcher open after release. Double-tap uses the chosen modifier twice instead of a trigger key. Quick Switch activates the last-focused window within the selected filter mode without opening the switcher."),
             keywords: ["alternate", "shortcut", "shortcuts", "multiple", "trigger", "mode", "modifier", "escape"],
             tab: "Keybinds",
             section: String(localized: "Alternate Shortcuts"),
