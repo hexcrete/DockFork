@@ -1,4 +1,3 @@
-import Defaults
 import SwiftUI
 
 enum SettingsMockPreviewContext {
@@ -29,118 +28,6 @@ struct SettingsMockPreview: View {
     @StateObject private var coordinator: PreviewStateCoordinator
     @State private var wallpaperImage: NSImage? = SettingsWallpaper.cached
 
-    // MARK: - Dock appearance settings
-
-    @Default(.trafficLightButtonsVisibility) private var dockTrafficLightVisibility
-    @Default(.enabledTrafficLightButtons) private var dockEnabledTrafficLightButtons
-    @Default(.useMonochromeTrafficLights) private var dockUseMonochrome
-    @Default(.showWindowTitle) private var dockShowWindowTitle
-    @Default(.windowTitleVisibility) private var dockWindowTitleVisibility
-    @Default(.dockPreviewControlPosition) private var dockControlPosition
-    @Default(.disableDockStyleTrafficLights) private var dockDisableStyleTrafficLights
-    @Default(.disableDockStyleTitles) private var dockDisableStyleTitles
-    @Default(.useEmbeddedDockPreviewElements) private var dockUseEmbedded
-    @Default(.dockLivePreviewQuality) private var dockLivePreviewQuality
-    @Default(.dockLivePreviewFrameRate) private var dockLivePreviewFrameRate
-    @Default(.dockPreviewSpaceNumberIndicatorPlacement) private var dockPreviewSpaceNumberIndicatorPlacement
-    @Default(.highlightDockPreviewCurrentSpaceIndicator) private var highlightDockPreviewCurrentSpaceIndicator
-    @Default(.dockPreviewWindowStateIndicatorPlacement) private var dockPreviewWindowStateIndicatorPlacement
-    @Default(.disableDockStyleWindowStateIndicator) private var disableDockStyleWindowStateIndicator
-    @Default(.swapDockPreviewTrafficLightsAndWindowStateIndicator) private var swapDockPreviewTrafficLightsAndWindowStateIndicator
-    @Default(.limitDockPreviewIndicatorSwapToCompactMode) private var limitDockPreviewIndicatorSwapToCompactMode
-
-    // MARK: - Window Switcher appearance settings
-
-    @Default(.switcherTrafficLightButtonsVisibility) private var switcherTrafficLightVisibility
-    @Default(.switcherEnabledTrafficLightButtons) private var switcherEnabledTrafficLightButtons
-    @Default(.switcherUseMonochromeTrafficLights) private var switcherUseMonochrome
-    @Default(.switcherShowAppHeader) private var switcherShowAppHeader
-    @Default(.switcherShowAppIconBadges) private var switcherShowAppIconBadges
-    @Default(.switcherShowCompactAppIconBadges) private var switcherShowCompactAppIconBadges
-    @Default(.switcherAppIconBadgeScale) private var switcherAppIconBadgeScale
-    @Default(.switcherShowWindowTitle) private var switcherShowWindowTitle
-    @Default(.switcherWindowTitleVisibility) private var switcherWindowTitleVisibility
-    @Default(.switcherAppIconSize) private var switcherAppIconSize
-    @Default(.windowSwitcherControlPosition) private var switcherControlPosition
-    @Default(.switcherUseEmbeddedDockPreviewElements) private var switcherUseEmbedded
-    @Default(.switcherDisableDockStyleTrafficLights) private var switcherDisableStyleTrafficLights
-    @Default(.windowSwitcherLivePreviewQuality) private var switcherLivePreviewQuality
-    @Default(.windowSwitcherLivePreviewFrameRate) private var switcherLivePreviewFrameRate
-    @Default(.switcherSpaceNumberIndicatorPlacement) private var switcherSpaceNumberIndicatorPlacement
-    @Default(.highlightSwitcherCurrentSpaceIndicator) private var highlightSwitcherCurrentSpaceIndicator
-    @Default(.switcherWindowStateIndicatorPlacement) private var switcherWindowStateIndicatorPlacement
-    @Default(.switcherDisableDockStyleWindowStateIndicator) private var switcherDisableDockStyleWindowStateIndicator
-    @Default(.swapSwitcherTrafficLightsAndWindowStateIndicator) private var swapSwitcherTrafficLightsAndWindowStateIndicator
-    @Default(.limitSwitcherIndicatorSwapToCompactMode) private var limitSwitcherIndicatorSwapToCompactMode
-
-    // MARK: - Cmd+Tab appearance settings
-
-    @Default(.cmdTabTrafficLightButtonsVisibility) private var cmdTabTrafficLightVisibility
-    @Default(.cmdTabEnabledTrafficLightButtons) private var cmdTabEnabledTrafficLightButtons
-    @Default(.cmdTabUseMonochromeTrafficLights) private var cmdTabUseMonochrome
-    @Default(.cmdTabShowWindowTitle) private var cmdTabShowWindowTitle
-    @Default(.cmdTabWindowTitleVisibility) private var cmdTabWindowTitleVisibility
-    @Default(.cmdTabControlPosition) private var cmdTabControlPosition
-    @Default(.cmdTabDisableDockStyleTrafficLights) private var cmdTabDisableStyleTrafficLights
-    @Default(.cmdTabDisableDockStyleTitles) private var cmdTabDisableStyleTitles
-    @Default(.cmdTabUseEmbeddedDockPreviewElements) private var cmdTabUseEmbedded
-    @Default(.cmdTabSpaceNumberIndicatorPlacement) private var cmdTabSpaceNumberIndicatorPlacement
-    @Default(.highlightCmdTabCurrentSpaceIndicator) private var highlightCmdTabCurrentSpaceIndicator
-    @Default(.cmdTabWindowStateIndicatorPlacement) private var cmdTabWindowStateIndicatorPlacement
-    @Default(.cmdTabDisableDockStyleWindowStateIndicator) private var cmdTabDisableDockStyleWindowStateIndicator
-    @Default(.swapCmdTabTrafficLightsAndWindowStateIndicator) private var swapCmdTabTrafficLightsAndWindowStateIndicator
-    @Default(.limitCmdTabIndicatorSwapToCompactMode) private var limitCmdTabIndicatorSwapToCompactMode
-
-    // MARK: - Shared appearance settings
-
-    @Default(.dimMinimizedHiddenPreviews) private var dimMinimizedHiddenPreviews
-    @Default(.selectionOpacity) private var selectionOpacity
-    @Default(.unselectedContentOpacity) private var unselectedContentOpacity
-    @Default(.hoverHighlightColor) private var hoverHighlightColor
-    @Default(.allowDynamicImageSizing) private var allowDynamicImageSizing
-    @Default(.hidePreviewCardBackground) private var hidePreviewCardBackground
-    @Default(.tapEquivalentInterval) private var tapEquivalentInterval
-    @Default(.switcherTapEquivalentInterval) private var switcherTapEquivalentInterval
-    @Default(.cmdTabTapEquivalentInterval) private var cmdTabTapEquivalentInterval
-    @Default(.previewHoverAction) private var previewHoverAction
-    @Default(.switcherPreviewHoverAction) private var switcherPreviewHoverAction
-    @Default(.cmdTabPreviewHoverAction) private var cmdTabPreviewHoverAction
-    @Default(.keepPreviewOnHoverActivation) private var keepPreviewOnHoverActivation
-    @Default(.showActiveWindowBorder) private var showActiveWindowBorder
-    @Default(.activeAppIndicatorColor) private var activeAppIndicatorColor
-    @Default(.showAnimations) private var showAnimations
-    @Default(.trafficLightTransitionDuration) private var trafficLightTransitionDuration
-    @Default(.globalPaddingMultiplier) private var globalPaddingMultiplier
-    @Default(.uniformCardRadius) private var uniformCardRadius
-    @Default(.previewCornerRadius) private var previewCornerRadius
-    @Default(.windowTitleFontSize) private var windowTitleFontSize
-    @Default(.windowStateIndicatorFontSize) private var windowStateIndicatorFontSize
-    @Default(.trafficLightButtonScale) private var trafficLightButtonScale
-
-    // MARK: - Compact mode settings
-
-    @Default(.previewWidth) private var previewWidth
-    @Default(.compactModeWidth) private var compactModeWidth
-    @Default(.compactModeTitleFormat) private var compactModeTitleFormat
-    @Default(.compactModeItemSize) private var compactModeItemSize
-    @Default(.compactModeHideTrafficLights) private var compactModeHideTrafficLights
-    @Default(.showFullSizeWindowlessDockPreviews) private var showFullSizeWindowlessDockPreviews
-    @Default(.showFullSizeWindowlessCmdTabPreviews) private var showFullSizeWindowlessCmdTabPreviews
-    @Default(.showWindowlessAppQuitButton) private var showWindowlessAppQuitButton
-    @Default(.titleOverflowStyle) private var titleOverflowStyle
-
-    // MARK: - Header settings (used by container)
-
-    @Default(.showAppName) private var showAppName
-    @Default(.appNameStyle) private var appNameStyle
-    @Default(.showAppIconOnly) private var showAppIconOnly
-    @Default(.cmdTabShowAppName) private var cmdTabShowAppName
-    @Default(.cmdTabAppNameStyle) private var cmdTabAppNameStyle
-    @Default(.cmdTabShowAppIconOnly) private var cmdTabShowAppIconOnly
-    @Default(.previewMaxRows) private var previewMaxRows
-    @Default(.previewMaxColumns) private var previewMaxColumns
-    @Default(.switcherMaxRows) private var switcherMaxRows
-
     init(context: SettingsMockPreviewContext, maxHeight: CGFloat = 200) {
         self.context = context
         self.maxHeight = maxHeight
@@ -149,200 +36,6 @@ struct SettingsMockPreview: View {
             windows: windows,
             context: context
         ))
-    }
-
-    private var resolvedAppearance: PreviewAppearanceSettings {
-        let isWindowSwitcher = context.windowSwitcherActive
-        let isCmdTab = context == .cmdTab
-
-        let trafficLightVisibility: TrafficLightButtonsVisibility = if isWindowSwitcher {
-            switcherTrafficLightVisibility
-        } else if isCmdTab {
-            cmdTabTrafficLightVisibility
-        } else {
-            dockTrafficLightVisibility
-        }
-
-        let enabledButtons: Set<WindowAction> = if isWindowSwitcher {
-            switcherEnabledTrafficLightButtons
-        } else if isCmdTab {
-            cmdTabEnabledTrafficLightButtons
-        } else {
-            dockEnabledTrafficLightButtons
-        }
-
-        let monochrome: Bool = if isWindowSwitcher {
-            switcherUseMonochrome
-        } else if isCmdTab {
-            cmdTabUseMonochrome
-        } else {
-            dockUseMonochrome
-        }
-
-        let showTitle: Bool = if isWindowSwitcher {
-            switcherShowWindowTitle
-        } else if isCmdTab {
-            cmdTabShowWindowTitle
-        } else {
-            dockShowWindowTitle
-        }
-
-        let titleVisibility: WindowTitleVisibility = if isWindowSwitcher {
-            switcherWindowTitleVisibility
-        } else if isCmdTab {
-            cmdTabWindowTitleVisibility
-        } else {
-            dockWindowTitleVisibility
-        }
-
-        let controlPos: WindowSwitcherControlPosition = if isWindowSwitcher {
-            switcherControlPosition
-        } else if isCmdTab {
-            cmdTabControlPosition
-        } else {
-            dockControlPosition
-        }
-
-        let disableStyleTrafficLights: Bool = if isWindowSwitcher {
-            switcherDisableStyleTrafficLights
-        } else if isCmdTab {
-            cmdTabDisableStyleTrafficLights
-        } else {
-            dockDisableStyleTrafficLights
-        }
-
-        let disableStyleTitles: Bool = if isWindowSwitcher {
-            true
-        } else if isCmdTab {
-            cmdTabDisableStyleTitles
-        } else {
-            dockDisableStyleTitles
-        }
-
-        let useEmbedded: Bool = if isWindowSwitcher {
-            switcherUseEmbedded
-        } else if isCmdTab {
-            cmdTabUseEmbedded
-        } else {
-            dockUseEmbedded
-        }
-
-        let quality = isWindowSwitcher ? switcherLivePreviewQuality : dockLivePreviewQuality
-        let frameRate = isWindowSwitcher ? switcherLivePreviewFrameRate : dockLivePreviewFrameRate
-        let resolvedHoverDelay: CGFloat = if isWindowSwitcher {
-            switcherTapEquivalentInterval
-        } else if isCmdTab {
-            cmdTabTapEquivalentInterval
-        } else {
-            tapEquivalentInterval
-        }
-        let resolvedHoverAction: PreviewHoverAction = if isWindowSwitcher {
-            switcherPreviewHoverAction
-        } else if isCmdTab {
-            cmdTabPreviewHoverAction
-        } else {
-            previewHoverAction
-        }
-        let spaceNumberIndicatorPlacement: WindowStateIndicatorPlacement = if isWindowSwitcher {
-            switcherSpaceNumberIndicatorPlacement
-        } else if isCmdTab {
-            cmdTabSpaceNumberIndicatorPlacement
-        } else {
-            dockPreviewSpaceNumberIndicatorPlacement
-        }
-        let highlightCurrentSpaceNumberIndicator: Bool = if isWindowSwitcher {
-            highlightSwitcherCurrentSpaceIndicator
-        } else if isCmdTab {
-            highlightCmdTabCurrentSpaceIndicator
-        } else {
-            highlightDockPreviewCurrentSpaceIndicator
-        }
-        let windowStateIndicatorPlacement: WindowStateIndicatorPlacement = if isWindowSwitcher {
-            switcherWindowStateIndicatorPlacement
-        } else if isCmdTab {
-            cmdTabWindowStateIndicatorPlacement
-        } else {
-            dockPreviewWindowStateIndicatorPlacement
-        }
-        let disableDockStyleWindowStateIndicator: Bool = if isWindowSwitcher {
-            switcherDisableDockStyleWindowStateIndicator
-        } else if isCmdTab {
-            cmdTabDisableDockStyleWindowStateIndicator
-        } else {
-            disableDockStyleWindowStateIndicator
-        }
-        let swapTrafficLightsAndWindowStateIndicator: Bool = if isWindowSwitcher {
-            swapSwitcherTrafficLightsAndWindowStateIndicator
-        } else if isCmdTab {
-            swapCmdTabTrafficLightsAndWindowStateIndicator
-        } else {
-            swapDockPreviewTrafficLightsAndWindowStateIndicator
-        }
-        let limitIndicatorSwapToCompactMode: Bool = if isWindowSwitcher {
-            limitSwitcherIndicatorSwapToCompactMode
-        } else if isCmdTab {
-            limitCmdTabIndicatorSwapToCompactMode
-        } else {
-            limitDockPreviewIndicatorSwapToCompactMode
-        }
-
-        return PreviewAppearanceSettings(
-            enableMultiWindowSelection: false,
-            enableWindowlessAppSelection: false,
-            enableWindowDragTiling: false,
-            showWindowSelectionSummary: false,
-            showUncheckedSelectionCheckboxes: false,
-            selectionCheckboxVisibility: .previewHover,
-            trafficLightVisibility: trafficLightVisibility,
-            enabledTrafficLightButtons: enabledButtons,
-            useMonochromeTrafficLights: monochrome,
-            showAppHeader: isWindowSwitcher ? switcherShowAppHeader : true,
-            showAppIconBadges: isWindowSwitcher && switcherShowAppIconBadges,
-            showCompactAppIconBadges: isWindowSwitcher && switcherShowCompactAppIconBadges,
-            appIconBadgeScale: switcherAppIconBadgeScale,
-            showWindowTitle: showTitle,
-            windowTitleVisibility: titleVisibility,
-            controlPosition: controlPos,
-            useEmbeddedElements: useEmbedded,
-            disableDockStyleTrafficLights: disableStyleTrafficLights,
-            disableDockStyleTitles: disableStyleTitles,
-            dimMinimizedHiddenPreviews: dimMinimizedHiddenPreviews,
-            selectionOpacity: selectionOpacity,
-            unselectedContentOpacity: unselectedContentOpacity,
-            hoverHighlightColor: hoverHighlightColor,
-            allowDynamicImageSizing: allowDynamicImageSizing,
-            hidePreviewCardBackground: hidePreviewCardBackground,
-            tapEquivalentInterval: resolvedHoverDelay,
-            previewHoverAction: resolvedHoverAction,
-            keepPreviewOnHoverActivation: keepPreviewOnHoverActivation,
-            showActiveWindowBorder: showActiveWindowBorder,
-            activeAppIndicatorColor: activeAppIndicatorColor,
-            showAnimations: showAnimations,
-            trafficLightTransitionDuration: trafficLightTransitionDuration,
-            globalPaddingMultiplier: globalPaddingMultiplier,
-            radii: CardRadius.Resolved(uniform: uniformCardRadius, base: previewCornerRadius, paddingMultiplier: globalPaddingMultiplier),
-            windowTitleFontSize: windowTitleFontSize,
-            windowStateIndicatorFontSize: windowStateIndicatorFontSize,
-            switcherAppIconSize: isWindowSwitcher ? switcherAppIconSize : 0,
-            trafficLightButtonScale: trafficLightButtonScale,
-            livePreviewQuality: quality,
-            livePreviewFrameRate: frameRate,
-            previewWidth: previewWidth,
-            compactModeWidth: compactModeWidth,
-            compactModeTitleFormat: compactModeTitleFormat,
-            compactModeItemSize: compactModeItemSize,
-            compactModeHideTrafficLights: compactModeHideTrafficLights,
-            spaceNumberIndicatorPlacement: spaceNumberIndicatorPlacement,
-            enableSpaceIndicatorWindowMoving: false,
-            highlightCurrentSpaceNumberIndicator: highlightCurrentSpaceNumberIndicator,
-            windowStateIndicatorPlacement: windowStateIndicatorPlacement,
-            disableDockStyleWindowStateIndicator: disableDockStyleWindowStateIndicator,
-            swapTrafficLightsAndWindowStateIndicator: swapTrafficLightsAndWindowStateIndicator,
-            limitIndicatorSwapToCompactMode: limitIndicatorSwapToCompactMode,
-            showFullSizeWindowlessPreviews: isWindowSwitcher || (isCmdTab ? showFullSizeWindowlessCmdTabPreviews : showFullSizeWindowlessDockPreviews),
-            showWindowlessAppQuitButton: showWindowlessAppQuitButton,
-            titleOverflowStyle: titleOverflowStyle
-        )
     }
 
     var body: some View {
@@ -357,10 +50,8 @@ struct SettingsMockPreview: View {
                 windowSwitcherCoordinator: coordinator,
                 mockPreviewActive: true,
                 updateAvailable: false,
-                hasScreenRecordingPermission: true,
-                appearanceOverride: resolvedAppearance
+                hasScreenRecordingPermission: true
             )
-            .allowsHitTesting(false)
             .modifier(ScaledToFit(maxHeight: maxHeight))
             .background {
                 GeometryReader { proxy in
@@ -439,21 +130,22 @@ struct SettingsMockPreview: View {
                 spaceNumberOverride: i + 1,
                 isMinimized: false,
                 isHidden: false,
-                isFullscreen: i == 1
+                isFullscreen: i == 1,
+                readsAXTitle: false
             ))
         }
         return windows
     }
 
     private static func makeCoordinator(windows: [WindowInfo], context: SettingsMockPreviewContext) -> PreviewStateCoordinator {
-        let coordinator = PreviewStateCoordinator()
+        let coordinator = PreviewStateCoordinator(isMockPreview: true)
+        coordinator.windowSwitcherActive = context.windowSwitcherActive
         coordinator.setWindows(
             windows,
             dockPosition: context.dockPosition,
             bestGuessMonitor: NSScreen.main!,
             isMockPreviewActive: true
         )
-        coordinator.windowSwitcherActive = context.windowSwitcherActive
         if !windows.isEmpty {
             coordinator.setIndex(to: 0)
         }
@@ -497,7 +189,7 @@ private struct ScaledToFit: ViewModifier {
                     .scaleEffect(scale)
             }
             .clipped()
-            .allowsHitTesting(false)
+            .contentShape(Rectangle())
     }
 }
 

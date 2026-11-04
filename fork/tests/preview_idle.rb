@@ -50,6 +50,7 @@ enum WindowUtil {
 }
 struct WindowInfo {let id:CGWindowID;let app:NSWorkspace.App;let lastAccessedTime:Date}
 @MainActor final class State:ObservableObject {
+ let isMockPreview=false
  enum Showing{case fullWindowPreview}
  var fullWindowPreviewActive=false,windowSwitcherActive=true
  @Published var focusedWindowID:CGWindowID?

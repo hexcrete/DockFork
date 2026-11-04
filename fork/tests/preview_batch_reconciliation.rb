@@ -46,6 +46,7 @@ final class SharedPreviewWindowCoordinator {
  func hideWindow(){hides+=1}
 }
 @MainActor class Probe {
+ let isMockPreview=false
  enum Source {case keyboard,mouse,programmatic}
  var stored:[WindowInfo]=[],publications=0
  var activeSpaceMembers:Set<PreviewWindowIdentity>?

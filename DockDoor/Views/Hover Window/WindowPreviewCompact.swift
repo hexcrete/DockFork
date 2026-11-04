@@ -225,18 +225,21 @@ struct WindowPreviewCompact: View, Equatable {
                 activeBorderColor: appearance.activeAppIndicatorColor,
                 backgroundAppearance: backgroundAppearance
             )
-            .externalDragSpringLoading(
-                windowInfo: windowInfo,
-                index: index,
-                uniformCardRadius: uniformCardRadius,
-                appearance: appearance,
-                windowSwitcherActive: windowSwitcherActive,
-                handleWindowAction: handleWindowAction,
-                onTap: onTap,
-                onDragHoverIndexChange: onDragHoverIndexChange,
-                dragSelection: dragSelection,
-                expansionEdges: .horizontal
-            )
+            .if(!mockPreviewActive) { view in
+                view
+                    .externalDragSpringLoading(
+                        windowInfo: windowInfo,
+                        index: index,
+                        uniformCardRadius: uniformCardRadius,
+                        appearance: appearance,
+                        windowSwitcherActive: windowSwitcherActive,
+                        handleWindowAction: handleWindowAction,
+                        onTap: onTap,
+                        onDragHoverIndexChange: onDragHoverIndexChange,
+                        dragSelection: dragSelection,
+                        expansionEdges: .horizontal
+                    )
+            }
             .padding(.horizontal, CompactPreviewCardLayout.horizontalInset)
             .contentShape(Rectangle())
             .onContinuousHover { phase in
@@ -257,16 +260,18 @@ struct WindowPreviewCompact: View, Equatable {
                     if isHovering { setHoverState(false) }
                 }
             }
-            .windowPreviewInteractions(
-                windowInfo: windowInfo,
-                windowSwitcherActive: windowSwitcherActive,
-                dockPosition: dockPosition,
-                useCompactMode: true,
-                pointerHoverActive: isHovering,
-                handleWindowAction: handleWindowAction,
-                onTap: onTap
-            )
-            .allowsHitTesting(!mockPreviewActive)
+            .if(!mockPreviewActive) { view in
+                view
+                    .windowPreviewInteractions(
+                        windowInfo: windowInfo,
+                        windowSwitcherActive: windowSwitcherActive,
+                        dockPosition: dockPosition,
+                        useCompactMode: true,
+                        pointerHoverActive: isHovering,
+                        handleWindowAction: handleWindowAction,
+                        onTap: onTap
+                    )
+            }
     }
 
     @ViewBuilder
@@ -308,7 +313,7 @@ struct WindowPreviewCompact: View, Equatable {
             .overlay {
                 if stage == .combined {
                     overflowButton(stage, circular: true)
-                } else if appearance.enableMultiWindowSelection, !mockPreviewActive, !windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection,
+                } else if appearance.enableMultiWindowSelection, !windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection,
                           appearance.showUncheckedSelectionCheckboxes || isChecked || selectionInteraction?.isDragOrigin == true
                 {
                     PreviewSelectionCheckbox(
@@ -331,12 +336,12 @@ struct WindowPreviewCompact: View, Equatable {
             }
 
             .if(!isMeasuring && appearance.enableMultiWindowSelection && appearance.showUncheckedSelectionCheckboxes &&
-                appearance.selectionCheckboxVisibility == .titleHover && !mockPreviewActive && (!windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection))
+                appearance.selectionCheckboxVisibility == .titleHover && (!windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection))
             { view in
                 view.onContinuousHover { phase in
                     let hovering: Bool = switch phase {
                     case .active:
-                        SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.registerMouseMovementSinceOpen() == true
+                        mockPreviewActive || SharedPreviewWindowCoordinator.activeInstance?.windowSwitcherCoordinator.registerMouseMovementSinceOpen() == true
                     case .ended:
                         false
                     }

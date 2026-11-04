@@ -83,10 +83,10 @@ replaced = Set.new(%w[appearance.spaceNumber appearance.distinguishMinimized doc
 errors = []
 form_source = File.read("#{SETTINGS}/Shared Components/SettingsForm.swift")
 header_source = source_block(form_source, form_source.index('.safeAreaInset('))
-errors << 'Decorative pinned headers must be clipped and mouse-inert after their background' unless header_source.index('.background(') < header_source.index('.clipped()').to_i && header_source.include?('.allowsHitTesting(false)')
+errors << 'Pinned headers must clip and bound hit testing after their background' unless header_source.index('.background(') < header_source.index('.clipped()').to_i && header_source.include?('.contentShape(Rectangle())')
 mock_source = File.read("#{SETTINGS}/Shared Components/SettingsMockPreview.swift")
 scaled_source = source_block(mock_source, mock_source.index('private struct ScaledToFit:'))
-errors << 'Scaled preview overflow must be clipped and mouse-inert' unless scaled_source.match?(/\.scaleEffect\(scale\).*?\.clipped\(\)\s*\.allowsHitTesting\(false\)/m)
+errors << 'Scaled preview overflow must be clipped and hit testing bounded' unless scaled_source.match?(/\.scaleEffect\(scale\).*?\.clipped\(\)\s*\.contentShape\(Rectangle\(\)\)/m)
 cmd_source = current['nodes'].fetch('CmdKeyShortcutsSection')['source']
 row_source = source_block(cmd_source, cmd_source.index('private func cmdShortcutRow('))
 errors << 'Preview assignment must precede flexible space and the action picker' unless row_source.index('KeyCaptureButton(') < row_source.index('Spacer(minLength: 8)').to_i && row_source.index('Spacer(minLength: 8)') < row_source.index('Picker("Action"').to_i

@@ -714,12 +714,13 @@ struct PreviewOverflowButton: View {
 
     var body: some View {
         Button {
+            guard !mockPreviewActive else { return }
             PreviewContextMenuController.shared.presentOverflow(for: window, overflow: overflow,
                                                                 handleWindowAction: handleWindowAction, dismissPreviews: dismissPreviews)
         } label: {
             Image(systemName: "ellipsis")
                 .font(.system(size: circularDiameter.map { $0 * 0.55 } ?? 13 * appearance.trafficLightButtonScale, weight: .bold))
-                .opacity(circularDiameter == nil && !mockPreviewActive && !isHovering &&
+                .opacity(circularDiameter == nil && !isHovering &&
                     (appearance.trafficLightVisibility == .dimmedOnPreviewHover || appearance.trafficLightVisibility == .dimmedUntilButtonHover) ? 0.25 : 1)
                 .frame(width: circularDiameter ?? TrafficLightButtons.buttonFrameSize * appearance.trafficLightButtonScale,
                        height: circularDiameter ?? TrafficLightButtons.buttonFrameSize * appearance.trafficLightButtonScale)
@@ -744,7 +745,6 @@ struct PreviewOverflowButton: View {
         .accessibilityLabel(String(localized: "More window actions"))
         .accessibilityAddTraits(isChecked && overflow.includesSelection ? .isSelected : [])
         .fixedSize()
-        .allowsHitTesting(!mockPreviewActive)
     }
 }
 
@@ -1401,7 +1401,7 @@ struct WindowPreview: View, Equatable {
     @State private var isHoveringTitle = false
 
     private var hasSelectionControl: Bool {
-        appearance.enableMultiWindowSelection && !mockPreviewActive && (!windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection) &&
+        appearance.enableMultiWindowSelection && (!windowInfo.isWindowlessApp || appearance.enableWindowlessAppSelection) &&
             (appearance.showUncheckedSelectionCheckboxes || isChecked || selectionInteraction?.isDragOrigin == true)
     }
 
@@ -2360,29 +2360,32 @@ struct WindowPreview: View, Equatable {
 
     var body: some View {
         previewCoreContent
-            .externalDragSpringLoading(
-                windowInfo: windowInfo,
-                index: index,
-                uniformCardRadius: uniformCardRadius,
-                appearance: appearance,
-                windowSwitcherActive: windowSwitcherActive,
-                handleWindowAction: handleWindowAction,
-                onTap: onTap,
-                onDragHoverIndexChange: onDragHoverIndexChange,
-                dragSelection: dragSelection
-            )
-            .windowPreviewInteractions(
-                windowInfo: windowInfo,
-                windowSwitcherActive: windowSwitcherActive,
-                dockPosition: dockPosition,
-                pointerHoverActive: windowSwitcherActive
-                    ? isHoveringOverWindowSwitcherPreview
-                    : isHoveringOverDockPeekPreview,
-                handleWindowAction: handleWindowAction,
-                onTap: onTap
-            )
+            .if(!mockPreviewActive) { view in
+                view
+                    .externalDragSpringLoading(
+                        windowInfo: windowInfo,
+                        index: index,
+                        uniformCardRadius: uniformCardRadius,
+                        appearance: appearance,
+                        windowSwitcherActive: windowSwitcherActive,
+                        handleWindowAction: handleWindowAction,
+                        onTap: onTap,
+                        onDragHoverIndexChange: onDragHoverIndexChange,
+                        dragSelection: dragSelection
+                    )
+                    .windowPreviewInteractions(
+                        windowInfo: windowInfo,
+                        windowSwitcherActive: windowSwitcherActive,
+                        dockPosition: dockPosition,
+                        pointerHoverActive: windowSwitcherActive
+                            ? isHoveringOverWindowSwitcherPreview
+                            : isHoveringOverDockPeekPreview,
+                        handleWindowAction: handleWindowAction,
+                        onTap: onTap
+                    )
+            }
             .fixedSize()
             .opacity(skeletonMode ? 0 : 1)
-            .allowsHitTesting(!skeletonMode && !mockPreviewActive)
+            .allowsHitTesting(!skeletonMode)
     }
 }

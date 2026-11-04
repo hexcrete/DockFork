@@ -127,7 +127,7 @@ end
 abort 'Dock locking search must route to its new pane' unless File.read("#{settings_root}/AdvancedSettingsView.swift").include?('.settingsSearchTarget("dockLocking.enable")') && !search.include?('tab: "DockLocking"')
 mock = File.read("#{settings_root}/Shared Components/SettingsMockPreview.swift")
 container = File.read("#{root}/DockDoor/Views/Hover Window/WindowPreviewHoverContainer.swift")
-abort 'Mock cache cleanup/appearance parity must survive' unless mock.include?('static func releaseCaches()') && mock.include?('appearanceOverride: resolvedAppearance') && mock.include?('.modifier(ScaledToFit(maxHeight: maxHeight))')
+abort 'Mock cache cleanup/shared appearance parity must survive' unless mock.include?('static func releaseCaches()') && !mock.include?('appearanceOverride:') && mock.include?('PreviewStateCoordinator(isMockPreview: true)') && mock.include?('.modifier(ScaledToFit(maxHeight: maxHeight))')
 abort 'Settings mocks must not affect real capture lifetime' unless container.scan('if !mockPreviewActive, Defaults[.enableLivePreview], Defaults[.livePreviewStreamKeepAlive] != 0 {').length == 2
 observers = File.read("#{root}/DockDoor/Utilities/Window Management/WindowManipulationObservers.swift")
 removal = block(observers, '    func removeObserver(for pid:')

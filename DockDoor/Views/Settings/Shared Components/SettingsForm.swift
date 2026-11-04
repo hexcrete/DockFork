@@ -25,7 +25,7 @@ struct SettingsFormView<Content: View, Header: View>: View {
                         .padding(.bottom, 6)
                         .background(Color(nsColor: .windowBackgroundColor))
                         .clipped()
-                        .allowsHitTesting(false)
+                        .contentShape(Rectangle())
                 }
             }
             .onChange(of: scrollTarget) { target in

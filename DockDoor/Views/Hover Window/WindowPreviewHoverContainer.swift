@@ -484,6 +484,16 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func handleHoverIndexChange(_ hoveredIndex: Int, _ location: CGPoint?) -> Bool {
+        if mockPreviewActive {
+            if location != nil {
+                if hoveredIndex != previewStateCoordinator.currIndex {
+                    previewStateCoordinator.setIndex(to: hoveredIndex, shouldScroll: false, source: .mouse)
+                }
+                return true
+            }
+            if previewStateCoordinator.currIndex == hoveredIndex { previewStateCoordinator.setIndex(to: -1, shouldScroll: false, source: .mouse) }
+            return false
+        }
         guard !previewStateCoordinator.isDraggingPreview, !previewStateCoordinator.isPointerSelecting else { return false }
         let isWindowSwitcher = previewStateCoordinator.windowSwitcherActive
         let isCmdTabPreview = !isWindowSwitcher && dockPosition == .cmdTab
@@ -554,7 +564,7 @@ struct WindowPreviewHoverContainer: View {
             ? PreviewHeaderLayout.contentReservation(for: .popover) : 0)
         .contentShape(Rectangle())
         .onTapGesture {
-            activateApp()
+            if !mockPreviewActive { activateApp() }
         }
         .padding(.top, (effectiveShouldShowHeader && effectiveAppNameStyle == .popover) ? PreviewHeaderLayout.contentReservation(for: .popover) : 0)
         .overlay {
@@ -630,6 +640,9 @@ struct WindowPreviewHoverContainer: View {
                     dockPosition: dockPosition
                 )
                 if updated != cachedAppearance { cachedAppearance = updated }
+                if mockPreviewActive, let previousAppearance, previousAppearance != updated {
+                    previewStateCoordinator.recomputeAndPublishDimensions(dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor, isMockPreviewActive: true)
+                }
                 if let previousAppearance, previousAppearance.showWindowSelectionSummary != updated.showWindowSelectionSummary,
                    previewStateCoordinator.checkedWindowCount > 0
                 {
@@ -1313,31 +1326,49 @@ struct WindowPreviewHoverContainer: View {
                 dimensions: currentDimensionsMapForPreviews,
                 appearance: appearance
             )
-            CardGridScrollView(
-                layout: layout,
-                contentKey: previewStateCoordinator.windows.map(\.viewSnapshot),
-                focusedWindowID: previewStateCoordinator.focusedWindowID,
-                coordinator: previewStateCoordinator,
-                scrolledFromStart: $scrolledFromStart,
-                scrolledToEnd: $scrolledToEnd,
-                isInteractive: !mockPreviewActive,
-                edgeScrollRequest: edgeScrollRequest,
-                edgeScrollSpeed: edgeAutoScrollSpeed,
-                selectionEdgeAutoScrollEnabled: edgeAutoScrollEnabled,
-                onHoverIndexChange: handleHoverIndexChange,
-                makeCard: { item in
-                    AnyView(buildFlowItem(
-                        item: item,
-                        laysOutItemsInRows: gridFlow.laysOutItemsInRows,
-                        currentMaxDimensionForPreviews: currentMaxDimensionForPreviews,
-                        currentDimensionsMapForPreviews: currentDimensionsMapForPreviews,
-                        filteredIndices: cachedFilteredIndices,
-                        appearance: appearance,
-                        currentSpaceNumbers: currentSpaceNumbers
-                    ))
+            let makeCard: (FlowItem) -> AnyView = { item in
+                AnyView(buildFlowItem(
+                    item: item,
+                    laysOutItemsInRows: gridFlow.laysOutItemsInRows,
+                    currentMaxDimensionForPreviews: currentMaxDimensionForPreviews,
+                    currentDimensionsMapForPreviews: currentDimensionsMapForPreviews,
+                    filteredIndices: cachedFilteredIndices,
+                    appearance: appearance,
+                    currentSpaceNumbers: currentSpaceNumbers
+                ))
+            }
+            if mockPreviewActive {
+                let outer = layout.laysOutItemsInRows
+                    ? AnyLayout(VStackLayout(alignment: layout.centerLines ? .center : .leading, spacing: layout.spacing))
+                    : AnyLayout(HStackLayout(alignment: .top, spacing: layout.spacing))
+                let inner = layout.laysOutItemsInRows
+                    ? AnyLayout(HStackLayout(alignment: .top, spacing: layout.spacing))
+                    : AnyLayout(VStackLayout(alignment: .leading, spacing: layout.spacing))
+                outer {
+                    ForEach(lines.indices, id: \.self) { line in
+                        inner {
+                            ForEach(lines[line], id: \.self) { item in makeCard(item) }
+                        }
+                    }
                 }
-            )
-            .padding(2)
+                .padding(layout.inset)
+                .padding(2)
+            } else {
+                CardGridScrollView(
+                    layout: layout,
+                    contentKey: previewStateCoordinator.windows.map(\.viewSnapshot),
+                    focusedWindowID: previewStateCoordinator.focusedWindowID,
+                    coordinator: previewStateCoordinator,
+                    scrolledFromStart: $scrolledFromStart,
+                    scrolledToEnd: $scrolledToEnd,
+                    edgeScrollRequest: edgeScrollRequest,
+                    edgeScrollSpeed: edgeAutoScrollSpeed,
+                    selectionEdgeAutoScrollEnabled: edgeAutoScrollEnabled,
+                    onHoverIndexChange: handleHoverIndexChange,
+                    makeCard: makeCard
+                )
+                .padding(2)
+            }
         }
     }
 
@@ -1532,6 +1563,12 @@ struct WindowPreviewHoverContainer: View {
     }
 
     private func handleWindowAction(_ action: WindowAction, at index: Int) {
+        if mockPreviewActive {
+            if action == .toggleWindowSelection, previewStateCoordinator.windows.indices.contains(index) {
+                previewStateCoordinator.toggleCheckedWindow(previewStateCoordinator.windows[index])
+            }
+            return
+        }
         if action == .selectAllWindows {
             if !mockPreviewActive { previewStateCoordinator.selectAllDisplayedWindows() }
             return
@@ -2320,6 +2357,10 @@ struct WindowPreviewHoverContainer: View {
 
             let isSelected = index == currIndex
             let handleCardAction: (WindowAction) -> Void = { action in
+                if mockPreviewActive {
+                    handleWindowAction(action, at: index)
+                    return
+                }
                 if action == .selectAllWindows {
                     if !mockPreviewActive { previewStateCoordinator.selectAllDisplayedWindows() }
                 } else if action == .toggleWindowSelection {

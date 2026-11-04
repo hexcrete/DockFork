@@ -85,6 +85,12 @@ final class SwitcherSelectionState: ObservableObject {
 
 /// Pure UI state container for window preview presentation
 class PreviewStateCoordinator: ObservableObject {
+    let isMockPreview: Bool
+
+    init(isMockPreview: Bool = false) {
+        self.isMockPreview = isMockPreview
+    }
+
     enum SelectionInputSource {
         case programmatic
         case keyboard
@@ -293,6 +299,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     private func pinCheckedSelectionIfNeeded() {
+        guard !isMockPreview else { return }
         if Defaults[.keepWindowSwitcherOpenWhenSelected], windowSwitcherActive,
            !selectionPinned, !selection.checkedWindows.identities.isEmpty
         {
@@ -348,7 +355,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func reconcileCheckedWindows(refreshLayout: Bool = true) {
-        guard checkedWindowCount > 0 else { return }
+        guard !isMockPreview, checkedWindowCount > 0 else { return }
         let identities = selection.checkedWindows.identities
         var live = Set(Set(identities.map(\.pid)).flatMap {
             WindowUtil.readCachedWindows(for: $0).map(PreviewWindowIdentity.init)
@@ -389,6 +396,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func refreshSelectionLayout() {
+        guard !isMockPreview else { return }
         selectionLayoutGeneration &+= 1
         let generation = selectionLayoutGeneration
         DispatchQueue.main.async { [weak self] in
@@ -498,7 +506,7 @@ class PreviewStateCoordinator: ObservableObject {
     }
 
     var selectionAccessoryHeight: CGFloat {
-        guard checkedWindowCount > 0, Defaults[.showWindowSelectionSummary] else { return 0 }
+        guard !isMockPreview, checkedWindowCount > 0, Defaults[.showWindowSelectionSummary] else { return 0 }
         return PreviewHeaderLayout.contentReservation(for: selectionSummaryStyle)
     }
 
@@ -772,7 +780,7 @@ class PreviewStateCoordinator: ObservableObject {
         windows = newWindows
         reconcileCheckedWindows()
         reconcileSelectionRange()
-        refreshFocusedWindowID(from: newWindows)
+        if isMockPreview { focusedWindowID = newWindows.first?.id } else { refreshFocusedWindowID(from: newWindows) }
         lastKnownBestGuessMonitor = bestGuessMonitor
 
         if currIndex >= windows.count {
@@ -795,6 +803,7 @@ class PreviewStateCoordinator: ObservableObject {
         bestGuessMonitor: NSScreen?,
         isMockPreviewActive: Bool = false
     ) -> (mergedWindows: [WindowInfo], didPublish: Bool) {
+        guard !isMockPreview else { return (windows, false) }
         let before = windows
         let beforeSnapshots = before.map(\.viewSnapshot)
         let previousSelectionSource = selectionInputSource
@@ -868,6 +877,7 @@ class PreviewStateCoordinator: ObservableObject {
     /// Preserves window order and selected index where possible.
     @MainActor
     func mergeWindows(_ freshWindows: [WindowInfo], dockPosition: DockPosition, bestGuessMonitor: NSScreen) {
+        guard !isMockPreview else { return }
         guard !windows.isEmpty else {
             setWindows(freshWindows, dockPosition: dockPosition, bestGuessMonitor: bestGuessMonitor)
             return
@@ -1021,6 +1031,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     private func reconcileWindowChanges(removed: [WindowInfo] = [], added: [WindowInfo] = [], updated: [WindowInfo] = [], removingIndex: Int? = nil) {
+        guard !isMockPreview else { return }
         let previousCheckedCount = checkedWindowCount
         let originalPID = windows.first?.app.processIdentifier
         // Keep lookup and selection slots stable until the final publication.
@@ -1190,6 +1201,7 @@ class PreviewStateCoordinator: ObservableObject {
 
     @MainActor
     func scheduleActiveFocusedWindowRefresh() {
+        guard !isMockPreview else { return }
         guard Defaults[.showActiveWindowBorder] else {
             activeFocusRefreshTask?.cancel()
             activeFocusRefreshTask = nil
@@ -1500,7 +1512,7 @@ class PreviewStateCoordinator: ObservableObject {
                 windowSwitcherActive: true,
                 dimensions: dims,
                 showAppIconOnly: Defaults[.showAppIconOnly],
-                mockPreviewActive: false,
+                mockPreviewActive: isMockPreview,
                 onHoverIndexChange: nil,
                 onDragHoverIndexChange: nil,
                 useLivePreview: false,

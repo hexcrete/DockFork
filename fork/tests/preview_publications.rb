@@ -64,7 +64,7 @@ SWIFT
     source+=block(state,'    private(set) var selectionInputSource:')+"\n"
   end
   %w[updateSelectionIndex setIndex clearSelectionIfMouseSource].each{|n|source+=block(state,"    func #{n}(")+"\n"}
-  source+="}\n@MainActor final class #{name}Hover {\nlet previewStateCoordinator=#{name}State()\nvar dockPosition=DockPosition.bottom,enableMouseHoverInSwitcher=true\nvar edgeScrollRequest:Int?,refreshes=0\nfunc refreshHighlightActionIfNeeded(){refreshes+=1}\n"
+  source+="}\n@MainActor final class #{name}Hover {\nlet previewStateCoordinator=#{name}State()\nvar mockPreviewActive=false;var dockPosition=DockPosition.bottom,enableMouseHoverInSwitcher=true\nvar edgeScrollRequest:Int?,refreshes=0\nfunc refreshHighlightActionIfNeeded(){refreshes+=1}\n"
   source+=block(view,'    private func handleHoverIndexChange(').sub('private func handleHoverIndexChange','func hover')+"\n}\n"
 end
 if native

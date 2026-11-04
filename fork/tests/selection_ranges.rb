@@ -55,6 +55,8 @@ final class Selection { var checkedWindows = OrderedPreviewSelection() }
  }
 }
 @MainActor final class PreviewStateCoordinator {
+ let isMockPreview=false
+ var focusedWindowID:CGWindowID?
  enum SelectionInputSource { case programmatic, keyboard, mouse }
  enum NavigationTarget { case windows }
  var activeSpaceFilterID: CGSSpaceID?

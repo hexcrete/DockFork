@@ -89,6 +89,7 @@ final class NSHostingView<Content>:NSView {
 }
 struct Selection {struct Checked {var membership:Set<PreviewWindowIdentity>=[]};var checkedWindows=Checked()}
 @MainActor final class Probe {
+ let isMockPreview=false
  var windows:[WindowInfo]=[];var selection=Selection()
  private var switcherChromeMeasurements:[(key:WindowPreview.ChromeMeasurementKey,height:CGFloat)]=[]
  var count:Int{switcherChromeMeasurements.count}
