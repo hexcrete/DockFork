@@ -11,8 +11,9 @@ abort 'Preset version differs from planned release' unless preset['appVersion'] 
 settings = preset.fetch('settings')
 abort 'Settings must be a dictionary' unless settings.is_a?(Hash)
 known = File.read(File.join(root, 'DockDoor/consts.swift')).scan(/Key(?:<[^\n]*?>)?\(\s*"([^"\n]+)"/).flatten
-retired = %w[persistentSwitcherShortcuts persistentSwitcherStartsUnfocused lastFocusedWindowShortcuts]
-unknown = settings.keys - known - retired
+retired = %w[persistentSwitcherShortcuts persistentSwitcherStartsUnfocused lastFocusedWindowShortcuts spacesBarDoNotFilterEmpty spacesBarPreferDetails spacesBarMinimumWidth spacesBarMaximumWidth showSpaceNumber showDockPreviewSpaceNumberIndicator showSwitcherSpaceNumberIndicator showCmdTabSpaceNumberIndicator]
+abort "Retired preference keys: #{(settings.keys & retired).join(', ')}" unless (settings.keys & retired).empty?
+unknown = settings.keys - known
 abort "Unrecognized preference keys: #{unknown.join(', ')}" unless unknown.empty?
 private_keys = settings.keys.grep(/\A(?:NS|Apple|SU)|bookmark|credential|token|permission|windowOrder(?!ing)|windowHistory|folderPaths|reopenSettings/i)
 abort "Private/system state: #{private_keys.join(', ')}" unless private_keys.empty?

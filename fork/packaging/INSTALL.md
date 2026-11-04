@@ -20,6 +20,8 @@ This Apple Silicon package is ad-hoc signed, not Developer ID signed or notarize
 
 Version 0.4.0 adds the optional Window Switcher Spaces Bar, Space filtering/content movement and preview refinements. Stable release status does not change ad-hoc signing or establish compatibility with every app or macOS version. See the release notes for actual validation.
 
+For the 0.5.0 candidate, Alternate Shortcuts combines Persistent, No Highlight and Quick Switch in one editor. Retired fork-only shortcut stores are not migrated; recreate those assignments or explicitly import the reviewed 0.5.0 preset. The refreshed preset omits retired settings.
+
 Before replacing an installed version, export a settings backup and quit all DockDoor/DockFork instances. Keep DockFork's name, bundle ID and installation path consistent. Packaging does not reset preferences, but a rebuilt ad-hoc release can require removing and re-adding affected Accessibility or Screen Recording permissions, then restarting the app.
 
 Spaces Bar and multi-selection default Off. The optional showcase preset enables them and action/cursor feedback, among other supplied choices. The preset is never auto-imported. Import replaces settings rather than merging them; omitted values use defaults. Review shortcuts and trackpad conflicts before importing. Auto Tile defaults to 2 rows/3 columns, with overflow stacked in existing cells unless Tile only what fits is enabled. Desktop-content dragging moves windows, not native Desktop identities, wallpapers or app assignments; Desktop creation/deletion is not supported.

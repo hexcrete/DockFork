@@ -1,5 +1,9 @@
 # DockFork: Changes and Showcase
 
+## 0.5.0 Stable Candidate Preparation
+
+Prepare the Settings/shortcuts and gesture update as stable 0.5.0, without publication. The November 4 showcase export replaces the maintained preset: 270 recognized preferences, 15 generic-ID shortcut rows, debug logging Off and obsolete/private keys removed. No app defaults or live settings change. See [draft public notes](RELEASE_BODY_0.5.0.md) and [candidate record](RELEASE_NOTES_0.5.0.md). Published assets and deferred media states are unchanged.
+
 November 4 upstream update: `e0cd636e` incorporates two commits through `c58cf6c0`. The fork retains its existing per-call AX observer-registration timing rather than upstream's aggregate-duration check. The incoming appcast includes beta 1.42.3b1, but the recorded stable base remains 1.42.2. DockFork's published 0.4.0 packages and presets are unchanged; no new visual feature or media approval.
 
 For current screenshot setup, use the [capture plan and consolidated settings locations](SHOWCASE_CHECKLIST.md#current-settings-locations). Its rows describe current UI rather than development stages. Existing capture IDs and pending media status are preserved; published release packages and presets are unchanged.

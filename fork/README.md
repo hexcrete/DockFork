@@ -2,6 +2,10 @@
 
 DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). Application features remain in the existing source tree; this directory contains fork-only packaging, optional presets and publication records. Exclude `fork/` and fork-specific root documentation from upstream PRs. Follow the [upstream contribution checklist](docs/UPSTREAM_CONTRIBUTIONS.md).
 
+## Candidate 0.5.0
+
+The stable 0.5.0 candidate is being prepared, not published. See [candidate record](docs/RELEASE_NOTES_0.5.0.md) and [draft public notes](docs/RELEASE_BODY_0.5.0.md). Test and approve the exact package before publication.
+
 ## Stable Release 0.4.0
 
 Version **[0.4.0](https://github.com/hexcrete/DockFork/releases/tag/v0.4.0)** is published as the latest **stable release**, not a prerelease. The user-tested package from `23850ba04cf7c5e523d53ea2be45607419327e57` was published without rebuilding. All ten public assets download and match the audited local hashes. Previous release assets are unchanged.
@@ -49,7 +53,7 @@ The development snapshot includes tracked source changes but excludes untracked 
 
 ### Fork and Upstream Versions
 
-`version.json` records DockFork version **0.4.0**, incorporated upstream commit `5625291fa6009e05e2fbbd8432cb8dc5cdfed353`, stable upstream release **1.42.2**, and its exact release commit `b6beb0129e9d7b59f2995eafc0d69ce272d7d129`. This November 3 development merge does not rebuild or replace the published DockFork 0.4.0 release.
+`version.json` records candidate DockFork version **0.5.0**, incorporated upstream commit `c58cf6c0ca0d0e35388ac8aa4790c80c5fbccfb8`, stable upstream release **1.42.2**, and its exact release commit `b6beb0129e9d7b59f2995eafc0d69ce272d7d129`. This candidate does not replace the published DockFork 0.4.0 release until separately approved and published.
 
 After a future merge, fetch upstream tags and select the newest published stable release contained in the merged history. Never label an unmerged release as the base or infer it from Xcode's project version. Run `ruby fork/packaging/tests/version_metadata_test.rb`. Packaging validates ancestry/tag identity and embeds version/base metadata in the isolated app and BUILD-METADATA.json for Support > Updates.
 
@@ -76,15 +80,9 @@ See [installation and signing limitations](packaging/INSTALL.md). Ad-hoc signing
 
 ## Optional Showcase Preset
 
-[DockFork-Showcase.json](presets/DockFork-Showcase.json) is the sanitized October 27 export for 0.4.0: **273 recognized preferences and 15 generic-ID shortcut rows**. It is not the default app configuration and is never imported automatically. Published releases retain their own attached presets.
+[DockFork-Showcase.json](presets/DockFork-Showcase.json) is the sanitized November 4 export for the 0.5.0 candidate. It uses one Alternate Shortcuts list, generic shortcut IDs and debug logging Off; retired shortcut, Space-layout and indicator keys and private/system state are removed. Import is optional and replaces settings: export a backup first. The original export is untouched. No import or installation validation is implied. Published 0.4.0 retains its attached historical preset.
 
-Export a settings backup first, then use General > Backup & Restore > Import Settings. **Import replaces the preference domain**, omitted values return to defaults and the app requests a restart. The required `app: DockDoor` envelope is importer compatibility, not a choice of destination preference domain.
-
-Privacy review removes save-panel geometry, last file-dialog directory, cached recording permission and the reopen-settings flag. Debug logging is Off. Shortcut IDs are generic; supplied actions, keys, modifiers, sides, ordering and other preference values are preserved. No personal paths, accounts, URLs, window titles, bookmarks or opaque payloads remain in retained values. The source export is unchanged. Check with `ruby fork/tests/showcase_preset.rb`; inspect new exports again before distribution.
-
-The preset enables Spaces Bar, multi-selection, action/cursor feedback and the optional title-bar scroll/tab exclusion. It uses numeric Flexible pills with icon limits 2/6, toolbar Space indicators, and minimal-reveal keyboard scrolling. These are supplied showcase choices, not changes to application defaults. Review shortcuts and system swipe conflicts before import. Actual import/installation testing remains pending.
-
-Fresh defaults keep Spaces Bar and multi-selection Off. Spaces Bar defaults are Medium items, Flexible 2/6 icons, Fixed width 160 points and icon activation On. Per-mode Space indicators default Off, with current-Space highlighting On when enabled. Existing saved choices are preserved.
+Fresh defaults and supplied showcase choices are distinct; no application defaults change during release preparation.
 
 ## Maintaining Publication Records
 
@@ -136,7 +134,7 @@ The fork incorporates upstream 1.42.2 through `5625291fa6009e05e2fbbd8432cb8dc5c
 
 Settings follow native upstream grouping while retaining fork additions and dependency indentation. Alternate Shortcuts is one stable-ID list with Persistent, No Highlight, Quick Switch, scope and existing single-modifier Double-tap. Quick Switch replaces the separate last-focused list; No Highlight works in held and persistent sessions. Retired fork-only shortcut stores/global-unfocused values are not migrated. Multi-modifier Double-tap remains deferred.
 
-Action Feedback is under Appearance; Auto Tile-prefixed controls share Tiling; numbered Space shortcuts and their explanation share Spaces. Search matches the current layout. Fork resets follow upstream control-type conventions. The curated preset remains unchanged and contains three ignored retired keys; refresh it only with an approved export before release. No agent live UI inspection, preference reset or working-window manipulation was performed for the review.
+Action Feedback is under Appearance; Auto Tile-prefixed controls share Tiling; numbered Space shortcuts and their explanation share Spaces. Search matches the current layout. Fork resets follow upstream control-type conventions. The initial review retained three ignored retired keys; the approved November 4 export now replaces that preset for 0.5.0 without those keys. No agent live UI inspection, preference reset or working-window manipulation was performed for the review.
 
 Run focused Settings/shortcut checks with `ruby fork/tests/settings_merge.rb`; synthetic-event checks require access to the system double-click interval but post no input. The build script does not run regression suites. Full Xcode/native display/animation/VoiceOver coverage and the known Compact drag fixture are separate gaps, not inferred passes.
 
