@@ -140,3 +140,25 @@ main_write = activation.index('try window.axElement.setAttribute(kAXMainAttribut
 reactivation = activation.index('if wasOwnerActive {', main_write)
 abort 'Already-active reactivation must follow raise/Main and retain cancellation ownership' unless reactivation && activation[reactivation, 650].include?('guard isActive(), !window.ownerApp.isTerminated') && activation[reactivation, 650].include?('request.finish(true)')
 puts 'PASS 1.42.2 merge contracts: fork shortcut/settings preservation, pinned/cached mocks, permission timers, AX observer teardown and guarded post-raise reactivation'
+
+# Keep the fork's per-call timing when merging upstream's batch-duration fix.
+registration = block(observers, '    private func createObserverForApp(')
+abort 'Observer registration must time each AX call and retain guarded cleanup' unless registration.include?('for notification in observedAXNotifications') && registration.include?('timedOut = timedOut || AXResponsiveness.shouldBackOff(after: result, elapsed: CFAbsoluteTimeGetCurrent() - start)') && registration.include?('guard registration.failed else { return }') && registration.include?('if registration.timedOut') && registration.include?('self.observers[pid] === observer')
+ax = File.read("#{root}/DockDoor/Extensions/AXUIElement.swift")
+policy = "import Foundation\nenum AXError {case success,cannotComplete}\nenum AXResponsiveness {\n"
+policy += ax.lines.find { |line| line.include?('static let hangThreshold:') }
+policy += block(ax, '    static func shouldBackOff(') + "\n}\n"
+policy += <<~'SWIFT'
+for error in [AXError.success,.cannotComplete] {
+ for duration in [0.0,0.01,0.499,0.5,0.501,5.0] {
+  precondition(AXResponsiveness.shouldBackOff(after:error,elapsed:duration) == (error == .cannotComplete && duration >= 0.5))
+ }
+}
+precondition(!(0..<100).contains { _ in AXResponsiveness.shouldBackOff(after:.cannotComplete,elapsed:0.01) },"Many fast failures must not quarantine an app")
+print("PASS observer readiness: fast registration failures do not quarantine, slow cannotComplete does; per-call timing and stale-owner cleanup retained")
+SWIFT
+Dir.mktmpdir('dockfork-observer-readiness-') do |dir|
+ File.write("#{dir}/checks.swift", policy)
+ abort 'Observer policy compilation failed' unless system('swiftc', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+ abort 'Observer policy checks failed' unless system("#{dir}/checks")
+end
