@@ -149,3 +149,7 @@ The fork intentionally allows appearance-only hover in the pinned Dock, Cmd+Tab 
 Run `ruby fork/tests/settings_mock_preview.rb` for source-derived mock isolation/dimming checks. Add `--native` for opt-in scaled-control click checks in a disposable nonactivating panel, with an unlocked display; these do not move the pointer or target working windows. Visual parity, pointer interaction and the controls below the examples require manual verification; automated checks do not imply a UI capture or approval.
 
 The corrected examples are user-verified and committed as `e21fe4a2`; the shared resolver, local-state isolation and single-hierarchy scaling are one focused change. This does not certify every appearance/display/accessibility combination.
+
+## November 4 Upstream Update
+
+Merged upstream through `c58cf6c0ca0d0e35388ac8aa4790c80c5fbccfb8` as `e0cd636e`. Incoming `bdf4cf33` avoids treating quick observer-registration errors as hangs; the fork already times individual AX calls and retains that narrower policy. `c58cf6c0` adds the upstream 1.42.3b1 beta appcast entry. Stable base remains 1.42.2; DockFork remains 0.4.0. No application-source/UI change, preference change or release is included. Focused integration/readiness and 19 version cases pass; signed development verification is recorded in the ledger.

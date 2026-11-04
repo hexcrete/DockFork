@@ -1,5 +1,7 @@
 # DockFork: Changes and Showcase
 
+November 4 upstream update: `e0cd636e` incorporates two commits through `c58cf6c0`. The fork retains its existing per-call AX observer-registration timing rather than upstream's aggregate-duration check. The incoming appcast includes beta 1.42.3b1, but the recorded stable base remains 1.42.2. DockFork's published 0.4.0 packages and presets are unchanged; no new visual feature or media approval.
+
 For current screenshot setup, use the [capture plan and consolidated settings locations](SHOWCASE_CHECKLIST.md#current-settings-locations). Its rows describe current UI rather than development stages. Existing capture IDs and pending media status are preserved; published release packages and presets are unchanged.
 
 November 3 upstream integration: merge main `5625291fa6009e05e2fbbd8432cb8dc5cdfed353` including stable 1.42.2. This is development integration only; published DockFork 0.4.0 packages and curated presets remain unchanged. No new release or push is authorized.

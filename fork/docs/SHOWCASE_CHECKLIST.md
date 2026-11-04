@@ -210,3 +210,5 @@ The following dedicated IDs cover bar interactions previously described only in 
 ## Capture Review
 
 Before approving selected media, check the displayed settings paths and wording against the captured build, confirm that no private content is visible, and attach the reviewed file to the corresponding feature in [Changes and Showcase](CHANGES_AND_SHOWCASE.md). Keep every unused or unrecorded candidate unchecked. Build/install records and technical regressions do not require new screenshot IDs.
+
+November 4 upstream update adds no visual capture candidate. Existing Settings examples, capture IDs and unchecked states remain unchanged; do not present the upstream beta appcast entry as a new DockFork release.
