@@ -248,3 +248,38 @@ The fade-dependent input follow-up also reuses the existing fade monitor pair an
 October 27 integration: six upstream commits through 3044142c are merged only into the working fork. Retain upstream registration of Links.swift and its original source URLs; the DockFork-only packaging patch changes repository/issue destinations in isolated distribution snapshots, leaving intentional upstream support links intact. Do not submit fork overlay/ledger/preset/release changes upstream. Any future focused extraction must preserve raw app-animation preference versus separate reduced-motion fade handling, async empty-Finder readiness, shared Quit admission and compact/overflow geometry when touching these conflicts. No upstream PR or push is authorized.
 
 October 27 0.4.0 preparation, fork-only: exclude version/preset/public notes, packaging/install/build records, roadmap deletion and root agent/readme edits from upstream app PRs. The tiny CmdKeyShortcutsSection indentation cleanup is behavior-neutral; the restored feedback-test helper belongs with the fork's extracted-source fixtures unless separately ported to an agreed upstream test location. No upstream PR, push, release publication or identity/project change is included.
+
+## November 3 Settings Merge Review
+
+Incoming upstream main through `5625291f`, stable 1.42.2, is already merged as `66588c4f`. Review the eighteen incoming commits individually:
+
+| Upstream commit | Review and fork disposition |
+|---|---|
+| `f5d6f4e9` | AX observer cleanup retained. Remove replaced observers and their main-run-loop source before off-main notification removal/release. Preserve existing ownership. |
+| `5aaf13c1` | Already-active-app reactivation retained after raising. The fork keeps AX work on its worker and guards the main-thread continuation with request/termination checks. |
+| `51edfb2b` | Multiple alternate shortcuts use the existing fork stable-ID array and resolver, retaining filter/persistent/history scopes and conflicts. Do not introduce a competing upstream alternate-key store. |
+| `cecf0b7a` | Combined modifiers now use the same native renderer for primary and alternate rows. Preserve fork Shift, side selection and zero-modifier inheritance; no opening-time preference migration. |
+| `60f00c2d` | PermissionsChecker matches upstream: publish transitions, stop polling after both grants, recheck on activation and clean up. |
+| `dd442d4b` | Retain mock live-capture/active-window guards. Keep the fork's explicit appearance snapshot needed by its additional controls; do not discard it merely to match upstream's smaller mock. |
+| `a7bb70f3` | Reconcile the full Settings redesign against actual upstream panes and shared rows, not a wrapper rename. Restore placements, grouped sections, descriptions, sliders, pickers, samples and searchable targets; layer fork controls into that structure. |
+| `1bb7e70a` | Keep Crowdin catalog unchanged. New fork source strings use existing localization conventions; no manual catalog rewrite. |
+| `5a047caa` | Retain upstream 1.42.0 appcast history. Fork distribution still uses its isolated manual-update packaging policy. |
+| `56dad806` | Retain upstream 1.42.0 changelog; no fork publication implied. |
+| `eadedf78` | Retain initializer-aware action/release behavior through the fork's effective-modifier/side resolver and shared asynchronous dispatcher. Do not add upstream's separate direct-action/stashed-target path or an unconditional Command alias. |
+| `4757aa47` | Retain upstream 1.42.1 appcast history without changing fork publication/update policy. |
+| `efb6d9f8` | Retain upstream 1.42.1 changelog; no fork publication implied. |
+| `b6beb012` | Retain regular-app resolution and empty Cmd+Tab placeholders through fork PID grouping, generation guards and shared placeholder reconciliation. Do not return early and leave stale presentation. |
+| `853de2d1` | Retain upstream 1.42.2 appcast history; embedded base metadata identifies this stable release separately from DockFork 0.4.0. |
+| `b6267f4f` | Retain upstream 1.42.2 changelog; published fork assets remain untouched. |
+| `e1cb5513` | Place alternate description under its native section header, respecting description visibility. Explain fork modifier-and-side inheritance in the footer. |
+| `5625291f` | Retain test-default-suite isolation, adapted to the fork shortcut model. The complete Xcode target was not run; focused production binding and seven layout/search tests are separate evidence. |
+
+### Final Disposition
+
+The final editor uses one stable-ID array, not a transfer bridge between fork stores. Persistent/No Highlight/Quick Switch are row metadata; old fork-only persistent/global-unfocused/last-focused preferences are retired without migration. Compact warning glyphs retain detailed policy in help/accessibility. Combined-modifier Double-tap is deferred; the current editor chooses one modifier.
+
+Dependent-row indentation and pinned-preview hit testing are separate upstream-quality fixes. Native Settings reconciliation retains fork controls and uses applicable fork resets only where upstream uses that widget type. Search placement, title-bar annotations and existing refresh/reset callbacks must travel with their moved controls. Keep primary backward navigation distinct from exact action/alternate matching.
+
+Attribution: upstream's matcher ignores Shift and uses zero as an unset alternate key, excluding A. The fork's modifier-side bypass, initial backward-key leakage, broad duplicate matching and persistent Cmd+Tab omission were integration defects, not all upstream bugs. Production-source checks reproduce the original Shift omission. Preserve that distinction in any future issue or PR.
+
+No complete fork-branch PR, push or release is authorized. Extract an agreed focused issue from current upstream, exclude fork records/identity/presets, retain required dependencies and review the complete final PR diff. No native screenshot, hardware or Xcode-target pass is inferred from focused fixtures.

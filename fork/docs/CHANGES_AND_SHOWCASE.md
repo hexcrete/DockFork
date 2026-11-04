@@ -1574,3 +1574,28 @@ Merge handoff: committed as `3655c66a`, with 16 focused suites plus inert integr
 The upstream merge added exclusions to native last-window-close handling, but the fork's direct Close-to-Quit shortcut did not consult that policy. The shared helper now uses the same exclusion, lock and app-policy guards, keeping excluded apps running when their last window is closed through DockFork as well as natively. Finder and missing/terminated targets are refused. Explicit Quit and Force Quit are unchanged. Focused policy/Cmd+Tab, explicit-Quit and ownership checks pass. The corrected signed development build is verified and running; manual retest remains pending.
 
 Release-build validation made the existing switcher-dismissal callback's main-actor isolation explicit. Its weak ownership and synchronous dismissal behavior are unchanged; an optimized non-DEBUG regression covers that contract. The failed initial build is not a candidate.
+
+## November 4 Settings Merge Repair
+
+Base: incorporated upstream 1.42.2 through `5625291fa6009e05e2fbbd8432cb8dc5cdfed353`; pre-repair fork tip `80a98dce`. The merge is already in history. These are its reviewed follow-up repairs, not another merge or release.
+
+- Restore upstream native grouped Settings placement/controls, remove doubled separators and retire replaced custom helpers. Keep fork additions and intentional per-mode indicators. Trackpad activation is under Window Switcher, mouse actions under Gestures, folders under Widgets and Dock locking under Advanced.
+- Share dependency indentation without flattening native rows. Clip the complete decorative pinned preview and disable its hit testing so it cannot obstruct controls below it.
+- Keep preview shortcut assignment left/action right, one Remove per row and Add/Reset below each list. Use shared capture/reset alignment, compact clash glyphs with detailed help, and resets only on applicable fork control types matching upstream.
+- Use one stable-ID Alternate Shortcuts list with modifier combinations/sides, scope, Persistent, No Highlight, Quick Switch and existing single-modifier Double-tap. Quick Switch uses the existing recency executor and disables only Persistent/No Highlight while retaining their values. No Highlight works for held and persistent startup. Retire separate persistent/last-focused stores and the global unfocused preference without migration.
+- Match activation/action modifiers exactly, with a backward-key exception only for navigation/held ownership. Check every required modifier's side. Preserve key-code zero, repeat/capture ownership, stale-token cleanup and Cmd+Tab routing.
+- Put Space shortcuts and their row explanation in Spaces, merge Auto Tile-prefixed controls into Tiling, move Action Feedback to Appearance, and label menu-bar behavior Clicks trigger:. Search destinations/titles match; the redundant Auto Tile limit explainer is removed.
+
+### Final Review Corrections
+
+Restore five preference-change callbacks lost in the layout rewrite: bar enablement, filtering, order, single-Space visibility and native-tab aggregate refresh. Preserve existing guarded refresh paths rather than installing observers. Display a primary shortcut assigned to A (key-code zero) correctly. Clear Double-tap/physical-modifier trackers when the event tap recovers. Remove the stale same-display-only content-shifting explanation.
+
+### Verification And Gaps
+
+User testing covers the iterative repairs; final review corrections require a small retest. Focused fixtures cover 212 upstream settings locations, retired-control exceptions, source bindings/search/reset wiring, 1,600 modifier cases, capture lifetime, Quick Switch, Space presentation and retained title-bar behavior. Build/signature/running-path verification is distinct from native approval. No agent live UI inspection or working-window manipulation is part of this review. Full Xcode/native animation, exhaustive displays/VoiceOver/older-macOS coverage and the previously unresolved Compact drag fixture are not claimed passed.
+
+Combined-modifier Double-tap remains a deferred feature: the current Double-tap editor deliberately chooses a single modifier and side. The curated preset is unchanged; it still contains three ignored retired shortcut keys and needs a fresh approved export before a release. DockFork remains the published 0.4.0; no release, push or preference reset is authorized.
+
+Final review evidence and approved commit boundaries are recorded in the ledger. The native Space fixture is repaired in test code only: synthetic mouse sequences end at the current uptime, event draining has one fixed deadline, and unchanged drag/click assertions include diagnostic callback counts. Three repeated native-harness runs and the complete Space presentation suite pass, including native headers and 180 indicator-placement cases. Stale settings/highlight source assertions now follow the shared implementation. The independent Compact fixture gap remains.
+
+No release, push, preset import, project/identity change or working-window manipulation is included. Final signed development artifact verification is recorded separately from manual testing and publication.

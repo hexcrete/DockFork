@@ -623,3 +623,19 @@ October 27 upstream merge verification: compare the optional Screen position sor
 Upstream merge development handoff: build/signature/source/binary/running-path checks pass for 3655c66a. Focused inert sorting/quit-policy and existing regression checks pass; native user verification is still required for the setup above. No new screenshot/video captured, Release build, preset import or publication.
 
 Automatic-Quit merge follow-up retest: with automatic last-window Quit enabled, exclude a disposable regular app and close its last window using a preview traffic light, context-menu Close and Cmd+Tab app Close. The window should close but the app should stay running; native Close should remain equivalent. Remove the exclusion and verify the eligible normal behavior, then restore your setting. Explicit Quit/Force Quit must still work for excluded apps. No native destructive test or media capture performed by the fixture.
+
+## November 4 Settings Merge Repair Verification
+
+Keep existing capture IDs. No new media is captured or approved.
+
+- Compare native Settings grouping, dependency indentation, reset scope, shortcut key/action alignment and controls below pinned previews. Verify narrow widths and scope-menu trailing alignment manually; source checks are not visual approval.
+- Check search for Action Feedback in Appearance, Auto Tile-prefixed controls in Tiling, Space shortcuts with their row-local explanation, Clicks trigger:, Quick Switch and No Highlight. No redundant limit explainer should remain.
+- Test exact Shift/no-Shift and combined modifier sides, capture/cancel/deactivation, duplicate warnings, pending rows, key-code zero, native Cmd+Tab, held/persistent release and ordinary navigation repeat.
+- Test No Highlight through ordinary-key and modifier-double-tap held/persistent startup. Quick Switch must jump within its scope without opening the switcher; retain Double-tap/scope and grey Persistent/No Highlight without changing their values.
+- Final review retest: while previews are open, change Spaces Bar enablement/filter/order/single-Space visibility and native-tab collapsing. Confirm the existing refresh/reset paths update promptly. Test primary A display and recording; event-tap reset is covered synthetically, not by forcing native input failures.
+
+Multi-modifier Double-tap, exhaustive native/display/accessibility/older-OS coverage and the known Compact drag fixture remain gaps. Recreate retired fork-only shortcuts manually; do not auto-import or rewrite the curated preset.
+
+Review outcome: native Space viewport fixture currently fails its pill-drag/nonactivation assertion. Generated HEAD/current harnesses are identical; diagnosis remains open. Do not describe this or the known Compact fixture as passed in media/release notes. Non-native geometry/model tests pass; no new screenshot/video approval.
+
+Space fixture follow-up: after correcting synthetic event timing, the native harness passes three repetitions and the complete Space suite passes. This supersedes the earlier native Space-drag failure; it is automated test-owned-panel evidence, not media approval or a fix to app behavior. The independent Compact fixture gap remains.
