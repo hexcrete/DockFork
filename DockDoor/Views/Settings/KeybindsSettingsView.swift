@@ -41,7 +41,7 @@ private struct WindowSelectionSettingsSection: View {
                 .settingsSearchTarget("gestures.enableMultiWindowSelection")
                 .settingsAnnotation("Select a range by Shift-clicking another checkbox, dragging from a checkbox across previews, or holding the Toggle Window Selection shortcut while using arrow keys.")
             if enabled {
-                Group {
+                SettingsDependentRows {
                     Toggle("Enable selection of windowless apps in Window Switcher", isOn: $enableWindowlessAppSelection)
                         .settingsSearchTarget("gestures.enableWindowlessAppSelection")
                         .settingsAnnotation("Only \"Quit\", \"Force Quit\" and \"Open New Window\" apply to windowless apps.")
@@ -54,7 +54,7 @@ private struct WindowSelectionSettingsSection: View {
                     Toggle("Show unchecked selection checkboxes", isOn: $showUnchecked)
                         .settingsSearchTarget("gestures.showUncheckedSelectionCheckboxes")
                     if showUnchecked {
-                        Group {
+                        SettingsDependentRows {
                             Picker("Checkbox visibility:", selection: $visibility) {
                                 ForEach(SelectionCheckboxVisibility.allCases, id: \.self) { Text($0.localizedName).tag($0) }
                             }
@@ -159,7 +159,7 @@ private struct SpacesSettingsSection: View {
                 .settingsSearchTarget("gestures.enableSpaceIndicatorWindowMoving")
                 .settingsAnnotation("Click the Space Number Indicator to list available Spaces. Choosing a Space will move the selected window there.")
             if enableSpaceIndicatorWindowMoving {
-                Group {
+                SettingsDependentRows {
                     Picker("Display available Spaces as:", selection: $spaceMenuDisplayMode) {
                         ForEach(SpaceMenuDisplayMode.allCases, id: \.self) { Text($0.localizedName).tag($0) }
                     }

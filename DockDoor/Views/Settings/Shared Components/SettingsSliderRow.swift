@@ -101,7 +101,7 @@ struct PreviewFocusFadeSettings: View {
                 .settingsSearchTarget(mode.searchPrefix + ".focusFade")
                 .settingsAnnotation(verbatim: mode.helperText)
             if enabled {
-                Group {
+                SettingsDependentRows {
                     SettingsSliderRow(title: LocalizedStringKey(mode.delayTitle), value: $delay, range: 0 ... 5, defaultValue: mode.delayKey.defaultValue, unit: " s", step: 0.1, formatter: NumberFormatter.oneDecimalFormatter)
                         .settingsSearchTarget(mode.searchPrefix + ".focusFadeDelay")
                     SettingsSliderRow(title: "Fade Out Duration", value: $duration, range: 0 ... 5, defaultValue: mode.durationKey.defaultValue, unit: " s", step: 0.1, formatter: NumberFormatter.oneDecimalFormatter)

@@ -122,7 +122,7 @@ struct CmdTabSettingsView: View {
             }
             .settingsSearchTarget("cmdTab.sortOrder")
             if showWindowlessAppsInCmdTab {
-                Group {
+                SettingsDependentRows {
                     Toggle("Show full size placeholders", isOn: $showFullSizeWindowlessCmdTabPreviews)
                         .settingsSearchTarget("cmdTab.fullSizeWindowless")
                 }
@@ -138,7 +138,7 @@ struct CmdTabSettingsView: View {
 
             .settingsSearchTarget("cmdTab.hoverAction")
             if cmdTabPreviewHoverAction != .none {
-                Group {
+                SettingsDependentRows {
                     SettingsSliderRow(title: "Cmd+Tab Hover Action Delay", value: $cmdTabTapEquivalentInterval, range: 0 ... 2, defaultValue: Defaults.Keys.cmdTabTapEquivalentInterval.defaultValue, unit: " s", step: 0.1)
                         .settingsSearchTarget("cmdTab.hoverDelay")
                 }
@@ -147,7 +147,7 @@ struct CmdTabSettingsView: View {
             Toggle("Enable edge auto-scroll", isOn: $enableCmdTabEdgeAutoScroll)
                 .settingsSearchTarget("cmdTab.edgeAutoScroll")
             if enableCmdTabEdgeAutoScroll {
-                Group {
+                SettingsDependentRows {
                     SettingsSliderRow(title: "Auto-scroll speed:", value: $cmdTabEdgeAutoScrollSpeed, range: 1 ... 10, defaultValue: Defaults.Keys.cmdTabEdgeAutoScrollSpeed.defaultValue, step: 0.5)
                         .settingsSearchTarget("cmdTab.edgeAutoScrollSpeed")
                 }

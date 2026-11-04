@@ -16,7 +16,7 @@ struct TrafficLightButtonsSettingsView: View {
         }
 
         if trafficLightButtonsVisibility != .never {
-            Group {
+            SettingsDependentRows {
                 EnabledButtonsPicker(enabledButtons: $enabledButtons) {
                     MessageUtil.showAlert(
                         title: String(localized: "All buttons removed"),

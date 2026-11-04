@@ -69,7 +69,7 @@ struct CmdTabAppearanceSection: View {
             .settingsSearchTarget("appearance.cmdTabTrafficLightVisibility")
 
             if cmdTabTrafficLightButtonsVisibility != .never {
-                Group {
+                SettingsDependentRows {
                     EnabledButtonsPicker(enabledButtons: $cmdTabEnabledTrafficLightButtons) {
                         cmdTabTrafficLightButtonsVisibility = .never
                     }

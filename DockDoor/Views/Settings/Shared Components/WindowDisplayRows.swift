@@ -64,7 +64,7 @@ struct WindowStateIndicatorSettingsSection: View {
             .settingsSearchTarget(spaceNumberTarget)
 
             if spacePlacement != .off {
-                Group {
+                SettingsDependentRows {
                     Toggle("Highlight Current Space", isOn: $highlightCurrentSpace)
                         .settingsSearchTarget(highlightTarget)
                         .settingsAnnotation("Tint the Space number indicator when this window is on the currently active Space.")
@@ -78,14 +78,14 @@ struct WindowStateIndicatorSettingsSection: View {
             .settingsSearchTarget(stateTarget)
             .settingsAnnotation("Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons.")
             if spacePlacement == .nextToTrafficLightButtons || statePlacement == .nextToTrafficLightButtons {
-                Group {
+                SettingsDependentRows {
                     Toggle("Disable dock styling on Window State Indicator", isOn: $disableStyling)
                         .settingsSearchTarget(stylingTarget)
                         .settingsAnnotation("Removes the pill-shaped background styling from the Window State Indicator.")
                     Toggle("Swap Window State Indicator and Traffic Light Buttons", isOn: $swapControls)
                         .settingsSearchTarget(swapTarget)
                     if swapControls {
-                        Group {
+                        SettingsDependentRows {
                             Toggle("Limit to Compact Mode only", isOn: $compactSwapOnly)
                                 .settingsSearchTarget(compactTarget)
                         }

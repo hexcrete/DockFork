@@ -120,7 +120,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
             .settingsSearchTarget("windowSwitcher.mouseFollowsFocus")
             .settingsAnnotation("Move the cursor to the center of the selected window.")
             if mouseFollowsFocusMode != .never, enableActionFeedback {
-                Group {
+                SettingsDependentRows {
                     Toggle("Show feedback popup", isOn: $mouseFollowsFocusFeedback)
                         .settingsSearchTarget("windowSwitcher.showMouseFollowsFocusFeedback")
                         .settingsAnnotation("Show a popup at the cursor's new location. Requires action feedback to be enabled.")
@@ -151,7 +151,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
                 .settingsSearchTarget("windowSwitcher.limitToFrontmost")
                 .settingsAnnotation("Only show windows from the currently active/frontmost application.")
             if showWindowlessAppsInSwitcher {
-                Group {
+                SettingsDependentRows {
                     Toggle("Exclude from \"Current Monitor Only\" filter", isOn: $excludeWindowlessAppsFromCurrentMonitorSwitcherScopes)
                         .settingsSearchTarget("windowSwitcher.excludeWindowlessFromCurrentMonitor")
                     Toggle("Exclude from \"Current Space Only\" filter", isOn: $excludeWindowlessAppsFromCurrentSpaceSwitcherScopes)
@@ -168,7 +168,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
             Toggle(isOn: $enableWindowSwitcherSearch) { Text("Enable search") }
                 .settingsSearchTarget("windowSwitcher.enableSearch")
             if enableWindowSwitcherSearch {
-                Group {
+                SettingsDependentRows {
                     Toggle(isOn: $focusSearchOnWindowSwitcherOpen) { Text("Focus search on open") }
                         .settingsSearchTarget("windowSwitcher.focusSearch")
                         .settingsAnnotation("Automatically focus the search bar when the window switcher opens.")
@@ -189,7 +189,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
             Toggle("Enable edge auto-scroll", isOn: $enableWindowSwitcherEdgeAutoScroll)
                 .settingsSearchTarget("windowSwitcher.edgeAutoScroll")
             if enableWindowSwitcherEdgeAutoScroll {
-                Group {
+                SettingsDependentRows {
                     SettingsSliderRow(
                         title: "Auto-scroll speed:",
                         value: $mouseHoverAutoScrollSpeed,
@@ -284,7 +284,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
             .settingsSearchTarget("windowSwitcher.offsetPosition")
 
             if enableShiftWindowSwitcherPlacement {
-                Group {
+                SettingsDependentRows {
                     SettingsSliderRow(
                         title: "Vertical offset",
                         value: $windowSwitcherVerticalOffsetPercent,
@@ -316,7 +316,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
             Toggle("Enable Spaces Bar", isOn: $enableSpacesBar)
                 .settingsSearchTarget("windowSwitcher.enableSpacesBar")
             if enableSpacesBar {
-                Group {
+                SettingsDependentRows {
                     Toggle("Automatically filter windows by highlighted Space", isOn: $spacesBarFilterWindows)
                         .settingsSearchTarget("windowSwitcher.spacesBarFilterWindows")
                     Toggle("Start on next Space", isOn: $spacesBarStartOnNext)
@@ -356,7 +356,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
 
             .settingsSearchTarget("windowSwitcher.hoverAction")
             if switcherPreviewHoverAction != .none {
-                Group {
+                SettingsDependentRows {
                     SettingsSliderRow(title: "Window Switcher Hover Action Delay", value: $switcherTapEquivalentInterval, range: 0 ... 2, defaultValue: Defaults.Keys.switcherTapEquivalentInterval.defaultValue, unit: " s", step: 0.1)
                         .settingsSearchTarget("windowSwitcher.hoverDelay")
                 }

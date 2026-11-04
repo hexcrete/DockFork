@@ -139,7 +139,7 @@ struct GesturesSettingsView: View {
                 .settingsSearchTarget("windowGestures.disableOverInteractiveElements")
                 .settingsAnnotation("Skip scrollable areas and tab bars. Other controls follow the standard gesture rules.")
             if disableOverInteractiveElements {
-                Group {
+                SettingsDependentRows {
                     Toggle(String(localized: "Use stricter title bar detection"), isOn: $strictTitleBarGestureDetection)
                         .settingsSearchTarget("windowGestures.strictTitleBarGestureDetection")
                         .settingsAnnotation("Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars.")
@@ -160,7 +160,7 @@ struct GesturesSettingsView: View {
             .settingsSearchTarget("windowGestures.dockSpace")
 
             if reservationEdge != .none {
-                Group {
+                SettingsDependentRows {
                     let thicknessBinding = Binding<Double>(
                         get: { Double(reservationThickness) },
                         set: { reservationThickness = CGFloat($0) }

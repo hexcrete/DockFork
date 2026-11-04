@@ -55,7 +55,7 @@ struct WindowSwitcherAppearanceSection: View {
             Toggle("Show App Icon Badges in Compact Mode", isOn: $switcherShowCompactAppIconBadges)
                 .settingsSearchTarget("appearance.switcherShowCompactAppIconBadges")
             if ((switcherShowAppHeader || enableSpacesBar) && switcherShowAppIconBadges) || switcherShowCompactAppIconBadges {
-                Group {
+                SettingsDependentRows {
                     SettingsSliderRow(title: "Badge Size", value: $switcherAppIconBadgeScale, range: 0.75 ... 1.5, defaultValue: Defaults.Keys.switcherAppIconBadgeScale.defaultValue, step: 0.05, formatter: NumberFormatter.percentFormatter)
                         .settingsSearchTarget("appearance.switcherAppIconBadgeSize")
                 }
@@ -65,7 +65,7 @@ struct WindowSwitcherAppearanceSection: View {
                     .settingsSearchTarget("appearance.switcherAppIconSize")
 
                 if switcherAppIconSize > 0 {
-                    Group {
+                    SettingsDependentRows {
                         SettingsSliderRow(
                             title: "App Icon Size",
                             value: customAppIconSizeBinding,
@@ -107,7 +107,7 @@ struct WindowSwitcherAppearanceSection: View {
             .settingsSearchTarget("appearance.switcherTrafficLightVisibility")
 
             if switcherTrafficLightButtonsVisibility != .never {
-                Group {
+                SettingsDependentRows {
                     EnabledButtonsPicker(enabledButtons: $switcherEnabledTrafficLightButtons) {
                         switcherTrafficLightButtonsVisibility = .never
                     }

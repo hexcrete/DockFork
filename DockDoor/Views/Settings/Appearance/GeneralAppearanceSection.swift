@@ -55,7 +55,7 @@ struct GeneralAppearanceSection: View {
             .settingsAnnotation("Round the corners of window preview images for a modern look.")
 
             if uniformCardRadius {
-                Group {
+                SettingsDependentRows {
                     SettingsSliderRow(
                         title: "Corner Radius",
                         value: $previewCornerRadius,

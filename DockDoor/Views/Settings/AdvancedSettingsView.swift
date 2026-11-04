@@ -167,7 +167,7 @@ struct AdvancedSettingsView: View {
                 .settingsSearchTarget("advanced.livePreviewDock")
 
             if enableLivePreviewForDock {
-                Group {
+                SettingsDependentRows {
                     Picker("Quality", selection: $dockLivePreviewQuality) {
                         ForEach(LivePreviewQuality.allCases, id: \.self) { quality in
                             Text(quality.localizedName).tag(quality)
@@ -192,7 +192,7 @@ struct AdvancedSettingsView: View {
                 .settingsSearchTarget("advanced.livePreviewSwitcher")
 
             if enableLivePreviewForWindowSwitcher {
-                Group {
+                SettingsDependentRows {
                     Picker("Quality", selection: $windowSwitcherLivePreviewQuality) {
                         ForEach(LivePreviewQuality.allCases, id: \.self) { quality in
                             Text(quality.localizedName).tag(quality)
@@ -349,7 +349,7 @@ struct AdvancedSettingsView: View {
                 }
 
             if enableDockLocking {
-                Group {
+                SettingsDependentRows {
                     dockLockingConfiguration
                     SettingsNote(
                         icon: "info.circle",
@@ -405,14 +405,14 @@ struct AdvancedSettingsView: View {
                 .padding(.leading, 20)
 
             if enableSpringLoading {
-                Group {
+                SettingsDependentRows {
                     Toggle(isOn: $useSystemSpringLoadingSpeed) {
                         Text("Use system spring-loading speed")
                     }
                     .settingsSearchTarget("advanced.useSystemSpringLoadingSpeed")
 
                     if !useSystemSpringLoadingSpeed {
-                        Group {
+                        SettingsDependentRows {
                             SettingsSliderRow(title: "Spring-loading delay", value: $springLoadingDelay, range: 0.5 ... 2, defaultValue: Defaults.Keys.springLoadingDelay.defaultValue, unit: " s", step: 0.05, formatter: NumberFormatter.twoDecimalFormatter)
                                 .settingsSearchTarget("advanced.springLoadingDelay")
                         }

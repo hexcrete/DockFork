@@ -97,12 +97,12 @@ struct SpacesBarAppearanceSection: View {
 
                     .settingsSearchTarget("windowSwitcher.spacesBarFixedWidth")
                     if spacesBarFixedWidth {
-                        Group {
+                        SettingsDependentRows {
                             SettingsSliderRow(title: "Pill width", value: $spacesBarPillWidth, range: 10 ... 600, defaultValue: Defaults.Keys.spacesBarPillWidth.defaultValue, step: 10)
                                 .settingsSearchTarget("windowSwitcher.spacesBarPillWidth")
                         }
                     } else if spacesBarShowAppIcons {
-                        Group {
+                        SettingsDependentRows {
                             SettingsSliderRow(title: "Minimum icons", value: minimumIcons, range: 0 ... Double(SpacesBarIconLimits.minimumUpperBound), defaultValue: Double(Defaults.Keys.spacesBarMinimumIcons.defaultValue), step: 1, onReset: resetIconLimits)
                                 .settingsSearchTarget("windowSwitcher.spacesBarMinimumIcons")
                                 .help("Reset restores both icon limits.")
@@ -134,7 +134,7 @@ private struct ActionFeedbackSettingsSection: View {
                 .settingsSearchTarget("gestures.enableActionFeedback")
                 .settingsAnnotation("Show progress and results for window and Space actions. Selection changes and AppleScript actions remain silent.")
             if enabled {
-                Group {
+                SettingsDependentRows {
                     Picker("Position:", selection: $position) {
                         ForEach(ActionFeedbackPosition.allCases, id: \.self) { Text($0.title).tag($0) }
                     }

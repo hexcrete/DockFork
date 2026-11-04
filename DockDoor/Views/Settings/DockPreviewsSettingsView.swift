@@ -124,7 +124,7 @@ struct DockPreviewsSettingsView: View {
         )
 
         if showWindowlessAppsInDockPreview {
-            Group {
+            SettingsDependentRows {
                 Toggle("Show full size placeholders", isOn: $showFullSizeWindowlessDockPreviews)
                     .settingsSearchTarget("dockPreviews.fullSizeWindowless")
             }
@@ -177,7 +177,7 @@ struct DockPreviewsSettingsView: View {
         .settingsAnnotation("Show previews automatically on hover, or require a click trigger on the Dock icon.")
 
         if dockPreviewActivationMode == .modifierClick {
-            Group {
+            SettingsDependentRows {
                 Picker("Dock Preview Modifier", selection: $dockPreviewActivationModifier) {
                     ForEach(DockPreviewActivationModifier.allCases, id: \.self) {
                         Text($0.localizedName).tag($0)
@@ -193,7 +193,7 @@ struct DockPreviewsSettingsView: View {
         .settingsSearchTarget("dockPreviews.hoverAction")
 
         if previewHoverAction == .tap {
-            Group {
+            SettingsDependentRows {
                 Toggle(isOn: $keepPreviewOnHoverActivation) {
                     Text("Keep preview open after hover activation")
                 }
@@ -203,7 +203,7 @@ struct DockPreviewsSettingsView: View {
         }
 
         if previewHoverAction != .none {
-            Group {
+            SettingsDependentRows {
                 SettingsSliderRow(
                     title: "Preview Hover Action Delay",
                     value: $tapEquivalentInterval,
@@ -226,7 +226,7 @@ struct DockPreviewsSettingsView: View {
         .settingsAnnotation("What clicking the icon of an app that is already in front does to its windows.")
 
         if shouldHideOnDockItemClick, dockClickAction == .cycleWindows {
-            Group {
+            SettingsDependentRows {
                 Toggle("Keep previews open when cycling through windows", isOn: $keepDockPreviewsOpenWhenCycling)
                     .settingsSearchTarget("dockPreviews.keepOpenWhenCycling")
             }
@@ -234,7 +234,7 @@ struct DockPreviewsSettingsView: View {
         Toggle("Enable edge auto-scroll", isOn: $enableDockPreviewEdgeAutoScroll)
             .settingsSearchTarget("dockPreviews.edgeAutoScroll")
         if enableDockPreviewEdgeAutoScroll {
-            Group {
+            SettingsDependentRows {
                 SettingsSliderRow(title: "Auto-scroll speed:", value: $dockPreviewEdgeAutoScrollSpeed, range: 1 ... 10, defaultValue: Defaults.Keys.dockPreviewEdgeAutoScrollSpeed.defaultValue, step: 0.5)
                     .settingsSearchTarget("dockPreviews.edgeAutoScrollSpeed")
             }
@@ -348,7 +348,7 @@ struct DockPreviewsSettingsView: View {
         .settingsSearchTarget("appearance.dockWindowTitle")
 
         if showWindowTitle {
-            Group {
+            SettingsDependentRows {
                 Toggle(isOn: $disableDockStyleTitles) { Text("Disable dock styling on window titles") }
                     .settingsSearchTarget("appearance.dockDisableTitleStyling")
                     .settingsAnnotation("Removes the pill-shaped background styling from window titles in dock previews for a cleaner look.")

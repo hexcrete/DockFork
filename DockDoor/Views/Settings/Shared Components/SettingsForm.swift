@@ -89,6 +89,15 @@ struct SettingsSection<Content: View>: View {
     }
 }
 
+struct SettingsDependentRows<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        Group { content }
+            .padding(.leading, 20)
+    }
+}
+
 struct SettingsKeyCaptureControls: View {
     @Binding var keyCode: UInt16
     let defaultKeyCode: UInt16

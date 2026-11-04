@@ -16,7 +16,7 @@ struct DockPreviewGesturesSection: View {
             .settingsAnnotation("Swipe on window previews in the dock popup. Direction is relative to dock position — swipe towards the dock (e.g., down when dock is at bottom, left when dock is on left).")
 
             if enableDockPreviewGestures {
-                Group {
+                SettingsDependentRows {
                     GestureDirectionRow(
                         direction: "Towards Dock",
                         icon: "arrow.down.to.line",

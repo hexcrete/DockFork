@@ -24,7 +24,7 @@ struct TrackpadSwitcherSwipeSection: View {
                 .settingsAnnotation("Swipe to open the switcher, keep your fingers down to change the selection, then lift your fingers to switch.")
 
                 if enableTrackpadSwitcherSwipe {
-                    Group {
+                    SettingsDependentRows {
                         Picker("Fingers:", selection: $trackpadSwitcherSwipeFingers) {
                             Text("3").tag(3)
                             Text("4").tag(4)
