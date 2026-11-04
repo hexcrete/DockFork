@@ -1464,6 +1464,85 @@ enum SettingsSearchCatalog {
             section: String(localized: "Window Preview Keyboard Shortcuts"),
             icon: "command"
         ),
+        SettingsSearchItem(
+            id: "gestures.switcherKeybind",
+            title: String(localized: "Window Switcher Shortcuts"),
+            keywords: ["keybind", "shortcut", "alt tab", "switcher", "initializer", "modifier", "combination", "control", "option", "command"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "keyboard"
+        ),
+        SettingsSearchItem(
+            id: "gestures.vimMotions",
+            title: String(localized: "Enable Vim Motions"),
+            description: String(localized: "Use H/J/K/L keys to navigate left/down/up/right in the window switcher. Disabled while search is focused."),
+            keywords: ["vim", "hjkl", "navigation"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "character.textbox"
+        ),
+        SettingsSearchItem(
+            id: "gestures.arrowPassthrough",
+            title: String(localized: "Pass Arrow Keys Through to System"),
+            description: String(localized: "When enabled, Ctrl+Arrow keys will be passed through to the system instead of navigating the switcher. Useful for Spaces switching."),
+            keywords: ["arrow", "passthrough", "spaces", "ctrl"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
+            id: "gestures.backwardKey",
+            title: String(localized: "Backward Key"),
+            description: String(localized: "The key used to navigate backward in the window switcher."),
+            keywords: ["backward", "key", "navigate", "back"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.left"
+        ),
+        SettingsSearchItem(
+            id: "gestures.requireShiftTab",
+            title: String(localized: "Require \u{21E7}+Tab to go back in Switcher"),
+            keywords: ["shift", "tab", "back", "require"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.uturn.backward"
+        ),
+        SettingsSearchItem(
+            id: "gestures.selectionKey",
+            title: String(localized: "Selection Key"),
+            description: String(localized: "The key used to select and bring to front the highlighted window in the switcher."),
+            keywords: ["selection", "key", "enter", "return", "select"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "return"
+        ),
+        SettingsSearchItem(
+            id: "gestures.alternateShortcut",
+            title: String(localized: "Alternate Shortcuts"),
+            description: String(localized: "Additional shortcuts open the switcher with their selected filter mode. Persistent keeps it open after releasing the modifiers."),
+            keywords: ["alternate", "shortcut", "shortcuts", "multiple", "trigger", "mode", "modifier", "escape"],
+            tab: "Keybinds",
+            section: String(localized: "Alternate Shortcuts"),
+            icon: "keyboard"
+        ),
+        SettingsSearchItem(
+            id: "gestures.searchTriggerKey",
+            title: String(localized: "Search Trigger Key"),
+            description: String(localized: "The key that activates search while the window switcher is open."),
+            keywords: ["search", "trigger", "key", "activate"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "magnifyingglass"
+        ),
+        SettingsSearchItem(
+            id: "gestures.fullscreenBlacklist",
+            title: String(localized: "Fullscreen App Blacklist"),
+            description: String(localized: "Apps in this list will not respond to window switcher shortcuts when in fullscreen mode."),
+            keywords: ["fullscreen", "blacklist", "exclude", "app"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "app.badge.checkmark"
+        ),
     ]
 
     // MARK: - Filters
@@ -2686,7 +2765,51 @@ enum SettingsSearchCatalog {
             section: String(localized: "Spaces"),
             icon: "keyboard.badge.ellipsis"
         ),
-
+        SettingsSearchItem(
+            id: "gestures.menuBarIconWindowSwitcher",
+            title: String(localized: "Menu bar icon"),
+            description: String(localized: "Open Window Switcher when clicking on menu bar icon"),
+            keywords: ["menu bar", "status item", "click", "window switcher"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "menubar.rectangle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.menuBarIconClickBehavior",
+            title: String(localized: "Clicks trigger:"),
+            description: String(localized: "Choose which mouse button opens Window Switcher from the menu bar icon."),
+            keywords: ["menu bar", "left click", "right click", "mouse", "window switcher"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "computermouse"
+        ),
+        SettingsSearchItem(
+            id: "gestures.ignoreMainModifierSideForDependentShortcuts",
+            title: String(localized: "Ignore modifier key side for Window Preview Keyboard Shortcuts"),
+            description: String(localized: "Allows either side of the selected modifier to trigger shortcuts that inherit the main Window Switcher modifier. The main Window Switcher shortcut still uses the selected side."),
+            keywords: ["modifier", "side", "left", "right", "either", "preview", "spaces", "shortcut"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
+            id: "gestures.alternateNoHighlight",
+            title: String(localized: "No Highlight"),
+            description: String(localized: "Start the switcher without highlighting a window."),
+            keywords: ["persistent", "keep", "open", "selection", "highlight", "unfocused", "menu bar"],
+            tab: "Keybinds",
+            section: String(localized: "Alternate Shortcuts"),
+            icon: "rectangle.dashed"
+        ),
+        SettingsSearchItem(
+            id: "gestures.alternateQuickSwitch",
+            title: String(localized: "Quick Switch"),
+            description: String(localized: "Switch immediately to the last focused window in this scope without opening the switcher."),
+            keywords: ["last", "focused", "previous", "recent", "window", "shortcut", "mru", "double", "tap", "monitor", "display", "space"],
+            tab: "Keybinds",
+            section: String(localized: "Alternate Shortcuts"),
+            icon: "arrow.uturn.backward"
+        ),
         SettingsSearchItem(
             id: "advanced.enableSpringLoading",
             title: String(localized: "Enable spring-loading"),
@@ -2743,139 +2866,6 @@ enum SettingsSearchCatalog {
             tab: "Support",
             section: String(localized: "Updates"),
             icon: "externaldrive"
-        ),
-        SettingsSearchItem(
-            id: "gestures.switcherKeybind",
-            title: String(localized: "Window Switcher Shortcuts"),
-            keywords: ["keybind", "shortcut", "alt tab", "switcher", "initializer"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "keyboard"
-        ),
-        SettingsSearchItem(
-            id: "gestures.menuBarIconWindowSwitcher",
-            title: String(localized: "Menu bar icon"),
-            description: String(localized: "Open Window Switcher when clicking on menu bar icon"),
-            keywords: ["menu bar", "status item", "click", "window switcher"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "menubar.rectangle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.menuBarIconClickBehavior",
-            title: String(localized: "Left/right clicks trigger:"),
-            description: String(localized: "Choose which mouse button opens Window Switcher from the menu bar icon."),
-            keywords: ["menu bar", "left click", "right click", "mouse", "window switcher"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "computermouse"
-        ),
-        SettingsSearchItem(
-            id: "gestures.vimMotions",
-            title: String(localized: "Enable Vim Motions"),
-            description: String(localized: "Use H/J/K/L keys to navigate left/down/up/right in the window switcher. Disabled while search is focused."),
-            keywords: ["vim", "hjkl", "navigation"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "character.textbox"
-        ),
-        SettingsSearchItem(
-            id: "gestures.arrowPassthrough",
-            title: String(localized: "Pass Arrow Keys Through to System"),
-            description: String(localized: "When enabled, Ctrl+Arrow keys will be passed through to the system instead of navigating the switcher. Useful for Spaces switching."),
-            keywords: ["arrow", "passthrough", "spaces", "ctrl"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "arrow.left.arrow.right"
-        ),
-        SettingsSearchItem(
-            id: "gestures.backwardKey",
-            title: String(localized: "Backward Key"),
-            description: String(localized: "The key used to navigate backward in the window switcher."),
-            keywords: ["backward", "key", "navigate", "back"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "arrow.left"
-        ),
-        SettingsSearchItem(
-            id: "gestures.requireShiftTab",
-            title: String(localized: "Require \u{21E7}+Tab to go back in Switcher"),
-            keywords: ["shift", "tab", "back", "require"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "arrow.uturn.backward"
-        ),
-        SettingsSearchItem(
-            id: "gestures.ignoreMainModifierSideForDependentShortcuts",
-            title: String(localized: "Ignore modifier key side for Window Preview Keyboard Shortcuts"),
-            description: String(localized: "Allows either side of the selected modifier to trigger shortcuts that inherit the main Window Switcher modifier. The main Window Switcher shortcut still uses the selected side."),
-            keywords: ["modifier", "side", "left", "right", "either", "preview", "spaces", "shortcut"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "arrow.left.arrow.right"
-        ),
-        SettingsSearchItem(
-            id: "gestures.selectionKey",
-            title: String(localized: "Selection Key"),
-            description: String(localized: "The key used to select and bring to front the highlighted window in the switcher."),
-            keywords: ["selection", "key", "enter", "return", "select"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "return"
-        ),
-        SettingsSearchItem(
-            id: "gestures.alternateShortcuts",
-            title: String(localized: "Alternate Shortcuts (Inherit Default Window Switcher)"),
-            description: String(localized: "Additional trigger keys, each with its own modifier and window filter."),
-            keywords: ["alternate", "shortcuts", "trigger", "filter", "mode", "modifier", "multiple", "monitor", "display", "space"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "keyboard"
-        ),
-        SettingsSearchItem(
-            id: "gestures.persistentSwitcherShortcuts",
-            title: String(localized: "Alternate Shortcuts (Persistent Window Switcher)"),
-            description: String(localized: "Releasing initializer keys will always keep the Window Switcher open. Window preview keyboard shortcuts use the default modifier key."),
-            keywords: ["alternate", "shortcut", "persistent", "keep", "open", "double", "tap", "modifier", "monitor", "display", "space"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "keyboard.badge.ellipsis"
-        ),
-        SettingsSearchItem(
-            id: "gestures.persistentSwitcherStartsUnfocused",
-            title: String(localized: "Start Persistent Window Switcher with no window highlighted"),
-            description: String(localized: "Also applies when opening the Window Switcher from the menu bar icon."),
-            keywords: ["persistent", "keep", "open", "selection", "highlight", "unfocused", "menu bar"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "rectangle.dashed"
-        ),
-        SettingsSearchItem(
-            id: "gestures.lastFocusedWindowShortcuts",
-            title: String(localized: "Switch to Last Focused Window"),
-            description: String(localized: "Instantly switch to the last focused window."),
-            keywords: ["last", "focused", "previous", "recent", "window", "shortcut", "mru", "double", "tap", "monitor", "display", "space"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "arrow.uturn.backward"
-        ),
-        SettingsSearchItem(
-            id: "gestures.searchTriggerKey",
-            title: String(localized: "Search Trigger Key"),
-            description: String(localized: "The key that activates search while the window switcher is open."),
-            keywords: ["search", "trigger", "key", "activate"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "magnifyingglass"
-        ),
-        SettingsSearchItem(
-            id: "gestures.fullscreenBlacklist",
-            title: String(localized: "Fullscreen App Blacklist"),
-            description: String(localized: "Apps in this list will not respond to window switcher shortcuts when in fullscreen mode."),
-            keywords: ["fullscreen", "blacklist", "exclude", "app"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "app.badge.checkmark"
         ),
     ]
 }

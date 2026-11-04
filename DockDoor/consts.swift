@@ -102,6 +102,12 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
     var modifierFlags: Int
     var modifierSide: ModifierKeySide
     var mode: SwitcherInvocationMode
+    var usesDoubleTap: Bool
+    var doubleTapKey: ShortcutModifierKey
+    var doubleTapSide: ModifierKeySide
+    var persistent: Bool
+    var noHighlight: Bool
+    var quickSwitch: Bool
     var isConfigured: Bool
     var isPending: Bool
 
@@ -111,6 +117,12 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
         modifierFlags: Int = 0,
         modifierSide: ModifierKeySide = .either,
         mode: SwitcherInvocationMode = .activeAppOnly,
+        usesDoubleTap: Bool = false,
+        doubleTapKey: ShortcutModifierKey = .option,
+        doubleTapSide: ModifierKeySide = .either,
+        persistent: Bool = false,
+        noHighlight: Bool = false,
+        quickSwitch: Bool = false,
         isConfigured: Bool = false,
         isPending: Bool = false
     ) {
@@ -119,12 +131,18 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
         self.modifierFlags = modifierFlags
         self.modifierSide = modifierSide
         self.mode = mode
+        self.usesDoubleTap = usesDoubleTap
+        self.doubleTapKey = doubleTapKey
+        self.doubleTapSide = doubleTapSide
+        self.persistent = persistent
+        self.noHighlight = noHighlight
+        self.quickSwitch = quickSwitch
         self.isConfigured = isConfigured
         self.isPending = isPending
     }
 
     func resolvedKeybind(mainKeybind: UserKeyBind) -> UserKeyBind? {
-        guard isConfigured, !isPending else { return nil }
+        guard isConfigured, !isPending, !usesDoubleTap else { return nil }
         let inheritsMainModifier = modifierFlags == 0
         return UserKeyBind(
             keyCode: keyCode,
@@ -139,6 +157,12 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
         case modifierFlags
         case modifierSide
         case mode
+        case usesDoubleTap
+        case doubleTapKey
+        case doubleTapSide
+        case persistent
+        case noHighlight
+        case quickSwitch
         case isConfigured
         case isPending
     }
@@ -150,6 +174,12 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
         modifierFlags = try container.decodeIfPresent(Int.self, forKey: .modifierFlags) ?? 0
         modifierSide = try container.decodeIfPresent(ModifierKeySide.self, forKey: .modifierSide) ?? .either
         mode = try container.decodeIfPresent(SwitcherInvocationMode.self, forKey: .mode) ?? .activeAppOnly
+        usesDoubleTap = try container.decodeIfPresent(Bool.self, forKey: .usesDoubleTap) ?? false
+        doubleTapKey = try container.decodeIfPresent(ShortcutModifierKey.self, forKey: .doubleTapKey) ?? .option
+        doubleTapSide = try container.decodeIfPresent(ModifierKeySide.self, forKey: .doubleTapSide) ?? .either
+        persistent = try container.decodeIfPresent(Bool.self, forKey: .persistent) ?? false
+        noHighlight = try container.decodeIfPresent(Bool.self, forKey: .noHighlight) ?? false
+        quickSwitch = try container.decodeIfPresent(Bool.self, forKey: .quickSwitch) ?? false
         isConfigured = try container.decodeIfPresent(Bool.self, forKey: .isConfigured) ?? false
         isPending = try container.decodeIfPresent(Bool.self, forKey: .isPending) ?? false
     }
@@ -178,6 +208,9 @@ struct ResolvedAlternateSwitcherShortcut {
     let id: UUID
     let keybind: UserKeyBind
     let mode: SwitcherInvocationMode
+    let persistent: Bool
+    let noHighlight: Bool
+    let quickSwitch: Bool
 }
 
 enum ShortcutModifierKey: String, CaseIterable, Codable, Defaults.Serializable, Identifiable {
@@ -230,51 +263,6 @@ enum ModifierKeySide: String, CaseIterable, Codable, Defaults.Serializable, Iden
         case .right: String(localized: "Right", comment: "Modifier key side option")
         }
     }
-}
-
-struct PersistentSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, Hashable {
-    var id: UUID
-    var keyCode: UInt16
-    var modifierFlags: Int
-    var mode: SwitcherInvocationMode
-    var usesDoubleTap: Bool
-    var doubleTapKey: ShortcutModifierKey
-    var doubleTapSide: ModifierKeySide
-    var isConfigured: Bool
-    var isPending: Bool
-
-    init(
-        id: UUID = UUID(),
-        keyCode: UInt16 = 0,
-        modifierFlags: Int = 0,
-        mode: SwitcherInvocationMode = .allWindows,
-        usesDoubleTap: Bool = false,
-        doubleTapKey: ShortcutModifierKey = .option,
-        doubleTapSide: ModifierKeySide = .either,
-        isConfigured: Bool = false,
-        isPending: Bool = false
-    ) {
-        self.id = id
-        self.keyCode = keyCode
-        self.modifierFlags = modifierFlags
-        self.mode = mode
-        self.usesDoubleTap = usesDoubleTap
-        self.doubleTapKey = doubleTapKey
-        self.doubleTapSide = doubleTapSide
-        self.isConfigured = isConfigured
-        self.isPending = isPending
-    }
-
-    static let defaultShortcuts = [PersistentSwitcherShortcut()]
-}
-
-struct ResolvedPersistentSwitcherShortcut {
-    let id: UUID
-    let keyCode: UInt16
-    let modifierFlags: Int
-    let mode: SwitcherInvocationMode
-    let doubleTapKey: ShortcutModifierKey?
-    let doubleTapSide: ModifierKeySide?
 }
 
 enum WindowSwitcherShortcutResolver {
@@ -363,19 +351,12 @@ enum WindowSwitcherShortcutResolver {
         }
         let previews = Defaults[.cmdShortcuts]
         let alternates = Defaults[.alternateSwitcherShortcuts]
-        let persistent = Defaults[.persistentSwitcherShortcuts]
         if resolvedPreviewShortcuts(previews, previewKeybind: previewKeybind, mainKeybind: mainKeybind).contains(where: { $0.keyCode == key }) {
             return .previewAction
         }
         if resolvedAlternateShortcuts(alternates, mainKeybind: mainKeybind, previewShortcuts: previews)
             .contains(where: { heldShortcutOverlaps(candidate, initializer: $0.keybind) })
         {
-            return .duplicate
-        }
-        let global = resolvedPersistentShortcuts(persistent, mainKeybind: mainKeybind, alternateShortcuts: alternates, previewShortcuts: previews) +
-            resolvedLastFocusedShortcuts(Defaults[.lastFocusedWindowShortcuts], mainKeybind: mainKeybind,
-                                         alternateShortcuts: alternates, persistentShortcuts: persistent, previewShortcuts: previews)
-        if global.contains(where: { $0.doubleTapKey == nil && combinationsMatch(candidate, UserKeyBind(keyCode: $0.keyCode, modifierFlags: $0.modifierFlags)) }) {
             return .duplicate
         }
         return nil
@@ -428,6 +409,14 @@ enum WindowSwitcherShortcutResolver {
         mainKeybind: UserKeyBind,
         previewShortcuts: [CmdShortcut]
     ) -> AlternateSwitcherShortcutConflict? {
+        if shortcuts.indices.contains(index), shortcuts[index].usesDoubleTap {
+            let candidate = shortcuts[index]
+            guard candidate.isConfigured || candidate.usesDoubleTap, !candidate.isPending else { return nil }
+            return shortcuts[..<index].contains {
+                ($0.isConfigured || $0.usesDoubleTap) && !$0.isPending && $0.usesDoubleTap &&
+                    $0.doubleTapKey == candidate.doubleTapKey && sidesOverlap($0.doubleTapSide, candidate.doubleTapSide)
+            } ? .duplicate : nil
+        }
         guard shortcuts.indices.contains(index),
               let candidate = shortcuts[index].resolvedKeybind(mainKeybind: mainKeybind)
         else { return nil }
@@ -447,7 +436,7 @@ enum WindowSwitcherShortcutResolver {
 
         for earlierIndex in 0 ..< index {
             guard let earlier = shortcuts[earlierIndex].resolvedKeybind(mainKeybind: mainKeybind) else { continue }
-            if heldShortcutOverlaps(candidate, initializer: earlier) {
+            if combinationsMatch(candidate, earlier) {
                 return .duplicate
             }
         }
@@ -478,211 +467,9 @@ enum WindowSwitcherShortcutResolver {
             return ResolvedAlternateSwitcherShortcut(
                 id: shortcuts[index].id,
                 keybind: keybind,
-                mode: shortcuts[index].mode
-            )
-        }
-    }
-
-    static func persistentConflict(
-        at index: Int,
-        shortcuts: [PersistentSwitcherShortcut],
-        mainKeybind: UserKeyBind,
-        alternateShortcuts: [AlternateSwitcherShortcut],
-        previewShortcuts: [CmdShortcut]
-    ) -> AlternateSwitcherShortcutConflict? {
-        guard shortcuts.indices.contains(index) else { return nil }
-        let candidate = shortcuts[index]
-        guard candidate.isConfigured, !candidate.isPending else { return nil }
-
-        if candidate.usesDoubleTap {
-            for earlierIndex in 0 ..< index {
-                let earlier = shortcuts[earlierIndex]
-                guard earlier.isConfigured, !earlier.isPending, earlier.usesDoubleTap,
-                      earlier.doubleTapKey == candidate.doubleTapKey
-                else { continue }
-                if sidesOverlap(earlier.doubleTapSide, candidate.doubleTapSide) {
-                    return .duplicate
-                }
-            }
-            return nil
-        }
-
-        if conflictsWithSpacesShortcut(
-            keyCode: candidate.keyCode,
-            modifierFlags: candidate.modifierFlags,
-            mainKeybind: mainKeybind
-        ) {
-            return .spacesShortcut
-        }
-
-        let combination = UserKeyBind(keyCode: candidate.keyCode, modifierFlags: candidate.modifierFlags)
-        if heldShortcutOverlaps(combination, initializer: mainKeybind) {
-            return .duplicate
-        }
-        if resolvedAlternateShortcuts(
-            alternateShortcuts,
-            mainKeybind: mainKeybind,
-            previewShortcuts: previewShortcuts
-        ).contains(where: { heldShortcutOverlaps(combination, initializer: $0.keybind) }) {
-            return .duplicate
-        }
-        for earlierIndex in 0 ..< index {
-            let earlier = shortcuts[earlierIndex]
-            guard earlier.isConfigured, !earlier.isPending, !earlier.usesDoubleTap else { continue }
-            if combinationsMatch(
-                combination,
-                UserKeyBind(keyCode: earlier.keyCode, modifierFlags: earlier.modifierFlags)
-            ) {
-                return .duplicate
-            }
-        }
-
-        let mainModifiers = normalizedModifiers(mainKeybind.modifierFlags)
-        let conflictsWithPreviewAction = normalizedModifiers(candidate.modifierFlags) == mainModifiers && previewShortcuts.contains {
-            !$0.isPending && $0.action != .none && $0.keyCode == candidate.keyCode
-        }
-        return conflictsWithPreviewAction ? .previewAction : nil
-    }
-
-    static func resolvedPersistentShortcuts(
-        _ shortcuts: [PersistentSwitcherShortcut],
-        mainKeybind: UserKeyBind,
-        alternateShortcuts: [AlternateSwitcherShortcut],
-        previewShortcuts: [CmdShortcut]
-    ) -> [ResolvedPersistentSwitcherShortcut] {
-        shortcuts.indices.compactMap { index in
-            let shortcut = shortcuts[index]
-            guard shortcut.isConfigured, !shortcut.isPending,
-                  persistentConflict(
-                      at: index,
-                      shortcuts: shortcuts,
-                      mainKeybind: mainKeybind,
-                      alternateShortcuts: alternateShortcuts,
-                      previewShortcuts: previewShortcuts
-                  ) == nil
-            else { return nil }
-
-            return ResolvedPersistentSwitcherShortcut(
-                id: shortcut.id,
-                keyCode: shortcut.keyCode,
-                modifierFlags: normalizedModifiers(shortcut.modifierFlags),
-                mode: shortcut.mode,
-                doubleTapKey: shortcut.usesDoubleTap ? shortcut.doubleTapKey : nil,
-                doubleTapSide: shortcut.usesDoubleTap ? shortcut.doubleTapSide : nil
-            )
-        }
-    }
-
-    static func lastFocusedConflict(
-        at index: Int,
-        shortcuts: [PersistentSwitcherShortcut],
-        mainKeybind: UserKeyBind,
-        alternateShortcuts: [AlternateSwitcherShortcut],
-        persistentShortcuts: [PersistentSwitcherShortcut],
-        previewShortcuts: [CmdShortcut]
-    ) -> AlternateSwitcherShortcutConflict? {
-        guard shortcuts.indices.contains(index) else { return nil }
-        let candidate = shortcuts[index]
-        guard candidate.isConfigured, !candidate.isPending else { return nil }
-
-        if candidate.usesDoubleTap {
-            let conflictsWithPersistent = resolvedPersistentShortcuts(
-                persistentShortcuts,
-                mainKeybind: mainKeybind,
-                alternateShortcuts: alternateShortcuts,
-                previewShortcuts: previewShortcuts
-            ).contains { resolved in
-                resolved.doubleTapKey == candidate.doubleTapKey &&
-                    resolved.doubleTapSide.map { sidesOverlap($0, candidate.doubleTapSide) } == true
-            }
-            if conflictsWithPersistent { return .duplicate }
-
-            for earlierIndex in 0 ..< index {
-                let earlier = shortcuts[earlierIndex]
-                guard earlier.isConfigured, !earlier.isPending, earlier.usesDoubleTap,
-                      earlier.doubleTapKey == candidate.doubleTapKey
-                else { continue }
-                if sidesOverlap(earlier.doubleTapSide, candidate.doubleTapSide) {
-                    return .duplicate
-                }
-            }
-            return nil
-        }
-
-        if conflictsWithSpacesShortcut(
-            keyCode: candidate.keyCode,
-            modifierFlags: candidate.modifierFlags,
-            mainKeybind: mainKeybind
-        ) {
-            return .spacesShortcut
-        }
-
-        let combination = UserKeyBind(keyCode: candidate.keyCode, modifierFlags: candidate.modifierFlags)
-        if heldShortcutOverlaps(combination, initializer: mainKeybind) { return .duplicate }
-        if resolvedAlternateShortcuts(
-            alternateShortcuts,
-            mainKeybind: mainKeybind,
-            previewShortcuts: previewShortcuts
-        ).contains(where: { heldShortcutOverlaps(combination, initializer: $0.keybind) }) {
-            return .duplicate
-        }
-        if resolvedPersistentShortcuts(
-            persistentShortcuts,
-            mainKeybind: mainKeybind,
-            alternateShortcuts: alternateShortcuts,
-            previewShortcuts: previewShortcuts
-        ).contains(where: {
-            $0.doubleTapKey == nil && combinationsMatch(
-                combination,
-                UserKeyBind(keyCode: $0.keyCode, modifierFlags: $0.modifierFlags)
-            )
-        }) {
-            return .duplicate
-        }
-        for earlierIndex in 0 ..< index {
-            let earlier = shortcuts[earlierIndex]
-            guard earlier.isConfigured, !earlier.isPending, !earlier.usesDoubleTap else { continue }
-            if combinationsMatch(
-                combination,
-                UserKeyBind(keyCode: earlier.keyCode, modifierFlags: earlier.modifierFlags)
-            ) {
-                return .duplicate
-            }
-        }
-
-        let conflictsWithPreviewAction = normalizedModifiers(candidate.modifierFlags) == normalizedModifiers(mainKeybind.modifierFlags) && previewShortcuts.contains {
-            !$0.isPending && $0.action != .none && $0.keyCode == candidate.keyCode
-        }
-        return conflictsWithPreviewAction ? .previewAction : nil
-    }
-
-    static func resolvedLastFocusedShortcuts(
-        _ shortcuts: [PersistentSwitcherShortcut],
-        mainKeybind: UserKeyBind,
-        alternateShortcuts: [AlternateSwitcherShortcut],
-        persistentShortcuts: [PersistentSwitcherShortcut],
-        previewShortcuts: [CmdShortcut]
-    ) -> [ResolvedPersistentSwitcherShortcut] {
-        shortcuts.indices.compactMap { index in
-            let shortcut = shortcuts[index]
-            guard shortcut.isConfigured, !shortcut.isPending,
-                  lastFocusedConflict(
-                      at: index,
-                      shortcuts: shortcuts,
-                      mainKeybind: mainKeybind,
-                      alternateShortcuts: alternateShortcuts,
-                      persistentShortcuts: persistentShortcuts,
-                      previewShortcuts: previewShortcuts
-                  ) == nil
-            else { return nil }
-
-            return ResolvedPersistentSwitcherShortcut(
-                id: shortcut.id,
-                keyCode: shortcut.keyCode,
-                modifierFlags: normalizedModifiers(shortcut.modifierFlags),
-                mode: shortcut.mode,
-                doubleTapKey: shortcut.usesDoubleTap ? shortcut.doubleTapKey : nil,
-                doubleTapSide: shortcut.usesDoubleTap ? shortcut.doubleTapSide : nil
+                mode: shortcuts[index].mode,
+                persistent: shortcuts[index].persistent, noHighlight: shortcuts[index].noHighlight,
+                quickSwitch: shortcuts[index].quickSwitch
             )
         }
     }
@@ -1180,15 +967,6 @@ extension Defaults.Keys {
     static let alternateSwitcherShortcuts = Key<[AlternateSwitcherShortcut]>(
         "alternateSwitcherShortcuts",
         default: AlternateSwitcherShortcut.defaultShortcuts
-    )
-    static let persistentSwitcherShortcuts = Key<[PersistentSwitcherShortcut]>(
-        "persistentSwitcherShortcuts",
-        default: PersistentSwitcherShortcut.defaultShortcuts
-    )
-    static let persistentSwitcherStartsUnfocused = Key<Bool>("persistentSwitcherStartsUnfocused", default: false)
-    static let lastFocusedWindowShortcuts = Key<[PersistentSwitcherShortcut]>(
-        "lastFocusedWindowShortcuts",
-        default: [PersistentSwitcherShortcut(mode: .globalAllWindows)]
     )
 }
 

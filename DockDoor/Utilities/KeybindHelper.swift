@@ -109,10 +109,6 @@ enum WindowSwitcherLaunchSource: Equatable {
         Defaults[.useClassicWindowOrdering]
     }
 
-    var startsUnfocused: Bool {
-        self == .persistent && Defaults[.persistentSwitcherStartsUnfocused]
-    }
-
     var showsInstantly: Bool {
         switch self {
         case .keyboard, .trackpad: Defaults[.instantWindowSwitcher]
@@ -242,7 +238,8 @@ private class WindowSwitchingCoordinator {
         mode: SwitcherInvocationMode = .allWindows,
         launchSource: WindowSwitcherLaunchSource = .keyboard,
         initializerHeld: Bool = false,
-        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil
+        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil,
+        startUnfocused: Bool = false
     ) async -> Bool {
         guard !isProcessingSwitcher else { return false }
         isProcessingSwitcher = true
@@ -282,7 +279,8 @@ private class WindowSwitchingCoordinator {
                 previewCoordinator: previewCoordinator,
                 mode: mode,
                 launchSource: launchSource,
-                spaceNavigation: spaceNavigation
+                spaceNavigation: spaceNavigation,
+                startUnfocused: startUnfocused
             )
         }
         return false
@@ -292,7 +290,7 @@ private class WindowSwitchingCoordinator {
     func switchScope(
         previewCoordinator: SharedPreviewWindowCoordinator,
         mode: SwitcherInvocationMode,
-        launchSourceOverride: WindowSwitcherLaunchSource? = nil
+        launchSourceOverride: WindowSwitcherLaunchSource? = nil, startUnfocused: Bool? = nil
     ) async -> Bool {
         guard !isProcessingSwitcher else { return false }
         let coordinator = previewCoordinator.windowSwitcherCoordinator
@@ -308,6 +306,7 @@ private class WindowSwitchingCoordinator {
         uiRenderingTask?.cancel()
         let needsRender = !previewCoordinator.isVisible || !coordinator.windowSwitcherActive
         let launchSource = launchSourceOverride ?? activeLaunchSource ?? .keyboard
+        let startsUnfocused = startUnfocused ?? false
         activeLaunchSource = launchSource
 
         installSpaceFilter(previewCoordinator: previewCoordinator, mode: mode, screen: getTargetScreenForSwitcher(), dockPosition: DockUtils.getDockPosition())
@@ -320,9 +319,9 @@ private class WindowSwitchingCoordinator {
             coordinator: coordinator,
             dockPosition: dockPosition,
             bestGuessMonitor: targetScreen,
-            fallbackToFirst: !launchSource.startsUnfocused
+            fallbackToFirst: !startsUnfocused
         )
-        if launchSource.startsUnfocused {
+        if startsUnfocused {
             coordinator.setIndex(to: -1, shouldScroll: false, source: .programmatic)
         }
         coordinator.onFrameRefreshNeeded?()
@@ -353,7 +352,7 @@ private class WindowSwitchingCoordinator {
                 targetScreen: targetScreen,
                 sessionId: sessionId,
                 priority: .userInitiated,
-                selectFirstWindow: !launchSource.startsUnfocused
+                selectFirstWindow: !startsUnfocused
             )
         } else if !needsRender {
             scheduleWindowRefresh(
@@ -382,7 +381,7 @@ private class WindowSwitchingCoordinator {
     func openPersistent(
         previewCoordinator: SharedPreviewWindowCoordinator,
         mode: SwitcherInvocationMode,
-        spacesFocused: Bool = false
+        spacesFocused: Bool = false, startUnfocused: Bool? = nil
     ) async {
         guard !isProcessingSwitcher,
               !previewCoordinator.windowSwitcherCoordinator.isKeybindSessionActive
@@ -394,7 +393,7 @@ private class WindowSwitchingCoordinator {
             previewCoordinator: previewCoordinator,
             mode: mode,
             launchSource: .persistent,
-            spaceNavigation: spacesFocused ? .current : nil
+            spaceNavigation: spacesFocused ? .current : nil, startUnfocused: startUnfocused
         )
     }
 
@@ -408,8 +407,9 @@ private class WindowSwitchingCoordinator {
         previewCoordinator: SharedPreviewWindowCoordinator,
         mode: SwitcherInvocationMode = .allWindows,
         launchSource: WindowSwitcherLaunchSource,
-        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil
+        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil, startUnfocused: Bool? = nil
     ) async -> Bool {
+        let startsUnfocused = startUnfocused ?? false
         guard previewCoordinator.canPresentPreviews else { return false }
         previewCoordinator.cancelPendingShow()
         if previewCoordinator.isVisible, !previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
@@ -439,7 +439,7 @@ private class WindowSwitchingCoordinator {
             dockPosition: dockPosition,
             bestGuessMonitor: targetScreen,
             startOnSecondWindow: launchSource.startsOnSecondWindow,
-            startUnfocused: launchSource.startsUnfocused
+            startUnfocused: startsUnfocused
         )
         activeLaunchSource = launchSource
         coordinator.activateKeybindSession()
@@ -483,7 +483,7 @@ private class WindowSwitchingCoordinator {
                 targetScreen: targetScreen,
                 sessionId: sessionId,
                 priority: .userInitiated,
-                selectFirstWindow: !launchSource.startsUnfocused
+                selectFirstWindow: !startsUnfocused
             )
         }
         return true
@@ -866,7 +866,8 @@ private final class PreviewActionKeyPressState {
 
 class KeybindHelper {
     private enum ModifierDoubleTapAction {
-        case openPersistentSwitcher(SwitcherInvocationMode)
+        case openPersistentSwitcher(SwitcherInvocationMode, Bool?)
+        case openHeldSwitcher(UserKeyBind, SwitcherInvocationMode, Bool)
         case switchToLastFocusedWindow(SwitcherInvocationMode)
     }
 
@@ -990,7 +991,7 @@ class KeybindHelper {
     private func presentPersistentWindowSwitcher(
         mode: SwitcherInvocationMode,
         togglesCurrentScope: Bool = true,
-        spacesFocused: Bool = false
+        spacesFocused: Bool = false, startUnfocused: Bool? = nil
     ) async {
         guard Defaults[.enableWindowSwitcher], !spacesFocused || Defaults[.enableSpacesBar], previewCoordinator.canPresentPreviews else { return }
         lastFocusedActivationTask?.cancel()
@@ -1023,7 +1024,7 @@ class KeybindHelper {
             _ = await windowSwitchingCoordinator.switchScope(
                 previewCoordinator: previewCoordinator,
                 mode: mode,
-                launchSourceOverride: .persistent
+                launchSourceOverride: .persistent, startUnfocused: startUnfocused
             )
             if spacesFocused { windowSwitchingCoordinator.navigateSpaces(previewCoordinator: previewCoordinator, request: .current) }
             return
@@ -1039,7 +1040,7 @@ class KeybindHelper {
         await windowSwitchingCoordinator.openPersistent(
             previewCoordinator: previewCoordinator,
             mode: mode,
-            spacesFocused: spacesFocused
+            spacesFocused: spacesFocused, startUnfocused: startUnfocused
         )
     }
 
@@ -1156,10 +1157,19 @@ class KeybindHelper {
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
         if let passthrough = reEnableIfNeeded(tap: eventTap, type: type, event: event) {
             actionKeyPressState.reset()
+            modifierDoubleTapState = ModifierDoubleTapState()
+            pressedModifierKeyCodes.removeAll()
             if Defaults[.enableMultiWindowSelection] {
                 Task { @MainActor [weak self] in self?.previewCoordinator.windowSwitcherCoordinator.endKeyboardSelectionRange() }
             }
             return passthrough
+        }
+
+        if SettingsShortcutCaptureState.shared.isActive {
+            actionKeyPressState.reset()
+            modifierDoubleTapState = ModifierDoubleTapState()
+            if type == .flagsChanged { updatePressedModifierKeyCodes(event: event) }
+            return Unmanaged.passUnretained(event)
         }
 
         // Keep consumed action keys suppressed through preview dismissal until physical release.
@@ -1195,11 +1205,21 @@ class KeybindHelper {
         case .flagsChanged:
             updatePressedModifierKeyCodes(event: event)
             if let action = handleModifierDoubleTap(event: event) {
+                if WindowUtil.shouldIgnoreKeybindForFrontmostApp() { break }
+                let rollbackKeybind = activeSessionKeybind
+                let rollbackActive = switcherSessionActive
+                if case let .openHeldSwitcher(keybind, _, _) = action {
+                    beginSwitcherSession(with: keybind)
+                }
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     switch action {
-                    case let .openPersistentSwitcher(mode):
-                        await presentPersistentWindowSwitcher(mode: mode)
+                    case let .openPersistentSwitcher(mode, noHighlight):
+                        await presentPersistentWindowSwitcher(mode: mode, startUnfocused: noHighlight)
+                    case let .openHeldSwitcher(_, mode, noHighlight):
+                        await handleKeybindActivation(mode: mode, isModifierPressed: true, isBackwardPressed: false,
+                                                      rollbackKeybind: rollbackKeybind, rollbackSessionActive: rollbackActive,
+                                                      startUnfocused: noHighlight)
                     case let .switchToLastFocusedWindow(mode):
                         switchToLastFocusedWindow(mode: mode)
                     }
@@ -1234,7 +1254,7 @@ class KeybindHelper {
 
             var effectiveSwitcherModifierIsPressed = currentSwitcherModifierIsPressed
             if switcherSessionActive {
-                let requiredModifiersHeld = modifierFlagsMatch(keyBoardShortcutSaved, flags: event.flags)
+                let requiredModifiersHeld = modifierFlagsMatch(keyBoardShortcutSaved, flags: event.flags, allowBackwardModifier: true)
                 if requiredModifiersHeld {
                     effectiveSwitcherModifierIsPressed = true
                 } else {
@@ -1242,11 +1262,9 @@ class KeybindHelper {
                 }
             }
 
-            let shouldTakeOverActiveCmdTab = cmdTabKeybinds().contains {
-                modifierFlagsMatch($0, flags: event.flags)
-            }
+            let shouldTakeOverActiveCmdTab = isCmdTabWindowSwitcherKeybind(keyCode: Int64(kVK_Tab), flags: event.flags)
             let isModifierPress = pressedModifierKeyCodes.contains(UInt16(event.getIntegerValueField(.keyboardEventKeycode)))
-            let selectionModifiersHeld = !Defaults[.enableMultiWindowSelection] || modifierFlagsMatch(effectivePreviewShortcutKeybind(), flags: event.flags)
+            let selectionModifiersHeld = !Defaults[.enableMultiWindowSelection] || modifierFlagsMatch(effectivePreviewShortcutKeybind(), flags: event.flags, allowBackwardModifier: true)
             let modifierTimestamp = event.timestamp
             Task { @MainActor [weak self] in
                 if !selectionModifiersHeld { self?.previewCoordinator.windowSwitcherCoordinator.endKeyboardSelectionRange(releasedBefore: modifierTimestamp) }
@@ -1561,7 +1579,7 @@ class KeybindHelper {
         }
     }
 
-    private func alternateShortcuts() -> [ResolvedAlternateSwitcherShortcut] {
+    private func switcherShortcuts() -> [ResolvedAlternateSwitcherShortcut] {
         WindowSwitcherShortcutResolver.resolvedAlternateShortcuts(
             Defaults[.alternateSwitcherShortcuts],
             mainKeybind: Defaults[.UserKeybind],
@@ -1569,37 +1587,22 @@ class KeybindHelper {
         )
     }
 
-    private func persistentShortcuts() -> [ResolvedPersistentSwitcherShortcut] {
-        WindowSwitcherShortcutResolver.resolvedPersistentShortcuts(
-            Defaults[.persistentSwitcherShortcuts],
-            mainKeybind: Defaults[.UserKeybind],
-            alternateShortcuts: Defaults[.alternateSwitcherShortcuts],
-            previewShortcuts: Defaults[.cmdShortcuts]
-        )
-    }
-
-    private func lastFocusedShortcuts() -> [ResolvedPersistentSwitcherShortcut] {
-        WindowSwitcherShortcutResolver.resolvedLastFocusedShortcuts(
-            Defaults[.lastFocusedWindowShortcuts],
-            mainKeybind: Defaults[.UserKeybind],
-            alternateShortcuts: Defaults[.alternateSwitcherShortcuts],
-            persistentShortcuts: Defaults[.persistentSwitcherShortcuts],
-            previewShortcuts: Defaults[.cmdShortcuts]
-        )
-    }
-
     private func handleModifierDoubleTap(event: CGEvent) -> ModifierDoubleTapAction? {
         let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
-        let shortcuts = persistentShortcuts().filter { $0.doubleTapKey != nil }.map {
-            ($0, ModifierDoubleTapAction.openPersistentSwitcher($0.mode))
-        } + lastFocusedShortcuts().filter { $0.doubleTapKey != nil }.map {
-            ($0, ModifierDoubleTapAction.switchToLastFocusedWindow($0.mode))
+        let held: [AlternateSwitcherShortcut] = Defaults[.enableWindowSwitcher] ? Defaults[.alternateSwitcherShortcuts] : []
+        let shortcuts: [(shortcut: AlternateSwitcherShortcut, action: ModifierDoubleTapAction)] = held.indices.compactMap { index in
+            let row = held[index]
+            guard row.usesDoubleTap, !row.isPending,
+                  WindowSwitcherShortcutResolver.alternateConflict(at: index, shortcuts: held, mainKeybind: Defaults[.UserKeybind], previewShortcuts: Defaults[.cmdShortcuts]) == nil else { return nil }
+            if row.quickSwitch { return (row, .switchToLastFocusedWindow(row.mode)) }
+            if row.persistent { return (row, .openPersistentSwitcher(row.mode, row.noHighlight)) }
+            let trigger = UserKeyBind(keyCode: Defaults[.UserKeybind].keyCode, modifierFlags: row.doubleTapKey.modifierFlags, modifierSide: row.doubleTapSide)
+            return (row, .openHeldSwitcher(trigger, row.mode, row.noHighlight))
         }
         guard !shortcuts.isEmpty,
               let matchingShortcut = shortcuts.first(where: { shortcut, _ in
-                  guard let modifier = shortcut.doubleTapKey,
-                        let side = shortcut.doubleTapSide
-                  else { return false }
+                  let modifier = shortcut.doubleTapKey
+                  let side = shortcut.doubleTapSide
                   let keyCodes = modifier.keyCodes
                   return switch side {
                   case .either: keyCode == keyCodes.left || keyCode == keyCodes.right
@@ -1609,6 +1612,13 @@ class KeybindHelper {
               })
         else {
             modifierDoubleTapState.resetSequence()
+            return nil
+        }
+
+        let isRelease = modifierDoubleTapState.pressedKeyCodes.contains(keyCode)
+        let expectedModifiers = isRelease ? 0 : matchingShortcut.shortcut.doubleTapKey.modifierFlags
+        guard WindowSwitcherShortcutResolver.normalizedModifiers(Int(event.flags.rawValue)) == expectedModifiers else {
+            modifierDoubleTapState = ModifierDoubleTapState()
             return nil
         }
 
@@ -1643,7 +1653,7 @@ class KeybindHelper {
             let isWithinInterval = isWithinModifierDoubleTapInterval(event.timestamp, after: firstPress)
             modifierDoubleTapState.resetSequence()
             if isWithinInterval {
-                return matchingShortcut.1
+                return matchingShortcut.action
             }
         }
 
@@ -1707,56 +1717,38 @@ class KeybindHelper {
     }
 
     private func isCmdTabWindowSwitcherKeybind(keyCode: Int64, flags: CGEventFlags) -> Bool {
-        guard keyCode == Int64(kVK_Tab), flags.contains(.maskCommand) else { return false }
-        return cmdTabKeybinds().contains { modifierFlagsMatch($0, flags: flags) }
+        guard Defaults[.enableWindowSwitcher], keyCode == Int64(kVK_Tab), flags.contains(.maskCommand) else { return false }
+        let primary = Defaults[.UserKeybind]
+        if primary.keyCode == UInt16(kVK_Tab), modifierFlagsMatch(primary, flags: flags, allowBackwardModifier: true) { return true }
+        return resolveAlternateShortcut(in: switcherShortcuts(), keyCode: keyCode, flags: flags) != nil
     }
 
-    private func cmdTabKeybinds() -> [UserKeyBind] {
-        guard Defaults[.enableWindowSwitcher] else { return [] }
-        let keybinds = [Defaults[.UserKeybind]] + alternateShortcuts().map(\.keybind)
-        return keybinds.filter {
-            $0.keyCode == UInt16(kVK_Tab) && ($0.modifierFlags & Int(CGEventFlags.maskCommand.rawValue)) != 0
+    private func resolveAlternateShortcut(in shortcuts: [ResolvedAlternateSwitcherShortcut], keyCode: Int64, flags: CGEventFlags) -> ResolvedAlternateSwitcherShortcut? {
+        if let exact = shortcuts.first(where: {
+            keyCode == $0.keybind.keyCode && modifierFlagsMatch($0.keybind, flags: flags, allowBackwardModifier: false)
+        }) { return exact }
+        guard switcherSessionActive else { return nil }
+        return shortcuts.first {
+            !$0.persistent && !$0.quickSwitch && $0.keybind == activeSessionKeybind && keyCode == $0.keybind.keyCode &&
+                modifierFlagsMatch($0.keybind, flags: flags, allowBackwardModifier: true)
         }
     }
 
-    private func modifierFlagsMatch(_ keybind: UserKeyBind, flags: CGEventFlags) -> Bool {
-        let saved = keybind.modifierFlags
-        let wantsShift = (saved & Int(CGEventFlags.maskShift.rawValue)) != 0
-        let wantsAlt = (saved & Int(CGEventFlags.maskAlternate.rawValue)) != 0
-        let wantsCtrl = (saved & Int(CGEventFlags.maskControl.rawValue)) != 0
-        let wantsCmd = (saved & Int(CGEventFlags.maskCommand.rawValue)) != 0
-        let backwardKeyCode = Defaults[.switcherBackwardKeyCode]
-
-        return modifierFlagMatches(.maskShift, required: wantsShift, flags: flags, backwardKeyCode: backwardKeyCode) &&
-            modifierFlagMatches(.maskAlternate, required: wantsAlt, flags: flags, backwardKeyCode: backwardKeyCode) &&
-            modifierFlagMatches(.maskControl, required: wantsCtrl, flags: flags, backwardKeyCode: backwardKeyCode) &&
-            modifierFlagMatches(.maskCommand, required: wantsCmd, flags: flags, backwardKeyCode: backwardKeyCode) &&
-            modifierSideMatches(keybind)
-    }
-
-    private func modifierFlagMatches(
-        _ flag: CGEventFlags,
-        required: Bool,
-        flags: CGEventFlags,
-        backwardKeyCode: UInt16
-    ) -> Bool {
-        if required { return flags.contains(flag) }
-        guard Self.eventFlagForKeyCode(backwardKeyCode) == flag,
-              let keyCodes = Self.modifierKeyCodes(for: Int(flag.rawValue))
-        else { return !flags.contains(flag) }
-
-        let familyKeyCodes = Set([UInt16(keyCodes.left), UInt16(keyCodes.right)])
-        let pressedFamilyKeyCodes = pressedModifierKeyCodes.intersection(familyKeyCodes)
-        return pressedFamilyKeyCodes.isEmpty ? !flags.contains(flag) : pressedFamilyKeyCodes == Set([backwardKeyCode])
+    private func modifierFlagsMatch(_ keybind: UserKeyBind, flags: CGEventFlags, allowBackwardModifier: Bool = false) -> Bool {
+        var expected = WindowSwitcherShortcutResolver.normalizedModifiers(keybind.modifierFlags)
+        if allowBackwardModifier, let backwardFlag = activeBackwardModifierFlag(), flags.contains(backwardFlag) {
+            expected |= Int(backwardFlag.rawValue)
+        }
+        return WindowSwitcherShortcutResolver.normalizedModifiers(Int(flags.rawValue)) == expected && modifierSideMatches(keybind)
     }
 
     private func modifierSideMatches(_ keybind: UserKeyBind) -> Bool {
-        guard keybind.modifierSide != .either,
-              let keyCodes = Self.modifierKeyCodes(for: keybind.modifierFlags)
-        else { return true }
-
-        let keyCode = UInt16(keybind.modifierSide == .left ? keyCodes.left : keyCodes.right)
-        return pressedModifierKeyCodes.contains(keyCode)
+        guard keybind.modifierSide != .either else { return true }
+        return ShortcutModifierKey.allCases.allSatisfy { modifier in
+            guard keybind.modifierFlags & modifier.modifierFlags != 0 else { return true }
+            let keyCode = keybind.modifierSide == .left ? modifier.keyCodes.left : modifier.keyCodes.right
+            return pressedModifierKeyCodes.contains(keyCode)
+        }
     }
 
     private func updatePressedModifierKeyCodes(event: CGEvent) {
@@ -1794,7 +1786,7 @@ class KeybindHelper {
     private func updateModifierStatesFromFlags(event: CGEvent, keyBoardShortcutSaved: UserKeyBind) -> (currentSwitcherModifierIsPressed: Bool, currentBackwardState: Bool) {
         let flags = event.flags
         let backwardFlag = Self.eventFlagForKeyCode(Defaults[.switcherBackwardKeyCode])
-        let currentSwitcherModifierIsPressed = modifierFlagsMatch(keyBoardShortcutSaved, flags: flags)
+        let currentSwitcherModifierIsPressed = modifierFlagsMatch(keyBoardShortcutSaved, flags: flags, allowBackwardModifier: true)
 
         let backwardKeyCode = Defaults[.switcherBackwardKeyCode]
         let currentBackwardState: Bool = if let flag = backwardFlag,
@@ -2024,38 +2016,33 @@ class KeybindHelper {
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
         let flags = event.flags
         let keyBoardShortcutSaved: UserKeyBind = Defaults[.UserKeybind]
-        let alternateShortcuts = alternateShortcuts()
-        let persistentShortcuts = persistentShortcuts()
-        let lastFocusedShortcuts = lastFocusedShortcuts()
+        let shortcuts = switcherShortcuts()
         let snapshot = previewCoordinator.tapSnapshot
         let previewIsCurrentlyVisible = snapshot.isVisible || switcherSessionActive
 
-        let isDesiredModifierPressedNow = modifierFlagsMatch(keyBoardShortcutSaved, flags: flags)
+        let isDesiredModifierPressedNow = modifierFlagsMatch(keyBoardShortcutSaved, flags: flags, allowBackwardModifier: true)
         let isExactSwitcherShortcutPressed = keyCode == keyBoardShortcutSaved.keyCode &&
             (isDesiredModifierPressedNow || keyBoardShortcutSaved.modifierFlags == 0)
-        let matchingAlternateShortcut = alternateShortcuts.first {
-            keyCode == $0.keybind.keyCode && modifierFlagsMatch($0.keybind, flags: flags)
-        }
+        let matchingShortcut = resolveAlternateShortcut(in: shortcuts, keyCode: keyCode, flags: flags)
+        let matchingAlternateShortcut = matchingShortcut.flatMap { $0.persistent || $0.quickSwitch ? nil : $0 }
         let isAlternateShortcutPressed = matchingAlternateShortcut != nil
-        let normalizedEventModifiers = WindowSwitcherShortcutResolver.normalizedModifiers(Int(flags.rawValue))
-        let matchingPersistentShortcut = event.getIntegerValueField(.keyboardEventAutorepeat) == 0 ? persistentShortcuts.first {
-            $0.doubleTapKey == nil &&
-                keyCode == Int64($0.keyCode) &&
-                normalizedEventModifiers == $0.modifierFlags
-        } : nil
-        let matchingLastFocusedShortcut = event.getIntegerValueField(.keyboardEventAutorepeat) == 0 ? lastFocusedShortcuts.first {
-            $0.doubleTapKey == nil &&
-                keyCode == Int64($0.keyCode) &&
-                normalizedEventModifiers == $0.modifierFlags
-        } : nil
+        let matchingPersistentShortcut = event.getIntegerValueField(.keyboardEventAutorepeat) == 0 ? matchingShortcut.flatMap { $0.persistent && !$0.quickSwitch ? $0 : nil } : nil
+        if let matchingShortcut, matchingShortcut.quickSwitch {
+            guard Defaults[.enableWindowSwitcher] else { return (false, nil) }
+            if WindowUtil.shouldIgnoreKeybindForFrontmostApp() { return (false, nil) }
+            guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0,
+                                            timestamp: event.timestamp) else { return (true, nil) }
+            return (true, { @MainActor in
+                self.switchToLastFocusedWindow(mode: matchingShortcut.mode)
+            })
+        }
 
         if previewIsCurrentlyVisible || snapshot.fullPreviewFrame != nil,
            !snapshot.isNativeMenuTracking,
            keyCode == kVK_Escape,
            !isExactSwitcherShortcutPressed,
            !isAlternateShortcutPressed,
-           matchingPersistentShortcut == nil,
-           matchingLastFocusedShortcut == nil
+           matchingPersistentShortcut == nil
         {
             switcherSessionActive = false
             return (true, { @MainActor in
@@ -2095,7 +2082,8 @@ class KeybindHelper {
                     isModifierPressed: true,
                     isBackwardPressed: self.backwardModifierIsPressed(flags: flags, initializer: matchingAlternateShortcut.keybind),
                     rollbackKeybind: previousSessionKeybind,
-                    rollbackSessionActive: previousSessionWasActive
+                    rollbackSessionActive: previousSessionWasActive,
+                    startUnfocused: matchingAlternateShortcut.noHighlight
                 )
             })
         }
@@ -2104,13 +2092,7 @@ class KeybindHelper {
             guard Defaults[.enableWindowSwitcher] else { return (false, nil) }
             if WindowUtil.shouldIgnoreKeybindForFrontmostApp() { return (false, nil) }
             return (true, {
-                await self.presentPersistentWindowSwitcher(mode: matchingPersistentShortcut.mode)
-            })
-        }
-
-        if let matchingLastFocusedShortcut {
-            return (true, { @MainActor in
-                self.switchToLastFocusedWindow(mode: matchingLastFocusedShortcut.mode)
+                await self.presentPersistentWindowSwitcher(mode: matchingPersistentShortcut.mode, startUnfocused: matchingPersistentShortcut.noHighlight)
             })
         }
 
@@ -2280,7 +2262,7 @@ class KeybindHelper {
            !isSwitcherModifierKeyPressed,
            !flags.hasSuperfluousModifiers(ignoring: backwardNavigationIgnoredFlags())
         {
-            let matchingAlternateMode = alternateShortcuts.first(where: { Int64($0.keybind.keyCode) == keyCode })?.mode
+            let matchingAlternateMode = shortcuts.first(where: { !$0.persistent && !$0.quickSwitch && Int64($0.keybind.keyCode) == keyCode })?.mode
             let retriggerMode: SwitcherInvocationMode? = if keyCode == keyBoardShortcutSaved.keyCode, keyBoardShortcutSaved.modifierFlags != 0 {
                 .allWindows
             } else if let matchingAlternateMode {
@@ -2348,7 +2330,8 @@ class KeybindHelper {
         isBackwardPressed: Bool? = nil,
         rollbackKeybind: UserKeyBind? = nil,
         rollbackSessionActive: Bool? = nil,
-        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil
+        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil,
+        startUnfocused: Bool = false
     ) async {
         guard Defaults[.enableWindowSwitcher], previewCoordinator.canPresentPreviews else { return }
         lastFocusedActivationTask?.cancel()
@@ -2382,7 +2365,8 @@ class KeybindHelper {
         if shouldSwitchScope {
             let switched = await windowSwitchingCoordinator.switchScope(
                 previewCoordinator: previewCoordinator,
-                mode: mode
+                mode: mode,
+                startUnfocused: startUnfocused
             )
             if !switched {
                 currentInvocationMode = previousMode
@@ -2401,7 +2385,8 @@ class KeybindHelper {
             isModifierPressed: modifierPressedForActivation,
             isBackwardPressed: backwardPressedForActivation,
             mode: mode,
-            spaceNavigation: spaceNavigation
+            spaceNavigation: spaceNavigation,
+            startUnfocused: startUnfocused
         )
         if !activated {
             currentInvocationMode = previousMode

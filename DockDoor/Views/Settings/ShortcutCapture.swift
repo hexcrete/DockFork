@@ -76,6 +76,13 @@ struct ShortcutCaptureView: NSViewControllerRepresentable {
             guard parent.isRecording else { return }
 
             if event.type == .keyDown {
+                if event.keyCode == kVK_Escape,
+                   WindowSwitcherShortcutResolver.normalizedModifiers(Int(event.modifierFlags.rawValue)) == 0
+                {
+                    parent.isRecording = false
+                    return
+                }
+                guard !event.isARepeat else { return }
                 let isModifierKeyAlone = (
                     event.keyCode == kVK_Shift || event.keyCode == kVK_RightShift ||
                         event.keyCode == kVK_Control || event.keyCode == kVK_RightControl ||

@@ -11,14 +11,15 @@ abort 'Preset version differs from planned release' unless preset['appVersion'] 
 settings = preset.fetch('settings')
 abort 'Settings must be a dictionary' unless settings.is_a?(Hash)
 known = File.read(File.join(root, 'DockDoor/consts.swift')).scan(/Key(?:<[^\n]*?>)?\(\s*"([^"\n]+)"/).flatten
-unknown = settings.keys - known
+retired = %w[persistentSwitcherShortcuts persistentSwitcherStartsUnfocused lastFocusedWindowShortcuts]
+unknown = settings.keys - known - retired
 abort "Unrecognized preference keys: #{unknown.join(', ')}" unless unknown.empty?
 private_keys = settings.keys.grep(/\A(?:NS|Apple|SU)|bookmark|credential|token|permission|windowOrder(?!ing)|windowHistory|folderPaths|reopenSettings/i)
 abort "Private/system state: #{private_keys.join(', ')}" unless private_keys.empty?
 abort 'Debug logging must be disabled' unless settings['debugMode'] == false
 
 ids = []
-row_keys = %w[id isConfigured isPending keyCode mode modifierFlags modifierSide doubleTapKey doubleTapSide usesDoubleTap action]
+row_keys = %w[id isConfigured isPending keyCode mode modifierFlags modifierSide persistent inheritsMainModifier doubleTapKey doubleTapSide usesDoubleTap noHighlight quickSwitch action]
 row_lists = %w[alternateSwitcherShortcuts persistentSwitcherShortcuts lastFocusedWindowShortcuts cmdShortcuts]
 settings.each do |key, value|
   next unless row_lists.include?(key)
@@ -49,5 +50,7 @@ def inspect_value(value)
 end
 
 inspect_value(preset)
-puts "PASS #{settings.size} known preferences and #{ids.size} shortcut rows: envelope, generic IDs, nested JSON and privacy markers"
+puts "PASS #{settings.size} recognized preferences and #{ids.size} shortcut rows: envelope, generic IDs, nested JSON and privacy markers"
+ignored = settings.keys & retired
+puts "Retained preset has ignored retired keys (refresh before release): #{ignored.join(', ')}" unless ignored.empty?
 puts 'This focused check does not replace manual review of a new export or a packaged-asset privacy audit.'

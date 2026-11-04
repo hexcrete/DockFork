@@ -31,11 +31,12 @@ routes = {
   'context menu' => block(handler, '            if let routing = previewCoordinator.contextMenuShortcutRoutingSnapshot(),'),
   'numbered Spaces' => block(handler, '            if let spaceNumber = numberedSpaceShortcut(event: event),'),
   'Cmd+Tab app/preview' => block(handler, '                            if hasSelection || action == .selectAllWindows || canTileCheckedWindows ||'),
-  'regular preview' => block(keybinds, '                if let action = getActionForPreviewShortcut(keyCode: keyCode),')
+  'regular preview' => block(keybinds, '                if let action = getActionForPreviewShortcut(keyCode: keyCode),'),
+  'Quick Switch' => block(keybinds, '        if let matchingShortcut, matchingShortcut.quickSwitch {')
 }
 routes.each do |label, route|
   abort "#{label} does not consume recognized repeats" unless route.include?('guard actionKeyPressState.begin(keyCode: keyCode, isRepeat: event.getIntegerValueField(.keyboardEventAutorepeat) != 0')
-  dispatch = [route.index('Task {'), route.index('preventSwitcherHideOnRelease ='), route.index('cmdTabActionPerformed =')].compact.min
+  dispatch = [route.index('Task {'), route.index('preventSwitcherHideOnRelease ='), route.index('cmdTabActionPerformed ='), route.index('self.switchToLastFocusedWindow(')].compact.min
   abort "#{label} starts work before repeat admission" unless dispatch && route.index('actionKeyPressState.begin(') < dispatch
 end
 abort 'Navigation/search must not claim action keys' unless keybinds.scan('actionKeyPressState.begin(').size == routes.size
@@ -129,7 +130,7 @@ func event(_ code: Int, repeat repeated: Bool = false, up: Bool = false, flags: 
   }
   state.reset()
   print("PASS production physical-key gate: repeat suppression through dismissal/modifier changes, fresh presses, missed releases, independent keys, reset and concurrent cleanup; navigation/typing remain unclaimed")
-  print("PASS production Space matching: all ten numbers, repeat recognition without execution, modifiers, physical-side refusal and disabled behavior; four action routes gated before dispatch")
+  print("PASS production Space matching: all ten numbers, repeat recognition without execution, modifiers, physical-side refusal and disabled behavior; five action routes gated before dispatch")
  }
 }
 SWIFT
@@ -149,14 +150,13 @@ struct UserKeyBind {
  var modifierSide: ModifierKeySide = .either
 }
 enum AlternateSwitcherShortcutConflict { case spacesShortcut, duplicate, previewAction }
-struct GlobalShortcut { let keyCode: UInt16; let modifierFlags: Int; let doubleTapKey: Int? = nil }
 enum Defaults {
  struct Key<T> { let read:()->T }
  static subscript<T>(_ key:Key<T>)->T {key.read()}
  static var forward:UInt16 = .max, backward:UInt16 = .max
  static var search:UInt16 = 44
  static var bar = false, vim = false
- static var previews:[UserKeyBind]=[], alternates:[UserKeyBind]=[], persistent:[GlobalShortcut]=[], last:[GlobalShortcut]=[]
+ static var previews:[UserKeyBind]=[], alternates:[UserKeyBind]=[]
 }
 extension Defaults.Key where T == UInt16 {
  static var spacesBarCycleKey:Self{Self(read:{Defaults.forward})}
@@ -173,10 +173,6 @@ extension Defaults.Key where T == [UserKeyBind] {
  static var cmdShortcuts:Self{Self(read:{Defaults.previews})}
  static var alternateSwitcherShortcuts:Self{Self(read:{Defaults.alternates})}
 }
-extension Defaults.Key where T == [GlobalShortcut] {
- static var persistentSwitcherShortcuts:Self{Self(read:{Defaults.persistent})}
- static var lastFocusedWindowShortcuts:Self{Self(read:{Defaults.last})}
-}
 struct ResolvedAlternate {let keybind:UserKeyBind}
 enum WindowSwitcherShortcutResolver {
  static var spacesReserved = false
@@ -184,8 +180,6 @@ enum WindowSwitcherShortcutResolver {
  static func heldShortcutOverlaps(_ candidate:UserKeyBind,initializer:UserKeyBind)->Bool {combinationsMatch(candidate,initializer)}
  static func resolvedPreviewShortcuts(_ shortcuts:[UserKeyBind],previewKeybind:UserKeyBind,mainKeybind:UserKeyBind)->[UserKeyBind]{shortcuts}
  static func resolvedAlternateShortcuts(_ shortcuts:[UserKeyBind],mainKeybind:UserKeyBind,previewShortcuts:[UserKeyBind])->[ResolvedAlternate]{shortcuts.map{ResolvedAlternate(keybind:$0)}}
- static func resolvedPersistentShortcuts(_ shortcuts:[GlobalShortcut],mainKeybind:UserKeyBind,alternateShortcuts:[UserKeyBind],previewShortcuts:[UserKeyBind])->[GlobalShortcut]{shortcuts}
- static func resolvedLastFocusedShortcuts(_ shortcuts:[GlobalShortcut],mainKeybind:UserKeyBind,alternateShortcuts:[UserKeyBind],persistentShortcuts:[GlobalShortcut],previewShortcuts:[UserKeyBind])->[GlobalShortcut]{shortcuts}
 SWIFT
 %w[spaceCycleConflict searchTriggerConflict dependentKeyConflict combinationsMatch sidesOverlap normalizedModifiers].each do |name|
   signature = %w[dependentKeyConflict combinationsMatch sidesOverlap].include?(name) ? "    private static func #{name}(" : "    static func #{name}("
@@ -211,14 +205,17 @@ conflicts += <<~'SWIFT'
  Defaults.alternates=[UserKeyBind(keyCode:1,modifierFlags:main.modifierFlags,modifierSide:.left)]
  check(1,.duplicate)
  check(1,nil,keybind:UserKeyBind(keyCode:48,modifierFlags:main.modifierFlags,modifierSide:.right))
- Defaults.persistent=[GlobalShortcut(keyCode:2,modifierFlags:main.modifierFlags)]
+ Defaults.alternates=[UserKeyBind(keyCode:2,modifierFlags:main.modifierFlags)]
  check(2,.duplicate)
- Defaults.last=[GlobalShortcut(keyCode:3,modifierFlags:main.modifierFlags)]
+ Defaults.alternates=[UserKeyBind(keyCode:2,modifierFlags:main.modifierFlags,modifierSide:.left)]
+ check(2,nil,keybind:UserKeyBind(keyCode:48,modifierFlags:main.modifierFlags,modifierSide:.right))
+ check(2,.duplicate,keybind:UserKeyBind(keyCode:48,modifierFlags:main.modifierFlags,modifierSide:.left))
+ Defaults.alternates=[UserKeyBind(keyCode:3,modifierFlags:main.modifierFlags)]
  check(3,.duplicate)
  check(4,nil)
  check(4,.duplicate,backward:true)
  check(2,nil,keybind:UserKeyBind(keyCode:48,modifierFlags:Int(CGEventFlags.maskCommand.rawValue)))
- Defaults.previews=[];Defaults.alternates=[];Defaults.persistent=[];Defaults.last=[]
+ Defaults.previews=[];Defaults.alternates=[];Defaults.alternates=[];Defaults.alternates=[]
  func search(_ code:UInt16,_ expected:AlternateSwitcherShortcutConflict?,side:ModifierKeySide = .either) {
   Defaults.search=code
   let keybind=UserKeyBind(keyCode:48,modifierFlags:main.modifierFlags,modifierSide:side)
@@ -229,12 +226,12 @@ conflicts += <<~'SWIFT'
  Defaults.previews=[UserKeyBind(keyCode:0,modifierFlags:main.modifierFlags)];search(0,.previewAction);Defaults.previews=[]
  Defaults.alternates=[UserKeyBind(keyCode:1,modifierFlags:main.modifierFlags,modifierSide:.left)]
  search(1,.duplicate,side:.left);search(1,nil,side:.right);search(1,.duplicate,side:.either);Defaults.alternates=[]
- Defaults.persistent=[GlobalShortcut(keyCode:2,modifierFlags:main.modifierFlags)];search(2,.duplicate);Defaults.persistent=[]
- Defaults.last=[GlobalShortcut(keyCode:3,modifierFlags:main.modifierFlags)];search(3,.duplicate);Defaults.last=[]
+ Defaults.alternates=[UserKeyBind(keyCode:2,modifierFlags:main.modifierFlags)];search(2,.duplicate);Defaults.alternates=[]
+ Defaults.alternates=[UserKeyBind(keyCode:3,modifierFlags:main.modifierFlags)];search(3,.duplicate);Defaults.alternates=[]
  Defaults.forward=4;Defaults.backward=5;Defaults.bar=true;search(4,.duplicate);search(5,.duplicate)
  Defaults.bar=false;search(4,nil)
  Defaults.vim=true;search(UInt16(kVK_ANSI_H),.duplicate);Defaults.vim=false;search(UInt16(kVK_ANSI_H),nil)
- print("PASS production Space-cycle conflict policy: unassigned, reserved/navigation, numbered Spaces, preview actions, alternate/persistent/last-focused bindings, duplicates and modifier sides/session modifiers")
+ print("PASS production Space-cycle conflict policy: unassigned, reserved/navigation, numbered Spaces, preview actions, alternate/persistent/Quick Switch bindings, duplicates and modifier sides/session modifiers")
  }
 }
 SWIFT
@@ -576,10 +573,11 @@ ownership_source += <<~'SWIFT'
  var isProcessingSwitcher = false, currentSessionId = UUID(), activeLaunchSource: WindowSwitcherLaunchSource? = .keyboard
  var trackpadSessionId: UUID?, trackpadTookOverKeepOpenSession = false
  var spaceRequests: [PreviewStateCoordinator.SpaceNavigationRequest] = [], initializations = 0
+ var unfocusedStarts: [Bool] = []
  func takeKeyboardOwnership() {activeLaunchSource = .keyboard; trackpadSessionId = nil}
  func navigateSpaces(previewCoordinator:SharedPreviewWindowCoordinator,request:PreviewStateCoordinator.SpaceNavigationRequest) {spaceRequests.append(request)}
- func initializeWindowSwitching(previewCoordinator:SharedPreviewWindowCoordinator,mode:SwitcherInvocationMode,launchSource:WindowSwitcherLaunchSource,spaceNavigation:PreviewStateCoordinator.SpaceNavigationRequest?) async -> Bool {
-  initializations += 1; activeLaunchSource = launchSource
+ func initializeWindowSwitching(previewCoordinator:SharedPreviewWindowCoordinator,mode:SwitcherInvocationMode,launchSource:WindowSwitcherLaunchSource,spaceNavigation:PreviewStateCoordinator.SpaceNavigationRequest?,startUnfocused:Bool? = nil) async -> Bool {
+  initializations += 1; activeLaunchSource = launchSource; unfocusedStarts.append(startUnfocused ?? false)
   trackpadSessionId = launchSource == .trackpad ? currentSessionId:nil
   if let spaceNavigation {spaceRequests.append(spaceNavigation)}
   return true
@@ -605,6 +603,10 @@ ownership_source += <<~'SWIFT'
   panel.windowSwitcherCoordinator.isKeybindSessionActive = false
   _ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:.trackpad,spaceNavigation:.current)
   precondition(state.initializations == 1 && state.spaceRequests.last == .current)
+_ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:.keyboard,startUnfocused:true)
+precondition(state.unfocusedStarts.last == true && state.activeLaunchSource == .keyboard, "Held No Highlight reaches initialization without changing ownership")
+_ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:.keyboard)
+precondition(state.unfocusedStarts.last == false, "Ordinary navigation keeps its default")
   for searchFocused in [false,true] {
    precondition(TrackpadSwipeReleasePolicy.shouldSelect(tookOverKeepOpenSession:true,keepOpen:true,focusesSearchOnOpen:true,searchEnabled:true,searchFocused:searchFocused) == !searchFocused)
   }
@@ -619,7 +621,7 @@ Dir.mktmpdir('dockfork-spaces-swipe-ownership-') do |dir|
 end
 
 search_section = File.read("#{root}/DockDoor/Views/Settings/Gestures/WindowSwitcherKeybindSection.swift")
-abort 'Search settings must share dependent modifier-side resolution and conflict warnings' unless search_section.include?('ignoreModifierSide: ignoreMainModifierSideForDependentShortcuts') && search_section.include?('Text(modifierConverter.toSymbol(searchShortcutKeybind))') && search_section.include?('if let conflict = searchShortcutConflict')
+abort 'Search settings must share dependent modifier-side resolution and conflict warnings' unless search_section.include?('ignoreModifierSide: ignoreMainModifierSideForDependentShortcuts') && search_section.include?('modifierLabel: modifierConverter.toSymbol(searchShortcutKeybind), conflict: searchShortcutConflict')
 search_route = keybinds[keybinds.index('keyCode == Int64(Defaults[.searchTriggerKey])')...keybinds.index('self.previewCoordinator.focusSearchWindow()', keybinds.index('keyCode == Int64(Defaults[.searchTriggerKey])'))]
 abort 'Search trigger must share runtime conflict policy and allow bare typing or the effective side-aware modifier' unless search_route.include?('WindowSwitcherShortcutResolver.searchTriggerConflict(previewKeybind: effectivePreviewShortcutKeybind()') && search_route.include?('normalizedModifiers(Int(flags.rawValue)) == 0 || modifierFlagsMatch(effectivePreviewShortcutKeybind(), flags: flags)')
 
