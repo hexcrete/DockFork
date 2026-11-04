@@ -6,6 +6,8 @@ Prepare the Settings/shortcuts and gesture update as stable 0.5.0, without publi
 
 The committed-source Release candidate at `5da345933511899c2c315a7c2a2edbb1be63244b` is built and artifact-audited. Checksums, archive/source correspondence, nested ad-hoc signatures, updater isolation and preset privacy pass. Exact Release installation, permissions and optional import require user testing before publication; no Release launch or import was performed.
 
+Public notes distinguish upstream's Settings redesign, pinned previews, multiple Alternate Shortcuts and combined modifiers from fork-specific extensions and merge repairs. Preserved Double-tap is not a new release feature. This attribution correction changes public copy only, not the audited candidate.
+
 November 4 upstream update: `e0cd636e` incorporates two commits through `c58cf6c0`. The fork retains its existing per-call AX observer-registration timing rather than upstream's aggregate-duration check. The incoming appcast includes beta 1.42.3b1, but the recorded stable base remains 1.42.2. DockFork's published 0.4.0 packages and presets are unchanged; no new visual feature or media approval.
 
 For current screenshot setup, use the [capture plan and consolidated settings locations](SHOWCASE_CHECKLIST.md#current-settings-locations). Its rows describe current UI rather than development stages. Existing capture IDs and pending media status are preserved; published release packages and presets are unchanged.
