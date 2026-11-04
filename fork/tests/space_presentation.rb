@@ -1586,13 +1586,14 @@ dragPanel.contentView=NSHostingView(rootView:PillProbe(dragContents:{_,_,ended i
 dragPanel.orderFront(nil);dragPanel.contentView?.layoutSubtreeIfNeeded()
 RunLoop.main.run(until:Date().addingTimeInterval(0.15))
 func sendPill(_ events:[(NSEvent.EventType,CGPoint)]) {
- let time=ProcessInfo.processInfo.systemUptime
+ let time=ProcessInfo.processInfo.systemUptime-Double(max(0,events.count-1))*0.05
  for (index,item) in events.enumerated(){NSApp.postEvent(NSEvent.mouseEvent(with:item.0,location:item.1,modifierFlags:[],timestamp:time+Double(index)*0.05,windowNumber:dragPanel.windowNumber,context:nil,eventNumber:index+1,clickCount:1,pressure:item.0 == .leftMouseUp ? 0:1)!,atStart:false)}
- while let event=NSApp.nextEvent(matching:.any,until:Date().addingTimeInterval(0.05),inMode:.default,dequeue:true){NSApp.sendEvent(event)}
+ let deadline=Date().addingTimeInterval(0.1)
+ while Date()<deadline, let event=NSApp.nextEvent(matching:.any,until:deadline,inMode:.default,dequeue:true){NSApp.sendEvent(event)}
  RunLoop.main.run(until:Date().addingTimeInterval(0.1))
 }
 sendPill([(.leftMouseDown,CGPoint(x:20,y:20)),(.leftMouseDragged,CGPoint(x:80,y:20)),(.leftMouseUp,CGPoint(x:80,y:20))])
-precondition(SpacePillEvents.changes>0 && SpacePillEvents.ends==1 && SpacePillEvents.activations==0,"Pill body drag must not also activate the Space")
+precondition(SpacePillEvents.changes>0 && SpacePillEvents.ends==1 && SpacePillEvents.activations==0,"Pill body drag must not also activate the Space (changes=\(SpacePillEvents.changes), ends=\(SpacePillEvents.ends), activations=\(SpacePillEvents.activations))")
 sendPill([(.leftMouseDown,CGPoint(x:20,y:20)),(.leftMouseUp,CGPoint(x:20,y:20))])
 precondition(SpacePillEvents.activations==1,"Normal pill clicks must still activate")
 let appIcon=ManagedSpacePresentation.App(application:NSRunningApplication.current,windowCount:1)
