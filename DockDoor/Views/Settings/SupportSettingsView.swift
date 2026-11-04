@@ -302,19 +302,12 @@ private struct DebugLoggingRow: View {
                     }
 
                 if limitDebugLogFileSize {
-                    sliderSetting(
-                        title: "Maximum debug log size",
-                        value: $debugLogMaximumSizeMB,
-                        range: 1 ... 100,
-                        step: 1,
-                        unit: "MB",
-                        formatter: NumberFormatter(style: .none, minimumFractionDigits: 0, maximumFractionDigits: 0)
-                    )
-                    .padding(.leading, 40)
-                    .settingsSearchTarget("support.debugLogMaximumSizeMB")
-                    .onChange(of: debugLogMaximumSizeMB) { _ in
-                        DebugLogger.applySizeLimit()
-                    }
+                    SettingsSliderRow(title: "Maximum debug log size", value: $debugLogMaximumSizeMB, range: 1 ... 100, defaultValue: Defaults.Keys.debugLogMaximumSizeMB.defaultValue, unit: " MB", step: 1, formatter: NumberFormatter(style: .none, minimumFractionDigits: 0, maximumFractionDigits: 0))
+                        .padding(.leading, 40)
+                        .settingsSearchTarget("support.debugLogMaximumSizeMB")
+                        .onChange(of: debugLogMaximumSizeMB) { _ in
+                            DebugLogger.applySizeLimit()
+                        }
                 }
             }
         }

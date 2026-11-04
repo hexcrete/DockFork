@@ -27,6 +27,8 @@ struct AppearanceSettingsView: View {
 
             SpacesBarAppearanceSection()
 
+            ActionFeedbackSettingsSection()
+
             AdvancedAppearanceSection()
         }
     }
@@ -56,6 +58,18 @@ struct SpacesBarAppearanceSection: View {
                 set: { spacesBarMaximumIcons = max(iconLimits.minimum, min(SpacesBarIconLimits.maximumUpperBound, Int($0))) })
     }
 
+    private func resetIconLimits() {
+        let minimum = Double(Defaults.Keys.spacesBarMinimumIcons.defaultValue)
+        let maximum = Double(Defaults.Keys.spacesBarMaximumIcons.defaultValue)
+        if maximumIcons.wrappedValue < minimum {
+            maximumIcons.wrappedValue = maximum
+            minimumIcons.wrappedValue = minimum
+        } else {
+            minimumIcons.wrappedValue = minimum
+            maximumIcons.wrappedValue = maximum
+        }
+    }
+
     var body: some View {
         Group {
             if enableSpacesBar {
@@ -65,6 +79,7 @@ struct SpacesBarAppearanceSection: View {
                             Text(size.localizedName).tag(size)
                         }
                     }
+
                     .pickerStyle(.menu)
                     .settingsSearchTarget("windowSwitcher.spacesBarItemSize")
                     Toggle("Show app icons in the Spaces Bar", isOn: $spacesBarShowAppIcons)
@@ -73,34 +88,28 @@ struct SpacesBarAppearanceSection: View {
                         Text("Numbers").tag(SpaceMenuDisplayMode.numberOnly)
                         Text("Names").tag(SpaceMenuDisplayMode.fullName)
                     }
+
                     .settingsSearchTarget("windowSwitcher.spacesBarLabels")
                     Picker("Pill width", selection: $spacesBarFixedWidth) {
                         Text("Fixed").tag(true)
                         Text("Flexible").tag(false)
                     }
+
                     .settingsSearchTarget("windowSwitcher.spacesBarFixedWidth")
                     if spacesBarFixedWidth {
-                        HStack {
-                            Text("Pill width")
-                            Slider(value: $spacesBarPillWidth, in: 10 ... 600, step: 10)
-                            Text("\(Int(spacesBarPillWidth))")
+                        Group {
+                            SettingsSliderRow(title: "Pill width", value: $spacesBarPillWidth, range: 10 ... 600, defaultValue: Defaults.Keys.spacesBarPillWidth.defaultValue, step: 10)
+                                .settingsSearchTarget("windowSwitcher.spacesBarPillWidth")
                         }
-                        .settingsSearchTarget("windowSwitcher.spacesBarPillWidth")
                     } else if spacesBarShowAppIcons {
-                        HStack {
-                            Text("Minimum icons")
-                            Slider(value: minimumIcons, in: 0 ... Double(SpacesBarIconLimits.minimumUpperBound), step: 1)
-                                .accessibilityLabel(Text("Minimum icons"))
-                            Text("\(iconLimits.minimum)")
+                        Group {
+                            SettingsSliderRow(title: "Minimum icons", value: minimumIcons, range: 0 ... Double(SpacesBarIconLimits.minimumUpperBound), defaultValue: Double(Defaults.Keys.spacesBarMinimumIcons.defaultValue), step: 1, onReset: resetIconLimits)
+                                .settingsSearchTarget("windowSwitcher.spacesBarMinimumIcons")
+                                .help("Reset restores both icon limits.")
+                            SettingsSliderRow(title: "Maximum icons", value: maximumIcons, range: 0 ... Double(SpacesBarIconLimits.maximumUpperBound), defaultValue: Double(Defaults.Keys.spacesBarMaximumIcons.defaultValue), step: 1, onReset: resetIconLimits)
+                                .settingsSearchTarget("windowSwitcher.spacesBarMaximumIcons")
+                                .help("Reset restores both icon limits.")
                         }
-                        .settingsSearchTarget("windowSwitcher.spacesBarMinimumIcons")
-                        HStack {
-                            Text("Maximum icons")
-                            Slider(value: maximumIcons, in: 0 ... Double(SpacesBarIconLimits.maximumUpperBound), step: 1)
-                                .accessibilityLabel(Text("Maximum icons"))
-                            Text("\(iconLimits.maximum)")
-                        }
-                        .settingsSearchTarget("windowSwitcher.spacesBarMaximumIcons")
                     }
                 }
             }
@@ -112,5 +121,27 @@ struct SpacesBarAppearanceSection: View {
         .onChange(of: spacesBarMinimumIcons) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
         .onChange(of: spacesBarMaximumIcons) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
         .onChange(of: spacesBarPillWidth) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.layout) }
+    }
+}
+
+private struct ActionFeedbackSettingsSection: View {
+    @Default(.enableActionFeedback) private var enabled
+    @Default(.actionFeedbackPosition) private var position
+
+    var body: some View {
+        SettingsSection("Action Feedback") {
+            Toggle("Enable action feedback", isOn: $enabled)
+                .settingsSearchTarget("gestures.enableActionFeedback")
+                .settingsAnnotation("Show progress and results for window and Space actions. Selection changes and AppleScript actions remain silent.")
+            if enabled {
+                Group {
+                    Picker("Position:", selection: $position) {
+                        ForEach(ActionFeedbackPosition.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+
+                    .settingsSearchTarget("gestures.actionFeedbackPosition")
+                }
+            }
+        }
     }
 }

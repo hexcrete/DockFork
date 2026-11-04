@@ -9,8 +9,10 @@ struct SettingsSliderRow<T: BinaryFloatingPoint>: View where T.Stride: BinaryFlo
     var unit = ""
     var step: T.Stride = 1
     var decimals = 0
+    var formatter: NumberFormatter?
     var valueText: ((T) -> String)?
     var onEditingChanged: ((Bool) -> Void)?
+    var onReset: (() -> Void)?
 
     private var effectiveDecimals: Int {
         guard decimals == 0, Double(step) < 1 else { return decimals }
@@ -20,6 +22,9 @@ struct SettingsSliderRow<T: BinaryFloatingPoint>: View where T.Stride: BinaryFlo
     private var displayValue: String {
         if let valueText {
             return valueText(value)
+        }
+        if let formatter {
+            return (formatter.string(from: NSNumber(value: Double(value))) ?? String(describing: value)) + unit
         }
         return String(format: "%.\(effectiveDecimals)f", Double(value)) + unit
     }
@@ -57,6 +62,10 @@ struct SettingsSliderRow<T: BinaryFloatingPoint>: View where T.Stride: BinaryFlo
 
                 SettingsResetButton(isModified: isModified) {
                     guard let defaultValue else { return }
+                    if let onReset {
+                        onReset()
+                        return
+                    }
                     withAnimation(.easeInOut(duration: 0.15)) {
                         value = defaultValue
                     }
@@ -90,48 +99,17 @@ struct PreviewFocusFadeSettings: View {
         if hoverAction == .previewFullSize {
             Toggle(mode.toggleTitle, isOn: $enabled)
                 .settingsSearchTarget(mode.searchPrefix + ".focusFade")
-            Text(mode.helperText)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
+                .settingsAnnotation(verbatim: mode.helperText)
             if enabled {
-                sliderSetting(title: LocalizedStringKey(mode.delayTitle), value: $delay, range: 0 ... 5, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
-                    .settingsSearchTarget(mode.searchPrefix + ".focusFadeDelay")
-                sliderSetting(title: "Fade Out Duration", value: $duration, range: 0 ... 5, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
-                    .settingsSearchTarget(mode.searchPrefix + ".focusFadeDuration")
-                sliderSetting(title: "Target Minimum Opacity", value: $opacity, range: 0 ... 0.5, step: 0.05, unit: "", formatter: NumberFormatter.percentFormatter)
-                    .settingsSearchTarget(mode.searchPrefix + ".focusFadeOpacity")
-            }
-        }
-    }
-}
-
-func sliderSetting<T: BinaryFloatingPoint>(
-    title: LocalizedStringKey,
-    value: Binding<T>,
-    range: ClosedRange<T>,
-    step: T.Stride,
-    unit: LocalizedStringKey,
-    formatter: NumberFormatter = NumberFormatter.defaultFormatter,
-    onEditingChanged: ((Bool) -> Void)? = nil
-) -> some View where T.Stride: BinaryFloatingPoint {
-    VStack(alignment: .leading, spacing: 5) {
-        Text(title)
-            .font(.body)
-        HStack {
-            Slider(
-                value: value,
-                in: range,
-                step: step,
-                onEditingChanged: { isEditing in
-                    onEditingChanged?(isEditing)
+                Group {
+                    SettingsSliderRow(title: LocalizedStringKey(mode.delayTitle), value: $delay, range: 0 ... 5, defaultValue: mode.delayKey.defaultValue, unit: " s", step: 0.1, formatter: NumberFormatter.oneDecimalFormatter)
+                        .settingsSearchTarget(mode.searchPrefix + ".focusFadeDelay")
+                    SettingsSliderRow(title: "Fade Out Duration", value: $duration, range: 0 ... 5, defaultValue: mode.durationKey.defaultValue, unit: " s", step: 0.1, formatter: NumberFormatter.oneDecimalFormatter)
+                        .settingsSearchTarget(mode.searchPrefix + ".focusFadeDuration")
+                    SettingsSliderRow(title: "Target Minimum Opacity", value: $opacity, range: 0 ... 0.5, defaultValue: mode.opacityKey.defaultValue, unit: "", step: 0.05, formatter: NumberFormatter.percentFormatter)
+                        .settingsSearchTarget(mode.searchPrefix + ".focusFadeOpacity")
                 }
-            )
-            TextField("", value: value, formatter: formatter)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
-                .frame(width: 50)
-            Text(unit)
-                .font(.footnote)
+            }
         }
     }
 }

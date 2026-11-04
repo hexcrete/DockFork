@@ -10,313 +10,25 @@ struct DockPreviewsSettingsView: View {
     @Default(.groupAppInstancesInDock) var groupAppInstancesInDock
     @Default(.collapseNativeTabsIntoSingleWindow) var collapseNativeTabsIntoSingleWindow
     @Default(.includeHiddenWindowsInDockPreview) var includeHiddenWindowsInDockPreview
-    @Default(.showFullSizeWindowlessDockPreviews) var showFullSizeWindowlessDockPreviews
     @Default(.showWindowlessAppsInDockPreview) var showWindowlessAppsInDockPreview
     @Default(.dockPreviewActivationMode) var dockPreviewActivationMode
     @Default(.dockPreviewActivationModifier) var dockPreviewActivationModifier
     @Default(.previewHoverAction) var previewHoverAction
     @Default(.keepPreviewOnHoverActivation) var keepPreviewOnHoverActivation
     @Default(.tapEquivalentInterval) var tapEquivalentInterval
-    @Default(.enableDockPreviewEdgeAutoScroll) var enableDockPreviewEdgeAutoScroll
-    @Default(.dockPreviewEdgeAutoScrollSpeed) var dockPreviewEdgeAutoScrollSpeed
     @Default(.shouldHideOnDockItemClick) var shouldHideOnDockItemClick
     @Default(.dockClickAction) var dockClickAction
-    @Default(.keepDockPreviewsOpenWhenCycling) var keepDockPreviewsOpenWhenCycling
     @Default(.enableCmdRightClickQuit) var enableCmdRightClickQuit
     @Default(.quitAppOnWindowClose) var quitAppOnWindowClose
     @Default(.quitAppOnWindowCloseExcludedApps) var quitAppOnWindowCloseExcludedApps
     @Default(.bufferFromDock) var bufferFromDock
     @Default(.ignoreAppsWithSingleWindow) var ignoreAppsWithSingleWindow
-    @Default(.enableFolderWidget) var enableFolderWidget
-    @Default(.folderWidgetDefaultSortOrder) var folderWidgetDefaultSortOrder
-    @Default(.folderWidgetDefaultSortReversed) var folderWidgetDefaultSortReversed
-    @Default(.folderWidgetRememberSortPerFolder) var folderWidgetRememberSortPerFolder
-    @Default(.folderWidgetShowHiddenFiles) var folderWidgetShowHiddenFiles
+    @Default(.hoverWindowOpenDelay) var hoverWindowOpenDelay
+    @Default(.useDelayOnlyForInitialOpen) var useDelayOnlyForInitialOpen
+    @Default(.fadeOutDuration) var fadeOutDuration
+    @Default(.inactivityTimeout) var inactivityTimeout
+    @Default(.preventPreviewReentryDuringFadeOut) var preventPreviewReentryDuringFadeOut
 
-    @State private var showQuitExclusionsSheet = false
-
-    var body: some View {
-        SettingsFormView {
-            headerSection
-
-            if enableDockPreviews {
-                windowDisplaySection
-                dockInteractionSection
-                folderWidgetSection
-                dockAppearanceSection
-            }
-        } pinnedHeader: {
-            if enableDockPreviews { SettingsMockPreview(context: .dock) }
-        }
-        .sheet(isPresented: $showQuitExclusionsSheet) {
-            AppPickerSheet(
-                selectedApps: $quitAppOnWindowCloseExcludedApps,
-                title: "Never Quit These Apps",
-                description: "Selected apps keep running after their last window closes.",
-                selectionMode: .include
-            )
-        }
-    }
-
-    // MARK: - Header
-
-    private var headerSection: some View {
-        Section {
-            SettingsIllustratedToggle(
-                isOn: $enableDockPreviews,
-                title: "Enable Dock Previews",
-                imageName: "DockPreviews"
-            ) {
-                Text("Show window previews for Dock icons.")
-            }
-            .settingsSearchTarget("dockPreviews.enable")
-            .onChange(of: enableDockPreviews) { _ in askUserToRestartApplication() }
-        }
-    }
-
-    // MARK: - Window Display
-
-    private var windowDisplaySection: some View {
-        SettingsSection("Window Display") {
-            Toggle(isOn: $showWindowsFromCurrentSpaceOnly) { Text("Show windows from current Space only") }
-                .settingsSearchTarget("dockPreviews.currentSpaceOnly")
-            Text("Only display windows that are in the current virtual desktop/Space.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            Toggle(isOn: $showWindowsFromCurrentMonitorOnly) { Text("Show windows from current monitor only") }
-                .settingsSearchTarget("dockPreviews.currentMonitorOnly")
-            Text("Only display windows that are on the same display as the Dock icon you're hovering.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            Picker("Window sort order", selection: $windowPreviewSortOrder) {
-                ForEach(WindowPreviewSortOrder.allCases.filter { !$0.isWindowSwitcherOnly }) { order in
-                    Text(order.localizedName).tag(order)
-                }
-            }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("dockPreviews.sortOrder")
-
-            Toggle(isOn: $includeHiddenWindowsInDockPreview) { Text("Include hidden/minimized windows") }
-                .settingsSearchTarget("dockPreviews.includeHidden")
-
-            Toggle(isOn: $showWindowlessAppsInDockPreview) { Text("Show preview for apps with no open windows") }
-                .settingsSearchTarget("dockPreviews.showWindowless")
-            Text("Show a placeholder preview when hovering dock apps that have no windows.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            if showWindowlessAppsInDockPreview {
-                Toggle("Show full size placeholders", isOn: $showFullSizeWindowlessDockPreviews)
-                    .settingsSearchTarget("dockPreviews.fullSizeWindowless")
-                    .padding(.leading, 20)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Toggle(isOn: $ignoreAppsWithSingleWindow) { Text("Ignore apps with one window") }
-                    .settingsSearchTarget("dockPreviews.ignoreSingleWindow")
-                Text("Prevents apps with exactly one open window from appearing in previews.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
-            }
-            .padding(.leading, 20)
-            .disabled(showWindowlessAppsInDockPreview)
-            .opacity(showWindowlessAppsInDockPreview ? 0.5 : 1)
-
-            Toggle(isOn: $keepPreviewOnAppTerminate) { Text("Keep preview when app terminates") }
-                .settingsSearchTarget("dockPreviews.keepOnTerminate")
-            Text("Remove only terminated app's windows instead of hiding the entire preview.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            Toggle(isOn: $groupAppInstancesInDock) { Text("Group multiple app instances together") }
-                .settingsSearchTarget("dockPreviews.groupInstances")
-            Text("Show windows from all instances of an app when hovering its dock icon.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            Toggle(isOn: $collapseNativeTabsIntoSingleWindow) { Text("Collapse native tabs into a single window") }
-                .settingsSearchTarget("dockPreviews.collapseNativeTabs")
-                .onChange(of: collapseNativeTabsIntoSingleWindow) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
-            Text("Show one preview for apps that use native macOS window tabs (e.g. Ghostty, Finder, Terminal) instead of one preview per tab. Restart the app for this to take effect.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-        }
-    }
-
-    // MARK: - Folder Previews
-
-    private var folderWidgetSection: some View {
-        SettingsSection("Folder Previews") {
-            Toggle(isOn: $enableFolderWidget) { Text("Show folder contents on hover") }
-                .settingsSearchTarget("widgets.folder")
-            Text("Preview a folder's contents when hovering it in the Dock.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            if enableFolderWidget {
-                Picker("Default sort:", selection: $folderWidgetDefaultSortOrder) {
-                    ForEach(FolderWidgetSortOrder.allCases, id: \.self) { order in
-                        Text(order.localizedName).tag(order)
-                    }
-                }
-                .pickerStyle(.menu)
-                .settingsSearchTarget("widgets.folderSort")
-                .padding(.leading, 20)
-
-                Toggle(isOn: $folderWidgetDefaultSortReversed) { Text("Sort descending by default") }
-                    .settingsSearchTarget("widgets.folderSortDirection")
-                    .padding(.leading, 20)
-
-                Toggle(isOn: $folderWidgetRememberSortPerFolder) { Text("Remember sorting per folder") }
-                    .settingsSearchTarget("widgets.folderRememberSort")
-                    .padding(.leading, 20)
-
-                Toggle(isOn: $folderWidgetShowHiddenFiles) { Text("Show hidden files") }
-                    .settingsSearchTarget("widgets.folderHiddenFiles")
-                    .padding(.leading, 20)
-            }
-        }
-    }
-
-    // MARK: - Appearance
-
-    private var dockAppearanceSection: some View {
-        SettingsSection("Appearance") {
-            DockPreviewAppearanceSection()
-        }
-    }
-
-    // MARK: - Dock Interaction
-
-    private var dockInteractionSection: some View {
-        SettingsSection("Dock Interaction") {
-            Picker("Dock Preview Trigger", selection: $dockPreviewActivationMode) {
-                ForEach(DockPreviewActivationMode.allCases, id: \.self) {
-                    Text($0.localizedName).tag($0)
-                }
-            }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("dockPreviews.activationTrigger")
-
-            Text("Show previews automatically on hover, or require a click trigger on the Dock icon.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            Picker("Dock Preview Modifier", selection: $dockPreviewActivationModifier) {
-                ForEach(DockPreviewActivationModifier.allCases, id: \.self) {
-                    Text($0.localizedName).tag($0)
-                }
-            }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("dockPreviews.activationModifier")
-            .padding(.leading, 20)
-            .disabled(dockPreviewActivationMode != .modifierClick)
-
-            Picker("Dock Preview Hover Action", selection: $previewHoverAction) {
-                ForEach(PreviewHoverAction.allCases, id: \.self) { Text($0.localizedName).tag($0) }
-            }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("dockPreviews.hoverAction")
-
-            Toggle(isOn: $keepPreviewOnHoverActivation) {
-                Text("Keep preview open after hover activation")
-            }
-            .disabled(previewHoverAction != .tap)
-            .settingsSearchTarget("dockPreviews.keepOnHoverActivation")
-
-            Text("Keep Dock previews visible while the pointer remains over them after a hover brings a window to the front.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            sliderSetting(title: "Preview Hover Action Delay", value: $tapEquivalentInterval, range: 0 ... 2, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
-                .disabled(previewHoverAction == .none)
-                .settingsSearchTarget("dockPreviews.hoverDelay")
-
-            PreviewFocusFadeSettings(mode: .dock)
-
-            Toggle(isOn: $enableDockPreviewEdgeAutoScroll) {
-                Text("Enable edge auto-scroll")
-            }
-            .settingsSearchTarget("dockPreviews.edgeAutoScroll")
-
-            if enableDockPreviewEdgeAutoScroll {
-                HStack {
-                    Text("Auto-scroll speed:")
-                    Slider(value: $dockPreviewEdgeAutoScrollSpeed, in: 1 ... 10, step: 0.5)
-                    Text(String(format: "%.1f", dockPreviewEdgeAutoScrollSpeed))
-                        .frame(width: 30)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.leading, 20)
-                .settingsSearchTarget("dockPreviews.edgeAutoScrollSpeed")
-            }
-
-            Toggle(isOn: $shouldHideOnDockItemClick) { Text("Override Dock icon click") }
-                .settingsSearchTarget("dockPreviews.hideOnClick")
-            if shouldHideOnDockItemClick {
-                Picker("Dock Click Action", selection: $dockClickAction) {
-                    ForEach(DockClickAction.allCases, id: \.self) {
-                        Text($0.localizedName).tag($0)
-                    }
-                }
-                .pickerStyle(.menu)
-                .padding(.leading, 20)
-                .settingsSearchTarget("dockPreviews.clickAction")
-                if dockClickAction == .cycleWindows {
-                    Toggle(isOn: $keepDockPreviewsOpenWhenCycling) {
-                        Text("Keep previews open when cycling through windows")
-                    }
-                    .padding(.leading, 20)
-                    .settingsSearchTarget("dockPreviews.keepOpenWhenCycling")
-                }
-            }
-
-            Toggle(isOn: $enableCmdRightClickQuit) { Text("CMD + Right Click on dock icon to quit app") }
-                .settingsSearchTarget("dockPreviews.cmdRightClickQuit")
-
-            Toggle(isOn: $quitAppOnWindowClose) { Text("Quit app when closing its last window") }
-                .settingsSearchTarget("dockPreviews.quitOnClose")
-            Text("When an app has only one window left, closing it will quit the app. Useful as a replacement for Swift Quit.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-            if quitAppOnWindowClose {
-                HStack {
-                    Text("Never quit these apps")
-                    Spacer()
-                    if !quitAppOnWindowCloseExcludedApps.isEmpty {
-                        Text("\(quitAppOnWindowCloseExcludedApps.count) app\(quitAppOnWindowCloseExcludedApps.count == 1 ? "" : "s")")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Button("Select...") {
-                        showQuitExclusionsSheet = true
-                    }
-                    .buttonStyle(.settings)
-                }
-                .padding(.leading, 20)
-                .settingsSearchTarget("dockPreviews.quitOnCloseExclusions")
-            }
-
-            sliderSetting(title: "Window Buffer from Dock (pixels)", value: $bufferFromDock, range: -100 ... 100, step: 5, unit: "px", formatter: { let f = NumberFormatter(); f.allowsFloats = false; f.minimumIntegerDigits = 1; f.maximumFractionDigits = 0; return f }())
-                .settingsSearchTarget("dockPreviews.buffer")
-        }
-    }
-}
-
-struct DockPreviewAppearanceSection: View {
     @Default(.showAppName) var showAppName
     @Default(.appNameStyle) var appNameStyle
     @Default(.showAppIconOnly) var showAppIconOnly
@@ -329,6 +41,12 @@ struct DockPreviewAppearanceSection: View {
     @Default(.useEmbeddedDockPreviewElements) var useEmbeddedDockPreviewElements
     @Default(.previewMaxColumns) var previewMaxColumns
     @Default(.previewMaxRows) var previewMaxRows
+    @Default(.windowTitleFontSize) var windowTitleFontSize
+
+    @Default(.showFullSizeWindowlessDockPreviews) var showFullSizeWindowlessDockPreviews
+    @Default(.enableDockPreviewEdgeAutoScroll) var enableDockPreviewEdgeAutoScroll
+    @Default(.dockPreviewEdgeAutoScrollSpeed) var dockPreviewEdgeAutoScrollSpeed
+    @Default(.keepDockPreviewsOpenWhenCycling) var keepDockPreviewsOpenWhenCycling
     @Default(.dockPreviewSpaceNumberIndicatorPlacement) var dockPreviewSpaceNumberIndicatorPlacement
     @Default(.highlightDockPreviewCurrentSpaceIndicator) var highlightDockPreviewCurrentSpaceIndicator
     @Default(.dockPreviewWindowStateIndicatorPlacement) var dockPreviewWindowStateIndicatorPlacement
@@ -336,206 +54,396 @@ struct DockPreviewAppearanceSection: View {
     @Default(.swapDockPreviewTrafficLightsAndWindowStateIndicator) var swapTrafficLightsAndWindowStateIndicator
     @Default(.limitDockPreviewIndicatorSwapToCompactMode) var limitIndicatorSwapToCompactMode
 
+    @State private var showQuitExclusionsSheet = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            // App Header section
-            Toggle(isOn: $showAppName) {
-                Text("Show App Header")
-            }
-            .settingsSearchTarget("appearance.dockShowAppHeader")
-
-            if showAppName {
-                Picker(String(localized: "App Header Style"), selection: $appNameStyle) {
-                    ForEach(AppNameStyle.allCases, id: \.self) { style in
-                        Text(style.localizedName)
-                            .tag(style)
-                    }
-                }
-                .settingsSearchTarget("appearance.dockAppHeaderStyle")
-
-                Toggle(isOn: $showAppIconOnly) {
-                    Text("Show App Icon Only")
-                }
-                .settingsSearchTarget("appearance.dockShowAppIconOnly")
+        SettingsFormView {
+            SettingsSection("Dock Previews") {
+                Toggle(isOn: $enableDockPreviews) { Text("Enable Dock Previews") }
+                    .settingsSearchTarget("dockPreviews.enable")
+                    .settingsAnnotation("Show window previews for Dock icons.")
+                    .onChange(of: enableDockPreviews) { _ in askUserToRestartApplication() }
             }
 
-            Divider().padding(.vertical, 2)
-            Text("Dock Preview Toolbar").font(.headline).padding(.bottom, -2)
+            if enableDockPreviews {
+                SettingsSection("Appearance") {
+                    appearanceRows
+                }
+                windowStateIndicatorSection
 
-            Picker("Position Dock Preview Controls", selection: $dockPreviewControlPosition) {
-                ForEach(WindowSwitcherControlPosition.allCases, id: \.self) { position in
-                    Text(position.localizedName)
-                        .tag(position)
+                SettingsSection("Window Display") {
+                    windowDisplayRows
+                }
+
+                SettingsSection("Dock Interaction") {
+                    dockInteractionRows
                 }
             }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("appearance.dockControlPosition")
-
-            Toggle(isOn: $showWindowTitle) {
-                Text("Show Window Title")
-            }
-            .settingsSearchTarget("appearance.dockShowWindowTitle")
-
-            if showWindowTitle {
-                Picker("Window Title Visibility", selection: $windowTitleVisibility) {
-                    ForEach(WindowTitleVisibility.allCases, id: \.self) { visibility in
-                        Text(visibility.localizedName)
-                            .tag(visibility)
-                    }
-                }
-                .settingsSearchTarget("appearance.dockWindowTitleVisibility")
-
-                VStack(alignment: .leading) {
-                    Toggle(isOn: $disableDockStyleTitles) {
-                        Text("Disable dock styling on window titles")
-                    }
-                    .settingsSearchTarget("appearance.dockDisableTitleStyling")
-                    Text("Removes the pill-shaped background styling from window titles in dock previews for a cleaner look.")
-                        .font(.footnote)
-                        .foregroundColor(.gray)
-                        .padding(.leading, 20)
-                }
-            }
-
-            Divider().padding(.vertical, 2)
-            Text("Traffic Light Buttons in Previews").font(.headline).padding(.bottom, -2)
-            TrafficLightButtonsSettingsView()
-
-            VStack(alignment: .leading) {
-                Toggle(isOn: $disableDockStyleTrafficLights) {
-                    Text("Disable dock styling on traffic light buttons")
-                }
-                .settingsSearchTarget("appearance.dockDisableTrafficLightStyling")
-                Text("Removes the pill-shaped background styling from traffic light buttons in dock previews for a cleaner look.")
-                    .font(.footnote)
-                    .foregroundColor(.gray)
-                    .padding(.leading, 20)
-            }
-
-            Divider().padding(.vertical, 2)
-            Text("Window State Indicator").font(.headline).padding(.bottom, -2)
-            Picker("Show Space Number Indicator", selection: $dockPreviewSpaceNumberIndicatorPlacement) {
-                ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
-                    Text(placement.localizedName).tag(placement)
-                }
-            }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("appearance.dockSpaceNumberIndicator")
-
-            if dockPreviewSpaceNumberIndicatorPlacement != .off {
-                VStack(alignment: .leading) {
-                    Toggle("Highlight Current Space", isOn: $highlightDockPreviewCurrentSpaceIndicator)
-                        .settingsSearchTarget("appearance.dockHighlightCurrentSpace")
-                    Text("Highlights the Space number indicator for windows on the current Space.")
-                        .font(.footnote)
-                        .foregroundColor(.gray)
-                        .padding(.leading, 20)
-                }
-                .padding(.leading, 20)
-            }
-
-            Picker("Show Window State Indicator", selection: $dockPreviewWindowStateIndicatorPlacement) {
-                ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
-                    Text(placement.localizedName).tag(placement)
-                }
-            }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("appearance.dockWindowStateIndicator")
-            Text("Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons.")
-                .font(.footnote)
-                .foregroundColor(.gray)
-
-            if dockPreviewSpaceNumberIndicatorPlacement == .nextToTrafficLightButtons || dockPreviewWindowStateIndicatorPlacement == .nextToTrafficLightButtons {
-                VStack(alignment: .leading) {
-                    Toggle("Disable dock styling on Window State Indicator", isOn: $disableDockStyleWindowStateIndicator)
-                        .settingsSearchTarget("appearance.dockDisableWindowStateIndicatorStyling")
-                    Text("Removes the pill-shaped background styling from the Window State Indicator in dock previews.")
-                        .font(.footnote)
-                        .foregroundColor(.gray)
-                        .padding(.leading, 20)
-
-                    Toggle("Swap Window State Indicator and Traffic Light Buttons", isOn: $swapTrafficLightsAndWindowStateIndicator)
-                        .settingsSearchTarget("appearance.dockSwapWindowStateIndicator")
-
-                    if swapTrafficLightsAndWindowStateIndicator {
-                        Toggle("Limit to Compact Mode only", isOn: $limitIndicatorSwapToCompactMode)
-                            .padding(.leading, 20)
-                            .settingsSearchTarget("appearance.dockLimitIndicatorSwapToCompactMode")
-                    }
-                }
-            }
-
-            Divider().padding(.vertical, 2)
-            Text("Mass Action Buttons").font(.headline).padding(.bottom, -2)
-
-            VStack(alignment: .leading) {
-                Toggle(isOn: $showMassActionButtons) {
-                    Text("Show Close All and Minimize All buttons")
-                }
-                .settingsSearchTarget("appearance.dockMassActionButtons")
-                Text("Displays Close All and Minimize All buttons when hovering the app header in dock previews.")
-                    .font(.footnote)
-                    .foregroundColor(.gray)
-                    .padding(.leading, 20)
-            }
-
-            Divider().padding(.vertical, 2)
-            Text("Dock Preview Layout").font(.headline).padding(.bottom, -2)
-
-            VStack(alignment: .leading) {
-                Toggle(isOn: $useEmbeddedDockPreviewElements) {
-                    Text("Embed controls in preview frames")
-                }
-                .settingsSearchTarget("appearance.dockEmbedControls")
-                Text("Places traffic light buttons and window titles directly inside the dock preview frames for a more compact and minimal appearance.")
-                    .font(.footnote)
-                    .foregroundColor(.gray)
-                    .padding(.leading, 20)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                let previewMaxRowsBinding = Binding<Double>(
-                    get: { Double(previewMaxRows) },
-                    set: { previewMaxRows = Int($0) }
-                )
-                sliderSetting(
-                    title: "Max Rows (Bottom Dock)",
-                    value: previewMaxRowsBinding,
-                    range: 1.0 ... 8.0,
-                    step: 1.0,
-                    unit: "",
-                    formatter: {
-                        let f = NumberFormatter()
-                        f.minimumFractionDigits = 0
-                        f.maximumFractionDigits = 0
-                        return f
-                    }()
-                )
-                .settingsSearchTarget("appearance.dockMaxRows")
-
-                let previewMaxColumnsBinding = Binding<Double>(
-                    get: { Double(previewMaxColumns) },
-                    set: { previewMaxColumns = Int($0) }
-                )
-                sliderSetting(
-                    title: "Max Columns (Left/Right Dock)",
-                    value: previewMaxColumnsBinding,
-                    range: 1.0 ... 8.0,
-                    step: 1.0,
-                    unit: "",
-                    formatter: {
-                        let f = NumberFormatter()
-                        f.minimumFractionDigits = 0
-                        f.maximumFractionDigits = 0
-                        return f
-                    }()
-                )
-                .settingsSearchTarget("appearance.dockMaxColumns")
-
-                Text(String(localized: "Controls how many rows/columns of windows are shown in dock previews. Only the relevant setting applies based on dock position."))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+        } pinnedHeader: {
+            if enableDockPreviews {
+                SettingsMockPreview(context: .dock, maxHeight: 170)
             }
         }
+        .sheet(isPresented: $showQuitExclusionsSheet) {
+            AppPickerSheet(
+                selectedApps: $quitAppOnWindowCloseExcludedApps,
+                title: "Never Quit These Apps",
+                description: "Selected apps keep running after their last window closes.",
+                selectionMode: .include
+            )
+        }
+    }
+
+    // MARK: - Window Display
+
+    private var appHeaderMode: Binding<AppHeaderMode> {
+        AppHeaderMode.binding(
+            showName: $showAppName,
+            showIconOnly: $showAppIconOnly,
+            style: $appNameStyle
+        )
+    }
+
+    @ViewBuilder
+    private var windowDisplayRows: some View {
+        SharedWindowDisplayRows(
+            currentSpaceOnly: $showWindowsFromCurrentSpaceOnly,
+            currentSpaceOnlyTarget: "dockPreviews.currentSpaceOnly",
+            monitorCaption: "Only display windows that are on the same display as the Dock icon you're hovering.",
+            currentMonitorOnly: $showWindowsFromCurrentMonitorOnly,
+            currentMonitorOnlyTarget: "dockPreviews.currentMonitorOnly",
+            includeHidden: $includeHiddenWindowsInDockPreview,
+            includeHiddenTarget: "dockPreviews.includeHidden",
+            showWindowless: $showWindowlessAppsInDockPreview,
+            showWindowlessTarget: "dockPreviews.showWindowless",
+            windowlessTitle: "Show preview for apps with no open windows",
+            windowlessCaption: "Show a placeholder preview when hovering dock apps that have no windows.",
+            ignoreSingleWindow: $ignoreAppsWithSingleWindow,
+            ignoreSingleWindowTarget: "dockPreviews.ignoreSingleWindow",
+            ignoreSingleWindowCaption: "Prevents apps that only ever have a single window from appearing in previews."
+        )
+
+        if showWindowlessAppsInDockPreview {
+            Group {
+                Toggle("Show full size placeholders", isOn: $showFullSizeWindowlessDockPreviews)
+                    .settingsSearchTarget("dockPreviews.fullSizeWindowless")
+            }
+        }
+        Picker("Window sort order", selection: $windowPreviewSortOrder) {
+            ForEach(WindowPreviewSortOrder.allCases.filter { !$0.isWindowSwitcherOnly }) { order in
+                Text(order.localizedName).tag(order)
+            }
+        }
+        .settingsSearchTarget("dockPreviews.sortOrder")
+
+        Toggle(isOn: $keepPreviewOnAppTerminate) { Text("Keep preview when app terminates") }
+            .settingsSearchTarget("dockPreviews.keepOnTerminate")
+            .settingsAnnotation("Remove only terminated app's windows instead of hiding the entire preview.")
+
+        Toggle(isOn: $groupAppInstancesInDock) { Text("Group multiple app instances together") }
+            .settingsSearchTarget("dockPreviews.groupInstances")
+            .settingsAnnotation("Show windows from all instances of an app when hovering its dock icon.")
+
+        Toggle(isOn: $collapseNativeTabsIntoSingleWindow) { Text("Collapse native tabs into a single window") }
+            .settingsSearchTarget("dockPreviews.collapseNativeTabs")
+            .onChange(of: collapseNativeTabsIntoSingleWindow) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
+            .settingsAnnotation("Show one preview for apps that use native macOS window tabs (e.g. Ghostty, Finder, Terminal) instead of one preview per tab. Restart the app for this to take effect.")
+    }
+
+    // MARK: - Dock Interaction
+
+    private var dockIconClickChoice: Binding<DockIconClickChoice> {
+        Binding {
+            guard shouldHideOnDockItemClick else { return .nothing }
+            return DockIconClickChoice(action: dockClickAction)
+        } set: { choice in
+            if let action = choice.action {
+                dockClickAction = action
+                shouldHideOnDockItemClick = true
+            } else {
+                shouldHideOnDockItemClick = false
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var dockInteractionRows: some View {
+        Picker("Dock Preview Trigger", selection: $dockPreviewActivationMode) {
+            ForEach(DockPreviewActivationMode.allCases, id: \.self) {
+                Text($0.localizedName).tag($0)
+            }
+        }
+        .settingsSearchTarget("dockPreviews.activationTrigger")
+        .settingsAnnotation("Show previews automatically on hover, or require a click trigger on the Dock icon.")
+
+        if dockPreviewActivationMode == .modifierClick {
+            Group {
+                Picker("Dock Preview Modifier", selection: $dockPreviewActivationModifier) {
+                    ForEach(DockPreviewActivationModifier.allCases, id: \.self) {
+                        Text($0.localizedName).tag($0)
+                    }
+                }
+                .settingsSearchTarget("dockPreviews.activationModifier")
+            }
+        }
+
+        Picker("Dock Preview Hover Action", selection: $previewHoverAction) {
+            ForEach(PreviewHoverAction.allCases, id: \.self) { Text($0.localizedName).tag($0) }
+        }
+        .settingsSearchTarget("dockPreviews.hoverAction")
+
+        if previewHoverAction == .tap {
+            Group {
+                Toggle(isOn: $keepPreviewOnHoverActivation) {
+                    Text("Keep preview open after hover activation")
+                }
+                .settingsSearchTarget("dockPreviews.keepOnHoverActivation")
+                .settingsAnnotation("Keep Dock previews visible while the pointer remains over them after a hover brings a window to the front.")
+            }
+        }
+
+        if previewHoverAction != .none {
+            Group {
+                SettingsSliderRow(
+                    title: "Preview Hover Action Delay",
+                    value: $tapEquivalentInterval,
+                    range: 0 ... 2,
+                    defaultValue: 1.5,
+                    unit: " s",
+                    step: 0.1,
+                    decimals: 1
+                )
+                .settingsSearchTarget("dockPreviews.hoverDelay")
+            }
+        }
+
+        Picker("Dock Click Action", selection: dockIconClickChoice) {
+            ForEach(DockIconClickChoice.allCases) { choice in
+                Text(choice.localizedName).tag(choice)
+            }
+        }
+        .settingsSearchTarget("dockPreviews.hideOnClick")
+        .settingsAnnotation("What clicking the icon of an app that is already in front does to its windows.")
+
+        if shouldHideOnDockItemClick, dockClickAction == .cycleWindows {
+            Group {
+                Toggle("Keep previews open when cycling through windows", isOn: $keepDockPreviewsOpenWhenCycling)
+                    .settingsSearchTarget("dockPreviews.keepOpenWhenCycling")
+            }
+        }
+        Toggle("Enable edge auto-scroll", isOn: $enableDockPreviewEdgeAutoScroll)
+            .settingsSearchTarget("dockPreviews.edgeAutoScroll")
+        if enableDockPreviewEdgeAutoScroll {
+            Group {
+                SettingsSliderRow(title: "Auto-scroll speed:", value: $dockPreviewEdgeAutoScrollSpeed, range: 1 ... 10, defaultValue: Defaults.Keys.dockPreviewEdgeAutoScrollSpeed.defaultValue, step: 0.5)
+                    .settingsSearchTarget("dockPreviews.edgeAutoScrollSpeed")
+            }
+        }
+        PreviewFocusFadeSettings(mode: .dock)
+        Toggle(isOn: $enableCmdRightClickQuit) { Text("CMD + Right Click on dock icon to quit app") }
+            .settingsSearchTarget("dockPreviews.cmdRightClickQuit")
+
+        Toggle(isOn: $quitAppOnWindowClose) { Text("Quit app when closing its last window") }
+            .settingsSearchTarget("dockPreviews.quitOnClose")
+            .settingsAnnotation("When an app has only one window left, closing it will quit the app. Useful as a replacement for Swift Quit.")
+
+        if quitAppOnWindowClose {
+            HStack {
+                Text("Never quit these apps")
+                Spacer()
+                if !quitAppOnWindowCloseExcludedApps.isEmpty {
+                    Text("\(quitAppOnWindowCloseExcludedApps.count) app\(quitAppOnWindowCloseExcludedApps.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Button("Select...") {
+                    showQuitExclusionsSheet = true
+                }
+                .buttonStyle(.settings)
+            }
+            .settingsSearchTarget("dockPreviews.quitOnCloseExclusions")
+        }
+
+        SettingsSliderRow(
+            title: "Window Buffer from Dock (pixels)",
+            value: $bufferFromDock,
+            range: -100 ... 100,
+            defaultValue: Defaults.Keys.bufferFromDock.defaultValue,
+            unit: " px",
+            step: 1
+        )
+        .settingsSearchTarget("dockPreviews.buffer")
+
+        SettingsSliderRow(
+            title: "Preview Window Open Delay",
+            value: $hoverWindowOpenDelay,
+            range: 0 ... 2,
+            defaultValue: 0.2,
+            unit: " s",
+            step: 0.1,
+            decimals: 1
+        )
+        .settingsSearchTarget("advanced.openDelay")
+
+        Toggle(isOn: $useDelayOnlyForInitialOpen) {
+            Text("Only use delay for initial window opening")
+        }
+        .settingsSearchTarget("advanced.delayOnlyInitial")
+        .settingsAnnotation("Switching between dock icons while a preview is already open will show previews instantly.")
+
+        SettingsSliderRow(
+            title: "Preview Window Fade Out Duration",
+            value: $fadeOutDuration,
+            range: 0 ... 2,
+            defaultValue: 0.4,
+            unit: " s",
+            step: 0.1,
+            decimals: 1
+        )
+        .settingsSearchTarget("advanced.fadeOut")
+
+        SettingsSliderRow(
+            title: "Preview Window Inactivity Timer",
+            value: $inactivityTimeout,
+            range: 0 ... 3,
+            defaultValue: 0.2,
+            unit: " s",
+            step: 0.1,
+            decimals: 1
+        )
+        .settingsSearchTarget("advanced.inactivity")
+
+        Toggle(isOn: $preventPreviewReentryDuringFadeOut) {
+            Text("Prevent preview reappearance during fade-out")
+        }
+        .settingsSearchTarget("advanced.preventReentry")
+        .settingsAnnotation("Moving the mouse back over the preview during fade-out will not reactivate it.")
+    }
+
+    // MARK: - Appearance
+
+    @ViewBuilder
+    private var appearanceRows: some View {
+        Picker("App Header Style", selection: appHeaderMode) {
+            ForEach(AppHeaderMode.allCases) { mode in
+                Text(mode.localizedName).tag(mode)
+            }
+        }
+        .settingsSearchTarget("appearance.dockAppHeader")
+        .settingsAnnotation("Show the app name and icon above dock previews. Shared with widget headers.")
+
+        Picker("Position Dock Preview Controls", selection: $dockPreviewControlPosition) {
+            ForEach(WindowSwitcherControlPosition.allCases, id: \.self) { position in
+                Text(position.localizedName)
+                    .tag(position)
+            }
+        }
+        .settingsSearchTarget("appearance.dockControlPosition")
+
+        Picker("Window Title", selection: WindowTitleMode.binding(showTitle: $showWindowTitle, visibility: $windowTitleVisibility)) {
+            ForEach(WindowTitleMode.allCases) { mode in
+                Text(mode.localizedName).tag(mode)
+            }
+        }
+        .settingsSearchTarget("appearance.dockWindowTitle")
+
+        if showWindowTitle {
+            Group {
+                Toggle(isOn: $disableDockStyleTitles) { Text("Disable dock styling on window titles") }
+                    .settingsSearchTarget("appearance.dockDisableTitleStyling")
+                    .settingsAnnotation("Removes the pill-shaped background styling from window titles in dock previews for a cleaner look.")
+
+                Picker("Window Title Font Size", selection: $windowTitleFontSize) {
+                    ForEach(WindowTitleFontSize.allCases) { size in
+                        Text(size.localizedName)
+                            .tag(size)
+                    }
+                }
+                .settingsSearchTarget("appearance.dockWindowTitleFontSize")
+            }
+        }
+
+        TrafficLightButtonsSettingsView()
+
+        Toggle(isOn: $disableDockStyleTrafficLights) { Text("Disable dock styling on traffic light buttons") }
+            .settingsSearchTarget("appearance.dockDisableTrafficLightStyling")
+            .settingsAnnotation("Removes the pill-shaped background styling from traffic light buttons in dock previews for a cleaner look.")
+
+        Toggle(isOn: $showMassActionButtons) { Text("Show Close All and Minimize All buttons") }
+            .settingsSearchTarget("appearance.dockMassActionButtons")
+            .settingsAnnotation("Displays Close All and Minimize All buttons when hovering the app icon in dock previews.")
+
+        Toggle(isOn: $useEmbeddedDockPreviewElements) { Text("Embed controls in preview frames") }
+            .settingsSearchTarget("appearance.dockEmbedControls")
+            .settingsAnnotation("Places traffic light buttons and window titles directly inside the dock preview frames for a more compact and minimal appearance.")
+
+        SettingsSliderRow(
+            title: "Max Rows (Bottom Dock)",
+            value: Binding<Double>(get: { Double(previewMaxRows) }, set: { previewMaxRows = Int($0) }),
+            range: 1.0 ... 8.0,
+            defaultValue: 1,
+            step: 1
+        )
+        .settingsSearchTarget("appearance.dockMaxRows")
+
+        SettingsSliderRow(
+            title: "Max Columns (Left/Right Dock)",
+            value: Binding<Double>(get: { Double(previewMaxColumns) }, set: { previewMaxColumns = Int($0) }),
+            range: 1.0 ... 8.0,
+            defaultValue: 2,
+            step: 1
+        )
+        .settingsSearchTarget("appearance.dockMaxColumns")
+        .settingsAnnotation("Controls how many rows/columns of windows are shown in dock previews. Only the relevant setting applies based on dock position.")
+    }
+
+    private var windowStateIndicatorSection: some View {
+        WindowStateIndicatorSettingsSection(
+            spacePlacement: $dockPreviewSpaceNumberIndicatorPlacement,
+            highlightCurrentSpace: $highlightDockPreviewCurrentSpaceIndicator,
+            statePlacement: $dockPreviewWindowStateIndicatorPlacement,
+            disableStyling: $disableDockStyleWindowStateIndicator,
+            swapControls: $swapTrafficLightsAndWindowStateIndicator,
+            compactSwapOnly: $limitIndicatorSwapToCompactMode,
+
+            spaceNumberTarget: "appearance.dockSpaceNumberIndicator",
+            highlightTarget: "appearance.dockHighlightCurrentSpace",
+            stateTarget: "appearance.dockWindowStateIndicator",
+            stylingTarget: "appearance.dockDisableWindowStateIndicatorStyling",
+            swapTarget: "appearance.dockSwapWindowStateIndicator",
+            compactTarget: "appearance.dockLimitIndicatorSwapToCompactMode"
+        )
+    }
+}
+
+private enum DockIconClickChoice: CaseIterable, Identifiable {
+    case nothing
+    case minimize
+    case hide
+    case cycleWindows
+
+    init(action: DockClickAction) {
+        switch action {
+        case .minimize: self = .minimize
+        case .hide: self = .hide
+        case .cycleWindows: self = .cycleWindows
+        }
+    }
+
+    var action: DockClickAction? {
+        switch self {
+        case .nothing: nil
+        case .minimize: .minimize
+        case .hide: .hide
+        case .cycleWindows: .cycleWindows
+        }
+    }
+
+    var id: Self {
+        self
+    }
+
+    var localizedName: String {
+        action?.localizedName ?? String(localized: "Do nothing", comment: "Dock icon click option")
     }
 }

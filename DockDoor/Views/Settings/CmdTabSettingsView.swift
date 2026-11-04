@@ -9,78 +9,80 @@ struct CmdTabSettingsView: View {
     @Default(.showWindowsFromCurrentMonitorOnlyInCmdTab) var showWindowsFromCurrentMonitorOnlyInCmdTab
     @Default(.cmdTabSortOrder) var cmdTabSortOrder
     @Default(.cmdTabAutoSelectFirstWindow) var cmdTabAutoSelectFirstWindow
+    @Default(.includeHiddenWindowsInCmdTab) var includeHiddenWindowsInCmdTab
+    @Default(.showWindowlessAppsInCmdTab) var showWindowlessAppsInCmdTab
+    @Default(.ignoreAppsWithSingleWindowInCmdTab) var ignoreAppsWithSingleWindowInCmdTab
+
     @Default(.cmdTabPreviewHoverAction) var cmdTabPreviewHoverAction
     @Default(.cmdTabTapEquivalentInterval) var cmdTabTapEquivalentInterval
     @Default(.enableCmdTabEdgeAutoScroll) var enableCmdTabEdgeAutoScroll
     @Default(.cmdTabEdgeAutoScrollSpeed) var cmdTabEdgeAutoScrollSpeed
-    @Default(.includeHiddenWindowsInCmdTab) var includeHiddenWindowsInCmdTab
     @Default(.showFullSizeWindowlessCmdTabPreviews) var showFullSizeWindowlessCmdTabPreviews
-    @Default(.showWindowlessAppsInCmdTab) var showWindowlessAppsInCmdTab
-    @Default(.ignoreAppsWithSingleWindowInCmdTab) var ignoreAppsWithSingleWindowInCmdTab
 
     var body: some View {
         SettingsFormView {
             headerSection
 
             if enableCmdTabEnhancements {
-                configurationSection
-                hoverActionsSection
-                windowDisplaySection
                 appearanceSection
+                configurationSection
+                windowDisplaySection
+                hoverActionsSection
             }
         } pinnedHeader: {
-            if enableCmdTabEnhancements { SettingsMockPreview(context: .cmdTab) }
+            HStack(spacing: 12) {
+                if enableCmdTabEnhancements {
+                    SettingsMockPreview(context: .cmdTab, maxHeight: 170)
+                }
+
+                Image("CmdTab")
+                    .resizable()
+                    .interpolation(.high)
+                    .scaledToFill()
+                    .frame(width: 260, height: 170)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
         }
     }
 
     // MARK: - Header
 
     private var headerSection: some View {
-        Section {
-            SettingsIllustratedToggle(
-                isOn: $enableCmdTabEnhancements,
-                title: "Enable Cmd+Tab Enhancements",
-                imageName: "CmdTab"
-            ) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Show previews while holding Cmd+Tab.")
-                    Text("Cmd+\(KeyboardLabel.localizedKey(for: cmdTabCycleKey)) cycles forward, Cmd+\(KeyboardLabel.localizedKey(for: cmdTabBackwardCycleKey)) or Shift+Tab cycles backward, Left/Right navigate, Down clears selection.")
-                }
-            }
-            .settingsSearchTarget("cmdTab.enable")
-            .onChange(of: enableCmdTabEnhancements) { _ in askUserToRestartApplication() }
+        SettingsSection("Cmd+Tab enhancements") {
+            Toggle(isOn: $enableCmdTabEnhancements) { Text("Enable Cmd+Tab Enhancements") }
+                .settingsSearchTarget("cmdTab.enable")
+                .settingsAnnotation(
+                    "Show previews while holding Cmd+Tab.",
+                    more: "Cmd+\(KeyboardLabel.localizedKey(for: cmdTabCycleKey)) cycles forward, Cmd+\(KeyboardLabel.localizedKey(for: cmdTabBackwardCycleKey)) or Shift+Tab cycles backward, Left/Right navigate, Down clears selection."
+                )
+                .onChange(of: enableCmdTabEnhancements) { _ in askUserToRestartApplication() }
         }
     }
 
     // MARK: - Appearance
 
     private var appearanceSection: some View {
-        SettingsSection("Appearance") {
-            CmdTabAppearanceSection()
-        }
+        CmdTabAppearanceSection()
     }
 
     // MARK: - Configuration
 
     private var configurationSection: some View {
         SettingsSection("Configuration") {
-            HStack(spacing: 8) {
-                Text("Preview cycle key:")
-                HStack(spacing: 4) {
-                    Text("⌘")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.secondary)
+            LabeledContent("Preview cycle key:") {
+                HStack(spacing: 6) {
+                    Text(verbatim: "⌘")
+                        .foregroundStyle(.secondary)
                     KeyCaptureButton(keyCode: $cmdTabCycleKey)
                 }
             }
             .settingsSearchTarget("cmdTab.cycleKey")
 
-            HStack(spacing: 8) {
-                Text("Backward cycle key:")
-                HStack(spacing: 4) {
-                    Text("⌘")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.secondary)
+            LabeledContent("Backward cycle key:") {
+                HStack(spacing: 6) {
+                    Text(verbatim: "⌘")
+                        .foregroundStyle(.secondary)
                     KeyCaptureButton(keyCode: $cmdTabBackwardCycleKey)
                 }
             }
@@ -88,52 +90,7 @@ struct CmdTabSettingsView: View {
 
             Toggle(isOn: $cmdTabAutoSelectFirstWindow) { Text("Automatically select first window") }
                 .settingsSearchTarget("cmdTab.autoSelect")
-            Text("When Cmd+Tab opens, highlight the first window preview automatically.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-        }
-    }
-
-    // MARK: - Hover Actions
-
-    private var hoverActionsSection: some View {
-        SettingsSection("Hover Actions") {
-            Picker("Cmd+Tab Hover Action", selection: $cmdTabPreviewHoverAction) {
-                ForEach(PreviewHoverAction.allCases, id: \.self) { Text($0.localizedName).tag($0) }
-            }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("cmdTab.hoverAction")
-
-            HStack {
-                Text("Cmd+Tab Hover Action Delay")
-                Slider(value: $cmdTabTapEquivalentInterval, in: 0 ... 2, step: 0.1)
-                Text(String(format: "%.1f s", cmdTabTapEquivalentInterval))
-                    .monospacedDigit()
-                    .foregroundColor(.secondary)
-                    .frame(width: 52, alignment: .trailing)
-            }
-            .disabled(cmdTabPreviewHoverAction == .none)
-            .settingsSearchTarget("cmdTab.hoverDelay")
-
-            PreviewFocusFadeSettings(mode: .cmdTab)
-
-            Toggle(isOn: $enableCmdTabEdgeAutoScroll) {
-                Text("Enable edge auto-scroll")
-            }
-            .settingsSearchTarget("cmdTab.edgeAutoScroll")
-
-            if enableCmdTabEdgeAutoScroll {
-                HStack {
-                    Text("Auto-scroll speed:")
-                    Slider(value: $cmdTabEdgeAutoScrollSpeed, in: 1 ... 10, step: 0.5)
-                    Text(String(format: "%.1f", cmdTabEdgeAutoScrollSpeed))
-                        .frame(width: 30)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.leading, 20)
-                .settingsSearchTarget("cmdTab.edgeAutoScrollSpeed")
-            }
+                .settingsAnnotation("When Cmd+Tab opens, highlight the first window preview automatically.")
         }
     }
 
@@ -141,55 +98,60 @@ struct CmdTabSettingsView: View {
 
     private var windowDisplaySection: some View {
         SettingsSection("Window Display") {
-            Toggle(isOn: $showWindowsFromCurrentSpaceOnlyInCmdTab) { Text("Show windows from current Space only") }
-                .settingsSearchTarget("cmdTab.currentSpaceOnly")
-            Text("Only display windows that are in the current virtual desktop/Space.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            Toggle(isOn: $showWindowsFromCurrentMonitorOnlyInCmdTab) { Text("Show windows from current monitor only") }
-                .settingsSearchTarget("cmdTab.currentMonitorOnly")
-            Text("Only display windows that are on the same display as the mouse cursor.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            Toggle(isOn: $includeHiddenWindowsInCmdTab) { Text("Include hidden/minimized windows") }
-                .settingsSearchTarget("cmdTab.includeHidden")
-
-            Toggle(isOn: $showWindowlessAppsInCmdTab) { Text("Show preview for apps with no open windows") }
-                .settingsSearchTarget("cmdTab.showWindowless")
-            Text("Show a placeholder preview when Cmd+Tab lands on an app that has no windows.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            if showWindowlessAppsInCmdTab {
-                Toggle("Show full size placeholders", isOn: $showFullSizeWindowlessCmdTabPreviews)
-                    .settingsSearchTarget("cmdTab.fullSizeWindowless")
-                    .padding(.leading, 20)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Toggle(isOn: $ignoreAppsWithSingleWindowInCmdTab) { Text("Ignore apps with one window") }
-                    .settingsSearchTarget("cmdTab.ignoreSingleWindow")
-                Text("Prevents apps with exactly one open window from appearing in previews.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
-            }
-            .padding(.leading, 20)
-            .disabled(showWindowlessAppsInCmdTab)
-            .opacity(showWindowlessAppsInCmdTab ? 0.5 : 1)
+            SharedWindowDisplayRows(
+                currentSpaceOnly: $showWindowsFromCurrentSpaceOnlyInCmdTab,
+                currentSpaceOnlyTarget: "cmdTab.currentSpaceOnly",
+                monitorCaption: "Only display windows that are on the same display as the mouse cursor.",
+                currentMonitorOnly: $showWindowsFromCurrentMonitorOnlyInCmdTab,
+                currentMonitorOnlyTarget: "cmdTab.currentMonitorOnly",
+                includeHidden: $includeHiddenWindowsInCmdTab,
+                includeHiddenTarget: "cmdTab.includeHidden",
+                showWindowless: $showWindowlessAppsInCmdTab,
+                showWindowlessTarget: "cmdTab.showWindowless",
+                windowlessTitle: "Show preview for apps with no open windows",
+                windowlessCaption: "Show a placeholder preview when Cmd+Tab lands on an app that has no windows.",
+                ignoreSingleWindow: $ignoreAppsWithSingleWindowInCmdTab,
+                ignoreSingleWindowTarget: "cmdTab.ignoreSingleWindow",
+                ignoreSingleWindowCaption: "Prevents apps with a single window from appearing in Cmd+Tab previews."
+            )
 
             Picker("Window sort order", selection: $cmdTabSortOrder) {
                 ForEach(WindowPreviewSortOrder.allCases.filter { !$0.isWindowSwitcherOnly }) { order in
                     Text(order.localizedName).tag(order)
                 }
             }
-            .pickerStyle(.menu)
             .settingsSearchTarget("cmdTab.sortOrder")
+            if showWindowlessAppsInCmdTab {
+                Group {
+                    Toggle("Show full size placeholders", isOn: $showFullSizeWindowlessCmdTabPreviews)
+                        .settingsSearchTarget("cmdTab.fullSizeWindowless")
+                }
+            }
+        }
+    }
+
+    private var hoverActionsSection: some View {
+        SettingsSection("Hover Actions") {
+            Picker("Cmd+Tab Hover Action", selection: $cmdTabPreviewHoverAction) {
+                ForEach(PreviewHoverAction.allCases, id: \.self) { Text($0.localizedName).tag($0) }
+            }
+
+            .settingsSearchTarget("cmdTab.hoverAction")
+            if cmdTabPreviewHoverAction != .none {
+                Group {
+                    SettingsSliderRow(title: "Cmd+Tab Hover Action Delay", value: $cmdTabTapEquivalentInterval, range: 0 ... 2, defaultValue: Defaults.Keys.cmdTabTapEquivalentInterval.defaultValue, unit: " s", step: 0.1)
+                        .settingsSearchTarget("cmdTab.hoverDelay")
+                }
+            }
+            PreviewFocusFadeSettings(mode: .cmdTab)
+            Toggle("Enable edge auto-scroll", isOn: $enableCmdTabEdgeAutoScroll)
+                .settingsSearchTarget("cmdTab.edgeAutoScroll")
+            if enableCmdTabEdgeAutoScroll {
+                Group {
+                    SettingsSliderRow(title: "Auto-scroll speed:", value: $cmdTabEdgeAutoScrollSpeed, range: 1 ... 10, defaultValue: Defaults.Keys.cmdTabEdgeAutoScrollSpeed.defaultValue, step: 0.5)
+                        .settingsSearchTarget("cmdTab.edgeAutoScrollSpeed")
+                }
+            }
         }
     }
 }

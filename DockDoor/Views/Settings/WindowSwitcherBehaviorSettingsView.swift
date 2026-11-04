@@ -10,10 +10,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.searchFuzziness) var searchFuzziness
     @Default(.preventSwitcherHide) var preventSwitcherHide
     @Default(.enableMouseHoverInSwitcher) var enableMouseHoverInSwitcher
-    @Default(.enableWindowSwitcherEdgeAutoScroll) var enableWindowSwitcherEdgeAutoScroll
     @Default(.mouseHoverAutoScrollSpeed) var mouseHoverAutoScrollSpeed
-    @Default(.switcherPreviewHoverAction) var switcherPreviewHoverAction
-    @Default(.switcherTapEquivalentInterval) var switcherTapEquivalentInterval
     @Default(.includeHiddenWindowsInSwitcher) var includeHiddenWindowsInSwitcher
     @Default(.useClassicWindowOrdering) var useClassicWindowOrdering
     @Default(.limitSwitcherToFrontmostApp) var limitSwitcherToFrontmostApp
@@ -23,18 +20,21 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.groupedAppsInSwitcher) var groupedAppsInSwitcher
     @Default(.windowSwitcherPlacementStrategy) var placementStrategy
     @Default(.pinnedScreenIdentifier) var pinnedScreenIdentifier
-    @Default(.windowSwitcherHorizontalAnchor) var windowSwitcherHorizontalAnchor
-    @Default(.windowSwitcherVerticalAnchor) var windowSwitcherVerticalAnchor
-    @Default(.enableShiftWindowSwitcherPlacement) var enableShiftWindowSwitcherPlacement
     @Default(.windowSwitcherHorizontalOffsetPercent) var windowSwitcherHorizontalOffsetPercent
     @Default(.windowSwitcherVerticalOffsetPercent) var windowSwitcherVerticalOffsetPercent
+    @Default(.enableShiftWindowSwitcherPlacement) var enableShiftWindowSwitcherPlacement
     @Default(.showWindowlessAppsInSwitcher) var showWindowlessAppsInSwitcher
+    @Default(.mouseFollowsFocusMode) var mouseFollowsFocusMode
+
+    @Default(.enableWindowSwitcherEdgeAutoScroll) var enableWindowSwitcherEdgeAutoScroll
+    @Default(.switcherPreviewHoverAction) var switcherPreviewHoverAction
+    @Default(.switcherTapEquivalentInterval) var switcherTapEquivalentInterval
+    @Default(.windowSwitcherHorizontalAnchor) var windowSwitcherHorizontalAnchor
+    @Default(.windowSwitcherVerticalAnchor) var windowSwitcherVerticalAnchor
     @Default(.excludeWindowlessAppsFromCurrentMonitorSwitcherScopes) var excludeWindowlessAppsFromCurrentMonitorSwitcherScopes
     @Default(.excludeWindowlessAppsFromCurrentSpaceSwitcherScopes) var excludeWindowlessAppsFromCurrentSpaceSwitcherScopes
-    @Default(.mouseFollowsFocusMode) var mouseFollowsFocusMode
     @Default(.enableActionFeedback) private var enableActionFeedback
     @Default(.showMouseFollowsFocusFeedback) private var mouseFollowsFocusFeedback
-
     @Default(.enableSpacesBar) private var enableSpacesBar
     @Default(.spacesBarFilterWindows) private var spacesBarFilterWindows
     @Default(.spacesBarStartOnNext) private var spacesBarStartOnNext
@@ -51,19 +51,24 @@ struct WindowSwitcherBehaviorSettingsView: View {
             headerSection
 
             if enableWindowSwitcher {
+                appearanceSection
                 behaviorSection
                 windowDisplaySection
-                spacesBarSection
                 searchAndInputSection
-                hoverActionsSection
                 sortingAndGroupingSection
                 placementSection
-                appearanceSection
+                hoverActionsSection
+                spacesBarSection
+            }
+
+            if enableWindowSwitcher {
+                TrackpadSwitcherSwipeSection()
             }
         } pinnedHeader: {
-            if enableWindowSwitcher { SettingsMockPreview(context: .windowSwitcher) }
+            if enableWindowSwitcher {
+                SettingsMockPreview(context: .windowSwitcher, maxHeight: 170)
+            }
         }
-        .onChange(of: windowSwitcherSortOrder) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
         .onChange(of: spacesBarRecentlyUsed) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
         .onChange(of: spacesBarFilterWindows) { _ in SharedPreviewWindowCoordinator.activeInstance?.resetSpaceFiltering() }
         .onChange(of: enableSpacesBar) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar() }
@@ -81,16 +86,11 @@ struct WindowSwitcherBehaviorSettingsView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        Section {
-            SettingsIllustratedToggle(
-                isOn: $enableWindowSwitcher,
-                title: "Enable Window Switcher",
-                imageName: "WindowSwitcher"
-            ) {
-                Text("The Window Switcher (often Alt/Cmd-Tab) lets you quickly cycle between open app windows with a keyboard shortcut.")
-            }
-            .settingsSearchTarget("windowSwitcher.enable")
-            .onChange(of: enableWindowSwitcher) { _ in askUserToRestartApplication() }
+        SettingsSection("Window Switcher") {
+            Toggle(isOn: $enableWindowSwitcher) { Text("Enable Window Switcher") }
+                .settingsSearchTarget("windowSwitcher.enable")
+                .settingsAnnotation("The Window Switcher (often Alt/Cmd-Tab) lets you quickly cycle between open app windows with a keyboard shortcut.")
+                .onChange(of: enableWindowSwitcher) { _ in askUserToRestartApplication() }
         }
     }
 
@@ -100,10 +100,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
         SettingsSection("Behavior") {
             Toggle(isOn: $instantWindowSwitcher) { Text("Show Window Switcher instantly") }
                 .settingsSearchTarget("windowSwitcher.instant")
-            Text("May feel snappier but can cause flickering if you quickly release the key.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
+                .settingsAnnotation("May feel snappier but can cause flickering if you quickly release the key.")
 
             Toggle(isOn: Binding(
                 get: { !preventSwitcherHide },
@@ -113,32 +110,21 @@ struct WindowSwitcherBehaviorSettingsView: View {
 
             Toggle(isOn: $useClassicWindowOrdering) { Text("Start on second window") }
                 .settingsSearchTarget("windowSwitcher.startOnSecond")
-            Text("Highlight the second window instead of the first when opening.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
+                .settingsAnnotation("Highlight the second window instead of the first when opening.")
 
             Picker(String(localized: "Mouse follows focus", comment: "Mouse follows focus setting label"), selection: $mouseFollowsFocusMode) {
                 ForEach(MouseFollowsFocusMode.allCases, id: \.self) {
                     Text($0.localizedName).tag($0)
                 }
             }
-            .pickerStyle(.menu)
             .settingsSearchTarget("windowSwitcher.mouseFollowsFocus")
-            Text("Move the cursor to the center of the selected window.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
+            .settingsAnnotation("Move the cursor to the center of the selected window.")
             if mouseFollowsFocusMode != .never, enableActionFeedback {
-                VStack(alignment: .leading, spacing: 4) {
+                Group {
                     Toggle("Show feedback popup", isOn: $mouseFollowsFocusFeedback)
                         .settingsSearchTarget("windowSwitcher.showMouseFollowsFocusFeedback")
-                    Text("Show a popup at the cursor's new location. Requires action feedback to be enabled.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .settingsAnnotation("Show a popup at the cursor's new location. Requires action feedback to be enabled.")
                 }
-                .padding(.leading, 20)
             }
         }
     }
@@ -147,167 +133,72 @@ struct WindowSwitcherBehaviorSettingsView: View {
 
     private var windowDisplaySection: some View {
         SettingsSection("Window Display") {
-            Toggle(isOn: $showWindowsFromCurrentSpaceOnlyInSwitcher) { Text("Show windows from current Space only") }
-                .settingsSearchTarget("windowSwitcher.currentSpaceOnly")
-            Text("Only display windows that are in the current virtual desktop/Space.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            Toggle(isOn: $showWindowsFromCurrentMonitorOnlyInSwitcher) { Text("Show windows from current monitor only") }
-                .settingsSearchTarget("windowSwitcher.currentMonitorOnly")
-            Text("Only display windows that are on the same display as the mouse cursor.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
+            SharedWindowDisplayRows(
+                currentSpaceOnly: $showWindowsFromCurrentSpaceOnlyInSwitcher,
+                currentSpaceOnlyTarget: "windowSwitcher.currentSpaceOnly",
+                monitorCaption: "Only display windows that are on the same display as the mouse cursor.",
+                currentMonitorOnly: $showWindowsFromCurrentMonitorOnlyInSwitcher,
+                currentMonitorOnlyTarget: "windowSwitcher.currentMonitorOnly",
+                includeHidden: $includeHiddenWindowsInSwitcher,
+                includeHiddenTarget: "windowSwitcher.includeHidden",
+                showWindowless: $showWindowlessAppsInSwitcher,
+                showWindowlessTarget: "windowSwitcher.showWindowless",
+                windowlessTitle: "Show running apps with no open windows",
+                windowlessCaption: "Dock-visible apps without any windows will appear as icon-only entries at the end."
+            )
 
             Toggle(isOn: $limitSwitcherToFrontmostApp) { Text("Limit to active app only") }
                 .settingsSearchTarget("windowSwitcher.limitToFrontmost")
-            Text("Only show windows from the currently active/frontmost application.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            Toggle(isOn: $includeHiddenWindowsInSwitcher) { Text("Include hidden/minimized windows") }
-                .settingsSearchTarget("windowSwitcher.includeHidden")
-
-            Toggle(isOn: $showWindowlessAppsInSwitcher) { Text("Show running apps with no open windows") }
-                .settingsSearchTarget("windowSwitcher.showWindowless")
-            Text("Dock-visible apps without any windows will appear as icon-only entries at the end.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
+                .settingsAnnotation("Only show windows from the currently active/frontmost application.")
             if showWindowlessAppsInSwitcher {
-                Toggle(isOn: $excludeWindowlessAppsFromCurrentMonitorSwitcherScopes) {
-                    Text("Exclude from \"Current Monitor Only\" filter")
+                Group {
+                    Toggle("Exclude from \"Current Monitor Only\" filter", isOn: $excludeWindowlessAppsFromCurrentMonitorSwitcherScopes)
+                        .settingsSearchTarget("windowSwitcher.excludeWindowlessFromCurrentMonitor")
+                    Toggle("Exclude from \"Current Space Only\" filter", isOn: $excludeWindowlessAppsFromCurrentSpaceSwitcherScopes)
+                        .settingsSearchTarget("windowSwitcher.excludeWindowlessFromCurrentSpace")
                 }
-                .settingsSearchTarget("windowSwitcher.excludeWindowlessFromCurrentMonitor")
-                .padding(.leading, 20)
-
-                Toggle(isOn: $excludeWindowlessAppsFromCurrentSpaceSwitcherScopes) {
-                    Text("Exclude from \"Current Space Only\" filter")
-                }
-                .settingsSearchTarget("windowSwitcher.excludeWindowlessFromCurrentSpace")
-                .padding(.leading, 20)
             }
         }
     }
 
     // MARK: - Search & Input
 
-    private var spacesBarSection: some View {
-        SettingsSection("Spaces Bar") {
-            Toggle("Enable Spaces Bar", isOn: $enableSpacesBar)
-                .settingsSearchTarget("windowSwitcher.enableSpacesBar")
-            if enableSpacesBar {
-                Toggle("Automatically filter windows by highlighted Space", isOn: $spacesBarFilterWindows)
-                    .settingsSearchTarget("windowSwitcher.spacesBarFilterWindows")
-                Toggle("Start on next Space", isOn: $spacesBarStartOnNext)
-                    .settingsSearchTarget("windowSwitcher.spacesBarStartOnNext")
-                Picker("Spaces sort order", selection: $spacesBarRecentlyUsed) {
-                    Text("Sequential").tag(false)
-                    Text("Recently used").tag(true)
-                }
-                .settingsSearchTarget("windowSwitcher.spacesBarRecentlyUsed")
-                Toggle("Activate apps by clicking their icons", isOn: $spacesBarActivateAppIcons)
-                    .settingsSearchTarget("windowSwitcher.spacesBarActivateAppIcons")
-                if !spacesBarShowAppIcons {
-                    Text("Enable \"Appearance > Spaces Bar > Show app icons in the Spaces Bar\" to use this.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Picker("Dragging a Space onto another Space", selection: $spacesBarSwapContents) {
-                    Text("Moves all eligible windows to the target Space").tag(false)
-                    Text("Swaps windows between the two Spaces").tag(true)
-                }
-                .settingsSearchTarget("windowSwitcher.spacesBarSwapContents")
-                Text("Dragging moves Desktop contents, not Spaces, wallpapers or app assignments. Gaps shift contents within a display in Sequential order only.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Toggle("Hide when only one Space exists", isOn: $spacesBarHideWhenSingle)
-                    .settingsSearchTarget("windowSwitcher.spacesBarHideWhenSingle")
-            }
-        }
-    }
-
     private var searchAndInputSection: some View {
         SettingsSection("Search & Input") {
             Toggle(isOn: $enableWindowSwitcherSearch) { Text("Enable search") }
                 .settingsSearchTarget("windowSwitcher.enableSearch")
             if enableWindowSwitcherSearch {
-                Toggle(isOn: $focusSearchOnWindowSwitcherOpen) { Text("Focus search on open") }
-                    .settingsSearchTarget("windowSwitcher.focusSearch")
-                    .padding(.leading, 20)
-                Text("Automatically focus the search bar when the window switcher opens.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
+                Group {
+                    Toggle(isOn: $focusSearchOnWindowSwitcherOpen) { Text("Focus search on open") }
+                        .settingsSearchTarget("windowSwitcher.focusSearch")
+                        .settingsAnnotation("Automatically focus the search bar when the window switcher opens.")
 
-                HStack {
-                    Text("Search Fuzziness")
-                    Slider(value: Binding(
-                        get: { Double(searchFuzziness) },
-                        set: { searchFuzziness = Int($0) }
-                    ), in: 1 ... 5, step: 1)
-                    Text("\(searchFuzziness)")
-                        .frame(width: 20)
+                    SettingsSliderRow(
+                        title: "Search Fuzziness",
+                        value: Binding(get: { Double(searchFuzziness) }, set: { searchFuzziness = Int($0) }),
+                        range: 1 ... 5
+                    )
+                    .settingsAnnotation("Level 1 is exact match, level 5 is most lenient fuzzy matching.")
                 }
-                .padding(.leading, 20)
-                Text("Level 1 is exact match, level 5 is most lenient fuzzy matching.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
             }
-        }
-    }
 
-    // MARK: - Hover Actions
-
-    private var hoverActionsSection: some View {
-        SettingsSection("Hover Actions") {
             Toggle(isOn: $enableMouseHoverInSwitcher) { Text("Enable mouse hover selection") }
                 .settingsSearchTarget("windowSwitcher.mouseHover")
-            Text("Select windows when hovering with the mouse.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
+                .settingsAnnotation("Select windows when hovering with the mouse.")
 
-            Toggle(isOn: $enableWindowSwitcherEdgeAutoScroll) {
-                Text("Enable edge auto-scroll")
-            }
-            .settingsSearchTarget("windowSwitcher.edgeAutoScroll")
-
+            Toggle("Enable edge auto-scroll", isOn: $enableWindowSwitcherEdgeAutoScroll)
+                .settingsSearchTarget("windowSwitcher.edgeAutoScroll")
             if enableWindowSwitcherEdgeAutoScroll {
-                HStack {
-                    Text("Auto-scroll speed:")
-                    Slider(value: $mouseHoverAutoScrollSpeed, in: 1 ... 10, step: 0.5)
-                    Text(String(format: "%.1f", mouseHoverAutoScrollSpeed))
-                        .frame(width: 30)
-                        .foregroundColor(.secondary)
+                Group {
+                    SettingsSliderRow(
+                        title: "Auto-scroll speed:",
+                        value: $mouseHoverAutoScrollSpeed,
+                        range: 1 ... 10,
+                        step: 0.5
+                    )
+                    .settingsSearchTarget("windowSwitcher.edgeAutoScrollSpeed")
                 }
-                .padding(.leading, 20)
-                .settingsSearchTarget("windowSwitcher.edgeAutoScrollSpeed")
             }
-
-            Picker("Window Switcher Hover Action", selection: $switcherPreviewHoverAction) {
-                ForEach(PreviewHoverAction.allCases, id: \.self) { Text($0.localizedName).tag($0) }
-            }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("windowSwitcher.hoverAction")
-
-            HStack {
-                Text("Window Switcher Hover Action Delay")
-                Slider(value: $switcherTapEquivalentInterval, in: 0 ... 2, step: 0.1)
-                Text(String(format: "%.1f s", switcherTapEquivalentInterval))
-                    .monospacedDigit()
-                    .foregroundColor(.secondary)
-                    .frame(width: 52, alignment: .trailing)
-            }
-            .disabled(switcherPreviewHoverAction == .none)
-            .settingsSearchTarget("windowSwitcher.hoverDelay")
-
-            PreviewFocusFadeSettings(mode: .windowSwitcher)
         }
     }
 
@@ -320,28 +211,23 @@ struct WindowSwitcherBehaviorSettingsView: View {
                     Text(order.localizedName).tag(order)
                 }
             }
-            .pickerStyle(.menu)
             .settingsSearchTarget("windowSwitcher.sortOrder")
+            .onChange(of: windowSwitcherSortOrder) { _ in SharedPreviewWindowCoordinator.activeInstance?.refreshSpacesBar(.contents) }
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text("Group windows by app")
-                    Spacer()
-                    if !groupedAppsInSwitcher.isEmpty {
-                        Text("\(groupedAppsInSwitcher.count) app\(groupedAppsInSwitcher.count == 1 ? "" : "s")")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Button("Select...") {
-                        showGroupedAppsSheet = true
-                    }
-                    .buttonStyle(.settings)
+            HStack {
+                Text("Group windows by app")
+                Spacer()
+                if !groupedAppsInSwitcher.isEmpty {
+                    Text("\(groupedAppsInSwitcher.count) app\(groupedAppsInSwitcher.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                Text("Selected apps show only their most recent window. All windows shown in active-app-only mode.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
+                Button("Select...") {
+                    showGroupedAppsSheet = true
+                }
+                .buttonStyle(.settings)
             }
+            .settingsAnnotation("Selected apps show only their most recent window. All windows shown in active-app-only mode.")
             .settingsSearchTarget("windowSwitcher.groupByApp")
         }
     }
@@ -355,7 +241,6 @@ struct WindowSwitcherBehaviorSettingsView: View {
                     Text($0.localizedName).tag($0)
                 }
             }
-            .pickerStyle(.menu)
             .settingsSearchTarget("windowSwitcher.placement")
             .onChange(of: placementStrategy) { newStrategy in
                 if newStrategy == .pinnedToScreen, pinnedScreenIdentifier.isEmpty {
@@ -374,86 +259,48 @@ struct WindowSwitcherBehaviorSettingsView: View {
                         Text("Disconnected Display").tag(pinnedScreenIdentifier)
                     }
                 }
-                .pickerStyle(.menu)
-                .padding(.leading, 20)
                 .onAppear { NSScreen.migrateScreenIdentifier(.pinnedScreenIdentifier) }
 
                 if !pinnedScreenIdentifier.isEmpty,
                    NSScreen.findScreen(byIdentifier: pinnedScreenIdentifier) == nil
                 {
-                    Text("This display is currently disconnected.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .padding(.leading, 20)
+                    SettingsCallout(message: Text("This display is currently disconnected."))
                 }
             }
 
-            HStack(alignment: .center, spacing: 12) {
-                Text("Anchor to")
-                    .fixedSize()
-
-                Picker("Vertical anchor", selection: $windowSwitcherVerticalAnchor) {
-                    ForEach(WindowSwitcherVerticalAnchor.allCases, id: \.self) {
-                        Text($0.localizedName).tag($0)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(maxWidth: 200)
-                .settingsSearchTarget("windowSwitcher.anchorVertical")
-
-                Picker("Horizontal anchor", selection: $windowSwitcherHorizontalAnchor) {
-                    ForEach(WindowSwitcherHorizontalAnchor.allCases, id: \.self) {
-                        Text($0.localizedName).tag($0)
-                    }
-                }
-                .labelsHidden()
-                .pickerStyle(.menu)
-                .frame(maxWidth: 200)
-                .settingsSearchTarget("windowSwitcher.anchorHorizontal")
+            Picker("Vertical anchor", selection: $windowSwitcherVerticalAnchor) {
+                ForEach(WindowSwitcherVerticalAnchor.allCases, id: \.self) { Text($0.localizedName).tag($0) }
             }
 
+            .settingsSearchTarget("windowSwitcher.anchorVertical")
+            Picker("Horizontal anchor", selection: $windowSwitcherHorizontalAnchor) {
+                ForEach(WindowSwitcherHorizontalAnchor.allCases, id: \.self) { Text($0.localizedName).tag($0) }
+            }
+
+            .settingsSearchTarget("windowSwitcher.anchorHorizontal")
             Toggle(isOn: $enableShiftWindowSwitcherPlacement) {
                 Text("Offset position")
             }
             .settingsSearchTarget("windowSwitcher.offsetPosition")
 
             if enableShiftWindowSwitcherPlacement {
-                HStack {
-                    Image(systemName: "arrow.up")
-                        .foregroundColor(.secondary)
-                        .frame(width: 16)
-                    Slider(
-                        value: Binding(
-                            get: { windowSwitcherVerticalOffsetPercent },
-                            set: { windowSwitcherVerticalOffsetPercent = CGFloat($0.rounded()) }
-                        ),
-                        in: -80 ... 80,
-                        step: 1
+                Group {
+                    SettingsSliderRow(
+                        title: "Vertical offset",
+                        value: $windowSwitcherVerticalOffsetPercent,
+                        range: -80 ... 80,
+                        defaultValue: 0,
+                        unit: "%"
                     )
-                    Text("\(Int(windowSwitcherVerticalOffsetPercent))%")
-                        .monospacedDigit()
-                        .frame(width: 45, alignment: .trailing)
-                }
-                .padding(.leading, 20)
 
-                HStack {
-                    Image(systemName: "arrow.right")
-                        .foregroundColor(.secondary)
-                        .frame(width: 16)
-                    Slider(
-                        value: Binding(
-                            get: { windowSwitcherHorizontalOffsetPercent },
-                            set: { windowSwitcherHorizontalOffsetPercent = CGFloat($0.rounded()) }
-                        ),
-                        in: -80 ... 80,
-                        step: 1
+                    SettingsSliderRow(
+                        title: "Horizontal offset",
+                        value: $windowSwitcherHorizontalOffsetPercent,
+                        range: -80 ... 80,
+                        defaultValue: 0,
+                        unit: "%"
                     )
-                    Text("\(Int(windowSwitcherHorizontalOffsetPercent))%")
-                        .monospacedDigit()
-                        .frame(width: 45, alignment: .trailing)
                 }
-                .padding(.leading, 20)
             }
         }
     }
@@ -461,8 +308,60 @@ struct WindowSwitcherBehaviorSettingsView: View {
     // MARK: - Appearance
 
     private var appearanceSection: some View {
-        SettingsSection("Appearance") {
-            WindowSwitcherAppearanceSection()
+        WindowSwitcherAppearanceSection()
+    }
+
+    private var spacesBarSection: some View {
+        SettingsSection("Spaces Bar") {
+            Toggle("Enable Spaces Bar", isOn: $enableSpacesBar)
+                .settingsSearchTarget("windowSwitcher.enableSpacesBar")
+            if enableSpacesBar {
+                Group {
+                    Toggle("Automatically filter windows by highlighted Space", isOn: $spacesBarFilterWindows)
+                        .settingsSearchTarget("windowSwitcher.spacesBarFilterWindows")
+                    Toggle("Start on next Space", isOn: $spacesBarStartOnNext)
+                        .settingsSearchTarget("windowSwitcher.spacesBarStartOnNext")
+                    Picker("Spaces sort order", selection: $spacesBarRecentlyUsed) {
+                        Text("Sequential").tag(false)
+                        Text("Recently used").tag(true)
+                    }
+
+                    .settingsSearchTarget("windowSwitcher.spacesBarRecentlyUsed")
+                    Toggle("Activate apps by clicking their icons", isOn: $spacesBarActivateAppIcons)
+                        .settingsSearchTarget("windowSwitcher.spacesBarActivateAppIcons")
+                    if !spacesBarShowAppIcons {
+                        Text("Enable \"Appearance > Spaces Bar > Show app icons in the Spaces Bar\" to use this.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Picker("Dragging a Space onto another Space", selection: $spacesBarSwapContents) {
+                        Text("Moves all eligible windows to the target Space").tag(false)
+                        Text("Swaps windows between the two Spaces").tag(true)
+                    }
+
+                    .settingsSearchTarget("windowSwitcher.spacesBarSwapContents")
+                    .settingsAnnotation("Dragging moves Desktop contents, not Spaces, wallpapers or app assignments. Gaps shift contents in Sequential order only.")
+                    Toggle("Hide when only one Space exists", isOn: $spacesBarHideWhenSingle)
+                        .settingsSearchTarget("windowSwitcher.spacesBarHideWhenSingle")
+                }
+            }
+        }
+    }
+
+    private var hoverActionsSection: some View {
+        SettingsSection("Hover Actions") {
+            Picker("Window Switcher Hover Action", selection: $switcherPreviewHoverAction) {
+                ForEach(PreviewHoverAction.allCases, id: \.self) { Text($0.localizedName).tag($0) }
+            }
+
+            .settingsSearchTarget("windowSwitcher.hoverAction")
+            if switcherPreviewHoverAction != .none {
+                Group {
+                    SettingsSliderRow(title: "Window Switcher Hover Action Delay", value: $switcherTapEquivalentInterval, range: 0 ... 2, defaultValue: Defaults.Keys.switcherTapEquivalentInterval.defaultValue, unit: " s", step: 0.1)
+                        .settingsSearchTarget("windowSwitcher.hoverDelay")
+                }
+            }
+            PreviewFocusFadeSettings(mode: .windowSwitcher)
         }
     }
 }

@@ -26,7 +26,7 @@ title = 'Disable title bar gestures over scrollable areas and tabs'
 description = 'Skip scrollable areas and tab bars. Other controls follow the standard gesture rules.'
 abort 'Setting must default Off' unless keys.include?("Key<Bool>(\"#{key}\", default: false)")
 abort 'Missing reset handling' unless reset.include?("Defaults.reset(.#{key})")
-abort 'Missing matching setting/search strings' unless view.include?("Toggle(\"#{title}\"") && catalog.include?("title: String(localized: \"#{title}\")") && view.include?("Text(\"#{description}\")") && catalog.include?("description: String(localized: \"#{description}\")")
+abort 'Missing matching setting/search strings' unless view.include?("Toggle(\"#{title}\"") && catalog.include?("title: String(localized: \"#{title}\")") && view.include?(".settingsAnnotation(\"#{description}\")") && catalog.include?("description: String(localized: \"#{description}\")")
 abort 'Missing matching search target' unless view.include?('.settingsSearchTarget("windowGestures.disableOverInteractiveElements")') && catalog.include?('id: "windowGestures.disableOverInteractiveElements"')
 window = block(zone, '    private static func windowZone(')
 abort 'Strict mode must reject both geometry-only fallback paths' unless window.scan(/guard !excludesScrollingAndTabs else \{ return \.notHere \}\s+return cachedTitleBarZone/).size == 2
@@ -36,8 +36,8 @@ abort 'Parent traversal must distinguish a complete chain' unless window.include
 strict_key = 'strictTitleBarGestureDetection'
 strict_title = 'Use stricter title bar detection'
 strict_description = "Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars."
-abort 'Stricter detection must default Off with matching search/reset strings' unless keys.include?("Key<Bool>(\"#{strict_key}\", default: false)") && reset.include?("Defaults.reset(.#{strict_key})") && [view,catalog].all? { |s| s.include?("String(localized: \"#{strict_title}\")") && s.include?("String(localized: \"#{strict_description}\")") }
-abort 'Stricter checkbox must be subordinate to the existing exclusion' unless block(view,'                if disableOverInteractiveElements {').include?('.settingsSearchTarget("windowGestures.strictTitleBarGestureDetection")') && catalog.include?('id: "windowGestures.strictTitleBarGestureDetection"') && window.include?('strictDetection: excludesScrollingAndTabs && Defaults[.strictTitleBarGestureDetection]')
+abort 'Stricter detection must default Off with matching search/reset strings' unless keys.include?("Key<Bool>(\"#{strict_key}\", default: false)") && reset.include?("Defaults.reset(.#{strict_key})") && view.include?("String(localized: \"#{strict_title}\")") && view.include?(".settingsAnnotation(\"#{strict_description}\")") && catalog.include?("title: String(localized: \"#{strict_title}\")") && catalog.include?("description: String(localized: \"#{strict_description}\")")
+abort 'Stricter checkbox must be subordinate to the existing exclusion' unless block(view,'if disableOverInteractiveElements {').include?('.settingsSearchTarget("windowGestures.strictTitleBarGestureDetection")') && catalog.include?('id: "windowGestures.strictTitleBarGestureDetection"') && window.include?('strictDetection: excludesScrollingAndTabs && Defaults[.strictTitleBarGestureDetection]')
 abort 'Temporary browser-specific metadata/tracing must be removed' if zone.match?(/diagnosticMetadata|diagnosticsEnabled|WindowGestures hit|kAXTabsAttribute|kAXHorizontalScrollBarAttribute|kAXVerticalScrollBarAttribute|org\.mozilla\.firefox|com\.brave\.Browser/)
 abort 'Keep original three-attribute batch and traversal budget' unless zone.include?('let attributes = [kAXRoleAttribute, kAXSubroleAttribute, kAXParentAttribute] as CFArray') && zone.include?('private static let classificationDepth = 8') && zone.include?('private static let resolutionBudget: CFAbsoluteTime = 0.2')
 

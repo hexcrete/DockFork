@@ -3,21 +3,11 @@ import Foundation
 enum SettingsSearchCatalog {
     static let items: [SettingsSearchItem] = generalItems + dockPreviewItems + windowSwitcherItems
         + gestureItems + cmdTabItems + dockLockingItems + appearanceItems + glassItems + keybindItems + filtersItems
-        + widgetItems + pinningItems + advancedItems + supportItems
+        + widgetItems + pinningItems + advancedItems + supportItems + forkItems
 
     // MARK: - General
 
     private static let generalItems: [SettingsSearchItem] = [
-        SettingsSearchItem(id: "general.dockDoorPro", title: String(localized: "DockDoor Pro"), keywords: ["pro", "upgrade"], tab: "General", section: String(localized: "Support & Contributions"), icon: "star"),
-        SettingsSearchItem(
-            id: "general.showSettingDescriptions",
-            title: String(localized: "Show setting descriptions"),
-            description: String(localized: "Explain what each setting does underneath its row."),
-            keywords: ["captions", "descriptions", "explanations", "hide", "simple"],
-            tab: "General",
-            section: String(localized: "Application Basics"),
-            icon: "text.bubble"
-        ),
         SettingsSearchItem(
             id: "general.leaveReview",
             title: String(localized: "Leave a Review"),
@@ -26,6 +16,15 @@ enum SettingsSearchCatalog {
             tab: "General",
             section: String(localized: "Support & Contributions"),
             icon: "star.bubble.fill"
+        ),
+        SettingsSearchItem(
+            id: "general.dockDoorPro",
+            title: String(localized: "Get DockDoor Pro"),
+            description: String(localized: "Replace the Dock entirely with the paid app from the same developer"),
+            keywords: ["pro", "premium", "upgrade", "paid", "dock replacement"],
+            tab: "General",
+            section: String(localized: "Support & Contributions"),
+            icon: "sparkles"
         ),
         SettingsSearchItem(
             id: "general.launchAtLogin",
@@ -50,6 +49,15 @@ enum SettingsSearchCatalog {
             tab: "General",
             section: String(localized: "Application Basics"),
             icon: "figure.roll"
+        ),
+        SettingsSearchItem(
+            id: "general.showSettingDescriptions",
+            title: String(localized: "Show setting descriptions"),
+            description: String(localized: "Explain what each setting does underneath its row."),
+            keywords: ["captions", "descriptions", "explanations", "hide", "simple"],
+            tab: "General",
+            section: String(localized: "Application Basics"),
+            icon: "text.bubble"
         ),
         SettingsSearchItem(
             id: "general.sortMinimized",
@@ -207,14 +215,6 @@ enum SettingsSearchCatalog {
             icon: "eye.slash"
         ),
         SettingsSearchItem(
-            id: "dockPreviews.fullSizeWindowless",
-            title: String(localized: "Show full size placeholders"),
-            keywords: ["windowless", "placeholder", "full", "size", "compact"],
-            tab: "DockPreviews",
-            section: String(localized: "Window Display"),
-            icon: "macwindow"
-        ),
-        SettingsSearchItem(
             id: "dockPreviews.showWindowless",
             title: String(localized: "Show preview for apps with no open windows"),
             description: String(localized: "Show a placeholder preview when hovering dock apps that have no windows."),
@@ -253,7 +253,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "dockPreviews.ignoreSingleWindow",
             title: String(localized: "Ignore apps with one window"),
-            description: String(localized: "Prevents apps with exactly one open window from appearing in previews."),
+            description: String(localized: "Prevents apps that only ever have a single window from appearing in previews."),
             keywords: ["single", "ignore", "one"],
             tab: "DockPreviews",
             section: String(localized: "Window Display"),
@@ -302,79 +302,15 @@ enum SettingsSearchCatalog {
             icon: "timer"
         ),
         SettingsSearchItem(
-            id: "dockPreviews.focusFade",
-            title: String(localized: "Enable Dock previews fade out when resting on a preview"),
-            description: String(localized: "Fade the preview container after a pause to reveal the highlighted window’s full-size preview. Mouse or keyboard input restores it."),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "DockPreviews",
-            section: String(localized: "Dock Interaction"),
-            icon: "rectangle.dashed"
-        ),
-        SettingsSearchItem(
-            id: "dockPreviews.focusFadeDelay",
-            title: String(localized: "Dock Preview Fade Out Delay"),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "DockPreviews",
-            section: String(localized: "Dock Interaction"),
-            icon: "timer"
-        ),
-        SettingsSearchItem(
-            id: "dockPreviews.focusFadeDuration",
-            title: String(localized: "Fade Out Duration"),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "DockPreviews",
-            section: String(localized: "Dock Interaction"),
-            icon: "timer"
-        ),
-        SettingsSearchItem(
-            id: "dockPreviews.focusFadeOpacity",
-            title: String(localized: "Target Minimum Opacity"),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "DockPreviews",
-            section: String(localized: "Dock Interaction"),
-            icon: "circle.lefthalf.filled"
-        ),
-        SettingsSearchItem(
-            id: "dockPreviews.edgeAutoScroll",
-            title: String(localized: "Enable edge auto-scroll"),
-            keywords: ["edge", "hover", "scroll", "automatic", "mouse"],
-            tab: "DockPreviews",
-            section: String(localized: "Dock Interaction"),
-            icon: "arrow.left.and.right"
-        ),
-        SettingsSearchItem(
-            id: "dockPreviews.edgeAutoScrollSpeed",
-            title: String(localized: "Auto-scroll speed:"),
-            keywords: ["edge", "hover", "scroll", "speed"],
-            tab: "DockPreviews",
-            section: String(localized: "Dock Interaction"),
-            icon: "gauge.with.dots.needle.67percent"
-        ),
-        SettingsSearchItem(
             id: "dockPreviews.hideOnClick",
-            title: String(localized: "Override Dock icon click"),
-            keywords: ["dock", "click", "action", "hide", "minimize", "cycle"],
-            tab: "DockPreviews",
-            section: String(localized: "Dock Interaction"),
-            icon: "cursorarrow.click.2"
-        ),
-        SettingsSearchItem(
-            id: "dockPreviews.clickAction",
             title: String(localized: "Dock Click Action"),
-            description: String(localized: "Choose whether clicking an app in the Dock hides or minimizes its windows, or cycles through its windows."),
-            keywords: ["dock", "click", "hide", "minimize", "cycle", "windows"],
+            description: String(localized: "What clicking the icon of an app that is already in front does to its windows."),
+            keywords: ["hide", "click", "minimize"],
             tab: "DockPreviews",
             section: String(localized: "Dock Interaction"),
             icon: "cursorarrow.click.2"
         ),
-        SettingsSearchItem(
-            id: "dockPreviews.keepOpenWhenCycling",
-            title: String(localized: "Keep previews open when cycling through windows"),
-            keywords: ["dock", "click", "cycle", "windows", "keep", "open", "active"],
-            tab: "DockPreviews",
-            section: String(localized: "Dock Interaction"),
-            icon: "arrow.triangle.2.circlepath"
-        ),
+
         SettingsSearchItem(
             id: "dockPreviews.cmdRightClickQuit",
             title: String(localized: "CMD + Right Click on dock icon to quit app"),
@@ -413,12 +349,6 @@ enum SettingsSearchCatalog {
     // MARK: - Window Switcher
 
     private static let windowSwitcherItems: [SettingsSearchItem] = [
-        SettingsSearchItem(id: "windowSwitcher.spacesBarSwapContents", title: String(localized: "Dragging a Space onto another Space"), description: String(localized: "Dragging moves Desktop contents, not Spaces, wallpapers or app assignments. Gaps shift contents within a display in Sequential order only."), keywords: ["spaces", "contents", "drag", "swap", "shift"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "arrow.left.arrow.right"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarFilterWindows", title: String(localized: "Automatically filter windows by highlighted Space"), keywords: ["spaces", "bar", "filter", "automatic", "manual"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "line.3.horizontal.decrease.circle"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarStartOnNext", title: String(localized: "Start on next Space"), keywords: ["spaces", "bar", "cycle"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "keyboard"),
-        SettingsSearchItem(id: "gestures.spacesBarCycleOpensSwitcher", title: String(localized: "Allow Space-cycle shortcuts to open the switcher"), keywords: ["spaces", "bar", "cycle", "launch", "open", "shortcut"], tab: "Keybinds", section: String(localized: "Spaces"), icon: "keyboard"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarRecentlyUsed", title: String(localized: "Spaces sort order"), keywords: ["spaces", "sequential", "recently used", "history"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "clock"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarActivateAppIcons", title: String(localized: "Activate apps by clicking their icons"), keywords: ["spaces", "bar", "app", "icon", "activate"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "app"),
         SettingsSearchItem(
             id: "windowSwitcher.enable",
             title: String(localized: "Enable Window Switcher"),
@@ -462,15 +392,6 @@ enum SettingsSearchCatalog {
             tab: "WindowSwitcher",
             section: String(localized: "Behavior"),
             icon: "computermouse"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.showMouseFollowsFocusFeedback",
-            title: String(localized: "Show feedback popup"),
-            description: String(localized: "Show a popup at the cursor's new location. Requires action feedback to be enabled."),
-            keywords: ["feedback", "popup", "mouse", "cursor", "follow", "focus", "jump"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Behavior"),
-            icon: "pointer.arrow.motionlines"
         ),
         SettingsSearchItem(
             id: "windowSwitcher.currentSpaceOnly",
@@ -517,24 +438,6 @@ enum SettingsSearchCatalog {
             icon: "macwindow.badge.plus"
         ),
         SettingsSearchItem(
-            id: "windowSwitcher.excludeWindowlessFromCurrentMonitor",
-            title: String(localized: "Exclude from \"Current Monitor Only\" filter"),
-            keywords: ["windowless", "monitor", "display", "filter", "exclude"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Window Display"),
-            icon: "display"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.excludeWindowlessFromCurrentSpace",
-            title: String(localized: "Exclude from \"Current Space Only\" filter"),
-            keywords: ["windowless", "space", "desktop", "filter", "exclude"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Window Display"),
-            icon: "rectangle.on.rectangle"
-        ),
-        SettingsSearchItem(id: "windowSwitcher.enableSpacesBar", title: String(localized: "Enable Spaces Bar"), keywords: ["spaces", "bar", "desktop"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarHideWhenSingle", title: String(localized: "Hide when only one Space exists"), keywords: ["spaces", "bar", "desktop"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
-        SettingsSearchItem(
             id: "windowSwitcher.enableSearch",
             title: String(localized: "Enable search"),
             keywords: ["search", "find", "filter", "type"],
@@ -561,71 +464,6 @@ enum SettingsSearchCatalog {
             icon: "cursorarrow"
         ),
         SettingsSearchItem(
-            id: "windowSwitcher.edgeAutoScroll",
-            title: String(localized: "Enable edge auto-scroll"),
-            keywords: ["edge", "hover", "scroll", "automatic", "mouse"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Hover Actions"),
-            icon: "arrow.left.and.right"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.edgeAutoScrollSpeed",
-            title: String(localized: "Auto-scroll speed:"),
-            keywords: ["edge", "hover", "scroll", "speed"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Hover Actions"),
-            icon: "gauge.with.dots.needle.67percent"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.hoverAction",
-            title: String(localized: "Window Switcher Hover Action"),
-            keywords: ["window", "switcher", "hover", "action", "preview", "keyboard"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Hover Actions"),
-            icon: "hand.point.up.left"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.hoverDelay",
-            title: String(localized: "Window Switcher Hover Action Delay"),
-            keywords: ["window", "switcher", "hover", "delay", "seconds", "timer"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Hover Actions"),
-            icon: "timer"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.focusFade",
-            title: String(localized: "Enable Window Switcher fade out when resting on a preview"),
-            description: String(localized: "Fade the preview container after a pause to reveal the highlighted window’s full-size preview. Mouse or keyboard input restores it."),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Hover Actions"),
-            icon: "rectangle.dashed"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.focusFadeDelay",
-            title: String(localized: "Window Switcher Fade Out Delay"),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Hover Actions"),
-            icon: "timer"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.focusFadeDuration",
-            title: String(localized: "Fade Out Duration"),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Hover Actions"),
-            icon: "timer"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.focusFadeOpacity",
-            title: String(localized: "Target Minimum Opacity"),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Hover Actions"),
-            icon: "circle.lefthalf.filled"
-        ),
-        SettingsSearchItem(
             id: "windowSwitcher.sortOrder",
             title: String(localized: "Window sort order"),
             keywords: ["sort", "order", "arrange"],
@@ -649,22 +487,6 @@ enum SettingsSearchCatalog {
             tab: "WindowSwitcher",
             section: String(localized: "Placement"),
             icon: "rectangle.center.inset.filled"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.anchorVertical",
-            title: String(localized: "Vertical anchor"),
-            keywords: ["anchor", "vertical", "top", "center", "bottom", "position"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Placement"),
-            icon: "arrow.up.and.down"
-        ),
-        SettingsSearchItem(
-            id: "windowSwitcher.anchorHorizontal",
-            title: String(localized: "Horizontal anchor"),
-            keywords: ["anchor", "horizontal", "left", "center", "right", "position"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Placement"),
-            icon: "arrow.left.and.right"
         ),
         SettingsSearchItem(
             id: "windowSwitcher.offsetPosition",
@@ -714,71 +536,6 @@ enum SettingsSearchCatalog {
             icon: "1.circle"
         ),
         SettingsSearchItem(
-            id: "cmdTab.hoverAction",
-            title: String(localized: "Cmd+Tab Hover Action"),
-            keywords: ["cmd tab", "command tab", "hover", "action", "preview", "keyboard"],
-            tab: "CmdTab",
-            section: String(localized: "Hover Actions"),
-            icon: "hand.point.up.left"
-        ),
-        SettingsSearchItem(
-            id: "cmdTab.hoverDelay",
-            title: String(localized: "Cmd+Tab Hover Action Delay"),
-            keywords: ["cmd tab", "command tab", "hover", "delay", "seconds", "timer"],
-            tab: "CmdTab",
-            section: String(localized: "Hover Actions"),
-            icon: "timer"
-        ),
-        SettingsSearchItem(
-            id: "cmdTab.focusFade",
-            title: String(localized: "Enable Cmd+Tab previews fade out when resting on a preview"),
-            description: String(localized: "Fade the preview container after a pause to reveal the highlighted window’s full-size preview. Mouse or keyboard input restores it."),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "CmdTab",
-            section: String(localized: "Hover Actions"),
-            icon: "rectangle.dashed"
-        ),
-        SettingsSearchItem(
-            id: "cmdTab.focusFadeDelay",
-            title: String(localized: "Cmd+Tab Fade Out Delay"),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "CmdTab",
-            section: String(localized: "Hover Actions"),
-            icon: "timer"
-        ),
-        SettingsSearchItem(
-            id: "cmdTab.focusFadeDuration",
-            title: String(localized: "Fade Out Duration"),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "CmdTab",
-            section: String(localized: "Hover Actions"),
-            icon: "timer"
-        ),
-        SettingsSearchItem(
-            id: "cmdTab.focusFadeOpacity",
-            title: String(localized: "Target Minimum Opacity"),
-            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
-            tab: "CmdTab",
-            section: String(localized: "Hover Actions"),
-            icon: "circle.lefthalf.filled"
-        ),
-        SettingsSearchItem(
-            id: "cmdTab.edgeAutoScroll",
-            title: String(localized: "Enable edge auto-scroll"),
-            keywords: ["cmd tab", "command tab", "edge", "hover", "scroll", "automatic", "mouse"],
-            tab: "CmdTab",
-            section: String(localized: "Hover Actions"),
-            icon: "arrow.left.and.right"
-        ),
-        SettingsSearchItem(
-            id: "cmdTab.edgeAutoScrollSpeed",
-            title: String(localized: "Auto-scroll speed:"),
-            keywords: ["cmd tab", "command tab", "edge", "hover", "scroll", "speed"],
-            tab: "CmdTab",
-            section: String(localized: "Hover Actions"),
-            icon: "gauge.with.dots.needle.67percent"
-        ),
-        SettingsSearchItem(
             id: "cmdTab.currentSpaceOnly",
             title: String(localized: "Show windows from current Space only"),
             description: String(localized: "Only display windows that are in the current virtual desktop/Space."),
@@ -805,14 +562,6 @@ enum SettingsSearchCatalog {
             icon: "eye.slash"
         ),
         SettingsSearchItem(
-            id: "cmdTab.fullSizeWindowless",
-            title: String(localized: "Show full size placeholders"),
-            keywords: ["windowless", "placeholder", "full", "size", "compact"],
-            tab: "CmdTab",
-            section: String(localized: "Window Display"),
-            icon: "macwindow"
-        ),
-        SettingsSearchItem(
             id: "cmdTab.showWindowless",
             title: String(localized: "Show preview for apps with no open windows"),
             description: String(localized: "Show a placeholder preview when Cmd+Tab lands on an app that has no windows."),
@@ -824,7 +573,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "cmdTab.ignoreSingleWindow",
             title: String(localized: "Ignore apps with one window"),
-            description: String(localized: "Prevents apps with exactly one open window from appearing in previews."),
+            description: String(localized: "Prevents apps with a single window from appearing in Cmd+Tab previews."),
             keywords: ["single", "one", "window", "ignore"],
             tab: "CmdTab",
             section: String(localized: "Window Display"),
@@ -850,23 +599,6 @@ enum SettingsSearchCatalog {
             keywords: ["swish", "gesture", "trackpad", "snap", "tile", "window management", "pinch", "swipe", "title bar"],
             tab: "Gestures",
             icon: "rectangle.split.2x2.fill"
-        ),
-        SettingsSearchItem(
-            id: "gestures.reverseTrackpadSwipeSelectionDirection",
-            title: String(localized: "Reverse swipe selection direction"),
-            keywords: ["trackpad", "swipe", "reverse", "invert", "selection", "direction"],
-            tab: "Gestures",
-            section: String(localized: "Trackpad Swipe for Window Switcher"),
-            icon: "arrow.left.arrow.right"
-        ),
-        SettingsSearchItem(
-            id: "gestures.trackpadSwitcherSwipePersistentSelection",
-            title: String(localized: "Select highlighted window when swiping in persistent Window Switchers"),
-            description: String(localized: "Swiping takes over persistent Window Switchers and unfocuses search. Lift your fingers to activate the selected window. Regular Window Switchers remain controlled by their initializer key while it is held."),
-            keywords: ["trackpad", "swipe", "persistent", "keep open", "takeover", "select", "release", "search"],
-            tab: "Gestures",
-            section: String(localized: "Trackpad Swipe for Window Switcher"),
-            icon: "hand.draw"
         ),
     ] + WindowGesture.allCases.map { gesture in
         SettingsSearchItem(
@@ -903,24 +635,6 @@ enum SettingsSearchCatalog {
             tab: "Gestures",
             section: String(localized: "Options"),
             icon: "waveform"
-        ),
-        SettingsSearchItem(
-            id: "windowGestures.disableOverInteractiveElements",
-            title: String(localized: "Disable title bar gestures over scrollable areas and tabs"),
-            description: String(localized: "Skip scrollable areas and tab bars. Other controls follow the standard gesture rules."),
-            keywords: ["title bar", "toolbar", "interactive", "button", "scroll", "tabs", "background"],
-            tab: "Gestures",
-            section: String(localized: "Options"),
-            icon: "hand.point.up.left"
-        ),
-        SettingsSearchItem(
-            id: "windowGestures.strictTitleBarGestureDetection",
-            title: String(localized: "Use stricter title bar detection"),
-            description: String(localized: "Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars."),
-            keywords: ["title bar", "strict", "scroll", "tabs", "firefox", "brave", "custom", "ambiguous"],
-            tab: "Gestures",
-            section: String(localized: "Options"),
-            icon: "hand.point.up.left"
         ),
         SettingsSearchItem(
             id: "windowGestures.dockSpace",
@@ -1067,7 +781,7 @@ enum SettingsSearchCatalog {
             title: String(localized: "Open window switcher with a trackpad swipe"),
             description: String(localized: "Swipe to open the switcher, keep your fingers down to change the selection, then lift your fingers to switch."),
             keywords: ["trackpad", "swipe", "three finger", "four finger", "gesture", "switcher", "alt tab"],
-            tab: "Gestures",
+            tab: "WindowSwitcher",
             section: String(localized: "Trackpad Swipe for Window Switcher"),
             icon: "hand.draw"
         ),
@@ -1075,7 +789,7 @@ enum SettingsSearchCatalog {
             id: "gestures.trackpadSwitcherSwipeFingers",
             title: String(localized: "Fingers:"),
             keywords: ["trackpad", "fingers", "three", "four", "swipe"],
-            tab: "Gestures",
+            tab: "WindowSwitcher",
             section: String(localized: "Trackpad Swipe for Window Switcher"),
             icon: "hand.raised"
         ),
@@ -1083,33 +797,16 @@ enum SettingsSearchCatalog {
             id: "gestures.trackpadSwitcherSwipeDirection",
             title: String(localized: "Direction:"),
             keywords: ["trackpad", "direction", "horizontal", "vertical", "swipe"],
-            tab: "Gestures",
+            tab: "WindowSwitcher",
             section: String(localized: "Trackpad Swipe for Window Switcher"),
             icon: "arrow.left.and.right"
-        ),
-        SettingsSearchItem(
-            id: "gestures.trackpadSwitcherSwipeSpaces",
-            title: TrackpadSwipeDirection.horizontal.spacesBarNavigationTitle,
-            keywords: ["trackpad", "swipe", "spaces", "opposite", "axis", "horizontal", "vertical"],
-            tab: "Gestures",
-            section: String(localized: "Trackpad Swipe for Window Switcher"),
-            icon: "arrow.up.and.down.and.arrow.left.and.right"
-        ),
-        SettingsSearchItem(
-            id: "gestures.trackpadSwitcherSwipeDisabledActivationDirections",
-            title: String(localized: "Disable activation directions"),
-            description: String(localized: "Checked directions won't open the switcher. All directions still navigate an open switcher. macOS gestures are unchanged."),
-            keywords: ["trackpad", "swipe", "activation", "disable", "left", "right", "up", "down", "mission control", "expose"],
-            tab: "Gestures",
-            section: String(localized: "Trackpad Swipe for Window Switcher"),
-            icon: "hand.draw"
         ),
         SettingsSearchItem(
             id: "gestures.trackpadSwitcherSwipeSensitivity",
             title: String(localized: "Swipe Sensitivity"),
             description: String(localized: "Higher values open the switcher and change the selection with shorter swipes."),
             keywords: ["trackpad", "sensitivity", "swipe", "distance", "speed"],
-            tab: "Gestures",
+            tab: "WindowSwitcher",
             section: String(localized: "Trackpad Swipe for Window Switcher"),
             icon: "slider.horizontal.3"
         ),
@@ -1149,13 +846,6 @@ enum SettingsSearchCatalog {
     // MARK: - Appearance
 
     private static let appearanceItems: [SettingsSearchItem] = [
-        SettingsSearchItem(id: "windowSwitcher.spacesBarShowAppIcons", title: String(localized: "Show app icons in the Spaces Bar"), keywords: ["spaces", "bar", "icons", "hide"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "app"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarItemSize", title: String(localized: "Item Size"), keywords: ["spaces", "bar", "size", "icons", "text"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarLabels", title: String(localized: "Labels"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarFixedWidth", title: String(localized: "Pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarPillWidth", title: String(localized: "Pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarMinimumIcons", title: String(localized: "Minimum icons"), keywords: ["spaces", "bar", "icons", "flexible", "count"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
-        SettingsSearchItem(id: "windowSwitcher.spacesBarMaximumIcons", title: String(localized: "Maximum icons"), keywords: ["spaces", "bar", "icons", "flexible", "count"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
         // Window Preview Size
         SettingsSearchItem(
             id: "appearance.lockAspect",
@@ -1201,15 +891,6 @@ enum SettingsSearchCatalog {
         ),
         // General Appearance
         SettingsSearchItem(
-            id: "appearance.centerOutOfViewSelections",
-            title: String(localized: "Center out-of-view selections during keyboard navigation"),
-            description: String(localized: "When highlighting an out-of-view window or Space in an overflowing list, scroll it to the center. When off, scroll only enough to reveal it."),
-            keywords: ["scroll", "center", "selection", "keyboard", "navigation", "spaces", "reveal"],
-            tab: "Appearance",
-            section: String(localized: "General Appearance"),
-            icon: "arrow.up.and.down"
-        ),
-        SettingsSearchItem(
             id: "appearance.theme",
             title: String(localized: "Appearance"),
             keywords: ["theme", "dark", "light", "system"],
@@ -1243,15 +924,7 @@ enum SettingsSearchCatalog {
             section: String(localized: "General Appearance"),
             icon: "text.badge.star"
         ),
-        SettingsSearchItem(
-            id: "appearance.dimMinimizedHiddenPreviews",
-            title: String(localized: "Dim minimized and hidden previews"),
-            description: String(localized: "Dims minimized and hidden window preview images without changing window state indicator visibility."),
-            keywords: ["minimized", "hidden", "dim", "preview"],
-            tab: "Appearance",
-            section: String(localized: "General Appearance"),
-            icon: "eye.trianglebadge.exclamationmark"
-        ),
+
         SettingsSearchItem(
             id: "appearance.windowlessQuitButton",
             title: String(localized: "Show quit button for apps with no open windows"),
@@ -1297,51 +970,6 @@ enum SettingsSearchCatalog {
             section: String(localized: "General Appearance"),
             icon: "rectangle.inset.filled.and.person.filled"
         ),
-        SettingsSearchItem(
-            id: "appearance.fullSizePreviewOpacity",
-            title: String(localized: "Opacity"),
-            description: String(localized: "Adjusts the transparency of full size previews."),
-            keywords: ["full", "size", "preview", "opacity", "transparency"],
-            tab: "Appearance",
-            section: String(localized: "Full Size Previews"),
-            icon: "circle.lefthalf.filled"
-        ),
-        SettingsSearchItem(
-            id: "appearance.fullSizePreviewFadeIn",
-            title: String(localized: "Fade In Duration"),
-            description: String(localized: "Set the full size preview fade-in duration. Set to 0 seconds to disable the animation."),
-            keywords: ["full", "size", "preview", "fade", "in", "animation", "duration"],
-            tab: "Appearance",
-            section: String(localized: "Full Size Previews"),
-            icon: "circle.righthalf.filled"
-        ),
-        SettingsSearchItem(
-            id: "appearance.fullSizePreviewFadeOut",
-            title: String(localized: "Fade Out Duration"),
-            description: String(localized: "Set the full size preview fade-out duration. Set to 0 seconds to disable the animation."),
-            keywords: ["full", "size", "preview", "fade", "out", "animation", "duration"],
-            tab: "Appearance",
-            section: String(localized: "Full Size Previews"),
-            icon: "circle.lefthalf.filled"
-        ),
-        SettingsSearchItem(
-            id: "appearance.fullSizePreviewBackgroundBlur",
-            title: String(localized: "Blur background behind full size previews"),
-            description: String(localized: "Blurs the content behind full size previews without blurring the preview itself."),
-            keywords: ["full", "size", "preview", "blur", "background", "backdrop"],
-            tab: "Appearance",
-            section: String(localized: "Full Size Previews"),
-            icon: "drop.halffull"
-        ),
-        SettingsSearchItem(
-            id: "appearance.fullSizePreviewBorder",
-            title: String(localized: "Show full size preview border"),
-            description: String(localized: "Uses the active window border color and stays inside the preview bounds."),
-            keywords: ["full", "size", "preview", "border", "active", "highlight"],
-            tab: "Appearance",
-            section: String(localized: "Full Size Previews"),
-            icon: "rectangle.inset.filled"
-        ),
         // Compact Mode
         SettingsSearchItem(
             id: "appearance.compactMode",
@@ -1350,15 +978,6 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "Compact Mode (Titles Only)"),
             icon: "list.bullet"
-        ),
-        SettingsSearchItem(
-            id: "appearance.compactHoverActions",
-            title: String(localized: "Enable hover actions in compact mode"),
-            description: String(localized: "Hover actions in compact mode require Screen Recording permission."),
-            keywords: ["compact", "hover", "actions", "preview", "keyboard", "screen", "recording"],
-            tab: "Appearance",
-            section: String(localized: "Compact Mode (Titles Only)"),
-            icon: "hand.point.up.left"
         ),
         SettingsSearchItem(
             id: "appearance.hideTrafficLights",
@@ -1372,8 +991,8 @@ enum SettingsSearchCatalog {
         // Advanced Appearance
         SettingsSearchItem(
             id: "appearance.opaqueBackground",
-            title: String(localized: "Use opaque background"),
-            description: String(localized: "Replaces the blurred/transparent background with a solid color. Useful for accessibility or readability."),
+            title: String(localized: "Background"),
+            description: String(localized: "Blurred lets the desktop show through; solid and custom colors are easier to read over busy windows."),
             keywords: ["opaque", "solid", "transparent", "blur"],
             tab: "Appearance",
             section: String(localized: "Dock Preview Transparency"),
@@ -1396,41 +1015,6 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "General Appearance"),
             icon: "arrow.left.and.right"
-        ),
-        SettingsSearchItem(
-            id: "appearance.trafficLightButtonScale",
-            title: String(localized: "Traffic Light Button Scale"),
-            description: String(localized: "Controls the size of traffic light buttons in all preview modes."),
-            keywords: ["traffic light", "button", "scale", "size", "dock", "switcher", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "General Appearance"),
-            icon: "arrow.up.left.and.arrow.down.right"
-        ),
-        SettingsSearchItem(
-            id: "appearance.windowTitleFontSize",
-            title: String(localized: "Window Title Font Size"),
-            description: String(localized: "Controls the window title font size in all preview modes."),
-            keywords: ["font", "size", "title", "dock", "switcher", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "General Appearance"),
-            icon: "textformat.size"
-        ),
-        SettingsSearchItem(
-            id: "appearance.windowStateIndicatorFontSize",
-            title: String(localized: "Window State / Space Number Indicator Font Size"),
-            keywords: ["font", "size", "state", "status", "space", "number", "indicator", "dock", "switcher", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "General Appearance"),
-            icon: "textformat.size"
-        ),
-        SettingsSearchItem(
-            id: "appearance.trafficLightTransitionDuration",
-            title: String(localized: "Traffic Light Buttons Transition Animation Speed"),
-            description: String(localized: "Controls traffic light button transitions in all preview modes. Set to 0 seconds to disable only these transitions. Reduce Motion overrides this setting."),
-            keywords: ["traffic light", "animation", "transition", "speed", "duration", "reduce motion", "dock", "switcher", "cmd tab"],
-            tab: "Appearance",
-            section: String(localized: "General Appearance"),
-            icon: "speedometer"
         ),
         SettingsSearchItem(
             id: "appearance.unselectedOpacity",
@@ -1475,15 +1059,6 @@ enum SettingsSearchCatalog {
             tab: "Appearance",
             section: String(localized: "Compact Mode (Titles Only)"),
             icon: "textformat.size"
-        ),
-        SettingsSearchItem(
-            id: "appearance.compactModeWidth",
-            title: String(localized: "Compact Mode Width"),
-            description: String(localized: "Controls row width in compact mode so longer titles have more room."),
-            keywords: ["compact", "width", "titles", "row", "size"],
-            tab: "Appearance",
-            section: String(localized: "Compact Mode (Titles Only)"),
-            icon: "arrow.left.and.right"
         ),
         SettingsSearchItem(
             id: "appearance.compactTitleFormat",
@@ -1565,53 +1140,30 @@ enum SettingsSearchCatalog {
         ),
         // Dock Preview Appearance
         SettingsSearchItem(
-            id: "appearance.dockShowAppHeader",
-            title: String(localized: "Show App Header"),
-            keywords: ["app", "header", "name", "dock"],
-            tab: "DockPreviews",
-            section: String(localized: "Appearance"),
-            icon: "textformat"
-        ),
-        SettingsSearchItem(
-            id: "appearance.dockAppHeaderStyle",
+            id: "appearance.dockAppHeader",
             title: String(localized: "App Header Style"),
-            keywords: ["header", "style", "dock"],
+            description: String(localized: "Show the app name and icon above dock previews. Shared with widget headers."),
+            keywords: ["app", "header", "name", "icon", "style", "shadowed", "popover", "dock"],
             tab: "DockPreviews",
-            section: String(localized: "Appearance"),
-            icon: "textformat"
-        ),
-        SettingsSearchItem(
-            id: "appearance.dockShowAppIconOnly",
-            title: String(localized: "Show App Icon Only"),
-            keywords: ["icon", "only", "header", "dock"],
-            tab: "DockPreviews",
-            section: String(localized: "Appearance"),
-            icon: "app.badge"
+            section: String(localized: "Dock Preview Appearance"),
+            icon: "text.below.photo"
         ),
         SettingsSearchItem(
             id: "appearance.dockControlPosition",
             title: String(localized: "Position Dock Preview Controls"),
             keywords: ["position", "controls", "toolbar", "dock"],
             tab: "DockPreviews",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Dock Preview Appearance"),
             icon: "rectangle.topthird.inset.filled"
         ),
         SettingsSearchItem(
-            id: "appearance.dockShowWindowTitle",
-            title: String(localized: "Show Window Title"),
+            id: "appearance.dockWindowTitle",
+            title: String(localized: "Window Title"),
             description: String(localized: "Show window title in dock previews."),
-            keywords: ["title", "window", "dock", "show"],
+            keywords: ["title", "window", "dock", "show", "visibility", "hover", "always"],
             tab: "DockPreviews",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Dock Preview Appearance"),
             icon: "textformat.abc"
-        ),
-        SettingsSearchItem(
-            id: "appearance.dockWindowTitleVisibility",
-            title: String(localized: "Window Title Visibility"),
-            keywords: ["title", "visibility", "hover", "always", "dock"],
-            tab: "DockPreviews",
-            section: String(localized: "Appearance"),
-            icon: "eye"
         ),
         SettingsSearchItem(
             id: "appearance.dockDisableTitleStyling",
@@ -1619,8 +1171,16 @@ enum SettingsSearchCatalog {
             description: String(localized: "Removes the pill-shaped background styling from window titles in dock previews for a cleaner look."),
             keywords: ["styling", "pill", "title", "dock"],
             tab: "DockPreviews",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Dock Preview Appearance"),
             icon: "textformat.abc.dottedunderline"
+        ),
+        SettingsSearchItem(
+            id: "appearance.dockWindowTitleFontSize",
+            title: String(localized: "Window Title Font Size"),
+            keywords: ["font", "size", "title", "dock"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Preview Appearance"),
+            icon: "textformat.size"
         ),
         SettingsSearchItem(
             id: "appearance.dockDisableTrafficLightStyling",
@@ -1628,69 +1188,16 @@ enum SettingsSearchCatalog {
             description: String(localized: "Removes the pill-shaped background styling from traffic light buttons in dock previews for a cleaner look."),
             keywords: ["traffic light", "styling", "pill", "dock"],
             tab: "DockPreviews",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Dock Preview Appearance"),
             icon: "minus.circle"
-        ),
-        SettingsSearchItem(
-            id: "appearance.dockSpaceNumberIndicator",
-            title: String(localized: "Show Space Number Indicator"),
-            keywords: ["space", "desktop", "number", "indicator", "placement", "legacy", "traffic lights"],
-            tab: "DockPreviews",
-            section: String(localized: "Appearance"),
-            icon: "number.circle"
-        ),
-        SettingsSearchItem(
-            id: "appearance.dockHighlightCurrentSpace",
-            title: String(localized: "Highlight Current Space"),
-            description: String(localized: "Highlights the Space number indicator for windows on the current Space."),
-            keywords: ["space", "current", "highlight", "indicator", "dock"],
-            tab: "DockPreviews",
-            section: String(localized: "Appearance"),
-            icon: "circle.fill"
-        ),
-        SettingsSearchItem(
-            id: "appearance.dockWindowStateIndicator",
-            title: String(localized: "Show Window State Indicator"),
-            description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
-            keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "dock"],
-            tab: "DockPreviews",
-            section: String(localized: "Appearance"),
-            icon: "eye.slash"
-        ),
-        SettingsSearchItem(
-            id: "appearance.dockDisableWindowStateIndicatorStyling",
-            title: String(localized: "Disable dock styling on Window State Indicator"),
-            description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in dock previews."),
-            keywords: ["window", "state", "space", "indicator", "styling", "pill", "dock"],
-            tab: "DockPreviews",
-            section: String(localized: "Appearance"),
-            icon: "minus.circle"
-        ),
-        SettingsSearchItem(
-            id: "appearance.dockSwapWindowStateIndicator",
-            title: String(localized: "Swap Window State Indicator and Traffic Light Buttons"),
-            description: String(localized: "Swaps the order of the Window State Indicator and traffic light buttons in dock previews."),
-            keywords: ["window", "state", "indicator", "traffic light", "position", "order", "swap", "dock"],
-            tab: "DockPreviews",
-            section: String(localized: "Appearance"),
-            icon: "arrow.left.arrow.right"
-        ),
-        SettingsSearchItem(
-            id: "appearance.dockLimitIndicatorSwapToCompactMode",
-            title: String(localized: "Limit to Compact Mode only"),
-            description: String(localized: "Applies the swapped indicator and traffic light button order only in Compact Mode dock previews."),
-            keywords: ["window", "state", "indicator", "traffic light", "swap", "compact", "dock"],
-            tab: "DockPreviews",
-            section: String(localized: "Appearance"),
-            icon: "rectangle"
         ),
         SettingsSearchItem(
             id: "appearance.dockMassActionButtons",
             title: String(localized: "Show Close All and Minimize All buttons"),
-            description: String(localized: "Displays Close All and Minimize All buttons when hovering the app header in dock previews."),
+            description: String(localized: "Displays Close All and Minimize All buttons when hovering the app icon in dock previews."),
             keywords: ["close all", "minimize all", "mass", "buttons"],
             tab: "DockPreviews",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Dock Preview Appearance"),
             icon: "xmark.circle"
         ),
         SettingsSearchItem(
@@ -1699,7 +1206,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Places traffic light buttons and window titles directly inside the dock preview frames for a more compact and minimal appearance."),
             keywords: ["embed", "controls", "frame", "dock"],
             tab: "DockPreviews",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Dock Preview Appearance"),
             icon: "rectangle.inset.filled"
         ),
         SettingsSearchItem(
@@ -1708,7 +1215,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Controls how many rows of windows are shown in dock previews."),
             keywords: ["rows", "layout", "dock", "grid"],
             tab: "DockPreviews",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Dock Preview Appearance"),
             icon: "rectangle.grid.1x2"
         ),
         SettingsSearchItem(
@@ -1717,7 +1224,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Controls how many columns of windows are shown in dock previews."),
             keywords: ["columns", "layout", "dock", "grid"],
             tab: "DockPreviews",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Dock Preview Appearance"),
             icon: "rectangle.grid.2x1"
         ),
         // Window Switcher Appearance
@@ -1727,7 +1234,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Show app header in the window switcher."),
             keywords: ["app", "header", "name", "switcher"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "textformat"
         ),
         SettingsSearchItem(
@@ -1735,32 +1242,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "App Icon Size"),
             keywords: ["app", "icon", "size", "header", "switcher", "title"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "app"
-        ),
-        SettingsSearchItem(
-            id: "appearance.switcherShowAppIconBadges",
-            title: String(localized: "Show App Icon Badges"),
-            keywords: ["badge", "notification", "count", "app", "icon", "switcher"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
-            icon: "app.badge"
-        ),
-        SettingsSearchItem(
-            id: "appearance.switcherShowCompactAppIconBadges",
-            title: String(localized: "Show App Icon Badges in Compact Mode"),
-            keywords: ["badge", "notification", "count", "app", "icon", "compact", "switcher"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
-            icon: "app.badge"
-        ),
-        SettingsSearchItem(
-            id: "appearance.switcherAppIconBadgeSize",
-            title: String(localized: "Badge Size"),
-            keywords: ["badge", "notification", "size", "scale", "app", "icon", "switcher"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
-            icon: "app.badge"
         ),
         SettingsSearchItem(
             id: "appearance.switcherControlPosition",
@@ -1768,7 +1251,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Position of window controls in the switcher."),
             keywords: ["position", "controls", "toolbar", "switcher"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "rectangle.topthird.inset.filled"
         ),
         SettingsSearchItem(
@@ -1777,7 +1260,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Controls when traffic light buttons appear in the window switcher."),
             keywords: ["traffic light", "visibility", "switcher", "buttons"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "eye"
         ),
         SettingsSearchItem(
@@ -1785,7 +1268,7 @@ enum SettingsSearchCatalog {
             title: String(localized: "Use Monochrome Colors"),
             keywords: ["monochrome", "gray", "traffic light", "switcher"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "circle.fill"
         ),
         SettingsSearchItem(
@@ -1794,86 +1277,24 @@ enum SettingsSearchCatalog {
             description: String(localized: "Removes the pill-shaped background styling from traffic light buttons."),
             keywords: ["traffic light", "styling", "pill", "switcher"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "minus.circle"
         ),
         SettingsSearchItem(
-            id: "appearance.switcherSpaceNumberIndicator",
-            title: String(localized: "Show Space Number Indicator"),
-            keywords: ["space", "desktop", "number", "indicator", "placement", "legacy", "traffic lights"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
-            icon: "number.circle"
-        ),
-        SettingsSearchItem(
-            id: "appearance.switcherHighlightCurrentSpace",
-            title: String(localized: "Highlight Current Space"),
-            description: String(localized: "Highlights the Space number indicator for windows on the current Space."),
-            keywords: ["space", "current", "highlight", "indicator", "switcher"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
-            icon: "circle.fill"
-        ),
-        SettingsSearchItem(
-            id: "appearance.switcherWindowStateIndicator",
-            title: String(localized: "Show Window State Indicator"),
-            description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
-            keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "switcher"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
-            icon: "eye.slash"
-        ),
-        SettingsSearchItem(
-            id: "appearance.switcherDisableWindowStateIndicatorStyling",
-            title: String(localized: "Disable dock styling on Window State Indicator"),
-            description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in the window switcher."),
-            keywords: ["window", "state", "space", "indicator", "styling", "pill", "switcher"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
-            icon: "minus.circle"
-        ),
-        SettingsSearchItem(
-            id: "appearance.switcherSwapWindowStateIndicator",
-            title: String(localized: "Swap Window State Indicator and Traffic Light Buttons"),
-            description: String(localized: "Swaps the order of the Window State Indicator and traffic light buttons in the window switcher."),
-            keywords: ["window", "state", "indicator", "traffic light", "position", "order", "swap", "switcher"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
-            icon: "arrow.left.arrow.right"
-        ),
-        SettingsSearchItem(
-            id: "appearance.switcherLimitIndicatorSwapToCompactMode",
-            title: String(localized: "Limit to Compact Mode only"),
-            description: String(localized: "Applies the swapped indicator and traffic light button order only in Compact Mode window switcher previews."),
-            keywords: ["window", "state", "indicator", "traffic light", "swap", "compact", "switcher"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
-            icon: "rectangle"
-        ),
-        SettingsSearchItem(
-            id: "appearance.switcherShowWindowTitle",
-            title: String(localized: "Show Window Title"),
+            id: "appearance.switcherWindowTitle",
+            title: String(localized: "Window Title"),
             description: String(localized: "Show window title in the window switcher."),
-            keywords: ["title", "window", "switcher", "show"],
+            keywords: ["title", "window", "switcher", "show", "visibility", "hover", "always"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "textformat.abc"
-        ),
-        SettingsSearchItem(
-            id: "appearance.switcherWindowTitleVisibility",
-            title: String(localized: "Visibility"),
-            description: String(localized: "Controls when window titles appear in the switcher."),
-            keywords: ["title", "visibility", "hover", "always", "switcher"],
-            tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
-            icon: "eye"
         ),
         SettingsSearchItem(
             id: "appearance.switcherScrollDirection",
             title: String(localized: "Scroll Direction"),
             keywords: ["scroll", "direction", "horizontal", "vertical", "switcher"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "arrow.left.and.right"
         ),
         SettingsSearchItem(
@@ -1882,7 +1303,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Places traffic light buttons and window titles directly inside the window switcher preview frames."),
             keywords: ["embed", "controls", "frame", "switcher"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "rectangle.inset.filled"
         ),
         SettingsSearchItem(
@@ -1891,7 +1312,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Controls how many rows of windows are shown in the window switcher."),
             keywords: ["rows", "columns", "layout", "grid", "switcher"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "rectangle.grid.1x2"
         ),
         SettingsSearchItem(
@@ -1900,34 +1321,18 @@ enum SettingsSearchCatalog {
             description: String(localized: "Allow columns/rows to exceed what fits on screen."),
             keywords: ["screen", "limit", "overflow", "exceed"],
             tab: "WindowSwitcher",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Window Switcher Appearance"),
             icon: "arrow.up.left.and.arrow.down.right"
         ),
         // Cmd+Tab Appearance
         SettingsSearchItem(
-            id: "appearance.cmdTabShowAppHeader",
-            title: String(localized: "Show App Header"),
-            description: String(localized: "Show app header in Cmd+Tab overlay."),
-            keywords: ["app", "header", "name", "cmd tab"],
-            tab: "CmdTab",
-            section: String(localized: "Appearance"),
-            icon: "textformat"
-        ),
-        SettingsSearchItem(
-            id: "appearance.cmdTabAppHeaderStyle",
+            id: "appearance.cmdTabAppHeader",
             title: String(localized: "App Header Style"),
-            keywords: ["header", "style", "cmd tab"],
+            description: String(localized: "Show app header in Cmd+Tab overlay."),
+            keywords: ["app", "header", "name", "icon", "style", "shadowed", "popover", "cmd tab"],
             tab: "CmdTab",
-            section: String(localized: "Appearance"),
-            icon: "textformat"
-        ),
-        SettingsSearchItem(
-            id: "appearance.cmdTabShowAppIconOnly",
-            title: String(localized: "Show App Icon Only"),
-            keywords: ["icon", "only", "header", "cmd tab"],
-            tab: "CmdTab",
-            section: String(localized: "Appearance"),
-            icon: "app.badge"
+            section: String(localized: "Cmd+Tab Appearance"),
+            icon: "text.below.photo"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabControlPosition",
@@ -1935,25 +1340,17 @@ enum SettingsSearchCatalog {
             description: String(localized: "Position of window controls in Cmd+Tab overlay."),
             keywords: ["position", "controls", "toolbar", "cmd tab"],
             tab: "CmdTab",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Cmd+Tab Appearance"),
             icon: "rectangle.topthird.inset.filled"
         ),
         SettingsSearchItem(
-            id: "appearance.cmdTabShowWindowTitle",
-            title: String(localized: "Show Window Title"),
+            id: "appearance.cmdTabWindowTitle",
+            title: String(localized: "Window Title"),
             description: String(localized: "Show window title in Cmd+Tab overlay."),
-            keywords: ["title", "window", "cmd tab", "show"],
+            keywords: ["title", "window", "cmd tab", "show", "visibility", "hover", "always"],
             tab: "CmdTab",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Cmd+Tab Appearance"),
             icon: "textformat.abc"
-        ),
-        SettingsSearchItem(
-            id: "appearance.cmdTabWindowTitleVisibility",
-            title: String(localized: "Window Title Visibility"),
-            keywords: ["title", "visibility", "hover", "always", "cmd tab"],
-            tab: "CmdTab",
-            section: String(localized: "Appearance"),
-            icon: "eye"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabDisableTitleStyling",
@@ -1961,7 +1358,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Removes the pill-shaped background styling from window titles."),
             keywords: ["styling", "pill", "title", "cmd tab"],
             tab: "CmdTab",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Cmd+Tab Appearance"),
             icon: "textformat.abc.dottedunderline"
         ),
         SettingsSearchItem(
@@ -1970,7 +1367,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Controls when traffic light buttons appear in Cmd+Tab overlay."),
             keywords: ["traffic light", "visibility", "cmd tab", "buttons"],
             tab: "CmdTab",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Cmd+Tab Appearance"),
             icon: "eye"
         ),
         SettingsSearchItem(
@@ -1978,7 +1375,7 @@ enum SettingsSearchCatalog {
             title: String(localized: "Use Monochrome Colors"),
             keywords: ["monochrome", "gray", "traffic light", "cmd tab"],
             tab: "CmdTab",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Cmd+Tab Appearance"),
             icon: "circle.fill"
         ),
         SettingsSearchItem(
@@ -1987,61 +1384,8 @@ enum SettingsSearchCatalog {
             description: String(localized: "Removes the pill-shaped background styling from traffic light buttons."),
             keywords: ["traffic light", "styling", "pill", "cmd tab"],
             tab: "CmdTab",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Cmd+Tab Appearance"),
             icon: "minus.circle"
-        ),
-        SettingsSearchItem(
-            id: "appearance.cmdTabSpaceNumberIndicator",
-            title: String(localized: "Show Space Number Indicator"),
-            keywords: ["space", "desktop", "number", "indicator", "placement", "legacy", "traffic lights"],
-            tab: "CmdTab",
-            section: String(localized: "Appearance"),
-            icon: "number.circle"
-        ),
-        SettingsSearchItem(
-            id: "appearance.cmdTabHighlightCurrentSpace",
-            title: String(localized: "Highlight Current Space"),
-            description: String(localized: "Highlights the Space number indicator for windows on the current Space."),
-            keywords: ["space", "current", "highlight", "indicator", "cmd tab"],
-            tab: "CmdTab",
-            section: String(localized: "Appearance"),
-            icon: "circle.fill"
-        ),
-        SettingsSearchItem(
-            id: "appearance.cmdTabWindowStateIndicator",
-            title: String(localized: "Show Window State Indicator"),
-            description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
-            keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "cmd tab"],
-            tab: "CmdTab",
-            section: String(localized: "Appearance"),
-            icon: "eye.slash"
-        ),
-        SettingsSearchItem(
-            id: "appearance.cmdTabDisableWindowStateIndicatorStyling",
-            title: String(localized: "Disable dock styling on Window State Indicator"),
-            description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in Cmd+Tab previews."),
-            keywords: ["window", "state", "space", "indicator", "styling", "pill", "cmd tab"],
-            tab: "CmdTab",
-            section: String(localized: "Appearance"),
-            icon: "minus.circle"
-        ),
-        SettingsSearchItem(
-            id: "appearance.cmdTabSwapWindowStateIndicator",
-            title: String(localized: "Swap Window State Indicator and Traffic Light Buttons"),
-            description: String(localized: "Swaps the order of the Window State Indicator and traffic light buttons in Cmd+Tab previews."),
-            keywords: ["window", "state", "indicator", "traffic light", "position", "order", "swap", "cmd tab"],
-            tab: "CmdTab",
-            section: String(localized: "Appearance"),
-            icon: "arrow.left.arrow.right"
-        ),
-        SettingsSearchItem(
-            id: "appearance.cmdTabLimitIndicatorSwapToCompactMode",
-            title: String(localized: "Limit to Compact Mode only"),
-            description: String(localized: "Applies the swapped indicator and traffic light button order only in Compact Mode Cmd+Tab previews."),
-            keywords: ["window", "state", "indicator", "traffic light", "swap", "compact", "cmd tab"],
-            tab: "CmdTab",
-            section: String(localized: "Appearance"),
-            icon: "rectangle"
         ),
         SettingsSearchItem(
             id: "appearance.cmdTabEmbedControls",
@@ -2049,7 +1393,7 @@ enum SettingsSearchCatalog {
             description: String(localized: "Places traffic light buttons and window titles directly inside the preview frames."),
             keywords: ["embed", "controls", "frame", "cmd tab"],
             tab: "CmdTab",
-            section: String(localized: "Appearance"),
+            section: String(localized: "Cmd+Tab Appearance"),
             icon: "rectangle.inset.filled"
         ),
     ]
@@ -2089,7 +1433,7 @@ enum SettingsSearchCatalog {
             ),
             SettingsSearchItem(
                 id: "appearance.glassVariant",
-                title: String(localized: "Glass Variant"),
+                title: String(localized: "Variant"),
                 description: String(localized: "Selects the liquid glass material variant used for the background."),
                 keywords: ["glass", "variant", "liquid", "material", "style", "look"],
                 tab: "Appearance",
@@ -2102,389 +1446,23 @@ enum SettingsSearchCatalog {
     // MARK: - Keybinds
 
     private static let keybindItems: [SettingsSearchItem] = [
-        SettingsSearchItem(id: "gestures.spacesBarCycleKey", title: String(localized: "Space cycle key"), keywords: ["spaces", "bar", "cycle"], tab: "Keybinds", section: String(localized: "Spaces"), icon: "keyboard"),
-        SettingsSearchItem(id: "gestures.spacesBarBackwardCycleKey", title: String(localized: "Backward Space cycle key"), keywords: ["spaces", "bar", "cycle"], tab: "Keybinds", section: String(localized: "Spaces"), icon: "keyboard"),
-        SettingsSearchItem(
-            id: "gestures.enableWindowDragTiling",
-            title: String(localized: "Enable dragging windows together to tile them"),
-            description: String(localized: "Drag a window preview onto another preview to tile them on the target window's Desktop. Checked windows are included in selection order."),
-            keywords: ["drag", "drop", "tile", "selection", "mouse", "windows"],
-            tab: "Keybinds",
-            section: String(localized: "Mouse Actions"),
-            icon: "rectangle.split.2x2"
-        ),
         SettingsSearchItem(
             id: "gestures.middleClick",
             title: String(localized: "Middle Click"),
             description: String(localized: "Action performed when middle-clicking on a window preview."),
             keywords: ["middle", "click", "mouse", "button", "open", "activate", "window", "app"],
-            tab: "Keybinds",
+            tab: "Gestures",
             section: String(localized: "Mouse Actions"),
             icon: "computermouse"
         ),
         SettingsSearchItem(
             id: "gestures.cmdShortcuts",
             title: String(localized: "Window Preview Keyboard Shortcuts"),
-            description: String(localized: "Uses the active Window Switcher modifier for preview actions. Cmd+Tab uses Command while the macOS switcher is active."),
-            keywords: ["shortcut", "modifier", "command", "option", "control", "keyboard", "hotkey"],
+            description: String(localized: "Hold Cmd, or the window switcher's modifier while the switcher is open, and press a key to act on the selected window preview. Cmd+Tab enhancement mode uses Cmd only."),
+            keywords: ["shortcut", "cmd", "option", "alt", "modifier", "keyboard", "hotkey", "close", "minimize", "quit", "hide"],
             tab: "Keybinds",
             section: String(localized: "Window Preview Keyboard Shortcuts"),
             icon: "command"
-        ),
-        SettingsSearchItem(
-            id: "gestures.enableActionFeedback",
-            title: String(localized: "Enable action feedback"),
-            description: String(localized: "Show progress and results for window and Space actions. Selection changes and AppleScript actions remain silent."),
-            keywords: ["feedback", "popup", "progress", "confirmation", "cursor"],
-            tab: "Keybinds",
-            section: String(localized: "Action Feedback"),
-            icon: "bubble.left"
-        ),
-        SettingsSearchItem(
-            id: "gestures.actionFeedbackPosition",
-            title: String(localized: "Position:"),
-            keywords: ["feedback", "popup", "progress", "confirmation", "cursor"],
-            tab: "Keybinds",
-            section: String(localized: "Action Feedback"),
-            icon: "bubble.left"
-        ),
-        SettingsSearchItem(
-            id: "gestures.postActionMovingResizing",
-            title: String(localized: "Move/Resize"),
-            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
-            keywords: ["post action", "after action", "move", "resize", "focus", "close previews"],
-            tab: "Keybinds",
-            section: String(localized: "Keep previews open after action"),
-            icon: "arrow.up.left.and.arrow.down.right"
-        ),
-        SettingsSearchItem(
-            id: "gestures.moveResizeForeground",
-            title: String(localized: "Bring moved/resized window to the front"),
-            description: String(localized: "Focus windows after moving, resizing, or tiling them. Dragging always focuses windows."),
-            keywords: ["move", "resize", "foreground", "bring to front", "space"],
-            tab: "Keybinds",
-            section: String(localized: "Keep previews open after action"),
-            icon: "arrow.up.forward.app"
-        ),
-        SettingsSearchItem(
-            id: "gestures.postActionHiding",
-            title: String(localized: "Hide/Minimize"),
-            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
-            keywords: ["post action", "after action", "hide", "minimize", "focus", "close previews"],
-            tab: "Keybinds",
-            section: String(localized: "Keep previews open after action"),
-            icon: "eye.slash"
-        ),
-        SettingsSearchItem(
-            id: "gestures.postActionUnhiding",
-            title: String(localized: "Unhide/Unminimize"),
-            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
-            keywords: ["post action", "after action", "unhide", "restore", "focus", "close previews"],
-            tab: "Keybinds",
-            section: String(localized: "Keep previews open after action"),
-            icon: "eye"
-        ),
-        SettingsSearchItem(
-            id: "gestures.postActionClosing",
-            title: String(localized: "Close/Quit"),
-            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
-            keywords: ["post action", "after action", "close", "quit", "focus", "close previews"],
-            tab: "Keybinds",
-            section: String(localized: "Keep previews open after action"),
-            icon: "xmark.circle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.postActionNewWindow",
-            title: String(localized: "New Window"),
-            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
-            keywords: ["post action", "after action", "new window", "cmd n", "focus", "close previews"],
-            tab: "Keybinds",
-            section: String(localized: "Keep previews open after action"),
-            icon: "plus.rectangle.on.rectangle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.switcherKeybind",
-            title: String(localized: "Window Switcher Shortcuts"),
-            keywords: ["keybind", "shortcut", "alt tab", "switcher", "initializer"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "keyboard"
-        ),
-        SettingsSearchItem(
-            id: "gestures.enableSpaceIndicatorWindowMoving",
-            title: String(localized: "Use Space Number Indicator to move windows to Spaces"),
-            description: String(localized: "Click the Space Number Indicator to list available Spaces. Choosing a Space will move the selected window there."),
-            keywords: ["space", "desktop", "move window", "indicator"],
-            tab: "Keybinds",
-            section: String(localized: "Spaces"),
-            icon: "rectangle.on.rectangle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.spaceMenuDisplayMode",
-            title: String(localized: "Display available Spaces as:"),
-            keywords: ["space", "desktop", "number", "name", "menu"],
-            tab: "Keybinds",
-            section: String(localized: "Spaces"),
-            icon: "textformat"
-        ),
-        SettingsSearchItem(
-            id: "gestures.showCurrentSpaceBadgeInMenu",
-            title: String(localized: "Show “Current” badge in the Spaces dropdown"),
-            description: String(localized: "Labels the currently active Space with a “Current” badge."),
-            keywords: ["space", "desktop", "current", "active", "badge", "menu"],
-            tab: "Keybinds",
-            section: String(localized: "Spaces"),
-            icon: "tag"
-        ),
-        SettingsSearchItem(
-            id: "gestures.switchToDestinationSpaceAfterMoving",
-            title: String(localized: "Switch to the destination Space after moving the window"),
-            keywords: ["space", "desktop", "switch", "focus", "move window"],
-            tab: "Keybinds",
-            section: String(localized: "Spaces"),
-            icon: "arrow.right.to.line"
-        ),
-        SettingsSearchItem(
-            id: "gestures.showUnavailableSpacesInMenu",
-            title: String(localized: "Show unavailable Spaces in the list"),
-            description: String(localized: "Show Spaces the window cannot be moved to in the Spaces dropdown menu."),
-            keywords: ["space", "desktop", "fullscreen", "unavailable", "menu"],
-            tab: "Keybinds",
-            section: String(localized: "Spaces"),
-            icon: "rectangle.slash"
-        ),
-        SettingsSearchItem(
-            id: "gestures.enableMultiWindowSelection",
-            title: String(localized: "Enable multi-window selection"),
-            description: String(localized: "Select a range by Shift-clicking another checkbox, dragging from a checkbox across previews, or holding the Toggle Window Selection shortcut while using arrow keys."),
-            keywords: ["selection", "multiple", "check", "batch", "escape", "range", "shift", "drag", "hold", "arrows"],
-            tab: "Keybinds",
-            section: String(localized: "Window Selection"),
-            icon: "checkmark.circle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.enableWindowlessAppSelection",
-            title: String(localized: "Enable selection of windowless apps in Window Switcher"),
-            description: String(localized: "Only \"Quit\", \"Force Quit\" and \"Open New Window\" apply to windowless apps."),
-            keywords: ["selection", "windowless", "apps", "quit", "new window"],
-            tab: "Keybinds",
-            section: String(localized: "Window Selection"),
-            icon: "checkmark.circle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.keepWindowSwitcherOpenWhenSelected",
-            title: String(localized: "Keep Window Switcher open when windows are selected"),
-            description: String(localized: "Keep selected windows available after releasing the initializer modifier or finishing a swipe. When disabled, selecting windows does not change the session's normal dismissal behavior. Dock and Cmd+Tab previews keep their normal dismissal behavior."),
-            keywords: ["selection", "persistent", "modifier", "release", "swipe", "keep", "open"],
-            tab: "Keybinds",
-            section: String(localized: "Window Selection"),
-            icon: "checkmark.circle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.showWindowSelectionSummary",
-            title: String(localized: "Show selection summary"),
-            description: String(localized: "Show the selection count with Select All, Clear Selection, and Tile Windows buttons."),
-            keywords: ["selection", "count", "clear", "header", "all", "filtered"],
-            tab: "Keybinds",
-            section: String(localized: "Window Selection"),
-            icon: "checkmark.circle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.showUncheckedSelectionCheckboxes",
-            title: String(localized: "Show unchecked selection checkboxes"),
-            description: String(localized: "Checkboxes remain visible while checked."),
-            keywords: ["selection", "checkbox", "title", "icon"],
-            tab: "Keybinds",
-            section: String(localized: "Window Selection"),
-            icon: "checkmark.circle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.selectionCheckboxVisibility",
-            title: String(localized: "Checkbox visibility:"),
-            description: String(localized: "Checkboxes remain visible while checked."),
-            keywords: ["selection", "checkbox", "hover", "title", "visibility"],
-            tab: "Keybinds",
-            section: String(localized: "Window Selection"),
-            icon: "checkmark.circle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.linkTiledWindowsWhenResizing",
-            title: String(localized: "Link tiled windows when resizing"),
-            description: String(localized: "Resize shared edges to resize neighboring windows tiled together. Drag a tiled window's title bar to restore its earlier size. Moving it to another Desktop or display detaches it."),
-            keywords: ["linked", "resize", "tile", "snap", "restore", "neighbors", "shared", "edge"],
-            tab: "Keybinds",
-            section: String(localized: "Tiling"),
-            icon: "rectangle.split.2x1"
-        ),
-        SettingsSearchItem(
-            id: "gestures.maximumTilingRows",
-            title: String(localized: "Maximum tiling rows:"),
-            description: String(localized: "Limits apply to Auto Tile. Set both limits to 1 to move windows without resizing."),
-            keywords: ["selection", "tile", "grid", "rows", "capacity"],
-            tab: "Keybinds",
-            section: String(localized: "Tiling"),
-            icon: "rectangle.split.2x2"
-        ),
-        SettingsSearchItem(
-            id: "gestures.maximumTilingColumns",
-            title: String(localized: "Maximum tiling columns:"),
-            description: String(localized: "Limits apply to Auto Tile. Set both limits to 1 to move windows without resizing."),
-            keywords: ["selection", "tile", "grid", "columns", "capacity"],
-            tab: "Keybinds",
-            section: String(localized: "Tiling"),
-            icon: "rectangle.split.2x2"
-        ),
-        SettingsSearchItem(
-            id: "gestures.tileOnlyWhatFits",
-            title: String(localized: "Tile only what fits"),
-            description: String(localized: "Arrange only the first windows that fit within the row and column limits, leaving extra windows unchanged. When disabled, extra windows stack behind earlier windows in the same cells."),
-            keywords: ["tile", "overflow", "stack", "limit", "capacity", "auto"],
-            tab: "Keybinds",
-            section: String(localized: "Tiling"),
-            icon: "rectangle.split.2x2"
-        ),
-        SettingsSearchItem(
-            id: "gestures.fillActionsAutoTileSelection",
-            title: String(localized: "\"Fill\" actions on multiple selected windows trigger \"Auto Tile\""),
-            description: String(localized: "Use actions such as \"Fill Left Half\" to arrange selected windows together, starting from that direction. When disabled, each window fills the requested area on its own Space."),
-            keywords: ["fill", "half", "quarter", "tile", "multiple", "selection", "direction"],
-            tab: "Keybinds",
-            section: String(localized: "Tiling"),
-            icon: "rectangle.lefthalf.filled"
-        ),
-        SettingsSearchItem(
-            id: "gestures.enableSpacesShortcuts",
-            title: String(localized: "Enable Spaces Shortcuts"),
-            description: String(localized: "When a window preview is focused, press the Window Switcher modifier plus a number to move the window to that numbered Desktop. When Window Switcher is open without a focused preview, the same shortcut switches to that numbered Space."),
-            keywords: ["space", "desktop", "number", "shortcut", "move window", "switch space"],
-            tab: "Keybinds",
-            section: String(localized: "Spaces"),
-            icon: "keyboard.badge.ellipsis"
-        ),
-        SettingsSearchItem(
-            id: "gestures.menuBarIconWindowSwitcher",
-            title: String(localized: "Menu bar icon"),
-            description: String(localized: "Open Window Switcher when clicking on menu bar icon"),
-            keywords: ["menu bar", "status item", "click", "window switcher"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "menubar.rectangle"
-        ),
-        SettingsSearchItem(
-            id: "gestures.menuBarIconClickBehavior",
-            title: String(localized: "Left/right clicks trigger:"),
-            description: String(localized: "Choose which mouse button opens Window Switcher from the menu bar icon."),
-            keywords: ["menu bar", "left click", "right click", "mouse", "window switcher"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "computermouse"
-        ),
-        SettingsSearchItem(
-            id: "gestures.vimMotions",
-            title: String(localized: "Enable Vim Motions"),
-            description: String(localized: "Use H/J/K/L keys to navigate left/down/up/right in the window switcher. Disabled while search is focused."),
-            keywords: ["vim", "hjkl", "navigation"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "character.textbox"
-        ),
-        SettingsSearchItem(
-            id: "gestures.arrowPassthrough",
-            title: String(localized: "Pass Arrow Keys Through to System"),
-            description: String(localized: "When enabled, Ctrl+Arrow keys will be passed through to the system instead of navigating the switcher. Useful for Spaces switching."),
-            keywords: ["arrow", "passthrough", "spaces", "ctrl"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "arrow.left.arrow.right"
-        ),
-        SettingsSearchItem(
-            id: "gestures.backwardKey",
-            title: String(localized: "Backward Key"),
-            description: String(localized: "The key used to navigate backward in the window switcher."),
-            keywords: ["backward", "key", "navigate", "back"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "arrow.left"
-        ),
-        SettingsSearchItem(
-            id: "gestures.requireShiftTab",
-            title: String(localized: "Require \u{21E7}+Tab to go back in Switcher"),
-            keywords: ["shift", "tab", "back", "require"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "arrow.uturn.backward"
-        ),
-        SettingsSearchItem(
-            id: "gestures.ignoreMainModifierSideForDependentShortcuts",
-            title: String(localized: "Ignore modifier key side for Window Preview Keyboard Shortcuts"),
-            description: String(localized: "Allows either side of the selected modifier to trigger shortcuts that inherit the main Window Switcher modifier. The main Window Switcher shortcut still uses the selected side."),
-            keywords: ["modifier", "side", "left", "right", "either", "preview", "spaces", "shortcut"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "arrow.left.arrow.right"
-        ),
-        SettingsSearchItem(
-            id: "gestures.selectionKey",
-            title: String(localized: "Selection Key"),
-            description: String(localized: "The key used to select and bring to front the highlighted window in the switcher."),
-            keywords: ["selection", "key", "enter", "return", "select"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "return"
-        ),
-        SettingsSearchItem(
-            id: "gestures.alternateShortcuts",
-            title: String(localized: "Alternate Shortcuts (Inherit Default Window Switcher)"),
-            description: String(localized: "Additional trigger keys, each with its own modifier and window filter."),
-            keywords: ["alternate", "shortcuts", "trigger", "filter", "mode", "modifier", "multiple", "monitor", "display", "space"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "keyboard"
-        ),
-        SettingsSearchItem(
-            id: "gestures.persistentSwitcherShortcuts",
-            title: String(localized: "Alternate Shortcuts (Persistent Window Switcher)"),
-            description: String(localized: "Releasing initializer keys will always keep the Window Switcher open. Window preview keyboard shortcuts use the default modifier key."),
-            keywords: ["alternate", "shortcut", "persistent", "keep", "open", "double", "tap", "modifier", "monitor", "display", "space"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "keyboard.badge.ellipsis"
-        ),
-        SettingsSearchItem(
-            id: "gestures.persistentSwitcherStartsUnfocused",
-            title: String(localized: "Start Persistent Window Switcher with no window highlighted"),
-            description: String(localized: "Also applies when opening the Window Switcher from the menu bar icon."),
-            keywords: ["persistent", "keep", "open", "selection", "highlight", "unfocused", "menu bar"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "rectangle.dashed"
-        ),
-        SettingsSearchItem(
-            id: "gestures.lastFocusedWindowShortcuts",
-            title: String(localized: "Switch to Last Focused Window"),
-            description: String(localized: "Instantly switch to the last focused window."),
-            keywords: ["last", "focused", "previous", "recent", "window", "shortcut", "mru", "double", "tap", "monitor", "display", "space"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "arrow.uturn.backward"
-        ),
-        SettingsSearchItem(
-            id: "gestures.searchTriggerKey",
-            title: String(localized: "Search Trigger Key"),
-            description: String(localized: "The key that activates search while the window switcher is open."),
-            keywords: ["search", "trigger", "key", "activate"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "magnifyingglass"
-        ),
-        SettingsSearchItem(
-            id: "gestures.fullscreenBlacklist",
-            title: String(localized: "Fullscreen App Blacklist"),
-            description: String(localized: "Apps in this list will not respond to window switcher shortcuts when in fullscreen mode."),
-            keywords: ["fullscreen", "blacklist", "exclude", "app"],
-            tab: "Keybinds",
-            section: String(localized: "Window Switcher Shortcuts"),
-            icon: "app.badge.checkmark"
         ),
     ]
 
@@ -2511,7 +1489,7 @@ enum SettingsSearchCatalog {
         ),
         SettingsSearchItem(
             id: "filters.windowTitle",
-            title: String(localized: "Window Title Filters"),
+            title: String(localized: "Window title filters"),
             description: String(localized: "Exclude windows from capture by filtering specific text in their titles (case-insensitive)."),
             keywords: ["title", "filter", "exclude", "text"],
             tab: "Filters",
@@ -2606,7 +1584,7 @@ enum SettingsSearchCatalog {
             title: String(localized: "Show folder contents on hover"),
             description: String(localized: "Preview a folder's contents when hovering it in the Dock."),
             keywords: ["folder", "directory", "dock", "hover", "files", "widget"],
-            tab: "DockPreviews",
+            tab: "Widgets",
             section: String(localized: "Folder Previews"),
             icon: "folder"
         ),
@@ -2614,7 +1592,7 @@ enum SettingsSearchCatalog {
             id: "widgets.folderSort",
             title: String(localized: "Default sort:"),
             keywords: ["folder", "sort", "order", "name", "date", "kind", "size"],
-            tab: "DockPreviews",
+            tab: "Widgets",
             section: String(localized: "Folder Previews"),
             icon: "arrow.up.arrow.down"
         ),
@@ -2622,7 +1600,7 @@ enum SettingsSearchCatalog {
             id: "widgets.folderSortDirection",
             title: String(localized: "Sort descending by default"),
             keywords: ["folder", "sort", "descending", "ascending", "direction"],
-            tab: "DockPreviews",
+            tab: "Widgets",
             section: String(localized: "Folder Previews"),
             icon: "arrow.down"
         ),
@@ -2630,7 +1608,7 @@ enum SettingsSearchCatalog {
             id: "widgets.folderRememberSort",
             title: String(localized: "Remember sorting per folder"),
             keywords: ["folder", "sort", "remember", "per", "directory"],
-            tab: "DockPreviews",
+            tab: "Widgets",
             section: String(localized: "Folder Previews"),
             icon: "folder.badge.gearshape"
         ),
@@ -2638,7 +1616,7 @@ enum SettingsSearchCatalog {
             id: "widgets.folderHiddenFiles",
             title: String(localized: "Show hidden files"),
             keywords: ["folder", "hidden", "dotfiles", "files"],
-            tab: "DockPreviews",
+            tab: "Widgets",
             section: String(localized: "Folder Previews"),
             icon: "eye"
         ),
@@ -2663,36 +1641,11 @@ enum SettingsSearchCatalog {
 
     private static let advancedItems: [SettingsSearchItem] = [
         SettingsSearchItem(
-            id: "advanced.enableSpringLoading",
-            title: String(localized: "Enable spring-loading"),
-            description: String(localized: "Spring-loading reveals and activates a window after you drag an item over its preview in Dock previews, Window Switcher, or Cmd+Tab."),
-            keywords: ["spring", "loading", "drag", "hover", "activate", "window"],
-            tab: "Advanced",
-            section: String(localized: "Spring-loading"),
-            icon: "cursorarrow.motionlines"
-        ),
-        SettingsSearchItem(
-            id: "advanced.useSystemSpringLoadingSpeed",
-            title: String(localized: "Use system spring-loading speed"),
-            keywords: ["spring", "loading", "system", "speed", "delay"],
-            tab: "Advanced",
-            section: String(localized: "Spring-loading"),
-            icon: "timer"
-        ),
-        SettingsSearchItem(
-            id: "advanced.springLoadingDelay",
-            title: String(localized: "Spring-loading delay"),
-            keywords: ["spring", "loading", "custom", "speed", "delay", "timer"],
-            tab: "Advanced",
-            section: String(localized: "Spring-loading"),
-            icon: "timer"
-        ),
-        SettingsSearchItem(
             id: "advanced.openDelay",
             title: String(localized: "Preview Window Open Delay"),
             keywords: ["delay", "open", "hover", "timer"],
-            tab: "Advanced",
-            section: String(localized: "Performance Tuning"),
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
             icon: "timer"
         ),
         SettingsSearchItem(
@@ -2700,24 +1653,24 @@ enum SettingsSearchCatalog {
             title: String(localized: "Only use delay for initial window opening"),
             description: String(localized: "Switching between dock icons while a preview is already open will show previews instantly."),
             keywords: ["delay", "initial", "instant"],
-            tab: "Advanced",
-            section: String(localized: "Performance Tuning"),
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
             icon: "bolt"
         ),
         SettingsSearchItem(
             id: "advanced.fadeOut",
             title: String(localized: "Preview Window Fade Out Duration"),
             keywords: ["fade", "duration", "close", "animation"],
-            tab: "Advanced",
-            section: String(localized: "Performance Tuning"),
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
             icon: "rectangle.portrait.and.arrow.right"
         ),
         SettingsSearchItem(
             id: "advanced.inactivity",
             title: String(localized: "Preview Window Inactivity Timer"),
             keywords: ["inactivity", "timeout", "idle", "timer"],
-            tab: "Advanced",
-            section: String(localized: "Performance Tuning"),
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
             icon: "clock"
         ),
         SettingsSearchItem(
@@ -2727,22 +1680,6 @@ enum SettingsSearchCatalog {
             tab: "Advanced",
             section: String(localized: "Performance Tuning"),
             icon: "gauge.with.dots.needle.bottom.50percent"
-        ),
-        SettingsSearchItem(
-            id: "advanced.programmaticResizeRefreshDelay",
-            title: String(localized: "Programmatic Resize Preview Refresh Delay"),
-            keywords: ["resize", "preview", "refresh", "programmatic", "delay"],
-            tab: "Advanced",
-            section: String(localized: "Performance Tuning"),
-            icon: "clock.arrow.trianglehead.counterclockwise.rotate.90"
-        ),
-        SettingsSearchItem(
-            id: "advanced.nativeResizeRefreshDelay",
-            title: String(localized: "Native Resize Preview Refresh Delay"),
-            keywords: ["resize", "preview", "refresh", "native", "ax", "delay"],
-            tab: "Advanced",
-            section: String(localized: "Performance Tuning"),
-            icon: "clock.arrow.trianglehead.counterclockwise.rotate.90"
         ),
         SettingsSearchItem(
             id: "advanced.anchorPosition",
@@ -2783,8 +1720,8 @@ enum SettingsSearchCatalog {
             title: String(localized: "Prevent preview reappearance during fade-out"),
             description: String(localized: "Moving the mouse back over the preview during fade-out will not reactivate it."),
             keywords: ["reentry", "fade", "reappear", "prevent"],
-            tab: "Advanced",
-            section: String(localized: "Performance Tuning"),
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
             icon: "arrow.uturn.backward"
         ),
         SettingsSearchItem(
@@ -2912,6 +1849,885 @@ enum SettingsSearchCatalog {
             section: String(localized: "Updates"),
             icon: "ant.fill"
         ),
+    ]
+
+    // MARK: - Fork additions
+
+    private static let forkItems: [SettingsSearchItem] = [
+        SettingsSearchItem(
+            id: "dockPreviews.fullSizeWindowless",
+            title: String(localized: "Show full size placeholders"),
+            keywords: ["windowless", "placeholder", "full", "size", "compact"],
+            tab: "DockPreviews",
+            section: String(localized: "Window Display"),
+            icon: "macwindow"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.focusFade",
+            title: String(localized: "Enable Dock previews fade out when resting on a preview"),
+            description: String(localized: "Fade the preview container after a pause to reveal the highlighted window’s full-size preview. Mouse or keyboard input restores it."),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "rectangle.dashed"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.focusFadeDelay",
+            title: String(localized: "Dock Preview Fade Out Delay"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.focusFadeDuration",
+            title: String(localized: "Fade Out Duration"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.focusFadeOpacity",
+            title: String(localized: "Target Minimum Opacity"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "circle.lefthalf.filled"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.edgeAutoScroll",
+            title: String(localized: "Enable edge auto-scroll"),
+            keywords: ["edge", "hover", "scroll", "automatic", "mouse"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.edgeAutoScrollSpeed",
+            title: String(localized: "Auto-scroll speed:"),
+            keywords: ["edge", "hover", "scroll", "speed"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "gauge.with.dots.needle.67percent"
+        ),
+        SettingsSearchItem(
+            id: "dockPreviews.keepOpenWhenCycling",
+            title: String(localized: "Keep previews open when cycling through windows"),
+            keywords: ["dock", "click", "cycle", "windows", "keep", "open", "active"],
+            tab: "DockPreviews",
+            section: String(localized: "Dock Interaction"),
+            icon: "arrow.triangle.2.circlepath"
+        ),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarSwapContents", title: String(localized: "Dragging a Space onto another Space"), description: String(localized: "Dragging moves Desktop contents, not Spaces, wallpapers or app assignments. Gaps shift contents in Sequential order only."), keywords: ["spaces", "contents", "drag", "swap", "shift"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "arrow.left.arrow.right"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarFilterWindows", title: String(localized: "Automatically filter windows by highlighted Space"), keywords: ["spaces", "bar", "filter", "automatic", "manual"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "line.3.horizontal.decrease.circle"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarStartOnNext", title: String(localized: "Start on next Space"), keywords: ["spaces", "bar", "cycle"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "keyboard"),
+        SettingsSearchItem(id: "gestures.spacesBarCycleOpensSwitcher", title: String(localized: "Allow Space-cycle shortcuts to open the switcher"), keywords: ["spaces", "bar", "cycle", "launch", "open", "shortcut"], tab: "Keybinds", section: String(localized: "Spaces"), icon: "keyboard"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarRecentlyUsed", title: String(localized: "Spaces sort order"), keywords: ["spaces", "sequential", "recently used", "history"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "clock"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarActivateAppIcons", title: String(localized: "Activate apps by clicking their icons"), keywords: ["spaces", "bar", "app", "icon", "activate"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "app"),
+        SettingsSearchItem(
+            id: "windowSwitcher.showMouseFollowsFocusFeedback",
+            title: String(localized: "Show feedback popup"),
+            description: String(localized: "Show a popup at the cursor's new location. Requires action feedback to be enabled."),
+            keywords: ["feedback", "popup", "mouse", "cursor", "follow", "focus", "jump"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Behavior"),
+            icon: "pointer.arrow.motionlines"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.excludeWindowlessFromCurrentMonitor",
+            title: String(localized: "Exclude from \"Current Monitor Only\" filter"),
+            keywords: ["windowless", "monitor", "display", "filter", "exclude"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Window Display"),
+            icon: "display"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.excludeWindowlessFromCurrentSpace",
+            title: String(localized: "Exclude from \"Current Space Only\" filter"),
+            keywords: ["windowless", "space", "desktop", "filter", "exclude"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Window Display"),
+            icon: "rectangle.on.rectangle"
+        ),
+        SettingsSearchItem(id: "windowSwitcher.enableSpacesBar", title: String(localized: "Enable Spaces Bar"), keywords: ["spaces", "bar", "desktop"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarHideWhenSingle", title: String(localized: "Hide when only one Space exists"), keywords: ["spaces", "bar", "desktop"], tab: "WindowSwitcher", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(
+            id: "windowSwitcher.edgeAutoScroll",
+            title: String(localized: "Enable edge auto-scroll"),
+            keywords: ["edge", "hover", "scroll", "automatic", "mouse"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.edgeAutoScrollSpeed",
+            title: String(localized: "Auto-scroll speed:"),
+            keywords: ["edge", "hover", "scroll", "speed"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "gauge.with.dots.needle.67percent"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.hoverAction",
+            title: String(localized: "Window Switcher Hover Action"),
+            keywords: ["window", "switcher", "hover", "action", "preview", "keyboard"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "hand.point.up.left"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.hoverDelay",
+            title: String(localized: "Window Switcher Hover Action Delay"),
+            keywords: ["window", "switcher", "hover", "delay", "seconds", "timer"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.focusFade",
+            title: String(localized: "Enable Window Switcher fade out when resting on a preview"),
+            description: String(localized: "Fade the preview container after a pause to reveal the highlighted window’s full-size preview. Mouse or keyboard input restores it."),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "rectangle.dashed"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.focusFadeDelay",
+            title: String(localized: "Window Switcher Fade Out Delay"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.focusFadeDuration",
+            title: String(localized: "Fade Out Duration"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.focusFadeOpacity",
+            title: String(localized: "Target Minimum Opacity"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Hover Actions"),
+            icon: "circle.lefthalf.filled"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.anchorVertical",
+            title: String(localized: "Vertical anchor"),
+            keywords: ["anchor", "vertical", "top", "center", "bottom", "position"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Placement"),
+            icon: "arrow.up.and.down"
+        ),
+        SettingsSearchItem(
+            id: "windowSwitcher.anchorHorizontal",
+            title: String(localized: "Horizontal anchor"),
+            keywords: ["anchor", "horizontal", "left", "center", "right", "position"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Placement"),
+            icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.hoverAction",
+            title: String(localized: "Cmd+Tab Hover Action"),
+            keywords: ["cmd tab", "command tab", "hover", "action", "preview", "keyboard"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "hand.point.up.left"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.hoverDelay",
+            title: String(localized: "Cmd+Tab Hover Action Delay"),
+            keywords: ["cmd tab", "command tab", "hover", "delay", "seconds", "timer"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.focusFade",
+            title: String(localized: "Enable Cmd+Tab previews fade out when resting on a preview"),
+            description: String(localized: "Fade the preview container after a pause to reveal the highlighted window’s full-size preview. Mouse or keyboard input restores it."),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "rectangle.dashed"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.focusFadeDelay",
+            title: String(localized: "Cmd+Tab Fade Out Delay"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.focusFadeDuration",
+            title: String(localized: "Fade Out Duration"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.focusFadeOpacity",
+            title: String(localized: "Target Minimum Opacity"),
+            keywords: ["fade", "full size", "preview", "opacity", "rest", "idle"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "circle.lefthalf.filled"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.edgeAutoScroll",
+            title: String(localized: "Enable edge auto-scroll"),
+            keywords: ["cmd tab", "command tab", "edge", "hover", "scroll", "automatic", "mouse"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.edgeAutoScrollSpeed",
+            title: String(localized: "Auto-scroll speed:"),
+            keywords: ["cmd tab", "command tab", "edge", "hover", "scroll", "speed"],
+            tab: "CmdTab",
+            section: String(localized: "Hover Actions"),
+            icon: "gauge.with.dots.needle.67percent"
+        ),
+        SettingsSearchItem(
+            id: "cmdTab.fullSizeWindowless",
+            title: String(localized: "Show full size placeholders"),
+            keywords: ["windowless", "placeholder", "full", "size", "compact"],
+            tab: "CmdTab",
+            section: String(localized: "Window Display"),
+            icon: "macwindow"
+        ),
+        SettingsSearchItem(
+            id: "gestures.reverseTrackpadSwipeSelectionDirection",
+            title: String(localized: "Reverse swipe selection direction"),
+            keywords: ["trackpad", "swipe", "reverse", "invert", "selection", "direction"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Trackpad Swipe for Window Switcher"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
+            id: "gestures.trackpadSwitcherSwipePersistentSelection",
+            title: String(localized: "Select highlighted window when swiping in persistent Window Switchers"),
+            description: String(localized: "Swiping takes over persistent Window Switchers and unfocuses search. Lift your fingers to activate the selected window. Regular Window Switchers remain controlled by their initializer key while it is held."),
+            keywords: ["trackpad", "swipe", "persistent", "keep open", "takeover", "select", "release", "search"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Trackpad Swipe for Window Switcher"),
+            icon: "hand.draw"
+        ),
+        SettingsSearchItem(
+            id: "windowGestures.disableOverInteractiveElements",
+            title: String(localized: "Disable title bar gestures over scrollable areas and tabs"),
+            description: String(localized: "Skip scrollable areas and tab bars. Other controls follow the standard gesture rules."),
+            keywords: ["title bar", "toolbar", "interactive", "button", "scroll", "tabs", "background"],
+            tab: "Gestures",
+            section: String(localized: "Options"),
+            icon: "hand.point.up.left"
+        ),
+        SettingsSearchItem(
+            id: "windowGestures.strictTitleBarGestureDetection",
+            title: String(localized: "Use stricter title bar detection"),
+            description: String(localized: "Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars."),
+            keywords: ["title bar", "strict", "scroll", "tabs", "firefox", "brave", "custom", "ambiguous"],
+            tab: "Gestures",
+            section: String(localized: "Options"),
+            icon: "hand.point.up.left"
+        ),
+        SettingsSearchItem(
+            id: "gestures.trackpadSwitcherSwipeSpaces",
+            title: TrackpadSwipeDirection.horizontal.spacesBarNavigationTitle,
+            keywords: ["trackpad", "swipe", "spaces", "opposite", "axis", "horizontal", "vertical"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Trackpad Swipe for Window Switcher"),
+            icon: "arrow.up.and.down.and.arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "gestures.trackpadSwitcherSwipeDisabledActivationDirections",
+            title: String(localized: "Disable activation directions"),
+            description: String(localized: "Checked directions won't open the switcher. All directions still navigate an open switcher. macOS gestures are unchanged."),
+            keywords: ["trackpad", "swipe", "activation", "disable", "left", "right", "up", "down", "mission control", "expose"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Trackpad Swipe for Window Switcher"),
+            icon: "hand.draw"
+        ),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarShowAppIcons", title: String(localized: "Show app icons in the Spaces Bar"), keywords: ["spaces", "bar", "icons", "hide"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "app"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarItemSize", title: String(localized: "Item Size"), keywords: ["spaces", "bar", "size", "icons", "text"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarLabels", title: String(localized: "Labels"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarFixedWidth", title: String(localized: "Pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarPillWidth", title: String(localized: "Pill width"), keywords: ["spaces", "bar", "desktop"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarMinimumIcons", title: String(localized: "Minimum icons"), keywords: ["spaces", "bar", "icons", "flexible", "count"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(id: "windowSwitcher.spacesBarMaximumIcons", title: String(localized: "Maximum icons"), keywords: ["spaces", "bar", "icons", "flexible", "count"], tab: "Appearance", section: String(localized: "Spaces Bar"), icon: "rectangle.split.3x1"),
+        SettingsSearchItem(
+            id: "appearance.centerOutOfViewSelections",
+            title: String(localized: "Center out-of-view selections during keyboard navigation"),
+            description: String(localized: "When highlighting an out-of-view window or Space in an overflowing list, scroll it to the center. When off, scroll only enough to reveal it."),
+            keywords: ["scroll", "center", "selection", "keyboard", "navigation", "spaces", "reveal"],
+            tab: "Appearance",
+            section: String(localized: "General Appearance"),
+            icon: "arrow.up.and.down"
+        ),
+        SettingsSearchItem(
+            id: "appearance.dimMinimizedHiddenPreviews",
+            title: String(localized: "Dim minimized and hidden previews"),
+            description: String(localized: "Dims minimized and hidden window preview images without changing window state indicator visibility."),
+            keywords: ["minimized", "hidden", "dim", "preview"],
+            tab: "Appearance",
+            section: String(localized: "General Appearance"),
+            icon: "eye.trianglebadge.exclamationmark"
+        ),
+        SettingsSearchItem(
+            id: "appearance.fullSizePreviewOpacity",
+            title: String(localized: "Opacity"),
+            description: String(localized: "Adjusts the transparency of full size previews."),
+            keywords: ["full", "size", "preview", "opacity", "transparency"],
+            tab: "Appearance",
+            section: String(localized: "Full Size Previews"),
+            icon: "circle.lefthalf.filled"
+        ),
+        SettingsSearchItem(
+            id: "appearance.fullSizePreviewFadeIn",
+            title: String(localized: "Fade In Duration"),
+            description: String(localized: "Set the full size preview fade-in duration. Set to 0 seconds to disable the animation."),
+            keywords: ["full", "size", "preview", "fade", "in", "animation", "duration"],
+            tab: "Appearance",
+            section: String(localized: "Full Size Previews"),
+            icon: "circle.righthalf.filled"
+        ),
+        SettingsSearchItem(
+            id: "appearance.fullSizePreviewFadeOut",
+            title: String(localized: "Fade Out Duration"),
+            description: String(localized: "Set the full size preview fade-out duration. Set to 0 seconds to disable the animation."),
+            keywords: ["full", "size", "preview", "fade", "out", "animation", "duration"],
+            tab: "Appearance",
+            section: String(localized: "Full Size Previews"),
+            icon: "circle.lefthalf.filled"
+        ),
+        SettingsSearchItem(
+            id: "appearance.fullSizePreviewBackgroundBlur",
+            title: String(localized: "Blur background behind full size previews"),
+            description: String(localized: "Blurs the content behind full size previews without blurring the preview itself."),
+            keywords: ["full", "size", "preview", "blur", "background", "backdrop"],
+            tab: "Appearance",
+            section: String(localized: "Full Size Previews"),
+            icon: "drop.halffull"
+        ),
+        SettingsSearchItem(
+            id: "appearance.fullSizePreviewBorder",
+            title: String(localized: "Show full size preview border"),
+            description: String(localized: "Uses the active window border color and stays inside the preview bounds."),
+            keywords: ["full", "size", "preview", "border", "active", "highlight"],
+            tab: "Appearance",
+            section: String(localized: "Full Size Previews"),
+            icon: "rectangle.inset.filled"
+        ),
+        SettingsSearchItem(
+            id: "appearance.compactHoverActions",
+            title: String(localized: "Enable hover actions in compact mode"),
+            description: String(localized: "Hover actions in compact mode require Screen Recording permission."),
+            keywords: ["compact", "hover", "actions", "preview", "keyboard", "screen", "recording"],
+            tab: "Appearance",
+            section: String(localized: "Compact Mode (Titles Only)"),
+            icon: "hand.point.up.left"
+        ),
+        SettingsSearchItem(
+            id: "appearance.trafficLightButtonScale",
+            title: String(localized: "Button Scale"),
+            description: String(localized: "Controls the size of traffic light buttons in all preview modes."),
+            keywords: ["traffic light", "button", "scale", "size", "dock", "switcher", "cmd tab"],
+            tab: "DockPreviews",
+            section: String(localized: "General Appearance"),
+            icon: "arrow.up.left.and.arrow.down.right"
+        ),
+        SettingsSearchItem(
+            id: "appearance.windowStateIndicatorFontSize",
+            title: String(localized: "Window State / Space Number Indicator Font Size"),
+            keywords: ["font", "size", "state", "status", "space", "number", "indicator", "dock", "switcher", "cmd tab"],
+            tab: "Appearance",
+            section: String(localized: "General Appearance"),
+            icon: "textformat.size"
+        ),
+        SettingsSearchItem(
+            id: "appearance.trafficLightTransitionDuration",
+            title: String(localized: "Traffic Light Buttons Transition Animation Speed"),
+            description: String(localized: "Controls traffic light button transitions in all preview modes. Set to 0 seconds to disable only these transitions. Reduce Motion overrides this setting."),
+            keywords: ["traffic light", "animation", "transition", "speed", "duration", "reduce motion", "dock", "switcher", "cmd tab"],
+            tab: "Appearance",
+            section: String(localized: "General Appearance"),
+            icon: "speedometer"
+        ),
+        SettingsSearchItem(
+            id: "appearance.compactModeWidth",
+            title: String(localized: "Compact Mode Width"),
+            description: String(localized: "Controls row width in compact mode so longer titles have more room."),
+            keywords: ["compact", "width", "titles", "row", "size"],
+            tab: "Appearance",
+            section: String(localized: "Compact Mode (Titles Only)"),
+            icon: "arrow.left.and.right"
+        ),
+        SettingsSearchItem(
+            id: "appearance.dockSpaceNumberIndicator",
+            title: String(localized: "Show Space Number Indicator"),
+            keywords: ["space", "desktop", "number", "indicator", "placement", "legacy", "traffic lights"],
+            tab: "DockPreviews",
+            section: String(localized: "Window State Indicator"),
+            icon: "number.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.dockHighlightCurrentSpace",
+            title: String(localized: "Highlight Current Space"),
+            description: String(localized: "Highlights the Space number indicator for windows on the current Space."),
+            keywords: ["space", "current", "highlight", "indicator", "dock"],
+            tab: "DockPreviews",
+            section: String(localized: "Window State Indicator"),
+            icon: "circle.fill"
+        ),
+        SettingsSearchItem(
+            id: "appearance.dockWindowStateIndicator",
+            title: String(localized: "Show Window State Indicator"),
+            description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
+            keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "dock"],
+            tab: "DockPreviews",
+            section: String(localized: "Window State Indicator"),
+            icon: "eye.slash"
+        ),
+        SettingsSearchItem(
+            id: "appearance.dockDisableWindowStateIndicatorStyling",
+            title: String(localized: "Disable dock styling on Window State Indicator"),
+            description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in dock previews."),
+            keywords: ["window", "state", "space", "indicator", "styling", "pill", "dock"],
+            tab: "DockPreviews",
+            section: String(localized: "Window State Indicator"),
+            icon: "minus.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.dockSwapWindowStateIndicator",
+            title: String(localized: "Swap Window State Indicator and Traffic Light Buttons"),
+            description: String(localized: "Swaps the order of the Window State Indicator and traffic light buttons in dock previews."),
+            keywords: ["window", "state", "indicator", "traffic light", "position", "order", "swap", "dock"],
+            tab: "DockPreviews",
+            section: String(localized: "Window State Indicator"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
+            id: "appearance.dockLimitIndicatorSwapToCompactMode",
+            title: String(localized: "Limit to Compact Mode only"),
+            description: String(localized: "Applies the swapped indicator and traffic light button order only in Compact Mode dock previews."),
+            keywords: ["window", "state", "indicator", "traffic light", "swap", "compact", "dock"],
+            tab: "DockPreviews",
+            section: String(localized: "Window State Indicator"),
+            icon: "rectangle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherShowAppIconBadges",
+            title: String(localized: "Show App Icon Badges"),
+            keywords: ["badge", "notification", "count", "app", "icon", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
+            icon: "app.badge"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherShowCompactAppIconBadges",
+            title: String(localized: "Show App Icon Badges in Compact Mode"),
+            keywords: ["badge", "notification", "count", "app", "icon", "compact", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
+            icon: "app.badge"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherAppIconBadgeSize",
+            title: String(localized: "Badge Size"),
+            keywords: ["badge", "notification", "size", "scale", "app", "icon", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Appearance"),
+            icon: "app.badge"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherSpaceNumberIndicator",
+            title: String(localized: "Show Space Number Indicator"),
+            keywords: ["space", "desktop", "number", "indicator", "placement", "legacy", "traffic lights"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Window State Indicator"),
+            icon: "number.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherHighlightCurrentSpace",
+            title: String(localized: "Highlight Current Space"),
+            description: String(localized: "Highlights the Space number indicator for windows on the current Space."),
+            keywords: ["space", "current", "highlight", "indicator", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Window State Indicator"),
+            icon: "circle.fill"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherWindowStateIndicator",
+            title: String(localized: "Show Window State Indicator"),
+            description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
+            keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Window State Indicator"),
+            icon: "eye.slash"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherDisableWindowStateIndicatorStyling",
+            title: String(localized: "Disable dock styling on Window State Indicator"),
+            description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in the window switcher."),
+            keywords: ["window", "state", "space", "indicator", "styling", "pill", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Window State Indicator"),
+            icon: "minus.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherSwapWindowStateIndicator",
+            title: String(localized: "Swap Window State Indicator and Traffic Light Buttons"),
+            description: String(localized: "Swaps the order of the Window State Indicator and traffic light buttons in the window switcher."),
+            keywords: ["window", "state", "indicator", "traffic light", "position", "order", "swap", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Window State Indicator"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
+            id: "appearance.switcherLimitIndicatorSwapToCompactMode",
+            title: String(localized: "Limit to Compact Mode only"),
+            description: String(localized: "Applies the swapped indicator and traffic light button order only in Compact Mode window switcher previews."),
+            keywords: ["window", "state", "indicator", "traffic light", "swap", "compact", "switcher"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Window State Indicator"),
+            icon: "rectangle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabSpaceNumberIndicator",
+            title: String(localized: "Show Space Number Indicator"),
+            keywords: ["space", "desktop", "number", "indicator", "placement", "legacy", "traffic lights"],
+            tab: "CmdTab",
+            section: String(localized: "Window State Indicator"),
+            icon: "number.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabHighlightCurrentSpace",
+            title: String(localized: "Highlight Current Space"),
+            description: String(localized: "Highlights the Space number indicator for windows on the current Space."),
+            keywords: ["space", "current", "highlight", "indicator", "cmd tab"],
+            tab: "CmdTab",
+            section: String(localized: "Window State Indicator"),
+            icon: "circle.fill"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabWindowStateIndicator",
+            title: String(localized: "Show Window State Indicator"),
+            description: String(localized: "Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons."),
+            keywords: ["window", "state", "indicator", "minimized", "hidden", "full screen", "cmd tab"],
+            tab: "CmdTab",
+            section: String(localized: "Window State Indicator"),
+            icon: "eye.slash"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabDisableWindowStateIndicatorStyling",
+            title: String(localized: "Disable dock styling on Window State Indicator"),
+            description: String(localized: "Removes the pill-shaped background styling from the Window State Indicator in Cmd+Tab previews."),
+            keywords: ["window", "state", "space", "indicator", "styling", "pill", "cmd tab"],
+            tab: "CmdTab",
+            section: String(localized: "Window State Indicator"),
+            icon: "minus.circle"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabSwapWindowStateIndicator",
+            title: String(localized: "Swap Window State Indicator and Traffic Light Buttons"),
+            description: String(localized: "Swaps the order of the Window State Indicator and traffic light buttons in Cmd+Tab previews."),
+            keywords: ["window", "state", "indicator", "traffic light", "position", "order", "swap", "cmd tab"],
+            tab: "CmdTab",
+            section: String(localized: "Window State Indicator"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
+            id: "appearance.cmdTabLimitIndicatorSwapToCompactMode",
+            title: String(localized: "Limit to Compact Mode only"),
+            description: String(localized: "Applies the swapped indicator and traffic light button order only in Compact Mode Cmd+Tab previews."),
+            keywords: ["window", "state", "indicator", "traffic light", "swap", "compact", "cmd tab"],
+            tab: "CmdTab",
+            section: String(localized: "Window State Indicator"),
+            icon: "rectangle"
+        ),
+        SettingsSearchItem(id: "gestures.spacesBarCycleKey", title: String(localized: "Space cycle key"), keywords: ["spaces", "bar", "cycle"], tab: "Keybinds", section: String(localized: "Spaces"), icon: "keyboard"),
+        SettingsSearchItem(id: "gestures.spacesBarBackwardCycleKey", title: String(localized: "Backward Space cycle key"), keywords: ["spaces", "bar", "cycle"], tab: "Keybinds", section: String(localized: "Spaces"), icon: "keyboard"),
+        SettingsSearchItem(
+            id: "gestures.enableWindowDragTiling",
+            title: String(localized: "Enable dragging windows together to tile them"),
+            description: String(localized: "Drag a window preview onto another preview to tile them on the target window's Desktop. Checked windows are included in selection order."),
+            keywords: ["drag", "drop", "tile", "selection", "mouse", "windows"],
+            tab: "Gestures",
+            section: String(localized: "Mouse Actions"),
+            icon: "rectangle.split.2x2"
+        ),
+        SettingsSearchItem(
+            id: "gestures.enableActionFeedback",
+            title: String(localized: "Enable action feedback"),
+            description: String(localized: "Show progress and results for window and Space actions. Selection changes and AppleScript actions remain silent."),
+            keywords: ["feedback", "popup", "progress", "confirmation", "cursor"],
+            tab: "Appearance",
+            section: String(localized: "Action Feedback"),
+            icon: "bubble.left"
+        ),
+        SettingsSearchItem(
+            id: "gestures.actionFeedbackPosition",
+            title: String(localized: "Position:"),
+            keywords: ["feedback", "popup", "progress", "confirmation", "cursor"],
+            tab: "Appearance",
+            section: String(localized: "Action Feedback"),
+            icon: "bubble.left"
+        ),
+        SettingsSearchItem(
+            id: "gestures.postActionMovingResizing",
+            title: String(localized: "Move/Resize"),
+            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
+            keywords: ["post action", "after action", "move", "resize", "focus", "close previews"],
+            tab: "Keybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "arrow.up.left.and.arrow.down.right"
+        ),
+        SettingsSearchItem(
+            id: "gestures.moveResizeForeground",
+            title: String(localized: "Bring moved/resized window to the front"),
+            description: String(localized: "Focus windows after moving, resizing, or tiling them. Dragging always focuses windows."),
+            keywords: ["move", "resize", "foreground", "bring to front", "space"],
+            tab: "Keybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "arrow.up.forward.app"
+        ),
+        SettingsSearchItem(
+            id: "gestures.postActionHiding",
+            title: String(localized: "Hide/Minimize"),
+            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
+            keywords: ["post action", "after action", "hide", "minimize", "focus", "close previews"],
+            tab: "Keybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "eye.slash"
+        ),
+        SettingsSearchItem(
+            id: "gestures.postActionUnhiding",
+            title: String(localized: "Unhide/Unminimize"),
+            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
+            keywords: ["post action", "after action", "unhide", "restore", "focus", "close previews"],
+            tab: "Keybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "eye"
+        ),
+        SettingsSearchItem(
+            id: "gestures.postActionClosing",
+            title: String(localized: "Close/Quit"),
+            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
+            keywords: ["post action", "after action", "close", "quit", "focus", "close previews"],
+            tab: "Keybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "xmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.postActionNewWindow",
+            title: String(localized: "New Window"),
+            description: String(localized: "Choose what happens after each action type is triggered from shortcuts, gestures, middle-click, and preview buttons."),
+            keywords: ["post action", "after action", "new window", "cmd n", "focus", "close previews"],
+            tab: "Keybinds",
+            section: String(localized: "Keep previews open after action"),
+            icon: "plus.rectangle.on.rectangle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.enableSpaceIndicatorWindowMoving",
+            title: String(localized: "Use Space Number Indicator to move windows to Spaces"),
+            description: String(localized: "Click the Space Number Indicator to list available Spaces. Choosing a Space will move the selected window there."),
+            keywords: ["space", "desktop", "move window", "indicator"],
+            tab: "Keybinds",
+            section: String(localized: "Spaces"),
+            icon: "rectangle.on.rectangle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.spaceMenuDisplayMode",
+            title: String(localized: "Display available Spaces as:"),
+            keywords: ["space", "desktop", "number", "name", "menu"],
+            tab: "Keybinds",
+            section: String(localized: "Spaces"),
+            icon: "textformat"
+        ),
+        SettingsSearchItem(
+            id: "gestures.showCurrentSpaceBadgeInMenu",
+            title: String(localized: "Show “Current” badge in the Spaces dropdown"),
+            description: String(localized: "Labels the currently active Space with a “Current” badge."),
+            keywords: ["space", "desktop", "current", "active", "badge", "menu"],
+            tab: "Keybinds",
+            section: String(localized: "Spaces"),
+            icon: "tag"
+        ),
+        SettingsSearchItem(
+            id: "gestures.switchToDestinationSpaceAfterMoving",
+            title: String(localized: "Switch to the destination Space after moving the window"),
+            keywords: ["space", "desktop", "switch", "focus", "move window"],
+            tab: "Keybinds",
+            section: String(localized: "Spaces"),
+            icon: "arrow.right.to.line"
+        ),
+        SettingsSearchItem(
+            id: "gestures.showUnavailableSpacesInMenu",
+            title: String(localized: "Show unavailable Spaces in the list"),
+            description: String(localized: "Show Spaces the window cannot be moved to in the Spaces dropdown menu."),
+            keywords: ["space", "desktop", "fullscreen", "unavailable", "menu"],
+            tab: "Keybinds",
+            section: String(localized: "Spaces"),
+            icon: "rectangle.slash"
+        ),
+        SettingsSearchItem(
+            id: "gestures.enableMultiWindowSelection",
+            title: String(localized: "Enable multi-window selection"),
+            description: String(localized: "Select a range by Shift-clicking another checkbox, dragging from a checkbox across previews, or holding the Toggle Window Selection shortcut while using arrow keys."),
+            keywords: ["selection", "multiple", "check", "batch", "escape", "range", "shift", "drag", "hold", "arrows"],
+            tab: "Keybinds",
+            section: String(localized: "Window Selection"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.enableWindowlessAppSelection",
+            title: String(localized: "Enable selection of windowless apps in Window Switcher"),
+            description: String(localized: "Only \"Quit\", \"Force Quit\" and \"Open New Window\" apply to windowless apps."),
+            keywords: ["selection", "windowless", "apps", "quit", "new window"],
+            tab: "Keybinds",
+            section: String(localized: "Window Selection"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.keepWindowSwitcherOpenWhenSelected",
+            title: String(localized: "Keep Window Switcher open when windows are selected"),
+            description: String(localized: "Keep selected windows available after releasing the initializer modifier or finishing a swipe. When disabled, selecting windows does not change the session's normal dismissal behavior. Dock and Cmd+Tab previews keep their normal dismissal behavior."),
+            keywords: ["selection", "persistent", "modifier", "release", "swipe", "keep", "open"],
+            tab: "Keybinds",
+            section: String(localized: "Window Selection"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.showWindowSelectionSummary",
+            title: String(localized: "Show selection summary"),
+            description: String(localized: "Show the selection count with Select All, Clear Selection, and Tile Windows buttons."),
+            keywords: ["selection", "count", "clear", "header", "all", "filtered"],
+            tab: "Keybinds",
+            section: String(localized: "Window Selection"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.showUncheckedSelectionCheckboxes",
+            title: String(localized: "Show unchecked selection checkboxes"),
+            description: String(localized: "Checkboxes remain visible while checked."),
+            keywords: ["selection", "checkbox", "title", "icon"],
+            tab: "Keybinds",
+            section: String(localized: "Window Selection"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.selectionCheckboxVisibility",
+            title: String(localized: "Checkbox visibility:"),
+            description: String(localized: "Checkboxes remain visible while checked."),
+            keywords: ["selection", "checkbox", "hover", "title", "visibility"],
+            tab: "Keybinds",
+            section: String(localized: "Window Selection"),
+            icon: "checkmark.circle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.linkTiledWindowsWhenResizing",
+            title: String(localized: "Link tiled windows when resizing"),
+            description: String(localized: "Resize shared edges to resize neighboring windows tiled together. Drag a tiled window's title bar to restore its earlier size. Moving it to another Desktop or display detaches it."),
+            keywords: ["linked", "resize", "tile", "snap", "restore", "neighbors", "shared", "edge"],
+            tab: "Keybinds",
+            section: String(localized: "Tiling"),
+            icon: "rectangle.split.2x1"
+        ),
+        SettingsSearchItem(
+            id: "gestures.maximumTilingRows",
+            title: String(localized: "Auto Tile maximum rows:"),
+            keywords: ["selection", "tile", "grid", "rows", "capacity"],
+            tab: "Keybinds",
+            section: String(localized: "Tiling"),
+            icon: "rectangle.split.2x2"
+        ),
+        SettingsSearchItem(
+            id: "gestures.maximumTilingColumns",
+            title: String(localized: "Auto Tile maximum columns:"),
+            keywords: ["selection", "tile", "grid", "columns", "capacity"],
+            tab: "Keybinds",
+            section: String(localized: "Tiling"),
+            icon: "rectangle.split.2x2"
+        ),
+        SettingsSearchItem(
+            id: "gestures.tileOnlyWhatFits",
+            title: String(localized: "Auto Tile only what fits"),
+            description: String(localized: "Arrange only the first windows that fit within the row and column limits, leaving extra windows unchanged. When disabled, extra windows stack behind earlier windows in the same cells."),
+            keywords: ["tile", "overflow", "stack", "limit", "capacity", "auto"],
+            tab: "Keybinds",
+            section: String(localized: "Tiling"),
+            icon: "rectangle.split.2x2"
+        ),
+        SettingsSearchItem(
+            id: "gestures.fillActionsAutoTileSelection",
+            title: String(localized: "\"Fill\" actions on multiple selected windows trigger \"Auto Tile\""),
+            description: String(localized: "Use actions such as \"Fill Left Half\" to arrange selected windows together, starting from that direction. When disabled, each window fills the requested area on its own Space."),
+            keywords: ["fill", "half", "quarter", "tile", "multiple", "selection", "direction"],
+            tab: "Keybinds",
+            section: String(localized: "Tiling"),
+            icon: "rectangle.lefthalf.filled"
+        ),
+        SettingsSearchItem(
+            id: "gestures.enableSpacesShortcuts",
+            title: String(localized: "Enable Spaces Shortcuts"),
+            description: String(localized: "When a window preview is focused, press the Window Switcher modifier plus a number to move the window to that numbered Desktop. When Window Switcher is open without a focused preview, the same shortcut switches to that numbered Space."),
+            keywords: ["space", "desktop", "number", "shortcut", "move window", "switch space"],
+            tab: "Keybinds",
+            section: String(localized: "Spaces"),
+            icon: "keyboard.badge.ellipsis"
+        ),
+
+        SettingsSearchItem(
+            id: "advanced.enableSpringLoading",
+            title: String(localized: "Enable spring-loading"),
+            description: String(localized: "Spring-loading reveals and activates a window after you drag an item over its preview in Dock previews, Window Switcher, or Cmd+Tab."),
+            keywords: ["spring", "loading", "drag", "hover", "activate", "window"],
+            tab: "Advanced",
+            section: String(localized: "Spring-loading"),
+            icon: "cursorarrow.motionlines"
+        ),
+        SettingsSearchItem(
+            id: "advanced.useSystemSpringLoadingSpeed",
+            title: String(localized: "Use system spring-loading speed"),
+            keywords: ["spring", "loading", "system", "speed", "delay"],
+            tab: "Advanced",
+            section: String(localized: "Spring-loading"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "advanced.springLoadingDelay",
+            title: String(localized: "Spring-loading delay"),
+            keywords: ["spring", "loading", "custom", "speed", "delay", "timer"],
+            tab: "Advanced",
+            section: String(localized: "Spring-loading"),
+            icon: "timer"
+        ),
+        SettingsSearchItem(
+            id: "advanced.programmaticResizeRefreshDelay",
+            title: String(localized: "Programmatic Resize Preview Refresh Delay"),
+            keywords: ["resize", "preview", "refresh", "programmatic", "delay"],
+            tab: "Advanced",
+            section: String(localized: "Performance Tuning"),
+            icon: "clock.arrow.trianglehead.counterclockwise.rotate.90"
+        ),
+        SettingsSearchItem(
+            id: "advanced.nativeResizeRefreshDelay",
+            title: String(localized: "Native Resize Preview Refresh Delay"),
+            keywords: ["resize", "preview", "refresh", "native", "ax", "delay"],
+            tab: "Advanced",
+            section: String(localized: "Performance Tuning"),
+            icon: "clock.arrow.trianglehead.counterclockwise.rotate.90"
+        ),
         SettingsSearchItem(
             id: "support.limitDebugLogFileSize",
             title: String(localized: "Limit debug log file size"),
@@ -2927,6 +2743,139 @@ enum SettingsSearchCatalog {
             tab: "Support",
             section: String(localized: "Updates"),
             icon: "externaldrive"
+        ),
+        SettingsSearchItem(
+            id: "gestures.switcherKeybind",
+            title: String(localized: "Window Switcher Shortcuts"),
+            keywords: ["keybind", "shortcut", "alt tab", "switcher", "initializer"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "keyboard"
+        ),
+        SettingsSearchItem(
+            id: "gestures.menuBarIconWindowSwitcher",
+            title: String(localized: "Menu bar icon"),
+            description: String(localized: "Open Window Switcher when clicking on menu bar icon"),
+            keywords: ["menu bar", "status item", "click", "window switcher"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "menubar.rectangle"
+        ),
+        SettingsSearchItem(
+            id: "gestures.menuBarIconClickBehavior",
+            title: String(localized: "Left/right clicks trigger:"),
+            description: String(localized: "Choose which mouse button opens Window Switcher from the menu bar icon."),
+            keywords: ["menu bar", "left click", "right click", "mouse", "window switcher"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "computermouse"
+        ),
+        SettingsSearchItem(
+            id: "gestures.vimMotions",
+            title: String(localized: "Enable Vim Motions"),
+            description: String(localized: "Use H/J/K/L keys to navigate left/down/up/right in the window switcher. Disabled while search is focused."),
+            keywords: ["vim", "hjkl", "navigation"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "character.textbox"
+        ),
+        SettingsSearchItem(
+            id: "gestures.arrowPassthrough",
+            title: String(localized: "Pass Arrow Keys Through to System"),
+            description: String(localized: "When enabled, Ctrl+Arrow keys will be passed through to the system instead of navigating the switcher. Useful for Spaces switching."),
+            keywords: ["arrow", "passthrough", "spaces", "ctrl"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
+            id: "gestures.backwardKey",
+            title: String(localized: "Backward Key"),
+            description: String(localized: "The key used to navigate backward in the window switcher."),
+            keywords: ["backward", "key", "navigate", "back"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.left"
+        ),
+        SettingsSearchItem(
+            id: "gestures.requireShiftTab",
+            title: String(localized: "Require \u{21E7}+Tab to go back in Switcher"),
+            keywords: ["shift", "tab", "back", "require"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.uturn.backward"
+        ),
+        SettingsSearchItem(
+            id: "gestures.ignoreMainModifierSideForDependentShortcuts",
+            title: String(localized: "Ignore modifier key side for Window Preview Keyboard Shortcuts"),
+            description: String(localized: "Allows either side of the selected modifier to trigger shortcuts that inherit the main Window Switcher modifier. The main Window Switcher shortcut still uses the selected side."),
+            keywords: ["modifier", "side", "left", "right", "either", "preview", "spaces", "shortcut"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.left.arrow.right"
+        ),
+        SettingsSearchItem(
+            id: "gestures.selectionKey",
+            title: String(localized: "Selection Key"),
+            description: String(localized: "The key used to select and bring to front the highlighted window in the switcher."),
+            keywords: ["selection", "key", "enter", "return", "select"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "return"
+        ),
+        SettingsSearchItem(
+            id: "gestures.alternateShortcuts",
+            title: String(localized: "Alternate Shortcuts (Inherit Default Window Switcher)"),
+            description: String(localized: "Additional trigger keys, each with its own modifier and window filter."),
+            keywords: ["alternate", "shortcuts", "trigger", "filter", "mode", "modifier", "multiple", "monitor", "display", "space"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "keyboard"
+        ),
+        SettingsSearchItem(
+            id: "gestures.persistentSwitcherShortcuts",
+            title: String(localized: "Alternate Shortcuts (Persistent Window Switcher)"),
+            description: String(localized: "Releasing initializer keys will always keep the Window Switcher open. Window preview keyboard shortcuts use the default modifier key."),
+            keywords: ["alternate", "shortcut", "persistent", "keep", "open", "double", "tap", "modifier", "monitor", "display", "space"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "keyboard.badge.ellipsis"
+        ),
+        SettingsSearchItem(
+            id: "gestures.persistentSwitcherStartsUnfocused",
+            title: String(localized: "Start Persistent Window Switcher with no window highlighted"),
+            description: String(localized: "Also applies when opening the Window Switcher from the menu bar icon."),
+            keywords: ["persistent", "keep", "open", "selection", "highlight", "unfocused", "menu bar"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "rectangle.dashed"
+        ),
+        SettingsSearchItem(
+            id: "gestures.lastFocusedWindowShortcuts",
+            title: String(localized: "Switch to Last Focused Window"),
+            description: String(localized: "Instantly switch to the last focused window."),
+            keywords: ["last", "focused", "previous", "recent", "window", "shortcut", "mru", "double", "tap", "monitor", "display", "space"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "arrow.uturn.backward"
+        ),
+        SettingsSearchItem(
+            id: "gestures.searchTriggerKey",
+            title: String(localized: "Search Trigger Key"),
+            description: String(localized: "The key that activates search while the window switcher is open."),
+            keywords: ["search", "trigger", "key", "activate"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "magnifyingglass"
+        ),
+        SettingsSearchItem(
+            id: "gestures.fullscreenBlacklist",
+            title: String(localized: "Fullscreen App Blacklist"),
+            description: String(localized: "Apps in this list will not respond to window switcher shortcuts when in fullscreen mode."),
+            keywords: ["fullscreen", "blacklist", "exclude", "app"],
+            tab: "Keybinds",
+            section: String(localized: "Window Switcher Shortcuts"),
+            icon: "app.badge.checkmark"
         ),
     ]
 }

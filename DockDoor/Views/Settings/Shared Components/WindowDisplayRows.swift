@@ -39,3 +39,59 @@ struct SharedWindowDisplayRows: View {
         }
     }
 }
+
+struct WindowStateIndicatorSettingsSection: View {
+    @Binding var spacePlacement: WindowStateIndicatorPlacement
+    @Binding var highlightCurrentSpace: Bool
+    @Binding var statePlacement: WindowStateIndicatorPlacement
+    @Binding var disableStyling: Bool
+    @Binding var swapControls: Bool
+    @Binding var compactSwapOnly: Bool
+    let spaceNumberTarget: String
+    let highlightTarget: String
+    let stateTarget: String
+    let stylingTarget: String
+    let swapTarget: String
+    let compactTarget: String
+
+    var body: some View {
+        SettingsSection("Window State Indicator") {
+            Picker("Show Space Number Indicator", selection: $spacePlacement) {
+                ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
+                    Text(placement.localizedName).tag(placement)
+                }
+            }
+            .settingsSearchTarget(spaceNumberTarget)
+
+            if spacePlacement != .off {
+                Group {
+                    Toggle("Highlight Current Space", isOn: $highlightCurrentSpace)
+                        .settingsSearchTarget(highlightTarget)
+                        .settingsAnnotation("Tint the Space number indicator when this window is on the currently active Space.")
+                }
+            }
+            Picker("Show Window State Indicator", selection: $statePlacement) {
+                ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
+                    Text(placement.localizedName).tag(placement)
+                }
+            }
+            .settingsSearchTarget(stateTarget)
+            .settingsAnnotation("Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons.")
+            if spacePlacement == .nextToTrafficLightButtons || statePlacement == .nextToTrafficLightButtons {
+                Group {
+                    Toggle("Disable dock styling on Window State Indicator", isOn: $disableStyling)
+                        .settingsSearchTarget(stylingTarget)
+                        .settingsAnnotation("Removes the pill-shaped background styling from the Window State Indicator.")
+                    Toggle("Swap Window State Indicator and Traffic Light Buttons", isOn: $swapControls)
+                        .settingsSearchTarget(swapTarget)
+                    if swapControls {
+                        Group {
+                            Toggle("Limit to Compact Mode only", isOn: $compactSwapOnly)
+                                .settingsSearchTarget(compactTarget)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

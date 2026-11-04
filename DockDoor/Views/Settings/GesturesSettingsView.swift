@@ -7,10 +7,11 @@ struct GesturesSettingsView: View {
     @Default(.windowGestureSensitivity) var sensitivity
     @Default(.windowGestureHaptics) var haptics
     @Default(.windowGestureLivePreview) var livePreview
-    @Default(.disableTitleBarGesturesOverInteractiveElements) var disableOverInteractiveElements
-    @Default(.strictTitleBarGestureDetection) private var strictTitleBarGestureDetection
     @Default(.customDockReservationEdge) var reservationEdge
     @Default(.customDockReservationThickness) var reservationThickness
+
+    @Default(.disableTitleBarGesturesOverInteractiveElements) var disableOverInteractiveElements
+    @Default(.strictTitleBarGestureDetection) private var strictTitleBarGestureDetection
 
     @State private var requirements = TrackpadGestureRequirements.current()
     @State private var reports = ScreenReservations.shared.reports
@@ -20,16 +21,27 @@ struct GesturesSettingsView: View {
     var body: some View {
         SettingsFormView {
             heroSection
-            gestureGroup(title: "On a Window's Title Bar", gestures: WindowGestureArea.titleBar.gestures)
-            gestureGroup(title: "On a Dock Icon", gestures: WindowGestureArea.dock.gestures)
-            gestureGroup(title: "On the Menu Bar", gestures: WindowGestureArea.menuBar.gestures)
-            optionsSection
+
+            if enableWindowGestures {
+                gestureGroup(title: "On a Window's Title Bar", gestures: WindowGestureArea.titleBar.gestures)
+                gestureGroup(title: "On a Dock Icon", gestures: WindowGestureArea.dock.gestures)
+                gestureGroup(title: "On the Menu Bar", gestures: WindowGestureArea.menuBar.gestures)
+                optionsSection
+                Section {
+                    SettingsNote(
+                        icon: "info.circle",
+                        text: "While Window Gestures is on, two-finger scrolling on title bars, running Dock icons and the menu bar is used for these gestures."
+                    )
+                }
+            } else {
+                DockScrollGestureSection()
+                TitleBarScrollGestureSection()
+            }
+
             dockSpaceSection
-            SettingsNote(
-                icon: "info.circle",
-                text: "While Window Gestures is on, two-finger scrolling on title bars, running Dock icons and the menu bar is used for these gestures."
-            )
-            moreGesturesSection
+            DockPreviewGesturesSection()
+            GestureSettingsSection()
+            MouseActionsSection()
         }
         .onAppear {
             requirements = .current()
@@ -45,67 +57,43 @@ struct GesturesSettingsView: View {
     // MARK: - Hero
 
     private var heroSection: some View {
-        Section {
-            HStack(alignment: .top, spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle(isOn: $enableWindowGestures) {
-                        Text("Window Gestures")
-                            .font(.title3.weight(.semibold))
-                    }
-                    .toggleStyle(.switch)
-                    .onChange(of: enableWindowGestures) { _ in
-                        WindowSnapRegistry.existing?.removeDisabledRecords()
-                        askUserToRestartApplication()
-                    }
-                    .settingsSearchTarget("windowGestures.enable")
+        SettingsSection("Window Gestures") {
+            GestureDemoCarousel(gestures: Self.heroGestures)
+                .frame(width: 240, height: 170)
+                .frame(maxWidth: .infinity)
 
-                    Text("Snap, minimize and close windows with two fingers on your trackpad. Swipe or pinch on a window's title bar, a Dock icon or the menu bar.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            Toggle(isOn: $enableWindowGestures) {
+                Text("Window Gestures")
+            }
+            .onChange(of: enableWindowGestures) { _ in WindowSnapRegistry.existing?.removeDisabledRecords(); askUserToRestartApplication() }
+            .settingsSearchTarget("windowGestures.enable")
+            .settingsAnnotation("Snap, minimize and close windows with two fingers on your trackpad. Swipe or pinch on a window's title bar, a Dock icon or the menu bar.")
 
-                    if enableWindowGestures, !requirements.isSatisfied {
-                        requirementsBanner
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                GestureDemoCarousel(gestures: Self.heroGestures)
-                    .frame(width: 240, height: 170)
+            if enableWindowGestures, !requirements.isSatisfied {
+                requirementsBanner
             }
         }
     }
 
     private var requirementsBanner: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if !requirements.pinchEnabled {
-                Label("Pinches need \"Zoom in or out\" turned on in Trackpad settings.", systemImage: "exclamationmark.triangle.fill")
-            }
-            if !requirements.smartZoomEnabled {
-                Label("Double-taps need \"Smart zoom\" turned on in Trackpad settings.", systemImage: "exclamationmark.triangle.fill")
-            }
-            Button("Open Trackpad Settings") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.Trackpad-Settings.extension") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-            .buttonStyle(.settings)
-            .controlSize(.small)
+        var lines: [Text] = []
+        if !requirements.pinchEnabled {
+            lines.append(Text("Pinches need \"Zoom in or out\" turned on in Trackpad settings."))
         }
-        .font(.caption)
-        .foregroundStyle(.orange)
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.orange.opacity(0.1)))
+        if !requirements.smartZoomEnabled {
+            lines.append(Text("Double-taps need \"Smart zoom\" turned on in Trackpad settings."))
+        }
+        let message = lines.dropFirst().reduce(lines.first ?? Text(verbatim: "")) { $0 + Text(verbatim: "\n") + $1 }
+        return SettingsCallout(tone: .warning, message: message, actionTitle: "Open Trackpad Settings") {
+            SystemPreferencesHelper.openTrackpadPreferences()
+        }
     }
 
     // MARK: - Gestures
 
     private func gestureGroup(title: LocalizedStringKey, gestures: [WindowGesture]) -> some View {
         SettingsSection(title) {
-            ForEach(Array(gestures.enumerated()), id: \.element) { index, gesture in
-                if index > 0 {
-                    Divider()
-                }
+            ForEach(gestures, id: \.self) { gesture in
                 WindowGestureRow(gesture: gesture, isOn: binding(for: gesture))
                     .settingsSearchTarget("windowGestures.\(gesture.rawValue)")
             }
@@ -133,117 +121,62 @@ struct GesturesSettingsView: View {
                 get: { Double(sensitivity) },
                 set: { sensitivity = CGFloat($0) }
             )
-            sliderSetting(
+            SettingsSliderRow(
                 title: "Sensitivity",
                 value: sensitivityBinding,
                 range: Double(WindowGestureRecognizer.Configuration.sensitivityRange.lowerBound) ... Double(WindowGestureRecognizer.Configuration.sensitivityRange.upperBound),
-                step: 0.1,
-                unit: "",
-                formatter: NumberFormatter.percentFormatter
+                step: 0.1
             )
             .settingsSearchTarget("windowGestures.sensitivity")
-
-            Text("Turn this up if gestures need too much finger movement.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            .settingsAnnotation("Turn this up if gestures need too much finger movement.")
 
             Toggle("Show where the window will land", isOn: $livePreview)
                 .settingsSearchTarget("windowGestures.livePreview")
 
             Toggle("Haptic feedback", isOn: $haptics)
                 .settingsSearchTarget("windowGestures.haptics")
-
             Toggle("Disable title bar gestures over scrollable areas and tabs", isOn: $disableOverInteractiveElements)
                 .settingsSearchTarget("windowGestures.disableOverInteractiveElements")
-            Text("Skip scrollable areas and tab bars. Other controls follow the standard gesture rules.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
+                .settingsAnnotation("Skip scrollable areas and tab bars. Other controls follow the standard gesture rules.")
             if disableOverInteractiveElements {
-                VStack(alignment: .leading, spacing: 6) {
+                Group {
                     Toggle(String(localized: "Use stricter title bar detection"), isOn: $strictTitleBarGestureDetection)
                         .settingsSearchTarget("windowGestures.strictTitleBarGestureDetection")
-                    Text(String(localized: "Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars."))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .settingsAnnotation("Also skip areas that don't expose recognizable controls. This may disable gestures on blank parts of some title bars.")
                 }
-                .padding(.leading, 16)
             }
-        }
-    }
-
-    // MARK: - More Gestures
-
-    private var moreGesturesSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("More Gestures")
-                    .font(.title3.weight(.semibold))
-                Text("Scrolling on Dock icons and title bars, swipes on previews, and a trackpad swipe for the window switcher.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.top, 8)
-
-            if enableWindowGestures {
-                SettingsNote(
-                    icon: "info.circle",
-                    text: "Window Gestures handles scrolling on Dock icons and title bars, so these two are off while it's on."
-                )
-            }
-            Group {
-                DockScrollGestureSection()
-                TitleBarScrollGestureSection()
-            }
-            .disabled(enableWindowGestures)
-            .opacity(enableWindowGestures ? 0.45 : 1)
-
-            DockPreviewGesturesSection()
-            GestureSettingsSection()
-            TrackpadSwitcherSwipeSection()
         }
     }
 
     // MARK: - Custom Dock Space
 
     private var dockSpaceSection: some View {
-        SettingsSection("Space for a Custom Dock") {
-            Text("Using a dock other than the macOS Dock? Keep a strip of the screen free so snapped windows don't cover it.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
+        SettingsSection("Space for a Custom Dock", footer: "Using a dock other than the macOS Dock? Keep a strip of the screen free so snapped windows don't cover it.") {
             Picker("Dock edge", selection: $reservationEdge) {
                 ForEach(ScreenReservationEdge.allCases) { edge in
                     Text(edge.localizedName).tag(edge)
                 }
             }
-            .pickerStyle(.menu)
-            .fixedSize()
             .settingsSearchTarget("windowGestures.dockSpace")
 
             if reservationEdge != .none {
-                let thicknessBinding = Binding<Double>(
-                    get: { Double(reservationThickness) },
-                    set: { reservationThickness = CGFloat($0) }
-                )
-                sliderSetting(
-                    title: reservationEdge == .left || reservationEdge == .right ? "Dock Width" : "Dock Height",
-                    value: thicknessBinding,
-                    range: 10 ... 300,
-                    step: 2,
-                    unit: "px",
-                    formatter: {
-                        let formatter = NumberFormatter()
-                        formatter.maximumFractionDigits = 0
-                        return formatter
-                    }()
-                )
+                Group {
+                    let thicknessBinding = Binding<Double>(
+                        get: { Double(reservationThickness) },
+                        set: { reservationThickness = CGFloat($0) }
+                    )
+                    SettingsSliderRow(
+                        title: reservationEdge == .left || reservationEdge == .right ? "Dock Width" : "Dock Height",
+                        value: thicknessBinding,
+                        range: 10 ... 300,
+                        unit: " px",
+                        step: 2,
+                        decimals: 0
+                    )
+                }
             }
 
             if !reports.isEmpty {
-                Divider()
                 Text("Reported by Apps")
                     .font(.caption.weight(.semibold))
                 ForEach(reports, id: \.source) { report in
@@ -280,7 +213,6 @@ private struct WindowGestureRow: View {
 
             Toggle("", isOn: $isOn)
                 .toggleStyle(.switch)
-                .controlSize(.small)
                 .labelsHidden()
         }
         .padding(.vertical, 8)
@@ -320,7 +252,9 @@ struct TrackpadGestureRequirements: Equatable {
     var pinchEnabled: Bool
     var smartZoomEnabled: Bool
 
-    var isSatisfied: Bool { pinchEnabled && smartZoomEnabled }
+    var isSatisfied: Bool {
+        pinchEnabled && smartZoomEnabled
+    }
 
     static func current() -> TrackpadGestureRequirements {
         TrackpadGestureRequirements(

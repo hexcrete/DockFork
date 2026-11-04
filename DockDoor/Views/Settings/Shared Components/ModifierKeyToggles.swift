@@ -4,29 +4,36 @@ struct ModifierKeyToggles: View {
     @Binding var modifierFlags: Int
     var compact = false
     var inheritedModifierFlags: Int?
+    var includesShift = false
 
-    private var allowsEmpty: Bool { inheritedModifierFlags != nil }
+    private var modifiers: [ShortcutModifierKey] {
+        ShortcutModifierKey.allCases.filter { includesShift || $0 != .shift }
+    }
 
     var body: some View {
         HStack(spacing: compact ? 4 : 6) {
-            ForEach(ShortcutModifier.allCases) { modifier in
+            ForEach(modifiers) { modifier in
                 toggle(for: modifier)
             }
         }
     }
 
-    private func toggle(for modifier: ShortcutModifier) -> some View {
-        let selected = ShortcutModifier.contained(in: modifierFlags)
-        let isOn = selected.contains(modifier)
-        let isInherited = selected.isEmpty && modifier.isContained(in: inheritedModifierFlags ?? 0)
-        let isLastSelected = isOn && selected.count == 1 && !allowsEmpty
+    static func toggledModifiers(_ current: Int, mask: Int, allowsEmpty: Bool) -> Int {
+        let flags = WindowSwitcherShortcutResolver.normalizedModifiers(current)
+        let updated = flags & mask != 0 ? flags & ~mask : flags | mask
+        return updated == 0 && !allowsEmpty ? current : updated
+    }
+
+    private func toggle(for modifier: ShortcutModifierKey) -> some View {
+        let isOn = modifierFlags & modifier.modifierFlags != 0
+        let isInherited = modifierFlags == 0 && (inheritedModifierFlags ?? 0) & modifier.modifierFlags != 0
+        let name = modifierConverter.toString(modifier.modifierFlags)
+        let symbol = modifierConverter.toSymbol(modifier.modifierFlags)
 
         return Button {
-            guard !isLastSelected else { return }
-            let newSelection = isOn ? selected.filter { $0 != modifier } : selected + [modifier]
-            modifierFlags = ShortcutModifier.modifierFlags(for: newSelection)
+            modifierFlags = Self.toggledModifiers(modifierFlags, mask: modifier.modifierFlags, allowsEmpty: inheritedModifierFlags != nil)
         } label: {
-            Text(compact ? modifier.symbol : "\(modifier.localizedName) \(modifier.symbol)")
+            Text(compact ? symbol : "\(name) \(symbol)")
                 .font(.system(size: compact ? 13 : 12, weight: .medium))
                 .foregroundColor(isOn ? .white : .primary)
                 .frame(minWidth: compact ? 22 : nil)
@@ -39,8 +46,8 @@ struct ModifierKeyToggles: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .help(isInherited ? String(localized: "\(modifier.localizedName), inherited from the main shortcut") : modifier.localizedName)
-        .accessibilityLabel(modifier.localizedName)
+        .help(isInherited ? String(localized: "\(name), inherited from the main shortcut") : name)
+        .accessibilityLabel(name)
         .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 }

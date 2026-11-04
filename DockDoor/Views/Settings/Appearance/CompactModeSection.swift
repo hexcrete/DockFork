@@ -6,11 +6,12 @@ struct CompactModeSection: View {
     @Default(.compactModeTitleFormat) var compactModeTitleFormat
     @Default(.compactModeItemSize) var compactModeItemSize
     @Default(.compactModeHideTrafficLights) var compactModeHideTrafficLights
-    @Default(.compactModeWidth) var compactModeWidth
-    @Default(.enableHoverActionsInCompactMode) var enableHoverActionsInCompactMode
     @Default(.windowSwitcherCompactThreshold) var windowSwitcherCompactThreshold
     @Default(.dockPreviewCompactThreshold) var dockPreviewCompactThreshold
     @Default(.cmdTabCompactThreshold) var cmdTabCompactThreshold
+
+    @Default(.compactModeWidth) var compactModeWidth
+    @Default(.enableHoverActionsInCompactMode) var enableHoverActionsInCompactMode
 
     let hasScreenRecordingPermission: Bool
 
@@ -19,61 +20,23 @@ struct CompactModeSection: View {
     }
 
     var body: some View {
-        SettingsSection("Compact Mode (Titles Only)") {
-            Text("Compact mode displays windows as a streamlined vertical list with app icons and titles.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Toggle(isOn: Binding(
-                    get: { !hasScreenRecordingPermission || disableImagePreview },
-                    set: { disableImagePreview = $0 }
-                )) {
-                    Text("Always use compact mode")
-                }
-                .settingsSearchTarget("appearance.compactMode")
-                .disabled(!hasScreenRecordingPermission)
-
-                if !hasScreenRecordingPermission {
-                    HStack(spacing: 4) {
-                        Image(systemName: "lock.fill")
-                            .font(.caption)
-                        Text("Screen Recording permission is required for window thumbnails.")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.orange)
-                    .padding(.leading, 20)
-                }
+        SettingsSection("Compact Mode (Titles Only)", footer: "Compact mode displays windows as a streamlined vertical list with app icons and titles.") {
+            Toggle(isOn: Binding(
+                get: { !hasScreenRecordingPermission || disableImagePreview },
+                set: { disableImagePreview = $0 }
+            )) {
+                Text("Always use compact mode")
             }
+            .settingsSearchTarget("appearance.compactMode")
+            .disabled(!hasScreenRecordingPermission)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Toggle("Enable hover actions in compact mode", isOn: $enableHoverActionsInCompactMode)
-                    .settingsSearchTarget("appearance.compactHoverActions")
-
-                if enableHoverActionsInCompactMode, !hasScreenRecordingPermission {
-                    HStack(spacing: 8) {
-                        Image(systemName: "record.circle")
-                            .font(.caption)
-                        Text("Hover actions in compact mode require Screen Recording permission.")
-                            .font(.caption)
-                        Button("Grant") {
-                            SystemPreferencesHelper.openScreenRecordingPreferences()
-                        }
-                        .buttonStyle(.settings)
-                    }
-                    .foregroundColor(.orange)
-                    .padding(.leading, 20)
-                }
+            if !hasScreenRecordingPermission {
+                SettingsCallout(icon: "lock.fill", message: Text("Screen Recording permission is required for window thumbnails."))
             }
+        }
 
-            if !isCompactModeForced {
-                Divider().padding(.vertical, 2)
-                Text("Window Threshold").font(.headline).padding(.bottom, -2)
-
-                Text("Set a threshold to automatically switch to compact mode when an app has that many or more windows. Set to 0 to disable.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
+        if !isCompactModeForced {
+            SettingsSection("Window Threshold", footer: "Set a threshold to automatically switch to compact mode when an app has that many or more windows. Set to 0 to disable.") {
                 compactThresholdSlider(
                     title: "Window Switcher",
                     value: $windowSwitcherCompactThreshold,
@@ -95,78 +58,45 @@ struct CompactModeSection: View {
                 )
                 .settingsSearchTarget("appearance.compactThresholdCmdTab")
             }
+        }
 
-            Divider().padding(.vertical, 2)
-            Text("Appearance").font(.headline).padding(.bottom, -2)
-
-            sliderSetting(
-                title: "Compact Mode Width",
-                value: $compactModeWidth,
-                range: 200 ... 1200,
-                step: 50,
-                unit: "px",
-                formatter: {
-                    let f = NumberFormatter()
-                    f.minimumFractionDigits = 0
-                    f.maximumFractionDigits = 0
-                    return f
-                }()
-            )
-            .settingsSearchTarget("appearance.compactModeWidth")
-
-            Text("Controls row width in compact mode so longer titles have more room.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
+        SettingsSection("Compact list appearance") {
             Picker("Item Size", selection: $compactModeItemSize) {
                 ForEach(CompactModeItemSize.allCases) { size in
                     Text(size.localizedName).tag(size)
                 }
             }
-            .pickerStyle(.menu)
             .settingsSearchTarget("appearance.compactItemSize")
 
+            SettingsSliderRow(title: "Compact Mode Width", value: $compactModeWidth, range: 200 ... 1200, defaultValue: Defaults.Keys.compactModeWidth.defaultValue, unit: " px", step: 50)
+                .settingsSearchTarget("appearance.compactModeWidth")
+            Toggle("Enable hover actions in compact mode", isOn: $enableHoverActionsInCompactMode)
+                .settingsSearchTarget("appearance.compactHoverActions")
+            if enableHoverActionsInCompactMode, !hasScreenRecordingPermission {
+                SettingsCallout(tone: .warning, icon: "record.circle", message: Text("Hover actions in compact mode require Screen Recording permission."), actionTitle: "Grant") {
+                    SystemPreferencesHelper.openScreenRecordingPreferences()
+                }
+            }
             Picker("Title Format", selection: $compactModeTitleFormat) {
                 ForEach(CompactModeTitleFormat.allCases) { format in
                     Text(format.localizedName).tag(format)
                 }
             }
-            .pickerStyle(.menu)
             .settingsSearchTarget("appearance.compactTitleFormat")
 
-            VStack(alignment: .leading, spacing: 4) {
-                Toggle("Hide Traffic Lights", isOn: $compactModeHideTrafficLights)
-                    .settingsSearchTarget("appearance.hideTrafficLights")
-                Text("Hides the close, minimize, and other window control buttons in compact mode to provide more room for window titles.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+            Toggle("Hide Traffic Lights", isOn: $compactModeHideTrafficLights)
+                .settingsSearchTarget("appearance.hideTrafficLights")
+                .settingsAnnotation("Hides the close, minimize, and other window control buttons in compact mode to provide more room for window titles.")
         }
     }
 
-    @ViewBuilder
     private func compactThresholdSlider(title: String, value: Binding<Int>, description: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(title)
-                Spacer()
-                Text(value.wrappedValue == 0 ? "Disabled" : "\(value.wrappedValue)+ windows")
-                    .foregroundColor(.secondary)
-                    .monospacedDigit()
-            }
-
-            Slider(
-                value: Binding(
-                    get: { Double(value.wrappedValue) },
-                    set: { value.wrappedValue = Int($0) }
-                ),
-                in: 0 ... 10,
-                step: 1
-            )
-
-            Text(description)
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
+        SettingsSliderRow(
+            title: LocalizedStringKey(title),
+            value: Binding(get: { Double(value.wrappedValue) }, set: { value.wrappedValue = Int($0) }),
+            range: 0 ... 10,
+            valueText: { $0 == 0 ? String(localized: "Disabled") : String(localized: "\(Int($0))+ windows") }
+        )
+        .settingsAnnotation(LocalizedStringKey(description))
     }
 }

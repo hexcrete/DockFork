@@ -2,15 +2,11 @@ import Defaults
 import SwiftUI
 
 struct WindowSwitcherAppearanceSection: View {
-    @Default(.enableSpacesBar) private var enableSpacesBar
     @Default(.windowSwitcherControlPosition) var windowSwitcherControlPosition
     @Default(.switcherShowAppHeader) var switcherShowAppHeader
     @Default(.switcherShowWindowTitle) var switcherShowWindowTitle
     @Default(.switcherWindowTitleVisibility) var switcherWindowTitleVisibility
     @Default(.switcherAppIconSize) var switcherAppIconSize
-    @Default(.switcherShowAppIconBadges) private var switcherShowAppIconBadges
-    @Default(.switcherShowCompactAppIconBadges) private var switcherShowCompactAppIconBadges
-    @Default(.switcherAppIconBadgeScale) private var switcherAppIconBadgeScale
     @Default(.switcherTrafficLightButtonsVisibility) var switcherTrafficLightButtonsVisibility
     @Default(.switcherEnabledTrafficLightButtons) var switcherEnabledTrafficLightButtons
     @Default(.switcherUseMonochromeTrafficLights) var switcherUseMonochromeTrafficLights
@@ -19,6 +15,11 @@ struct WindowSwitcherAppearanceSection: View {
     @Default(.switcherMaxRows) var switcherMaxRows
     @Default(.switcherIgnoreScreenLimit) var switcherIgnoreScreenLimit
     @Default(.windowSwitcherScrollDirection) var windowSwitcherScrollDirection
+
+    @Default(.enableSpacesBar) private var enableSpacesBar
+    @Default(.switcherShowAppIconBadges) private var switcherShowAppIconBadges
+    @Default(.switcherShowCompactAppIconBadges) private var switcherShowCompactAppIconBadges
+    @Default(.switcherAppIconBadgeScale) private var switcherAppIconBadgeScale
     @Default(.switcherSpaceNumberIndicatorPlacement) var switcherSpaceNumberIndicatorPlacement
     @Default(.highlightSwitcherCurrentSpaceIndicator) var highlightSwitcherCurrentSpaceIndicator
     @Default(.switcherWindowStateIndicatorPlacement) var switcherWindowStateIndicatorPlacement
@@ -43,58 +44,48 @@ struct WindowSwitcherAppearanceSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        SettingsSection("Appearance") {
             Toggle("Show App Header", isOn: $switcherShowAppHeader)
                 .settingsSearchTarget("appearance.switcherShowAppHeader")
 
+            if switcherShowAppHeader || enableSpacesBar {
+                Toggle("Show App Icon Badges", isOn: $switcherShowAppIconBadges)
+                    .settingsSearchTarget("appearance.switcherShowAppIconBadges")
+            }
+            Toggle("Show App Icon Badges in Compact Mode", isOn: $switcherShowCompactAppIconBadges)
+                .settingsSearchTarget("appearance.switcherShowCompactAppIconBadges")
+            if ((switcherShowAppHeader || enableSpacesBar) && switcherShowAppIconBadges) || switcherShowCompactAppIconBadges {
+                Group {
+                    SettingsSliderRow(title: "Badge Size", value: $switcherAppIconBadgeScale, range: 0.75 ... 1.5, defaultValue: Defaults.Keys.switcherAppIconBadgeScale.defaultValue, step: 0.05, formatter: NumberFormatter.percentFormatter)
+                        .settingsSearchTarget("appearance.switcherAppIconBadgeSize")
+                }
+            }
             if switcherShowAppHeader {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack {
-                        Text("App Icon Size")
-                        Spacer()
-                        Toggle("Automatic", isOn: automaticAppIconSizeBinding)
-                    }
+                Toggle("Automatic app icon size", isOn: automaticAppIconSizeBinding)
+                    .settingsSearchTarget("appearance.switcherAppIconSize")
 
-                    if switcherAppIconSize > 0 {
-                        sliderSetting(
-                            title: "Size",
+                if switcherAppIconSize > 0 {
+                    Group {
+                        SettingsSliderRow(
+                            title: "App Icon Size",
                             value: customAppIconSizeBinding,
-                            range: 16.0 ... 64.0,
-                            step: 1.0,
-                            unit: "pt",
-                            formatter: {
-                                let f = NumberFormatter()
-                                f.minimumFractionDigits = 0
-                                f.maximumFractionDigits = 0
-                                return f
-                            }()
+                            range: 16 ... 64,
+                            defaultValue: 35,
+                            unit: " pt",
+                            step: 1
                         )
                     }
                 }
-                .settingsSearchTarget("appearance.switcherAppIconSize")
             }
 
-            Toggle("Show App Icon Badges", isOn: $switcherShowAppIconBadges)
-                .disabled(!switcherShowAppHeader && !enableSpacesBar)
-                .settingsSearchTarget("appearance.switcherShowAppIconBadges")
-
-            Toggle("Show App Icon Badges in Compact Mode", isOn: $switcherShowCompactAppIconBadges)
-                .settingsSearchTarget("appearance.switcherShowCompactAppIconBadges")
-
-            if ((switcherShowAppHeader || enableSpacesBar) && switcherShowAppIconBadges) || switcherShowCompactAppIconBadges {
-                sliderSetting(
-                    title: "Badge Size",
-                    value: $switcherAppIconBadgeScale,
-                    range: 0.75 ... 1.5,
-                    step: 0.05,
-                    unit: "",
-                    formatter: NumberFormatter.percentFormatter
-                )
-                .settingsSearchTarget("appearance.switcherAppIconBadgeSize")
+            if switcherShowAppHeader {
+                Picker("Window Title", selection: WindowTitleMode.binding(showTitle: $switcherShowWindowTitle, visibility: $switcherWindowTitleVisibility)) {
+                    ForEach(WindowTitleMode.allCases) { mode in
+                        Text(mode.localizedName).tag(mode)
+                    }
+                }
+                .settingsSearchTarget("appearance.switcherWindowTitle")
             }
-
-            Divider().padding(.vertical, 2)
-            Text("Window Switcher Toolbar").font(.headline).padding(.bottom, -2)
 
             Picker("Position Window Controls", selection: $windowSwitcherControlPosition) {
                 ForEach(WindowSwitcherControlPosition.allCases, id: \.self) { position in
@@ -104,10 +95,9 @@ struct WindowSwitcherAppearanceSection: View {
             }
             .pickerStyle(.menu)
             .settingsSearchTarget("appearance.switcherControlPosition")
+        }
 
-            Divider().padding(.vertical, 2)
-            Text("Traffic Light Buttons").font(.headline).padding(.bottom, -2)
-
+        SettingsSection("Traffic Light Buttons") {
             Picker("Visibility", selection: $switcherTrafficLightButtonsVisibility) {
                 ForEach(TrafficLightButtonsVisibility.allCases, id: \.self) { visibility in
                     Text(visibility.localizedName)
@@ -117,120 +107,28 @@ struct WindowSwitcherAppearanceSection: View {
             .settingsSearchTarget("appearance.switcherTrafficLightVisibility")
 
             if switcherTrafficLightButtonsVisibility != .never {
-                Text("Enabled Buttons")
-                VStack(alignment: .leading) {
-                    if !switcherEnabledTrafficLightButtons.isEmpty {
-                        TrafficLightButtons(
-                            displayMode: switcherTrafficLightButtonsVisibility,
-                            hoveringOverParentWindow: true,
-                            onWindowAction: { _ in },
-                            pillStyling: !switcherDisableDockStyleTrafficLights,
-                            mockPreviewActive: false,
-                            enabledButtons: switcherEnabledTrafficLightButtons,
-                            useMonochrome: switcherUseMonochromeTrafficLights,
-                            backgroundAppearance: .resolve()
-                        )
+                Group {
+                    EnabledButtonsPicker(enabledButtons: $switcherEnabledTrafficLightButtons) {
+                        switcherTrafficLightButtonsVisibility = .never
                     }
-                    EnabledButtonsPicker(enabledButtons: $switcherEnabledTrafficLightButtons) { switcherTrafficLightButtonsVisibility = .never }
-                }
-                Toggle("Use Monochrome Colors", isOn: $switcherUseMonochromeTrafficLights)
-                    .settingsSearchTarget("appearance.switcherMonochrome")
+                    Toggle("Use Monochrome Colors", isOn: $switcherUseMonochromeTrafficLights)
+                        .settingsSearchTarget("appearance.switcherMonochrome")
 
-                VStack(alignment: .leading) {
                     Toggle(isOn: $switcherDisableDockStyleTrafficLights) {
                         Text("Disable dock styling on traffic light buttons")
                     }
                     .settingsSearchTarget("appearance.switcherDisableTrafficLightStyling")
-                    Text("Removes the pill-shaped background styling from traffic light buttons.")
-                        .font(.footnote)
-                        .foregroundColor(.gray)
+                    .settingsAnnotation("Removes the pill-shaped background styling from traffic light buttons.")
                 }
             }
+        }
 
-            Divider().padding(.vertical, 2)
-            Text("Window State Indicator").font(.headline).padding(.bottom, -2)
-            Picker("Show Space Number Indicator", selection: $switcherSpaceNumberIndicatorPlacement) {
-                ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
-                    Text(placement.localizedName).tag(placement)
-                }
+        SettingsSection("Preview Layout (Switcher)") {
+            Toggle(isOn: $switcherUseEmbeddedDockPreviewElements) {
+                Text("Embed controls in preview frames")
             }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("appearance.switcherSpaceNumberIndicator")
-
-            if switcherSpaceNumberIndicatorPlacement != .off {
-                VStack(alignment: .leading) {
-                    Toggle("Highlight Current Space", isOn: $highlightSwitcherCurrentSpaceIndicator)
-                        .settingsSearchTarget("appearance.switcherHighlightCurrentSpace")
-                    Text("Highlights the Space number indicator for windows on the current Space.")
-                        .font(.footnote)
-                        .foregroundColor(.gray)
-                        .padding(.leading, 20)
-                }
-                .padding(.leading, 20)
-            }
-
-            Picker("Show Window State Indicator", selection: $switcherWindowStateIndicatorPlacement) {
-                ForEach(WindowStateIndicatorPlacement.allCases, id: \.self) { placement in
-                    Text(placement.localizedName).tag(placement)
-                }
-            }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("appearance.switcherWindowStateIndicator")
-            Text("Controls whether Minimized, Hidden, and Full Screen indicators are hidden, shown on window previews, or placed next to traffic light buttons.")
-                .font(.footnote)
-                .foregroundColor(.gray)
-
-            if switcherSpaceNumberIndicatorPlacement == .nextToTrafficLightButtons || switcherWindowStateIndicatorPlacement == .nextToTrafficLightButtons {
-                VStack(alignment: .leading) {
-                    Toggle("Disable dock styling on Window State Indicator", isOn: $switcherDisableDockStyleWindowStateIndicator)
-                        .settingsSearchTarget("appearance.switcherDisableWindowStateIndicatorStyling")
-                    Text("Removes the pill-shaped background styling from the Window State Indicator in the window switcher.")
-                        .font(.footnote)
-                        .foregroundColor(.gray)
-
-                    Toggle("Swap Window State Indicator and Traffic Light Buttons", isOn: $swapTrafficLightsAndWindowStateIndicator)
-                        .settingsSearchTarget("appearance.switcherSwapWindowStateIndicator")
-
-                    if swapTrafficLightsAndWindowStateIndicator {
-                        Toggle("Limit to Compact Mode only", isOn: $limitIndicatorSwapToCompactMode)
-                            .padding(.leading, 20)
-                            .settingsSearchTarget("appearance.switcherLimitIndicatorSwapToCompactMode")
-                    }
-                }
-            }
-
-            Divider().padding(.vertical, 2)
-            Group {
-                Text("Window Title").font(.headline).padding(.bottom, -2)
-
-                Toggle("Show Window Title", isOn: $switcherShowWindowTitle)
-                    .settingsSearchTarget("appearance.switcherShowWindowTitle")
-
-                if switcherShowWindowTitle {
-                    Picker("Visibility", selection: $switcherWindowTitleVisibility) {
-                        ForEach(WindowTitleVisibility.allCases, id: \.self) { visibility in
-                            Text(visibility.localizedName)
-                                .tag(visibility)
-                        }
-                    }
-                    .settingsSearchTarget("appearance.switcherWindowTitleVisibility")
-                }
-            }
-            .disabled(!switcherShowAppHeader)
-
-            Divider().padding(.vertical, 2)
-            Text("Preview Layout (Switcher)").font(.headline).padding(.bottom, -2)
-
-            VStack(alignment: .leading) {
-                Toggle(isOn: $switcherUseEmbeddedDockPreviewElements) {
-                    Text("Embed controls in preview frames")
-                }
-                .settingsSearchTarget("appearance.switcherEmbedControls")
-                Text("Places traffic light buttons and window titles directly inside the window switcher preview frames.")
-                    .font(.footnote)
-                    .foregroundColor(.gray)
-                    .padding(.leading, 20)
-            }
+            .settingsSearchTarget("appearance.switcherEmbedControls")
+            .settingsAnnotation("Places traffic light buttons and window titles directly inside the window switcher preview frames.")
 
             Picker("Scroll Direction", selection: $windowSwitcherScrollDirection) {
                 ForEach(WindowSwitcherScrollDirection.allCases, id: \.self) { direction in
@@ -239,42 +137,47 @@ struct WindowSwitcherAppearanceSection: View {
             }
             .settingsSearchTarget("appearance.switcherScrollDirection")
 
-            VStack(alignment: .leading, spacing: 4) {
-                let switcherMaxRowsBinding = Binding<Double>(
-                    get: { Double(switcherMaxRows) },
-                    set: { switcherMaxRows = Int($0) }
-                )
-                sliderSetting(
-                    title: windowSwitcherScrollDirection == .horizontal
-                        ? "Max Rows"
-                        : "Max Columns",
-                    value: switcherMaxRowsBinding,
-                    range: 1.0 ... 8.0,
-                    step: 1.0,
-                    unit: "",
-                    formatter: {
-                        let f = NumberFormatter()
-                        f.minimumFractionDigits = 0
-                        f.maximumFractionDigits = 0
-                        return f
-                    }()
-                )
-                .settingsSearchTarget("appearance.switcherMaxRows")
+            let switcherMaxRowsBinding = Binding<Double>(
+                get: { Double(switcherMaxRows) },
+                set: { switcherMaxRows = Int($0) }
+            )
+            SettingsSliderRow(
+                title: windowSwitcherScrollDirection == .horizontal
+                    ? "Max Rows"
+                    : "Max Columns",
+                value: switcherMaxRowsBinding,
+                range: 1 ... 8,
+                step: 1
+            )
+            .settingsSearchTarget("appearance.switcherMaxRows")
+            .settingsAnnotation(windowSwitcherScrollDirection == .horizontal
+                ? "Controls how many rows of windows are shown in the window switcher. Windows are distributed across rows automatically."
+                : "Controls how many columns of windows are shown in the window switcher. Windows are distributed across columns automatically.")
 
-                Text(windowSwitcherScrollDirection == .horizontal
-                    ? String(localized: "Controls how many rows of windows are shown in the window switcher. Windows are distributed across rows automatically.")
-                    : String(localized: "Controls how many columns of windows are shown in the window switcher. Windows are distributed across columns automatically."))
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-
-                Toggle(isOn: $switcherIgnoreScreenLimit) {
-                    Text("Ignore screen size limit")
-                }
-                .settingsSearchTarget("appearance.switcherIgnoreScreenLimit")
-                Text("Allow columns/rows to exceed what fits on screen. May cause previews to extend beyond screen edges.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+            Toggle(isOn: $switcherIgnoreScreenLimit) {
+                Text("Ignore screen size limit")
             }
+            .settingsSearchTarget("appearance.switcherIgnoreScreenLimit")
+            .settingsAnnotation("Allow columns/rows to exceed what fits on screen. May cause previews to extend beyond screen edges.")
         }
+        windowStateIndicatorSection
+    }
+
+    private var windowStateIndicatorSection: some View {
+        WindowStateIndicatorSettingsSection(
+            spacePlacement: $switcherSpaceNumberIndicatorPlacement,
+            highlightCurrentSpace: $highlightSwitcherCurrentSpaceIndicator,
+            statePlacement: $switcherWindowStateIndicatorPlacement,
+            disableStyling: $switcherDisableDockStyleWindowStateIndicator,
+            swapControls: $swapTrafficLightsAndWindowStateIndicator,
+            compactSwapOnly: $limitIndicatorSwapToCompactMode,
+
+            spaceNumberTarget: "appearance.switcherSpaceNumberIndicator",
+            highlightTarget: "appearance.switcherHighlightCurrentSpace",
+            stateTarget: "appearance.switcherWindowStateIndicator",
+            stylingTarget: "appearance.switcherDisableWindowStateIndicatorStyling",
+            swapTarget: "appearance.switcherSwapWindowStateIndicator",
+            compactTarget: "appearance.switcherLimitIndicatorSwapToCompactMode"
+        )
     }
 }

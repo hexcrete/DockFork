@@ -7,40 +7,20 @@ struct CmdKeyShortcutsSection: View {
     @Default(.ignoreMainModifierSideForDependentShortcuts) private var ignoreMainModifierSideForDependentShortcuts
 
     var body: some View {
-        SettingsSection("Window Preview Keyboard Shortcuts") {
-            Text("Uses the active Window Switcher modifier for preview actions. Cmd+Tab uses Command while the macOS switcher is active.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-
-            Divider()
-
+        SettingsSection("Window Preview Keyboard Shortcuts", footer: "Uses the active Window Switcher modifier for preview actions. Cmd+Tab uses Command while the macOS switcher is active.") {
             if cmdShortcuts.isEmpty {
-                HStack(spacing: 8) {
-                    Text("No shortcuts configured.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Spacer(minLength: 0)
-
-                    Button("Add a Shortcut") {
-                        addShortcut(after: nil)
-                    }
-                    .buttonStyle(.settings)
-                    .disabled(!canAddShortcut)
-                }
+                Text("No shortcuts configured.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } else {
                 ForEach(indexedShortcuts, id: \.shortcut.id) { item in
                     cmdShortcutRow(index: item.index, shortcut: item.shortcut)
                 }
             }
 
-            HStack(spacing: 8) {
-                Button("Reset to Defaults") {
-                    cmdShortcuts = Defaults.Keys.cmdShortcuts.defaultValue
-                }
-                .buttonStyle(.settings)
+            SettingsShortcutListFooter(title: "Add a Shortcut", canAdd: canAddShortcut, onAdd: addShortcut) {
+                cmdShortcuts = Defaults.Keys.cmdShortcuts.defaultValue
             }
-            .padding(.top, 4)
             .settingsSearchTarget("gestures.cmdShortcuts")
         }
     }
@@ -71,66 +51,38 @@ struct CmdKeyShortcutsSection: View {
     private func cmdShortcutRow(index: Int, shortcut: CmdShortcut) -> some View {
         let conflict = conflict(at: index)
 
-        return HStack(spacing: 12) {
-            HStack(spacing: 4) {
-                Text(modifierConverter.toSymbol(previewShortcutKeybind))
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundColor(.secondary)
-                KeyCaptureButton(
-                    keyCode: keyBinding(for: shortcut.id),
-                    emptyLabel: "Not set",
-                    forceEmptyLabel: shortcut.isPending,
-                    treatKeyCodeZeroAsEmpty: false,
-                    cancelOnOutsideClick: true
-                )
-            }
-            .frame(minWidth: 80, alignment: .leading)
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                HStack(spacing: 4) {
+                    Text(modifierConverter.toSymbol(previewShortcutKeybind))
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.secondary)
+                    KeyCaptureButton(
+                        keyCode: keyBinding(for: shortcut.id),
+                        emptyLabel: "Not set",
+                        forceEmptyLabel: shortcut.isPending,
+                        treatKeyCodeZeroAsEmpty: false,
+                        cancelOnOutsideClick: true
+                    )
+                }
+                .frame(minWidth: 80, alignment: .leading)
+                SettingsShortcutConflictWarning(conflict: conflict)
 
-            Picker("", selection: actionBinding(for: shortcut.id)) {
-                ForEach(WindowAction.assignablePreviewActions, id: \.self) { windowAction in
-                    HStack(spacing: 6) {
-                        Image(systemName: windowAction.iconName)
-                        Text(windowAction.localizedName)
+                Spacer(minLength: 8)
+
+                Picker("Action", selection: actionBinding(for: shortcut.id)) {
+                    ForEach(WindowAction.assignablePreviewActions, id: \.self) { windowAction in
+                        HStack(spacing: 6) {
+                            Image(systemName: windowAction.iconName)
+                            Text(windowAction.localizedName)
+                        }
+                        .tag(windowAction)
                     }
-                    .tag(windowAction)
                 }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
+                .pickerStyle(.menu)
+                .labelsHidden()
 
-            if let conflict {
-                Text(conflict.localizedMessage)
-                    .font(.caption2)
-                    .foregroundColor(.red)
-            }
-
-            Spacer(minLength: 0)
-
-            ControlGroup {
-                Button("-") {
-                    removeShortcut(shortcut.id)
-                }
-                Button("+") {
-                    addShortcut(after: shortcut.id)
-                }
-                .disabled(!canAddShortcut)
-            }
-            .labelsHidden()
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .background {
-            if conflict != nil {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.red.opacity(0.08))
-                    .allowsHitTesting(false)
-            }
-        }
-        .overlay {
-            if conflict != nil {
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.red.opacity(0.28), lineWidth: 1)
-                    .allowsHitTesting(false)
+                SettingsShortcutRemoveButton { removeShortcut(shortcut.id) }
             }
         }
     }
@@ -173,15 +125,10 @@ struct CmdKeyShortcutsSection: View {
         cmdShortcuts.removeAll { $0.id == id }
     }
 
-    private func addShortcut(after id: UUID?) {
+    private func addShortcut() {
         guard canAddShortcut else { return }
-        let insertionIndex = if let id {
-            min((cmdShortcuts.firstIndex(where: { $0.id == id }) ?? (cmdShortcuts.count - 1)) + 1, cmdShortcuts.count)
-        } else {
-            0
-        }
         let pending = CmdShortcut(keyCode: 0, action: .none, isPending: true)
-        cmdShortcuts.insert(pending, at: insertionIndex)
+        cmdShortcuts.append(pending)
     }
 }
 
@@ -194,60 +141,20 @@ struct PreviewPostActionBehaviorSection: View {
     @Default(.moveResizeBringToForeground) private var moveResizeBringToForeground
 
     var body: some View {
-        SettingsSection("Keep previews open after action") {
-            Text("Select action types that should keep previews open. Unchecked actions close previews after running. Some actions may still change focus based on app/macOS behavior.")
-                .font(.caption2)
-                .foregroundColor(.secondary)
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 8) {
-                postActionBehaviorRow(
-                    category: .closing,
-                    icon: "xmark.circle",
-                    selection: $closingBehavior
-                )
+        SettingsSection("Keep previews open after action", footer: "Select action types that should keep previews open. Unchecked actions close previews after running. Some actions may still change focus based on app/macOS behavior.") {
+            postActionBehaviorRow(category: .closing, icon: "xmark.circle", selection: $closingBehavior)
                 .settingsSearchTarget("gestures.postActionClosing")
-
-                postActionBehaviorRow(
-                    category: .hiding,
-                    icon: "eye.slash",
-                    selection: $hidingBehavior
-                )
+            postActionBehaviorRow(category: .hiding, icon: "eye.slash", selection: $hidingBehavior)
                 .settingsSearchTarget("gestures.postActionHiding")
-
-                postActionBehaviorRow(
-                    category: .unhiding,
-                    icon: "eye",
-                    selection: $unhidingBehavior
-                )
+            postActionBehaviorRow(category: .unhiding, icon: "eye", selection: $unhidingBehavior)
                 .settingsSearchTarget("gestures.postActionUnhiding")
-
-                postActionBehaviorRow(
-                    category: .newWindow,
-                    icon: "plus.rectangle.on.rectangle",
-                    selection: $newWindowBehavior
-                )
+            postActionBehaviorRow(category: .newWindow, icon: "plus.rectangle.on.rectangle", selection: $newWindowBehavior)
                 .settingsSearchTarget("gestures.postActionNewWindow")
-
-                VStack(alignment: .leading, spacing: 8) {
-                    postActionBehaviorRow(
-                        category: .movingAndResizing,
-                        icon: "arrow.up.left.and.arrow.down.right",
-                        selection: $movingResizingBehavior
-                    )
-                    .settingsSearchTarget("gestures.postActionMovingResizing")
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
-                        Text("Focus windows after moving, resizing, or tiling them. Dragging always focuses windows.")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
-                    .settingsSearchTarget("gestures.moveResizeForeground")
-                    .padding(.leading, 32)
-                }
-            }
+            postActionBehaviorRow(category: .movingAndResizing, icon: "arrow.up.left.and.arrow.down.right", selection: $movingResizingBehavior)
+                .settingsSearchTarget("gestures.postActionMovingResizing")
+            Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
+                .settingsSearchTarget("gestures.moveResizeForeground")
+                .settingsAnnotation("Focus windows after moving, resizing, or tiling them. Dragging always focuses windows.")
         }
     }
 

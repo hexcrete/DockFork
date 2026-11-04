@@ -2,22 +2,11 @@ import Defaults
 import SwiftUI
 
 struct AdvancedSettingsView: View {
-    @Default(.hoverWindowOpenDelay) var hoverWindowOpenDelay
-    @Default(.useDelayOnlyForInitialOpen) var useDelayOnlyForInitialOpen
-    @Default(.fadeOutDuration) var fadeOutDuration
-    @Default(.preventPreviewReentryDuringFadeOut) var preventPreviewReentryDuringFadeOut
-    @Default(.inactivityTimeout) var inactivityTimeout
     @Default(.windowProcessingDebounceInterval) var windowProcessingDebounceInterval
-    @Default(.programmaticResizePreviewRefreshDelay) var programmaticResizePreviewRefreshDelay
-    @Default(.nativeResizePreviewRefreshDelay) var nativeResizePreviewRefreshDelay
-    @Default(.enableSpringLoading) var enableSpringLoading
-    @Default(.useSystemSpringLoadingSpeed) var useSystemSpringLoadingSpeed
-    @Default(.springLoadingDelay) var springLoadingDelay
     @Default(.anchorDockPreviewPosition) var anchorDockPreviewPosition
     @Default(.preventDockHide) var preventDockHide
     @Default(.raisedWindowLevel) var raisedWindowLevel
     @Default(.disableMinWindowSizeFilter) var disableMinWindowSizeFilter
-    @Default(.windowlessAppActivationMode) var windowlessAppActivationMode
 
     @Default(.windowImageCaptureQuality) var windowImageCaptureQuality
     @Default(.screenCaptureCacheLifespan) var screenCaptureCacheLifespan
@@ -33,10 +22,16 @@ struct AdvancedSettingsView: View {
     @Default(.windowSwitcherLivePreviewScope) var windowSwitcherLivePreviewScope
     @Default(.livePreviewStreamKeepAlive) var livePreviewStreamKeepAlive
 
-    @Default(.enableDockLocking) private var enableDockLocking
-    @Default(.lockedDockScreenIdentifier) private var lockedDockScreenIdentifier
-    @Default(.dockLockOverrideModifier) private var dockLockOverrideModifier
+    @Default(.enableDockLocking) var enableDockLocking
+    @Default(.lockedDockScreenIdentifier) var lockedDockScreenIdentifier
+    @Default(.dockLockOverrideModifier) var dockLockOverrideModifier
 
+    @Default(.programmaticResizePreviewRefreshDelay) var programmaticResizePreviewRefreshDelay
+    @Default(.nativeResizePreviewRefreshDelay) var nativeResizePreviewRefreshDelay
+    @Default(.enableSpringLoading) var enableSpringLoading
+    @Default(.useSystemSpringLoadingSpeed) var useSystemSpringLoadingSpeed
+    @Default(.springLoadingDelay) var springLoadingDelay
+    @Default(.windowlessAppActivationMode) var windowlessAppActivationMode
     @FocusState private var isKeepAliveFieldFocused: Bool
     @State private var lastKeepAliveDuration: Int = 5
     @State private var keepAliveDurationText = "5"
@@ -46,7 +41,6 @@ struct AdvancedSettingsView: View {
             performanceTuningSection
             springLoadingSection
             previewQualitySection
-            dockLockingSection
             livePreviewSection
 
             if enableLivePreview {
@@ -54,96 +48,48 @@ struct AdvancedSettingsView: View {
                 switcherLivePreviewSection
                 streamManagementSection
             }
+
+            dockLockingSection
         }
         .onAppear {
+            applyResizeRefreshDebounceDelays()
             if livePreviewStreamKeepAlive > 0 {
                 lastKeepAliveDuration = livePreviewStreamKeepAlive
                 keepAliveDurationText = "\(livePreviewStreamKeepAlive)"
             }
-            applyResizeRefreshDebounceDelays()
         }
-        .onChange(of: programmaticResizePreviewRefreshDelay) { _ in
-            applyResizeRefreshDebounceDelays()
-        }
-        .onChange(of: nativeResizePreviewRefreshDelay) { _ in
-            applyResizeRefreshDebounceDelays()
-        }
-    }
-
-    // MARK: - Spring-loading
-
-    private var springLoadingSection: some View {
-        SettingsSection("Spring-loading") {
-            Toggle(isOn: $enableSpringLoading) {
-                Text("Enable spring-loading")
-            }
-            .settingsSearchTarget("advanced.enableSpringLoading")
-
-            Text("Spring-loading reveals and activates a window after you drag an item over its preview in Dock previews, Window Switcher, or Cmd+Tab.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            if enableSpringLoading {
-                Toggle(isOn: $useSystemSpringLoadingSpeed) {
-                    Text("Use system spring-loading speed")
-                }
-                .settingsSearchTarget("advanced.useSystemSpringLoadingSpeed")
-
-                if !useSystemSpringLoadingSpeed {
-                    sliderSetting(
-                        title: "Spring-loading delay",
-                        value: $springLoadingDelay,
-                        range: 0.5 ... 2,
-                        step: 0.05,
-                        unit: "seconds",
-                        formatter: NumberFormatter.twoDecimalFormatter
-                    )
-                    .settingsSearchTarget("advanced.springLoadingDelay")
-                }
-            }
-        }
+        .onChange(of: programmaticResizePreviewRefreshDelay) { _ in applyResizeRefreshDebounceDelays() }
+        .onChange(of: nativeResizePreviewRefreshDelay) { _ in applyResizeRefreshDebounceDelays() }
     }
 
     // MARK: - Performance Tuning
 
     private var performanceTuningSection: some View {
         SettingsSection("Performance Tuning") {
-            sliderSetting(title: "Preview Window Open Delay", value: $hoverWindowOpenDelay, range: 0 ... 2, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
-                .settingsSearchTarget("advanced.openDelay")
-
-            Toggle(isOn: $useDelayOnlyForInitialOpen) {
-                Text("Only use delay for initial window opening")
-            }
-            .settingsSearchTarget("advanced.delayOnlyInitial")
-            Text("Switching between dock icons while a preview is already open will show previews instantly.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            sliderSetting(title: "Preview Window Fade Out Duration", value: $fadeOutDuration, range: 0 ... 2, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
-                .settingsSearchTarget("advanced.fadeOut")
-            sliderSetting(title: "Preview Window Inactivity Timer", value: $inactivityTimeout, range: 0 ... 3, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter)
-                .settingsSearchTarget("advanced.inactivity")
-            sliderSetting(title: "Window Processing Debounce Interval", value: $windowProcessingDebounceInterval, range: 0 ... 3, step: 0.1, unit: "seconds", formatter: NumberFormatter.oneDecimalFormatter, onEditingChanged: { isEditing in
-                if !isEditing {
-                    askUserToRestartApplication()
+            SettingsSliderRow(
+                title: "Window Processing Debounce Interval",
+                value: $windowProcessingDebounceInterval,
+                range: 0 ... 3,
+                unit: " s",
+                step: 0.1,
+                decimals: 1,
+                onEditingChanged: { isEditing in
+                    if !isEditing {
+                        askUserToRestartApplication()
+                    }
                 }
-            })
+            )
             .settingsSearchTarget("advanced.debounce")
-            sliderSetting(title: "Programmatic Resize Preview Refresh Delay", value: $programmaticResizePreviewRefreshDelay, range: 0 ... 1, step: 0.01, unit: "seconds", formatter: NumberFormatter.twoDecimalFormatter)
-                .settingsSearchTarget("advanced.programmaticResizeRefreshDelay")
-            sliderSetting(title: "Native Resize Preview Refresh Delay", value: $nativeResizePreviewRefreshDelay, range: 0 ... 1, step: 0.01, unit: "seconds", formatter: NumberFormatter.twoDecimalFormatter)
-                .settingsSearchTarget("advanced.nativeResizeRefreshDelay")
 
+            SettingsSliderRow(title: "Programmatic Resize Preview Refresh Delay", value: $programmaticResizePreviewRefreshDelay, range: 0 ... 1, defaultValue: Defaults.Keys.programmaticResizePreviewRefreshDelay.defaultValue, unit: " s", step: 0.01, decimals: 2)
+                .settingsSearchTarget("advanced.programmaticResizeRefreshDelay")
+            SettingsSliderRow(title: "Native Resize Preview Refresh Delay", value: $nativeResizePreviewRefreshDelay, range: 0 ... 1, defaultValue: Defaults.Keys.nativeResizePreviewRefreshDelay.defaultValue, unit: " s", step: 0.01, decimals: 2)
+                .settingsSearchTarget("advanced.nativeResizeRefreshDelay")
             Toggle(isOn: $anchorDockPreviewPosition) {
                 Text("Anchor preview to initial dock icon position")
             }
             .settingsSearchTarget("advanced.anchorPosition")
-            Text("Keeps the preview pinned where the dock icon was when first hovered, preventing it from jumping when the dock auto-hides.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
+            .settingsAnnotation("Keeps the preview pinned where the dock icon was when first hovered, preventing it from jumping when the dock auto-hides.")
 
             Toggle(isOn: $preventDockHide) { Text("Prevent dock from hiding during previews") }
                 .settingsSearchTarget("advanced.preventDockHide")
@@ -155,39 +101,15 @@ struct AdvancedSettingsView: View {
                 Text("Show small windows (under 100px)")
             }
             .settingsSearchTarget("advanced.smallWindows")
-            Text("Includes small windows like Finder's copy progress dialog in previews.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            Toggle(isOn: $preventPreviewReentryDuringFadeOut) {
-                Text("Prevent preview reappearance during fade-out")
-            }
-            .settingsSearchTarget("advanced.preventReentry")
-            Text("Moving the mouse back over the preview during fade-out will not reactivate it.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
+            .settingsAnnotation("Includes small windows like Finder's copy progress dialog in previews.")
 
             Picker(String(localized: "Clicking windowless apps", comment: "Setting label for behavior when activating apps with no windows"), selection: $windowlessAppActivationMode) {
-                ForEach(WindowlessAppActivationMode.allCases, id: \.self) { mode in
-                    Text(mode.localizedName).tag(mode)
-                }
+                ForEach(WindowlessAppActivationMode.allCases, id: \.self) { mode in Text(mode.localizedName).tag(mode) }
             }
-            .pickerStyle(.menu)
-            .settingsSearchTarget("advanced.openNewWindow")
-            Text(windowlessAppActivationMode.localizedDescription)
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-        }
-    }
 
-    private func applyResizeRefreshDebounceDelays() {
-        WindowUtil.setResizeRefreshDebounceDelays(
-            programmaticSeconds: programmaticResizePreviewRefreshDelay,
-            axSeconds: nativeResizePreviewRefreshDelay
-        )
+            .settingsSearchTarget("advanced.openNewWindow")
+            .settingsAnnotation(verbatim: windowlessAppActivationMode.localizedDescription)
+        }
     }
 
     // MARK: - Preview Quality
@@ -199,13 +121,23 @@ struct AdvancedSettingsView: View {
                     Text(quality.localizedName).tag(quality)
                 }
             }
-            .pickerStyle(.menu)
             .settingsSearchTarget("advanced.captureQuality")
 
-            sliderSetting(title: "Window Image Cache Lifespan", value: $screenCaptureCacheLifespan, range: 0 ... 60, step: 10, unit: "seconds")
-                .settingsSearchTarget("advanced.cacheLifespan")
-            sliderSetting(title: "Window Image Resolution Scale (1=Best)", value: $windowPreviewImageScale, range: 1 ... 4, step: 1, unit: "")
-                .settingsSearchTarget("advanced.imageScale")
+            SettingsSliderRow(
+                title: "Window Image Cache Lifespan",
+                value: $screenCaptureCacheLifespan,
+                range: 0 ... 60,
+                unit: " s",
+                step: 10
+            )
+            .settingsSearchTarget("advanced.cacheLifespan")
+            SettingsSliderRow(
+                title: "Window Image Resolution Scale (1=Best)",
+                value: $windowPreviewImageScale,
+                range: 1 ... 4,
+                step: 1
+            )
+            .settingsSearchTarget("advanced.imageScale")
         }
     }
 
@@ -215,16 +147,15 @@ struct AdvancedSettingsView: View {
         SettingsSection("Live Preview") {
             Toggle(isOn: $enableLivePreview) { Text("Enable Live Preview (Video)") }
                 .settingsSearchTarget("advanced.livePreview")
-            Text("Window previews show live video instead of static screenshots. Uses ScreenCaptureKit for real-time capture.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.leading, 20)
-
-            if enableLivePreview {
-                Text("Higher quality and frame rate use more CPU/GPU resources. Use lower settings for Window Switcher if you experience lag.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
+                .onChange(of: enableLivePreview) { newValue in
+                    if !newValue {
+                        Task { await LiveCaptureManager.shared.stopAllStreams() }
+                    }
+                }
+                .settingsAnnotation(
+                    "Window previews show live video instead of static screenshots. Uses ScreenCaptureKit for real-time capture.",
+                    more: "Higher quality and frame rate use more CPU/GPU resources. Use lower settings for Window Switcher if you experience lag."
+                )
         }
     }
 
@@ -236,21 +167,19 @@ struct AdvancedSettingsView: View {
                 .settingsSearchTarget("advanced.livePreviewDock")
 
             if enableLivePreviewForDock {
-                Picker("Quality", selection: $dockLivePreviewQuality) {
-                    ForEach(LivePreviewQuality.allCases, id: \.self) { quality in
-                        Text(quality.localizedName).tag(quality)
+                Group {
+                    Picker("Quality", selection: $dockLivePreviewQuality) {
+                        ForEach(LivePreviewQuality.allCases, id: \.self) { quality in
+                            Text(quality.localizedName).tag(quality)
+                        }
                     }
-                }
-                .pickerStyle(.menu)
-                .padding(.leading, 20)
 
-                Picker("Frame Rate", selection: $dockLivePreviewFrameRate) {
-                    ForEach(LivePreviewFrameRate.allCases, id: \.self) { fps in
-                        Text(fps.localizedName).tag(fps)
+                    Picker("Frame Rate", selection: $dockLivePreviewFrameRate) {
+                        ForEach(LivePreviewFrameRate.allCases, id: \.self) { fps in
+                            Text(fps.localizedName).tag(fps)
+                        }
                     }
                 }
-                .pickerStyle(.menu)
-                .padding(.leading, 20)
             }
         }
     }
@@ -263,34 +192,29 @@ struct AdvancedSettingsView: View {
                 .settingsSearchTarget("advanced.livePreviewSwitcher")
 
             if enableLivePreviewForWindowSwitcher {
-                Picker("Quality", selection: $windowSwitcherLivePreviewQuality) {
-                    ForEach(LivePreviewQuality.allCases, id: \.self) { quality in
-                        Text(quality.localizedName).tag(quality)
+                Group {
+                    Picker("Quality", selection: $windowSwitcherLivePreviewQuality) {
+                        ForEach(LivePreviewQuality.allCases, id: \.self) { quality in
+                            Text(quality.localizedName).tag(quality)
+                        }
                     }
-                }
-                .pickerStyle(.menu)
-                .padding(.leading, 20)
 
-                Picker("Frame Rate", selection: $windowSwitcherLivePreviewFrameRate) {
-                    ForEach(LivePreviewFrameRate.allCases, id: \.self) { fps in
-                        Text(fps.localizedName).tag(fps)
+                    Picker("Frame Rate", selection: $windowSwitcherLivePreviewFrameRate) {
+                        ForEach(LivePreviewFrameRate.allCases, id: \.self) { fps in
+                            Text(fps.localizedName).tag(fps)
+                        }
                     }
-                }
-                .pickerStyle(.menu)
-                .padding(.leading, 20)
 
-                Picker("Scope", selection: $windowSwitcherLivePreviewScope) {
-                    ForEach(WindowSwitcherLivePreviewScope.allCases, id: \.self) { scope in
-                        Text(scope.localizedName).tag(scope)
+                    Picker("Scope", selection: $windowSwitcherLivePreviewScope) {
+                        ForEach(WindowSwitcherLivePreviewScope.allCases, id: \.self) { scope in
+                            Text(scope.localizedName).tag(scope)
+                        }
                     }
-                }
-                .pickerStyle(.menu)
-                .padding(.leading, 20)
 
-                Text(windowSwitcherLivePreviewScope.localizedDescription)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .padding(.leading, 20)
+                    Text(windowSwitcherLivePreviewScope.localizedDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -299,87 +223,57 @@ struct AdvancedSettingsView: View {
 
     private var streamManagementSection: some View {
         SettingsSection("Stream Management") {
-            Text("Stream Keep-Alive Duration")
-                .onTapGesture { isKeepAliveFieldFocused = false }
-
-            HStack(spacing: 0) {
-                Button(action: {
-                    setKeepAliveMode(0)
-                }) {
-                    Text("Immediately close")
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .background(livePreviewStreamKeepAlive == 0 ? Color.accentColor : Color.secondary.opacity(0.15))
-                .foregroundColor(livePreviewStreamKeepAlive == 0 ? .white : .primary)
-                .contentShape(Rectangle())
-
-                HStack(spacing: 4) {
-                    TextField("", text: $keepAliveDurationText)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 40)
-                        .multilineTextAlignment(.center)
-                        .focused($isKeepAliveFieldFocused)
-                        .onSubmit {
-                            commitKeepAliveDurationText()
-                        }
-                        .onChange(of: isKeepAliveFieldFocused) { focused in
-                            if focused {
-                                selectKeepAliveDuration()
-                            } else {
-                                commitKeepAliveDurationText()
-                            }
-                        }
-                    Button(action: { isKeepAliveFieldFocused = true }) {
-                        Text("seconds")
-                            .foregroundColor(livePreviewStreamKeepAlive > 0 ? .white : .primary)
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .background(livePreviewStreamKeepAlive > 0 ? Color.accentColor : Color.secondary.opacity(0.15))
-                .contentShape(Rectangle())
-
-                Button(action: {
-                    setKeepAliveMode(-1)
-                }) {
-                    Text("Keep Open")
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .background(livePreviewStreamKeepAlive == -1 ? Color.accentColor : Color.secondary.opacity(0.15))
-                .foregroundColor(livePreviewStreamKeepAlive == -1 ? .white : .primary)
-                .contentShape(Rectangle())
+            Picker("Stream Keep-Alive Duration", selection: keepAliveModeBinding) {
+                Text("Immediately close").tag(0)
+                Text("Close after a delay").tag(1)
+                Text("Keep Open").tag(-1)
             }
-            .cornerRadius(6)
-            .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-            )
             .onChange(of: livePreviewStreamKeepAlive) { newValue in
                 if newValue > 0 {
                     lastKeepAliveDuration = newValue
-                    if !isKeepAliveFieldFocused {
-                        keepAliveDurationText = "\(newValue)"
-                    }
+                    keepAliveDurationText = "\(newValue)"
                 }
                 if newValue == 0 {
-                    Task { await LiveCaptureManager.stopAllIfInitialized() }
+                    Task { await LiveCaptureManager.shared.stopAllStreams() }
                 }
             }
+            .settingsAnnotation("How long to keep video streams active after closing preview. Longer duration means faster reopening but uses more resources.")
+            .settingsSearchTarget("advanced.streamKeepAlive")
 
-            Text("How long to keep video streams active after closing preview. Longer duration means faster reopening but uses more resources.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .onTapGesture { isKeepAliveFieldFocused = false }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .settingsSearchTarget("advanced.streamKeepAlive")
+            if livePreviewStreamKeepAlive > 0 {
+                LabeledContent("Close after") {
+                    HStack(spacing: 6) {
+                        TextField("", text: $keepAliveDurationText)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 48)
+                            .multilineTextAlignment(.trailing)
+                            .focused($isKeepAliveFieldFocused)
+                            .onSubmit {
+                                commitKeepAliveDurationText()
+                            }
+                            .onChange(of: keepAliveDurationText) { _ in
+                                updateKeepAliveDurationFromText()
+                            }
+                            .onChange(of: isKeepAliveFieldFocused) { focused in
+                                if !focused {
+                                    commitKeepAliveDurationText()
+                                }
+                            }
+                        Text("seconds")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
+    }
+
+    private var keepAliveModeBinding: Binding<Int> {
+        Binding(
+            get: { livePreviewStreamKeepAlive > 0 ? 1 : livePreviewStreamKeepAlive },
+            set: { mode in
+                setKeepAliveMode(mode == 1 ? lastKeepAliveDuration : mode)
+            }
+        )
     }
 
     private func setKeepAliveMode(_ value: Int) {
@@ -392,10 +286,14 @@ struct AdvancedSettingsView: View {
         }
     }
 
-    private func selectKeepAliveDuration() {
-        let duration = positiveKeepAliveDuration() ?? lastKeepAliveDuration
+    private func updateKeepAliveDurationFromText() {
+        guard let duration = positiveKeepAliveDuration() else { return }
+
         lastKeepAliveDuration = duration
-        livePreviewStreamKeepAlive = duration
+
+        if livePreviewStreamKeepAlive > 0 {
+            livePreviewStreamKeepAlive = duration
+        }
     }
 
     private func commitKeepAliveDurationText() {
@@ -451,11 +349,13 @@ struct AdvancedSettingsView: View {
                 }
 
             if enableDockLocking {
-                dockLockingConfiguration
-                SettingsNote(
-                    icon: "info.circle",
-                    text: "Dock Locking works best with a bottom-positioned Dock in a multi-monitor setup where \"Displays have separate Spaces\" is enabled in System Settings → Desktop & Dock → Mission Control. The Dock won't jump to another monitor while this feature is enabled."
-                )
+                Group {
+                    dockLockingConfiguration
+                    SettingsNote(
+                        icon: "info.circle",
+                        text: "Dock Locking works best with a bottom-positioned Dock in a multi-monitor setup where \"Displays have separate Spaces\" is enabled in System Settings → Desktop & Dock → Mission Control. The Dock won't jump to another monitor while this feature is enabled."
+                    )
+                }
             }
         }
     }
@@ -490,5 +390,42 @@ struct AdvancedSettingsView: View {
             .settingsSearchTarget("dockLocking.bypass")
             .settingsAnnotation("Hold this key to temporarily allow the Dock to move freely.")
         }
+    }
+
+    private var springLoadingSection: some View {
+        SettingsSection("Spring-loading") {
+            Toggle(isOn: $enableSpringLoading) {
+                Text("Enable spring-loading")
+            }
+            .settingsSearchTarget("advanced.enableSpringLoading")
+
+            Text("Spring-loading reveals and activates a window after you drag an item over its preview in Dock previews, Window Switcher, or Cmd+Tab.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.leading, 20)
+
+            if enableSpringLoading {
+                Group {
+                    Toggle(isOn: $useSystemSpringLoadingSpeed) {
+                        Text("Use system spring-loading speed")
+                    }
+                    .settingsSearchTarget("advanced.useSystemSpringLoadingSpeed")
+
+                    if !useSystemSpringLoadingSpeed {
+                        Group {
+                            SettingsSliderRow(title: "Spring-loading delay", value: $springLoadingDelay, range: 0.5 ... 2, defaultValue: Defaults.Keys.springLoadingDelay.defaultValue, unit: " s", step: 0.05, formatter: NumberFormatter.twoDecimalFormatter)
+                                .settingsSearchTarget("advanced.springLoadingDelay")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func applyResizeRefreshDebounceDelays() {
+        WindowUtil.setResizeRefreshDebounceDelays(
+            programmaticSeconds: programmaticResizePreviewRefreshDelay,
+            axSeconds: nativeResizePreviewRefreshDelay
+        )
     }
 }

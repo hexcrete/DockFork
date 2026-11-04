@@ -89,12 +89,121 @@ struct SettingsSection<Content: View>: View {
     }
 }
 
+struct SettingsKeyCaptureControls: View {
+    @Binding var keyCode: UInt16
+    let defaultKeyCode: UInt16
+    var captureModifiers = false
+    var modifierLabel: String?
+    var conflict: AlternateSwitcherShortcutConflict?
+    var emptyLabel: String?
+    var forceEmptyLabel = false
+    var treatKeyCodeZeroAsEmpty = true
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let modifierLabel {
+                Text(modifierLabel).foregroundStyle(.secondary)
+            }
+            KeyCaptureButton(keyCode: $keyCode, emptyLabel: emptyLabel, forceEmptyLabel: forceEmptyLabel,
+                             treatKeyCodeZeroAsEmpty: treatKeyCodeZeroAsEmpty, captureModifiers: captureModifiers)
+            SettingsShortcutConflictWarning(conflict: conflict)
+            SettingsResetButton(isModified: keyCode != defaultKeyCode) { keyCode = defaultKeyCode }
+        }
+    }
+}
+
+struct SettingsShortcutRow<Trigger: View, Options: View>: View {
+    @ViewBuilder let trigger: Trigger
+    @ViewBuilder let options: Options
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            trigger
+            Spacer(minLength: 8)
+            options
+            SettingsShortcutRemoveButton(action: onRemove)
+        }
+    }
+}
+
+struct SettingsShortcutModePicker: View {
+    @Binding var selection: SwitcherInvocationMode
+
+    var body: some View {
+        Picker("Mode", selection: $selection) {
+            ForEach(SwitcherInvocationMode.sortedCases) { mode in
+                Text(mode.localizedName).tag(mode)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .frame(minWidth: 44, maxWidth: 260, alignment: .trailing)
+        .layoutPriority(-1)
+        .help(selection.localizedName)
+        .accessibilityValue(selection.localizedName)
+    }
+}
+
+struct SettingsShortcutConflictWarning: View {
+    let conflict: AlternateSwitcherShortcutConflict?
+
+    var body: some View {
+        if let conflict {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .help(conflict.localizedMessage)
+                .accessibilityLabel(conflict.localizedMessage)
+        }
+    }
+}
+
+struct SettingsShortcutRemoveButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("Remove shortcut")
+        .accessibilityLabel("Remove shortcut")
+    }
+}
+
+struct SettingsShortcutAddButton: View {
+    let title: LocalizedStringKey
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) { Label(title, systemImage: "plus") }
+            .buttonStyle(.settings)
+            .disabled(!isEnabled)
+    }
+}
+
+struct SettingsShortcutListFooter: View {
+    let title: LocalizedStringKey
+    let canAdd: Bool
+    let onAdd: () -> Void
+    let onReset: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            SettingsShortcutAddButton(title: title, isEnabled: canAdd, action: onAdd)
+            Spacer(minLength: 0)
+            Button("Reset to Defaults", action: onReset).buttonStyle(.settings)
+        }
+    }
+}
+
 struct SettingsButtonStyle: PrimitiveButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         if #available(macOS 26.0, *) {
             Button(configuration).buttonStyle(.glass)
         } else {
-            Button(configuration).buttonStyle(.settings)
+            Button(configuration).buttonStyle(.bordered)
         }
     }
 }
@@ -120,57 +229,5 @@ struct SettingsResetButton: View {
         .accessibilityLabel("Reset to default")
         .opacity(isModified ? 1 : 0)
         .disabled(!isModified)
-    }
-}
-
-struct SettingsIllustratedToggle<Caption: View>: View {
-    @Binding var isOn: Bool
-    let title: LocalizedStringKey
-    let imageName: String?
-    @ViewBuilder var caption: Caption
-
-    init(
-        isOn: Binding<Bool>,
-        title: LocalizedStringKey,
-        imageName: String? = nil,
-        @ViewBuilder caption: () -> Caption
-    ) {
-        _isOn = isOn
-        self.title = title
-        self.imageName = imageName
-        self.caption = caption()
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Toggle(isOn: $isOn) { Text(title) }
-
-                caption
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, 20)
-            }
-
-            Spacer(minLength: 12)
-
-            if let imageName {
-                Image(imageName)
-                    .resizable()
-                    .interpolation(.high)
-                    .antialiased(true)
-                    .scaledToFill()
-                    .frame(width: 280, height: 170)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            }
-        }
-    }
-}
-
-extension SettingsIllustratedToggle where Caption == EmptyView {
-    init(isOn: Binding<Bool>, title: LocalizedStringKey, imageName: String? = nil) {
-        self.init(isOn: isOn, title: title, imageName: imageName) { EmptyView() }
     }
 }

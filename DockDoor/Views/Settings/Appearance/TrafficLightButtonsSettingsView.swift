@@ -16,27 +16,30 @@ struct TrafficLightButtonsSettingsView: View {
         }
 
         if trafficLightButtonsVisibility != .never {
-            EnabledButtonsPicker(enabledButtons: $enabledButtons) {
-                MessageUtil.showAlert(
-                    title: String(localized: "All buttons removed"),
-                    message: String(localized: "Your traffic lights will be set to disabled automatically."),
-                    actions: [.ok, .cancel]
-                ) { action in
-                    if action == .ok {
-                        trafficLightButtonsVisibility = .never
+            Group {
+                EnabledButtonsPicker(enabledButtons: $enabledButtons) {
+                    MessageUtil.showAlert(
+                        title: String(localized: "All buttons removed"),
+                        message: String(localized: "Your traffic lights will be set to disabled automatically."),
+                        actions: [.ok, .cancel]
+                    ) { action in
+                        if action == .ok {
+                            trafficLightButtonsVisibility = .never
+                        }
                     }
                 }
+
+                Toggle("Use Monochrome Colors", isOn: $useMonochrome)
+
+                SettingsSliderRow(
+                    title: "Button Scale",
+                    value: $buttonScale,
+                    range: 0.75 ... 2.0,
+                    unit: "×",
+                    step: 0.05
+                )
+                .settingsSearchTarget("appearance.trafficLightButtonScale")
             }
-
-            Toggle("Use Monochrome Colors", isOn: $useMonochrome)
-
-            SettingsSliderRow(
-                title: "Button Scale",
-                value: $buttonScale,
-                range: 0.75 ... 2.0,
-                unit: "×",
-                step: 0.05
-            )
         }
     }
 }
