@@ -1,5 +1,11 @@
 # DockFork: Changes and Showcase
 
+## November 5 Shared Search Container Styling
+
+Search now shares the actual `HoverContainerChrome` modifier with Window Switcher/Spaces Bar containers: material, glass settings, custom/opaque colors, container corner radius, border, background opacity and adjustable shadow. The one exception is background hiding: search ignores Hide hover container background. Explicit background opacity and shadow settings still apply. Native panel shadow stays disabled; the shared content-layer shadow fades with the search and does not leave a separate WindowServer layer behind.
+
+Extract the existing container styling unchanged rather than copy it. Existing containers retain hide/widget/mock/highlight behavior. Search retains native clear/editor/focus and placement enhancements, a 300-by-40-point visible pill and equal eight-point visible gaps. Transparent panel room accommodates shared shadows without changing search-disabled layout. This unshipped follow-up supersedes the trial of plain upstream search chrome; published 0.5.0 assets remain unchanged. User visual verification is separate from source/build checks.
+
 ## 0.5.0 Stable Release
 
 The Settings/shortcuts and gesture update is published as [stable 0.5.0](https://github.com/hexcrete/DockFork/releases/tag/v0.5.0) with user authorization, without rebuilding the audited package. The November 4 showcase export replaces the maintained preset: 270 recognized preferences, 15 generic-ID shortcut rows, debug logging Off and obsolete/private keys removed. No app defaults or live settings change. See [public notes](RELEASE_BODY_0.5.0.md) and [release record](RELEASE_NOTES_0.5.0.md). Previous release assets and deferred media states are unchanged.

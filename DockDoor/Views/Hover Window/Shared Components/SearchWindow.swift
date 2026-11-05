@@ -16,6 +16,7 @@ private final class BorderlessSearchFieldCell: NSSearchFieldCell {
 struct SearchFieldView: View {
     let searchField: NSTextField
     @State private var backgroundAppearance: BackgroundAppearance = .resolve()
+    @State private var radii: CardRadius.Resolved = .current()
 
     var body: some View {
         HStack(spacing: 8) {
@@ -27,12 +28,16 @@ struct SearchFieldView: View {
                 .frame(maxWidth: .infinity)
         }
         .padding(.horizontal, 12)
-        .materialPill(backgroundAppearance: backgroundAppearance)
-        .frame(height: SearchWindow.searchHeight)
+        .frame(height: SearchWindow.pillHeight)
+        .modifier(HoverContainerChrome(backgroundAppearance: backgroundAppearance, cornerRadius: radii.container))
+        .padding(.all, SearchWindow.verticalPadding)
         .task {
-            for await _ in Defaults.updates(BackgroundAppearance.observedKeys, initial: true) {
+            let keys: [Defaults._AnyKey] = BackgroundAppearance.observedKeys + [.uniformCardRadius, .previewCornerRadius, .globalPaddingMultiplier]
+            for await _ in Defaults.updates(keys, initial: true) {
                 let updated = BackgroundAppearance.resolve()
                 if updated != backgroundAppearance { backgroundAppearance = updated }
+                let updatedRadii = CardRadius.Resolved.current()
+                if updatedRadii != radii { radii = updatedRadii }
             }
         }
     }
@@ -49,11 +54,11 @@ struct SearchTextFieldRepresentable: NSViewRepresentable {
 }
 
 class SearchWindow: NSPanel, NSSearchFieldDelegate {
-    static let searchWidth: CGFloat = 300
-    static let searchHeight: CGFloat = 40
-    // The panel frame sits slightly inside the container edge. The capsule is
-    // vertically centered within that frame, leaving a small visible gap.
-    static let panelEdgeOffset: CGFloat = -4
+    static var searchWidth: CGFloat { 300 + (verticalPadding + HoverContainerPadding.dockStyleOuter) * 2 }
+    static let pillHeight: CGFloat = 40
+    static let verticalPadding: CGFloat = HoverContainerPadding.container
+    static var searchHeight: CGFloat { pillHeight + (verticalPadding + HoverContainerPadding.dockStyleOuter) * 2 }
+    static var panelEdgeOffset: CGFloat { SpacesBarLayout.gap - verticalPadding - HoverContainerPadding.dockStyleOuter * 2 }
     static let reservedHeight = max(
         0,
         searchHeight + panelEdgeOffset - HoverContainerPadding.container

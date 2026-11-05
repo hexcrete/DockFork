@@ -1160,7 +1160,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     var searchWindowFrame: NSRect? {
         guard let searchWindow, searchWindow.isVisible else { return nil }
-        return searchWindow.frame
+        let inset = SearchWindow.verticalPadding + HoverContainerPadding.dockStyleOuter
+        return searchWindow.frame.insetBy(dx: inset, dy: inset)
     }
 
     func containsQuartzPoint(_ point: CGPoint) -> Bool {

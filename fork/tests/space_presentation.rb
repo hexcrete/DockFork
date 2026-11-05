@@ -407,6 +407,7 @@ abort 'Old presentation builders must be removed' if view.include?('private func
 abort 'Menu must preserve fullscreen availability and current badges' unless destination_menu.include?('!entry.isFullscreen || showUnavailable') && destination_menu.include?('if presentedSpace.isCurrent,')
 abort 'Menu must keep native shared icon formatting' unless view.include?('AppIconStripFormatting.attributedIcons(appIcons, maximumVisible: max(0, 5 - attachmentCount)')
 bar = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SearchWindow.swift")
+search_metrics = %w[searchWidth pillHeight verticalPadding searchHeight panelEdgeOffset].map { |name| bar.lines.find { |line| line.match?(/static (?:let|var) #{name}:/) } or abort "Missing search metric #{name}" }.join
 abort 'Space labels must share Compact Mode primary typography and measurement' unless bar.include?('Defaults[.spacesBarItemSize].primaryFont') && bar.include?('Defaults[.spacesBarItemSize].primaryAppKitFont') && bar.include?('let font = SpacesBarLayout.textFont')
 panel = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
 abort 'Unchanged Space contents must skip unnecessary layout' unless panel.include?('guard contentsChanged || reason.contains(.layout) else { return }')
@@ -529,9 +530,9 @@ end
 source += "}\n"
 
 source += "import AppKit\nextension CompactModeItemSize {\n" + block(font_sizes, '    var primaryAppKitFont:') + "\n}\nextension SpacesBarItemSize {\n" + block(font_space_sizes, '    var primaryAppKitFont:') + "\n}\n"
+source += "enum SearchWindow {\n" + search_metrics + "}\n"
 source += <<~'SWIFT'
 enum PreviewHeaderLayout { static let horizontalInset: CGFloat = 20 }
-enum SearchWindow { static let searchHeight: CGFloat = 40; static let panelEdgeOffset: CGFloat = -4 }
 enum WindowStateIndicator { static let styledMinimumAspectRatio: CGFloat = 1.2; static let styledContentPadding: CGFloat = 4 }
 enum MaterialPillStyle { static let horizontalInset: CGFloat = 9.125 }
 enum Defaults { struct Key<T> { let value: T }; static var size = SpacesBarItemSize.small; static var padding: CGFloat = 1; static subscript<T>(_ key: Key<T>) -> T { key.value } }
@@ -796,7 +797,7 @@ source += <<~'SWIFT'
   precondition(SpacesBarLayout.widths(ideal:[240,240],minimum:[240,240],available:100)==[240,240])
   precondition(SpacesBarLayout.widths(ideal:[],minimum:[],available:600).isEmpty)
   precondition(SpacesBarLayout.widths(ideal:[10,30],minimum:[48,48],available:100)==[48,48], "Short labels must use the shared Space indicator ratio")
-  precondition(SpacesBarLayout.reservation(displayCount:1,search:true)==108)
+  precondition(SpacesBarLayout.reservation(displayCount:1,search:true)==SpacesBarLayout.reservation(displayCount:1,search:false) + SearchWindow.pillHeight + SpacesBarLayout.gap)
   precondition(SpacesBarLayout.reservation(displayCount:1,search:false)==80)
   for fraction: CGFloat in [0,0.1,0.49,0.5,0.9] {
    let fitted = SpacesBarLayout.windowSize(CGSize(width:240+fraction,height:300+fraction),maximum:CGSize(width:600.8,height:500.8))
@@ -866,10 +867,10 @@ for fraction: CGFloat in [0,0.1,0.49,0.5,0.9] {
  let bar = SpacesBarLayout.frame(grid:grid,size:CGSize(width:400+fraction,height:124+fraction),screen:CGRect(x:0,y:0,width:2000,height:2000),search:true,alignment:0.5)
  precondition(bar == bar.integral, "Companion target frames must survive AppKit rounding unchanged")
  let searchBottom = SpacesBarLayout.searchY(gridTop:grid.maxY)
- let pillInset: CGFloat = 5.375
+ let pillInset = SearchWindow.verticalPadding + HoverContainerPadding.dockStyleOuter
  let lowerGap = searchBottom + pillInset - (grid.maxY-SpacesBarLayout.outerPadding)
  let upperGap = bar.minY+SpacesBarLayout.outerPadding - (searchBottom+SearchWindow.searchHeight-pillInset)
- precondition(lowerGap == upperGap, "Search capsule's symmetric insets must leave equal visible gaps")
+ precondition(lowerGap == SpacesBarLayout.gap && lowerGap == upperGap, "Search padding must leave equal visible gaps")
 }
   let zebra=NSRunningApplication(11,"Zebra","example.zebra")
   let alpha=NSRunningApplication(12,"Alpha","example.alpha")
@@ -1292,7 +1293,7 @@ native_source += "struct AppSlotProbe: View {\n let count: Int\n let showBadges 
 native_source += " PreviewAppIcon(icon:app.application.icon,bundleURL:app.application.bundleURL,size:SpacesBarAppLayout.iconSize,showBadge:showBadges,badgeScale:badgeScale,mockPreviewActive:false).appWindowCount(app.windowCount,height:SpacesBarLayout.pillHeight)\n }\n}\n"
 native_source += block(File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/BaseHoverContainer.swift"), 'enum HoverContainerPadding {') + "\n"
 native_source += "enum SharedPreviewWindowCoordinator { struct Instance { let spacesBarReservation: CGFloat = 1 }; static let activeInstance: Instance? = Instance() }\n"
-native_source += "class SearchWindow: NSPanel { static let searchWidth: CGFloat = 300; static let searchHeight: CGFloat = 40; static let panelEdgeOffset: CGFloat = -4\n" + block(bar, '    func targetFrame(relativeTo frame:') + "\n}\n"
+native_source += "class SearchWindow: NSPanel {\n" + search_metrics + block(bar, '    func targetFrame(relativeTo frame:') + "\n}\n"
 native_source += "extension SpacesBarLayout { static let outerPadding: CGFloat = 26; static let gap: CGFloat = 8\n"
 native_source += bar.lines.find { |line| line.include?('static var searchGap:') }.strip + "\n"
 native_source += bar.lines.find { |line| line.include?('static func searchY(') }.strip + "\n"

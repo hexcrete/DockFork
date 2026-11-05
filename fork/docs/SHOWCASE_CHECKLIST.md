@@ -41,6 +41,8 @@ Double-tap currently selects one modifier and its side. Upstream supplies ordina
 
 The pinned examples and their placement come from upstream. Our contribution is appearance-only hover/checkbox interaction, accurate scaled hit targets and isolation from real windows: hover the cards, titles/icons and traffic lights, then toggle sample checkboxes with selection enabled. Dimming must remain until the buttons themselves are hovered; test their visible edges after scaling. For On title hover, move over the title in Dock/Cmd+Tab or the app icon in Compact Mode. The two sample windows remain unchanged by real window activity; example controls never activate, close, resize or otherwise operate on real windows. Include the settings immediately below the examples in K01 to show their bounded interaction area. No new capture ID or completion state is added.
 
+For search-spacing captures of the November 5 follow-up, keep the visible pill at 300 by 40 points and show symmetric drawing room with eight-point visible gaps matching the switcher. Compare search enabled/disabled; disabling search must not reserve that padding. This spacing adjustment is separate from inherited search chrome.
+
 ## Capture Conventions
 
 - Use harmless sample titles, files, browser pages, calendars and music. Hide notifications and redact account, license and private diagnostic details.
@@ -66,7 +68,7 @@ The pinned examples and their placement come from upstream. Our contribution is 
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | SC01 | Video: native search clear control | Filter by typed text and quick filtering, then use the native trailing clear control. Show restored results, retained text focus and typing immediately afterward. Include reopening, long input and both appearances. | `d0740c3` |
+| [ ] | SC01 | Video: native search clear control | Filter by typed text and quick filtering, then use the native trailing clear control. Show restored results, retained text focus and typing immediately afterward. Include reopening, long input and both appearances. The November 5 development follow-up shares the actual container chrome and adjustable content-layer shadow, but ignores Hide hover container background. The base material is inherited; sharing it with search and preserving fade is the fork adjustment. Record whether the capture uses published 0.5.0 or this follow-up. | `d0740c3` |
 
 ## Cmd+Tab First-Use Hint
 

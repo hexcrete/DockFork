@@ -13,12 +13,8 @@ enum HoverContainerPadding {
 }
 
 struct BaseHoverContainer<Content: View>: View {
-    @Default(.dockPreviewBackgroundOpacity) var dockPreviewBackgroundOpacity
     @Default(.hideHoverContainerBackground) var hideHoverContainerBackground
     @Default(.hideWidgetContainerBackground) var hideWidgetContainerBackground
-    @Default(.showPreviewShadow) var showPreviewShadow
-    @Default(.previewShadowRadius) var previewShadowRadius
-    @Default(.previewShadowOpacity) var previewShadowOpacity
 
     let content: Content
     let bestGuessMonitor: NSScreen
@@ -52,34 +48,57 @@ struct BaseHoverContainer<Content: View>: View {
         isWidget ? hideWidgetContainerBackground : hideHoverContainerBackground
     }
 
-    private var backgroundOpacity: CGFloat {
-        shouldHideBackground ? 0 : dockPreviewBackgroundOpacity
-    }
-
     var body: some View {
         content
             .if(!preventDockStyling) { view in
-                view
-                    .background {
-                        if showPreviewShadow, !mockPreviewActive, backgroundOpacity > 0 {
-                            ContainerShadow(
-                                cornerRadius: cornerRadius,
-                                radius: previewShadowRadius,
-                                opacity: previewShadowOpacity * backgroundOpacity
-                            )
-                            .padding(-ContainerShadow.room)
-                            .allowsHitTesting(false)
-                        }
-                    }
-                    .dockStyle(
-                        backgroundAppearance: backgroundAppearance,
-                        cornerRadius: cornerRadius,
-                        highlightColor: highlightColor,
-                        backgroundOpacity: backgroundOpacity
-                    )
+                view.modifier(HoverContainerChrome(
+                    backgroundAppearance: backgroundAppearance,
+                    cornerRadius: cornerRadius,
+                    highlightColor: highlightColor,
+                    hideBackground: shouldHideBackground,
+                    mockPreviewActive: mockPreviewActive
+                ))
             }
             .padding(.all, mockPreviewActive ? 0 : HoverContainerPadding.container)
             .frame(maxWidth: bestGuessMonitor.visibleFrame.width, maxHeight: bestGuessMonitor.visibleFrame.height, alignment: .topLeading)
+    }
+}
+
+struct HoverContainerChrome: ViewModifier {
+    @Default(.dockPreviewBackgroundOpacity) var dockPreviewBackgroundOpacity
+    @Default(.showPreviewShadow) var showPreviewShadow
+    @Default(.previewShadowRadius) var previewShadowRadius
+    @Default(.previewShadowOpacity) var previewShadowOpacity
+
+    let backgroundAppearance: BackgroundAppearance
+    let cornerRadius: Double
+    var highlightColor: Color? = nil
+    var hideBackground = false
+    var mockPreviewActive = false
+
+    private var backgroundOpacity: CGFloat {
+        hideBackground ? 0 : dockPreviewBackgroundOpacity
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                if showPreviewShadow, !mockPreviewActive, backgroundOpacity > 0 {
+                    ContainerShadow(
+                        cornerRadius: cornerRadius,
+                        radius: previewShadowRadius,
+                        opacity: previewShadowOpacity * backgroundOpacity
+                    )
+                    .padding(-ContainerShadow.room)
+                    .allowsHitTesting(false)
+                }
+            }
+            .dockStyle(
+                backgroundAppearance: backgroundAppearance,
+                cornerRadius: cornerRadius,
+                highlightColor: highlightColor,
+                backgroundOpacity: backgroundOpacity
+            )
     }
 }
 

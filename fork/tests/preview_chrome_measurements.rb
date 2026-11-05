@@ -15,6 +15,16 @@ state=File.read("#{root}/DockDoor/Views/Hover Window/WindowPreview Supporting/Pr
 panel=File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
 shared=File.read("#{root}/DockDoor/Utilities/Window Management/WindowDiscoveryShared.swift")
 bar=File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SearchWindow.swift")
+search_style=block(bar,'struct SearchFieldView: View')
+container_chrome=File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/BaseHoverContainer.swift")
+abort 'Search and preview containers must use the same chrome' unless search_style.include?('HoverContainerChrome(backgroundAppearance: backgroundAppearance, cornerRadius: radii.container)') && block(container_chrome,'struct BaseHoverContainer<').include?('HoverContainerChrome(')
+abort 'Search must ignore only background hiding and share opacity/shadow settings' unless !search_style.include?('hideBackground:') && container_chrome.include?('var hideBackground = false') && %w[dockPreviewBackgroundOpacity showPreviewShadow previewShadowRadius previewShadowOpacity].all? { |key| block(container_chrome,'struct HoverContainerChrome:').include?("@Default(.#{key})") }
+abort 'Search must update shared corner-radius preferences' unless search_style.include?('.uniformCardRadius, .previewCornerRadius, .globalPaddingMultiplier') && search_style.include?('if updatedRadii != radii { radii = updatedRadii }')
+abort 'Search native shadow must remain off for resting fade' unless block(bar,'    private func setupWindow()').include?('hasShadow = false')
+abort 'Search must reserve drawing room for shared chrome' unless search_style.include?('.padding(.all, SearchWindow.verticalPadding)') && bar.include?('pillHeight + (verticalPadding + HoverContainerPadding.dockStyleOuter) * 2')
+abort 'Search shadow room must not expand outside-click protection' unless block(panel,'    var searchWindowFrame:').include?('searchWindow.frame.insetBy(dx: inset, dy: inset)')
+abort 'Search visual changes must retain native clear/editing enhancements' unless bar.include?('searchField = NSSearchField()') && bar.include?('searchField.cell = BorderlessSearchFieldCell(textCell: "")') && search_style.include?('.frame(maxWidth: .infinity)') && bar.include?('configureFieldEditorForSingleLine()')
+puts 'PASS shared search/container chrome with retained native clear and editing configuration'
 source=<<~'SWIFT'
 import AppKit
 struct WindowPreviewHoverContainer {struct WindowDimensions:Equatable {var size:CGSize;var maxDimensions:CGSize}}
