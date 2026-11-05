@@ -1,6 +1,6 @@
 # DockFork Showcase Capture Checklist
 
-Current capture plan, reviewed November 4, 2026 against the Settings merge repairs and example interactions through `e21fe4a2`. This is a menu of screenshots and short recordings, not a development/test diary. Implementation history and validation belong in the [commit ledger](COMMIT_LEDGER.md); feature explanations belong in [Changes and Showcase](CHANGES_AND_SHOWCASE.md).
+Current capture plan, attribution-reviewed November 5, 2026 against published DockFork 0.5.0 source `5da34593` and incorporated upstream `c58cf6c0`. This is a menu of screenshots and short recordings, not a development/test diary. Implementation history and validation belong in the [commit ledger](COMMIT_LEDGER.md); feature explanations belong in [Changes and Showcase](CHANGES_AND_SHOWCASE.md).
 
 ## Capture Status
 
@@ -10,11 +10,17 @@ Published stable [0.5.0](https://github.com/hexcrete/DockFork/releases/tag/v0.5.
 
 The maintained preset is the sanitized November 4 export included with 0.5.0: 270 preferences, 15 generic-ID shortcut rows and no retired keys. Import is optional and replaces settings; export a backup first. Published 0.4.0 retains its attached historical preset. Capture selections and approval states remain unchanged.
 
+## Attribution Boundary
+
+Capture rows below describe fork additions or specific fork fixes, not every capability visible in the recording. Upstream controls may appear as setup/context only. In particular, native Settings grouping and pinned previews, multiple Alternate Shortcuts, combined-modifier controls, native-tab collapsing/selected-tab restoration, individual-window linked snapping, and the original gesture HUD are inherited. Do not present them as DockFork inventions. Record only the fork delta named in each row.
+
+Commit references identify fork implementation evidence, not self-contained upstream-ready patches. Dated upstream integration records remain in the changes guide and ledger for attribution; they are not showcase candidates.
+
 ## Current Settings Locations
 
 | Capture setup | Current location and structure |
 |---|---|
-| Primary initializer, Backward/Selection/Search Trigger keys | Keybinds > Window Switcher Shortcuts |
+| Modifier-side inheritance and Backward/Search Trigger capture fixes | Keybinds > Window Switcher Shortcuts |
 | Alternate, Persistent and last-focused launchers | Keybinds > Alternate Shortcuts: one list with Double-tap, Persistent, No Highlight and Quick Switch; no separate Persistent or Switch to Last Focused Window section |
 | Preview action assignments | Keybinds > Window Preview Keyboard Shortcuts: assignment left, action right, Remove per row; Add and Reset to Defaults below |
 | Menu-bar click behavior | Keybinds > Menu Bar Icon > Clicks trigger: |
@@ -29,12 +35,11 @@ The maintained preset is the sanitized November 4 export included with 0.5.0: 27
 | Preview mouse actions and drag-to-tile | Gestures > Mouse Actions |
 | Title-bar gesture exclusions | Gestures > Options |
 | Space/state placement | Each mode's Window State Indicator section, not a global legacy badge toggle |
-| Dock locking and spring-loading delay | Advanced |
-| Folder widgets | Widgets |
+| Configurable preview spring-loading delay | Advanced |
 
-Double-tap currently selects one modifier and its side. Ordinary key shortcuts support combined modifiers. Quick Switch uses the row's scope and disables Persistent/No Highlight without erasing their values. Settings screenshots should show these distinctions, compact clash glyphs with hover help, dependent-row indentation and reset glyphs only where the upstream control type uses them.
+Double-tap currently selects one modifier and its side. Upstream supplies ordinary combined-modifier controls; capture only our side/inheritance fixes and unified fork modes, not that upstream capability by itself. Quick Switch uses the row's scope and disables Persistent/No Highlight without erasing their values. Settings screenshots should show these distinctions, compact clash glyphs with hover help, dependent-row indentation and reset glyphs only where the upstream control type uses them.
 
-Pinned examples are a fork-specific appearance demonstration: hover the cards, titles/icons and traffic lights, then toggle sample checkboxes with selection enabled. Dimming must remain until the buttons themselves are hovered; test their visible edges after scaling. For On title hover, move over the title in Dock/Cmd+Tab or the app icon in Compact Mode. The two sample windows remain unchanged by real window activity; example controls never activate, close, resize or otherwise operate on real windows. Include the settings immediately below the examples in K01 to show their bounded interaction area. No new capture ID or completion state is added.
+The pinned examples and their placement come from upstream. Our contribution is appearance-only hover/checkbox interaction, accurate scaled hit targets and isolation from real windows: hover the cards, titles/icons and traffic lights, then toggle sample checkboxes with selection enabled. Dimming must remain until the buttons themselves are hovered; test their visible edges after scaling. For On title hover, move over the title in Dock/Cmd+Tab or the app icon in Compact Mode. The two sample windows remain unchanged by real window activity; example controls never activate, close, resize or otherwise operate on real windows. Include the settings immediately below the examples in K01 to show their bounded interaction area. No new capture ID or completion state is added.
 
 ## Capture Conventions
 
@@ -53,7 +58,7 @@ Pinned examples are a fork-specific appearance demonstration: hover the cards, t
 | [ ] | M02 | Video: ordered checks and session pinning | Check windows in order, filter some out, then show Select All, Clear Selection and Tile Windows. Demonstrate Shift-click, checkbox sweeping/reversal and held-selection-key arrows. Narrow the summary: trailing icons disappear, the count shortens, buttons become glyphs, then the row scrolls. Compare keep-open On/Off. | `fa76e57`, `a4150a5`, `4ef5a08`, `4a76bfd`, `d89cbc5`, `ec1e9fa` |
 | [ ] | MG01 | Video: checked-group actions | Use disposable windows to compare checked versus unchecked initiators, Minimize/Un-minimize, app-wide Hide/Unhide, Close, Quit and Force Quit. Show mixed-state intent, fullscreen exclusions and selection-aware menu titles. Include a windowless app: only its supported app actions participate. | `c827932` |
 | [ ] | MG02 | Video: checked-group dragging | Drag a checked group and contrast an unchecked single window. Show shared Compact/Space-style drag cards, app grouping with subscripts, +N overflow and the target-aware leading symbol. Include the centered label over a single-window miniature, free placement, window tiling and Space destinations. | `86c3306`, `313e213` |
-| [ ] | MT01 | Video: automatic and directional tiling | Open Keybinds > Tiling: Auto Tile maximum rows, Auto Tile maximum columns, Auto Tile only what fits, Fill-to-Auto-Tile and linked resizing share this section. Show directional layouts, overflow stacking versus untouched extras, first-selected foreground order and linked edges. Use disposable windows across Spaces. | `3b4d311`, `a23c0d6`, `6ae187c`, `c15292f`, `ff52d9ca` |
+| [ ] | MT01 | Video: automatic and directional tiling | Open Keybinds > Tiling: show fork Auto Tile limits, overflow policies and Fill-to-Auto-Tile. Demonstrate directional group layouts, overflow stacking versus untouched extras, first-selected foreground order and enrollment of batch-tiled windows into upstream linked resizing. Individual-window snapping and linked resizing are inherited, not the contribution. Use disposable windows across Spaces. | `3b4d311`, `a23c0d6`, `6ae187c`, `c15292f`, `ff52d9ca` |
 | [ ] | MS01 | Video: scripted ordered window lists | Use ordered AppleScript window lists for Minimize/Restore, Hide/Unhide, geometry and Space movement, with duplicate IDs and destination-following On/Off. Show real targets and resulting order; redact identifiers. Scripting does not show interactive feedback popups. | `d5bdb48` |
 | [ ] | MT02 | Video: drag previews onto previews to tile | Enable drag-to-tile under Gestures > Mouse Actions. Drop a single window onto another, a checked group onto an unchecked target and an unchecked window onto a checked group. Show target highlighting and the tile glyph; contrast ordinary drag-away placement. | `86c3306`, `7a6ec7d` |
 
@@ -67,7 +72,7 @@ Pinned examples are a fork-specific appearance demonstration: hover the cards, t
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | CT01 | Video: one-time preview-focus hint | On an explicitly authorized disposable profile, show the one-time preview-focus hint, then hover/focus a preview and reopen Cmd+Tab. The hint stays dismissed. Do not reset live preferences to recreate onboarding. | `be91733` |
+| [ ] | CT01 | Video: mouse acknowledgement of the existing focus hint | On an explicitly authorized disposable profile, show the existing upstream preview-focus hint, then mouse-highlight a valid preview and reopen Cmd+Tab. Demonstrate our fix: mouse use acknowledges the hint so it stays dismissed. Do not present the hint itself as new or reset live preferences to recreate onboarding. | `be91733` |
 
 ## Compact and Windowless Cards
 
@@ -81,7 +86,7 @@ Pinned examples are a fork-specific appearance demonstration: hover the cards, t
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | I01 | Screenshot: state indicator variants | In each mode's Window State Indicator settings, compare Space placement Off, On Window Previews and Next to Traffic Light Buttons independently of state placement. Show regular/Compact layouts without duplicate numbers. | `411618f`, `20d3b2f`, `356af10` |
+| [ ] | I01 | Screenshot: state indicator variants | In each mode's Window State Indicator settings, compare Space placement Off, On Window Previews and Next to Traffic Light Buttons independently of state placement. Show regular/Compact layouts without duplicate numbers. | `411618f`, `20d3b2f`, `356af10`, `d0c1249d`, `b6bac40d` |
 | [ ] | I02 | Screenshot: current-Space highlight | Enable a Space indicator and Highlight Current Space in each mode. Compare current and other Spaces, legacy badges and toolbar indicators. Space placement defaults Off; highlighting defaults On. | `6248aab` |
 | [ ] | I03 | Screenshot matrix: control ordering | Swap indicator/traffic-light order, including the Compact-only option; compare styled/unstyled and embedded/separate controls. Reveal hover-only traffic lights beside a wide indicator without compressing its contents. | `b435c0a`, `f7b64c9`, `9ce4a89`, `ba71716`, `09a2cc2` |
 | [ ] | I04 | Screenshot: font and small rows | Compare indicator font sizes and small Compact rows, current-Space outlines and rounded/unstyled presentations. Keep rings, symbols and labels fully visible. | `f933cd0` |
@@ -113,10 +118,10 @@ The following dedicated IDs cover bar interactions previously described only in 
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | K01 | Video: configure rows before recording | In Keybinds, show preview-action rows with assignment left, action right and Remove at the end; Add and Reset to Defaults share the footer. Compare Alternate Shortcuts, the Search Trigger Key reset alignment and compact clash glyphs beside assignments. Show controls immediately below pinned previews. | `6b62149`, `94b4361`, `93074e7`, `aea03098`, `e21fe4a2` |
+| [ ] | K01 | Video: fork shortcut-row layout and recording fixes | In Keybinds, show fork preview-action assignment left/action right, Search Trigger Key reset alignment and corrected recording. Add/Remove footers and compact warning styling follow upstream conventions; demonstrate our consistent application to fork lists, not a new list design. Show interaction with settings immediately below pinned previews, demonstrating the bounded-hit-area fix. | `6b62149`, `94b4361`, `93074e7`, `aea03098`, `e21fe4a2` |
 | [ ] | K02 | Screenshot: scope catalog | Show the shared scope picker in Alternate Shortcuts, its trailing alignment and Defaults versus All Windows. Change scope without replacing the row or trigger. | `94b4361`, `d2d063c`, `982c6d0`, `aea03098` |
-| [ ] | K03 | Settings screenshot + video: modifier side | Show combined initializer modifiers, Left/Right/Either, inherited-side override and side-aware Backward Key recording. Use harmless bindings; demonstrate exact Shift matching and capture/cancel without executing an app action. | `d013ee1`, `428b2af`, `aea03098` |
-| [ ] | K04 | Video: unified alternate shortcut modes | Use the unified Alternate Shortcuts editor: modifier/key/scope on the first row and Double-tap, Persistent, No Highlight and Quick Switch below. Contrast ordinary multi-modifier triggers with the single-modifier/side Double-tap picker. Show tooltips and no activation after a single tap; include the shared explainer covering inheritance, Persistent, Double-tap and Quick Switch. | `19d4888`, `af0bbcd`, `06c9471`, `aea03098` |
+| [ ] | K03 | Settings screenshot + video: modifier-side and matching fixes | Using upstream combined-modifier controls as context, demonstrate our Left/Right/Either behavior, inherited-side override and side-aware Backward Key recording. Use harmless bindings to show exact Shift matching and capture/cancel without executing an action. Combined-modifier support itself is upstream. | `d013ee1`, `428b2af`, `aea03098` |
+| [ ] | K04 | Video: unified alternate shortcut modes | Use the extended upstream Alternate Shortcuts editor to demonstrate fork Persistent, No Highlight and Quick Switch modes, scoped activation, and retained modifier-only Double-tap. Show their per-row integration, tooltips and shared explainer. Multiple rows and ordinary combined modifiers are upstream context, not fork additions. | `19d4888`, `af0bbcd`, `06c9471`, `aea03098` |
 
 ## Persistent, Swipe, and MRU Sessions
 
@@ -142,7 +147,7 @@ The following dedicated IDs cover bar interactions previously described only in 
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | L01 | Video: horizontal/vertical grids | Compare horizontal and vertical overflowing grids with regular and Compact previews. Show alignment/offsets, all enabled companion elements and narrow/tall screen limits. | `19b3ddd`, `8af3b00`, `f4ccf61` |
+| [ ] | L01 | Video: grid scrolling and navigation fixes | Demonstrate fork fixes for horizontal overflow, direction-aware cycling and vertical-arrow navigation in existing regular/Compact grids. Show corrected alignment and companion placement at narrow/tall screen limits; grid layouts themselves are inherited. | `19b3ddd`, `8af3b00`, `f4ccf61` |
 | [ ] | L02 | Video: edge auto-scroll | Show edge-scroll zones and fades, then two-finger inertia without edge-scroll interference. Compare Center selection during keyboard navigation out of view On/Off: centered scrolling versus full-card minimal reveal with scaled padding. | `bbb44ad`, `08c52c6`, `f7e5a12`, `295ef75` |
 | [ ] | L03 | Screenshot/video: search placement and focus | Show the search field between Spaces Bar and grid with even spacing, then without the bar. Type, clear and change Space filters while the grid shrinks/grows; repeat with search disabled. | `586407f`, `9151f2d` |
 | [ ] | L04 | Video: windowless-to-window transition | Hover a windowless Dock/Cmd+Tab app, open a disposable first window and close it again. Show container resizing and the header behavior for compact-style versus full-size placeholders. | `c802975` |
@@ -153,7 +158,7 @@ The following dedicated IDs cover bar interactions previously described only in 
 |---|---|---|---|---|
 | [ ] | F01 | Screenshot pairs: opacity/blur/border | Use harmless patterned wallpaper to compare full-size preview opacity, backdrop blur and border. Show regular/Compact origins without implying the screenshot itself is blurred. | `97096c7` |
 | [ ] | F02 | Video: fade durations | Compare immediate and longer full-size-preview fades with Reduce Motion Off, then show reduced motion. Highlight another target quickly: the old preview hides while fresh geometry is resolved. | `3c0cf89` |
-| [ ] | F03 | Optional video: resting fade | Enable resting fade for the intended mode. Rest, then move across neighboring cards: grid, search and Spaces Bar fade/restore together. Compare Off and normal opacity, including title controls and keyboard takeover. Do not label the setting experimental. | `c2fa95d`, `220464d` |
+| [ ] | F03 | Optional video: resting fade | Enable resting fade for the intended mode. Rest, then move across neighboring cards: grid, search and Spaces Bar fade/restore together. Compare Off and normal opacity, including title controls and keyboard takeover. Do not label the setting experimental. | `c2fa95d`, `15ba5d51`, `9d48fba9` |
 
 ## Dragging
 
@@ -161,13 +166,13 @@ The following dedicated IDs cover bar interactions previously described only in 
 |---|---|---|---|---|
 | [ ] | D01 | Video: compact and regular preview dragging | Drag from the noninteractive body of regular and Compact previews. Show window placement, target-aware ghost and cleanup. Contrast checkbox sweeping and presses on traffic lights/Space/More controls, which do not start window movement. | `a7d61d1`, `78f65dd` |
 | [ ] | D02 | Optional video: cross-display drag | With two displays, drop a large disposable window on the smaller display and show fitting/clamping within its usable area. Show the move-to-current-Desktop symbol outside the switcher. | `78f65dd` |
-| [ ] | D03 | Video: external drag spring-loading | Drag a disposable file onto a real Dock preview and wait for spring-loading, then complete the native drop. Show custom delay under Advanced and cancellation by leaving early. Include click-drag or three-finger drag as available. | `1ceb007`, `ba665c2` |
+| [ ] | D03 | Video: preview spring-loading fixes and configuration | Use existing external-file spring-loading to demonstrate fork preview-target activation fixes, custom delay under Advanced and cancellation by leaving early. Include Compact Mode or three-finger dragging as available. Show the improved behavior, not generic native file dragging as a new feature. | `1ceb007`, `ba665c2` |
 
 ## Action Feedback
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | AF01 | Video: optional action feedback | Enable Appearance > Action Feedback. Compare all four positions, cursor-following and preview/Compact placement, brief action labels and shared native fades. Use a naturally pending action to show its delayed spinner and subsequent success symbol; fast actions retain their original symbol. | `70d56b90`, `aea03098`, `ff52d9ca` |
+| [ ] | AF01 | Video: optional action feedback | Enable Appearance > Action Feedback. Demonstrate fork feedback across interactive actions, four positions, cursor-following and preview/Compact placement. Use a naturally pending action to show its delayed spinner and subsequent success symbol; fast actions retain their original symbol. The original gesture HUD and its visual conventions are upstream; the broader feedback integration is ours. | `70d56b90`, `aea03098`, `ff52d9ca` |
 | [ ] | AF02 | Video: batch progress and consolidation | Act on several disposable windows: show aggregate settled/total progress, per-preview feedback and consolidation at the cursor when previews disappear. Hide/Unhide counts apps, not windows. Include native-tab Close progress and keep action labels concise; do not promise counters animate one item at a time. | `70d56b90`, `aea03098` |
 | [ ] | AF03 | Video: Mouse Follows Focus cursor hint | Enable Appearance > Action Feedback, then Window Switcher > Behavior > Mouse follows focus and its Show feedback popup option. Activate a different target and show Mouse Followed Focus at the new pointer location. Compare the hint Off; it remains cursor-positioned regardless of the general popup position. | `4ad22fc1`, `c5d64dc6`, `aea03098`, `ff52d9ca` |
 
@@ -175,18 +180,18 @@ The following dedicated IDs cover bar interactions previously described only in 
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | B01 | Video: native tab grouping | Use disposable Finder windows with differently named folder tabs, including a separate same-sized window. Show collapsed tabs staying grouped through Minimize/Restore and Hide/Unhide, activation returning to the selected tab, and Close removing the intended tab stack. | `4f703ed`, `abdc4ec`, `6fb1946`, `8ede8d0`, `29de103a`, `e7fe0ba9` |
-| [ ] | B02 | Video: fullscreen metadata | Show ordinary fullscreen and Split View state/Space labels, including a Mission Control-created fullscreen Space. Compare supported preview controls and the Space-pill Exit Full Screen action. | `e2e4c45`, `a94bb4d`, `1a5a978` |
-| [ ] | B03 | Screenshot: actionable nonstandard windows | Show a harmless nonstandard window, such as Calendar Info, with supported controls only. Optionally show a Wine/CrossOver window: native macOS fullscreen differs from game fullscreen; unsupported actions remain absent after Hide/Unhide. Use a public game screen with no account details. | `804d85a`, `288262b` |
+| [ ] | B01 | Video: native-tab grouping and Close fixes | Use disposable Finder windows with differently named folder tabs, including a separate same-sized window. Demonstrate our grouping safeguards through Minimize/Restore and Hide/Unhide, exclusion of inactive tabs, and Close removing the intended tab stack. Native-tab collapsing and returning to the selected tab are inherited upstream behavior, not showcase claims. | `4f703ed`, `abdc4ec`, `6fb1946`, `29de103a`, `e7fe0ba9` |
+| [ ] | B02 | Video: fullscreen metadata reconciliation fixes | Demonstrate fork state/Space metadata reconciliation after fullscreen transitions and creation of a fullscreen Space. Compare corrected labels and supported controls, including our Space-pill Exit Full Screen action. Fullscreen and Split View themselves are macOS/upstream capabilities. | `e2e4c45`, `a94bb4d`, `1a5a978` |
+| [ ] | B03 | Screenshot: actionable nonstandard windows | Show a harmless nonstandard window, such as Calendar Info, with supported controls only. Optionally show a Wine/CrossOver window: native macOS fullscreen differs from game fullscreen; unsupported actions remain absent after Hide/Unhide. Use a public game screen with no account details. | `804d85a`, `288262b`, `b1ad1436`, `7fab4ad7` |
 | [ ] | B04 | Optional temporary fixture: missing image | Optional controlled fixture only: omit one settings mock screenshot, compare regular/Compact layouts, then restore the fixture before any release or ordinary capture. | `6fe02cc`, `717c1e0` |
-| [ ] | H01 | Screenshot: diagnostic controls | Show log export and size-cap settings without opening private log contents. Do not include diagnostic output in feature media. | `77ee4d3` |
+| [ ] | H01 | Screenshot: fork diagnostic controls | Show fork hang-diagnostic integration and log-size controls without opening private log contents. Existing debug logging is upstream context. Do not include diagnostic output in feature media. | `77ee4d3` |
 
 ## Visual Polish and Automation
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
 | [ ] | V01 | Screenshot pair: app badges | Use an app with a genuine Dock badge. Compare visibility/size in regular, Compact and Spaces Bar icons while alignment stays unchanged. | `424c16c` |
-| [ ] | V02 | Screenshot: compact widgets and clipping | Show calendar/media widgets beside Compact rows with aligned edges and rounded clipping. Folder-widget settings are under Widgets. | `a9f400a`, `9c7ac61`, `ef27fdf` |
+| [ ] | V02 | Screenshot: widget/Compact alignment fixes | Use upstream calendar/media widgets as context to demonstrate fork Compact-row edge alignment, padding and rounded-clipping fixes. Do not present the widgets or their relocation to Widgets settings as fork features. | `a9f400a`, `9c7ac61`, `ef27fdf` |
 | [ ] | V03 | Video: traffic-light visibility animation | Compare traffic-light visibility at zero/positive animation duration, dimmed/hidden modes and Reduce Motion. Include regular/Compact previews in each mode without presenting a mock as a live window. | `b4ce12a`, `1aebbc5`, `1f7ce92`, `ae79432` |
 | [ ] | V04 | Screenshot pair: mirrored title cluster | Compare left/right mirrored title clusters, automatic versus explicit icon sizing and windowless/unnamed cards. Use bright/dark screenshots in both appearances for title contrast; do not imply every mode has a title icon. | `82a8449`, `bdc62ae` |
 | [ ] | V05 | Video: adaptive preview controls | Narrow regular/Compact previews: titles shorten/disappear, rightmost traffic actions enter More, then Space/state controls consolidate. Show the preserved left prefix, returning titles, reachable checkbox and selected outline. Compare styled/unstyled, hover-only controls and Reduce Motion. | `48b7f64`, `e264839`, `4d6c4c2` |
@@ -197,7 +202,7 @@ The following dedicated IDs cover bar interactions previously described only in 
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | G01 | Video: scrolling and title-bar gesture exclusions | In Gestures > Options, enable Disable title bar gestures over scrollable areas and tabs, then compare Use stricter title bar detection Off/On. Show Firefox/Brave tab-strip scrolling and gestures on recognizable title bars. Explain the stricter option's conservative treatment of blank title-bar areas; do not imply app-specific detection. | `20fc4cbb`, `ff52d9ca` |
+| [ ] | G01 | Video: scrolling and title-bar gesture exclusions | In Gestures > Options, enable Disable title bar gestures over scrollable areas and tabs, then compare Use stricter title bar detection Off/On. Show Firefox/Brave tab-strip scrolling and gestures on recognizable title bars. Explain the stricter option's conservative treatment of blank title-bar areas; do not imply app-specific detection. | `c353d70f`, `ad8d7614`, `20fc4cbb` |
 
 ## Fork Setup and Defaults
 

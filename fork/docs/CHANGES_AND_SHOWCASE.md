@@ -8,6 +8,8 @@ The committed-source Release candidate at `5da345933511899c2c315a7c2a2edbb1be632
 
 Public notes distinguish upstream's Settings redesign, pinned previews, multiple Alternate Shortcuts and combined modifiers from fork-specific extensions and merge repairs. Preserved Double-tap is not a new release feature. This attribution correction changes public copy only, not the audited candidate.
 
+November 5 showcase attribution review: the capture checklist lists fork deltas only. Inherited controls remain labeled as setup context, including upstream Settings/pinned examples, combined modifiers, selected-native-tab restoration, linked resizing and the gesture HUD. The upstream native-tab commit is removed from capture references; mixed descriptions now identify the specific fork fix. Capture IDs and pending states remain unchanged. This guide retains explicitly attributed upstream integration history for reference, not as a list of contributions to offer upstream.
+
 November 4 upstream update: `e0cd636e` incorporates two commits through `c58cf6c0`. The fork retains its existing per-call AX observer-registration timing rather than upstream's aggregate-duration check. The incoming appcast includes beta 1.42.3b1, but the recorded stable base remains 1.42.2. DockFork's published 0.4.0 packages and presets are unchanged; no new visual feature or media approval.
 
 For current screenshot setup, use the [capture plan and consolidated settings locations](SHOWCASE_CHECKLIST.md#current-settings-locations). Its rows describe current UI rather than development stages. Existing capture IDs and pending media status are preserved; published release packages and presets are unchanged.
