@@ -300,7 +300,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
               let window = button.window, window.isVisible
         else { return false }
 
-        return window.convertToScreen(button.convert(button.bounds, to: nil)).contains(location)
+        // macOS can deliver a centered button activation for a press in the slot's padding.
+        let frame = window.frame
+        return (frame.minX ..< frame.maxX).contains(location.x) && (frame.minY ... frame.maxY).contains(location.y)
     }
 
     private func installMenuBarClickMonitor(

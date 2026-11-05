@@ -1,5 +1,9 @@
 # DockFork: Changes and Showcase
 
+## Menu-Bar Switcher Toggle Follow-up
+
+Outside-click dismissal uses the mouse-down event's recorded location and protects the full visible status-item slot when left click is assigned to the switcher. macOS can deliver a centered button activation for a press in the slot's padding. The former icon-only check dismissed the switcher first, so that activation reopened it. The slot check includes both vertical edges without extending beyond the slot. Click assignments, native-menu tracking and persistent-session rules are unchanged. This is an unshipped follow-up to 0.5.0.
+
 ## November 5 Shared Search Container Styling
 
 Search now shares the actual `HoverContainerChrome` modifier with Window Switcher/Spaces Bar containers: material, glass settings, custom/opaque colors, container corner radius, border, background opacity and adjustable shadow. The one exception is background hiding: search ignores Hide hover container background. Explicit background opacity and shadow settings still apply. Native panel shadow stays disabled; the shared content-layer shadow fades with the search and does not leave a separate WindowServer layer behind.

@@ -521,7 +521,7 @@ abort 'Search must be shown in the same presentation turn after applying the gri
 keybind_source = File.read("#{root}/DockDoor/Utilities/KeybindHelper.swift")
 app_delegate_source = File.read("#{root}/DockDoor/AppDelegate.swift")
 menu_bar_hit = block(app_delegate_source, '    func isWindowSwitcherMenuBarClick(')
-abort 'Only the visible left-click switcher button may bypass outside dismissal' unless menu_bar_hit.include?('Defaults[.openWindowSwitcherFromMenuBarIcon]') && menu_bar_hit.include?('Defaults[.menuBarIconWindowSwitcherClick] == .leftClick') && menu_bar_hit.include?('window.isVisible') && menu_bar_hit.include?('window.convertToScreen(button.convert(button.bounds, to: nil)).contains(location)')
+abort 'Only the visible left-click switcher slot may bypass outside dismissal' unless menu_bar_hit.include?('Defaults[.openWindowSwitcherFromMenuBarIcon]') && menu_bar_hit.include?('Defaults[.menuBarIconWindowSwitcherClick] == .leftClick') && menu_bar_hit.include?('window.isVisible') && menu_bar_hit.include?('let frame = window.frame') && !menu_bar_hit.include?('button.bounds')
 abort 'Outside dismissal must defer ownership to the actual status button, not a timestamp race' unless keybind_source.include?('isWindowSwitcherMenuBarClick(at: clickLocation)') && !keybind_source.include?('menuBarWindowSwitcherMouseDownTimestamp') && !keybind_source.include?('waitsForMenuBarToggle')
 
 traffic_source = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/Traffic Light Buttons.swift")

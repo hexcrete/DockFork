@@ -1519,7 +1519,7 @@ class KeybindHelper {
             }
             let isWindowSwitcherActive = snapshot.isWindowSwitcherActive
             if snapshot.isVisible, isWindowSwitcherActive || isCmdTabActive || snapshot.hasCheckedWindows {
-                let clickLocation = NSEvent.mouseLocation
+                let clickLocation = event.unflippedLocation
                 if !snapshot.shouldDismissForOutsideClick(at: clickLocation) {
                     let flags = event.flags
                     if flags.contains(.maskControl), isWindowSwitcherActive || isCmdTabActive {

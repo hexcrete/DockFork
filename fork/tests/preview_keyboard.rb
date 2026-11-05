@@ -45,7 +45,16 @@ abort 'Tap recovery must clear key state' unless handler[0...gate_start].include
 matcher = block(keybinds, '    private func numberedSpaceShortcut(')
 abort 'Space matching must recognize repeats before execution rejects them' if matcher.include?('keyboardEventAutorepeat')
 
+outside_click = handler.split("        case .leftMouseDown:\n", 2).fetch(1).split("        case .keyUp:", 2).first
+click_location = outside_click.lines.find { |line| line.include?('let clickLocation =') } or abort 'Missing outside-click location'
+abort 'Menu-bar hit test must use the same recorded click as outside dismissal' unless outside_click.include?('isWindowSwitcherMenuBarClick(at: clickLocation)')
+app_delegate = File.read("#{root}/DockDoor/AppDelegate.swift")
+menu_bar_hit = block(app_delegate, '    func isWindowSwitcherMenuBarClick(').lines.find { |line| line.include?('return ') && !line.include?('else') } or abort 'Missing status-button hit test'
+
 source = "import AppKit\nimport Carbon\n"
+source += "enum NSEvent { static var mouseLocation = CGPoint.zero }\n"
+source += "func outsideClickLocation(_ event: CGEvent) -> CGPoint {\n" + click_location + "return clickLocation\n}\n"
+source += "func screenHit(_ location: NSPoint, frame: CGRect) -> Bool {\n" + menu_bar_hit + "}\n"
 source += block(keybinds, 'private final class PreviewActionKeyPressState {') + "\n"
 source += "enum WindowSwitcherShortcutResolver {\n"
 source += block(constants, '    static func spaceNumber(forPhysicalKeyCode') + "\n"
@@ -76,7 +85,29 @@ func event(_ code: Int, repeat repeated: Bool = false, up: Bool = false, flags: 
  return event
 }
 @main struct Checks {
+ static func checkMenuBarEdges() {
+  let slot = CGRect(x: 100, y: 200, width: 38, height: 33)
+  for y in [slot.minY, slot.minY + 0.289, slot.midY, slot.maxY - 0.25, slot.maxY] {
+   precondition(screenHit(CGPoint(x: slot.midX, y: y), frame: slot), "Physical presses in the full slot must be left to the native toggle")
+  }
+  precondition(screenHit(CGPoint(x: slot.minX + 0.25, y: slot.midY), frame: slot), "The slot includes horizontal icon padding")
+  for point in [CGPoint(x: slot.midX, y: slot.minY - 0.25), CGPoint(x: slot.midX, y: slot.maxY + 0.25), CGPoint(x: slot.minX - 0.25, y: slot.midY), CGPoint(x: slot.maxX, y: slot.midY)] {
+   precondition(!screenHit(point, frame: slot), "Outside and neighboring status-item clicks must still dismiss")
+  }
+  print("PASS menu-bar slot routing: both vertical edges and padding protected, neighboring and outside clicks unchanged")
+ }
+
  static func main() {
+  checkMenuBarEdges()
+  let click = CGEvent(mouseEventSource: nil, mouseType: .leftMouseDown, mouseCursorPosition: CGPoint(x: 400, y: 12), mouseButton: .left)!
+  let button = CGRect(x: 390, y: click.unflippedLocation.y - 5, width: 20, height: 10)
+  NSEvent.mouseLocation = CGPoint(x: 430, y: button.midY)
+  precondition(button.contains(outsideClickLocation(click)), "A menu-bar press must remain owned by its toggle after the pointer moves away")
+  click.location.x = 430
+  NSEvent.mouseLocation = CGPoint(x: 400, y: button.midY)
+  precondition(!button.contains(outsideClickLocation(click)), "An outside press must not become a menu-bar press when the pointer moves onto the icon")
+  print("PASS outside-click routing uses the recorded press rather than the live pointer")
+
   let h = Harness(), state = h.actionKeyPressState
   for code in [kVK_ANSI_M, kVK_ANSI_W, kVK_ANSI_E, kVK_ANSI_Q, kVK_ANSI_1] {
    precondition(h.forward(event(code)) != nil)
