@@ -21,7 +21,8 @@ Commit references identify fork implementation evidence, not self-contained upst
 | Capture setup | Current location and structure |
 |---|---|
 | Modifier-side inheritance and Backward/Search Trigger capture fixes | Keybinds > Window Switcher Shortcuts |
-| Alternate, Persistent and last-focused launchers | Keybinds > Alternate Shortcuts: one list with Double-tap, Persistent, No Highlight and Quick Switch; no separate Persistent or Switch to Last Focused Window section |
+| Alternate, Persistent and last-focused launchers | Keybinds > Alternate Shortcuts: one list with Double-tap, Persistent and Quick Switch; no separate Persistent or Switch to Last Focused Window section |
+| Initial highlight in keep-open sessions | Window Switcher > Behavior > Start persistent switchers with no window highlighted |
 | Preview action assignments | Keybinds > Window Preview Keyboard Shortcuts: assignment left, action right, Remove per row; Add and Reset to Defaults below |
 | Menu-bar click behavior | Keybinds > Menu Bar Icon > Clicks trigger: |
 | Selection and summary | Keybinds > Window Selection |
@@ -37,7 +38,7 @@ Commit references identify fork implementation evidence, not self-contained upst
 | Space/state placement | Each mode's Window State Indicator section, not a global legacy badge toggle |
 | Configurable preview spring-loading delay | Advanced |
 
-Double-tap currently selects one modifier and its side. Upstream supplies ordinary combined-modifier controls; capture only our side/inheritance fixes and unified fork modes, not that upstream capability by itself. Quick Switch uses the row's scope and disables Persistent/No Highlight without erasing their values. Settings screenshots should show these distinctions, compact clash glyphs with hover help, dependent-row indentation and reset glyphs only where the upstream control type uses them.
+Double-tap currently selects one modifier and its side. Upstream supplies ordinary combined-modifier controls; capture only our side/inheritance fixes and unified fork modes, not that upstream capability by itself. Quick Switch uses the row's scope and disables Persistent without erasing its value. Settings screenshots should show these distinctions, compact clash glyphs with hover help, dependent-row indentation and reset glyphs only where the upstream control type uses them.
 
 The pinned examples and their placement come from upstream. Our contribution is appearance-only hover/checkbox interaction, accurate scaled hit targets and isolation from real windows: hover the cards, titles/icons and traffic lights, then toggle sample checkboxes with selection enabled. Dimming must remain until the buttons themselves are hovered; test their visible edges after scaling. For On title hover, move over the title in Dock/Cmd+Tab or the app icon in Compact Mode. The two sample windows remain unchanged by real window activity; example controls never activate, close, resize or otherwise operate on real windows. Include the settings immediately below the examples in K01 to show their bounded interaction area. No new capture ID or completion state is added.
 
@@ -123,17 +124,17 @@ The following dedicated IDs cover bar interactions previously described only in 
 | [ ] | K01 | Video: fork shortcut-row layout and recording fixes | In Keybinds, show fork preview-action assignment left/action right, Search Trigger Key reset alignment and corrected recording. Add/Remove footers and compact warning styling follow upstream conventions; demonstrate our consistent application to fork lists, not a new list design. Show interaction with settings immediately below pinned previews, demonstrating the bounded-hit-area fix. | `6b62149`, `94b4361`, `93074e7`, `aea03098`, `e21fe4a2` |
 | [ ] | K02 | Screenshot: scope catalog | Show the shared scope picker in Alternate Shortcuts, its trailing alignment and Defaults versus All Windows. Change scope without replacing the row or trigger. | `94b4361`, `d2d063c`, `982c6d0`, `aea03098` |
 | [ ] | K03 | Settings screenshot + video: modifier-side and matching fixes | Using upstream combined-modifier controls as context, demonstrate our Left/Right/Either behavior, inherited-side override and side-aware Backward Key recording. Use harmless bindings to show exact Shift matching and capture/cancel without executing an action. Combined-modifier support itself is upstream. | `d013ee1`, `428b2af`, `aea03098` |
-| [ ] | K04 | Video: unified alternate shortcut modes | Use the extended upstream Alternate Shortcuts editor to demonstrate fork Persistent, No Highlight and Quick Switch modes, scoped activation, and retained modifier-only Double-tap. Show their per-row integration, tooltips and shared explainer. Multiple rows and ordinary combined modifiers are upstream context, not fork additions. | `19d4888`, `af0bbcd`, `06c9471`, `aea03098` |
+| [ ] | K04 | Video: unified alternate shortcut modes | Use the extended upstream Alternate Shortcuts editor to demonstrate fork Persistent and Quick Switch modes, scoped activation, and retained modifier-only Double-tap. Show their per-row integration, tooltips and shared explainer. Multiple rows and ordinary combined modifiers are upstream context, not fork additions. | `19d4888`, `af0bbcd`, `06c9471`, `aea03098` |
 
 ## Persistent, Swipe, and MRU Sessions
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
 | [ ] | P01 | Video: menu-bar click assignment | In Keybinds > Menu Bar Icon, show Clicks trigger: and assign opposite buttons to the app menu and persistent switcher. Repeat opening/closing through the assigned button. | `c9adbf9`, `c46bfae`, `aea03098` |
-| [ ] | P02 | Video: persistent mouse-first session | Enable Persistent on an Alternate Shortcuts row, release its modifiers and continue with search and actions. Compare No Highlight On/Off. No Highlight also applies to nonpersistent rows. | `19d4888`, `2898dc6`, `1571630`, `aea03098` |
+| [ ] | P02 | Video: persistent mouse-first session | Enable Persistent on an Alternate Shortcuts row, release its modifiers and continue with search and actions. Compare the global Start persistent switchers with no window highlighted toggle On/Off under Window Switcher > Behavior. Show the same opening rule for a menu-bar or AppleScript launch and a main shortcut configured to stay open on release. | `19d4888`, `2898dc6`, `1571630`, `aea03098` |
 | [ ] | P03 | Video: swipe/keyboard ownership | In Window Switcher > Trackpad Swipe for Window Switcher, show activation-direction exclusions, three/four fingers and the opposite-axis Spaces option. Demonstrate permitted opening, unrestricted navigation after opening, keyboard takeover and owning-session release. Respect remaining macOS gesture assignments. | `78bfbf6`, `ae93b49`, `1f72ecb`, `aea03098` |
 | [ ] | P04 | Video: reverse selection | Compare horizontal and vertical swipe navigation with reversal On/Off. Show the first backward Space highlight respecting Start on next Space, then continued navigation. | `7797cdf`, `aea03098` |
-| [ ] | R01 | Video: scoped Quick Switch | Enable Quick Switch on an Alternate Shortcuts row. Show Persistent and No Highlight greyed while Double-tap and scope remain available. With three harmless windows, demonstrate scoped last-focused switching without opening the switcher; there is no separate last-focused settings section. | `af0bbcd`, `69507bc`, `bfaf5f4`, `aea03098` |
+| [ ] | R01 | Video: scoped Quick Switch | Enable Quick Switch on an Alternate Shortcuts row. Show Persistent greyed while Double-tap and scope remain available. With three harmless windows, demonstrate scoped last-focused switching without opening the switcher; there is no separate last-focused settings section. | `af0bbcd`, `69507bc`, `bfaf5f4`, `aea03098` |
 
 ## Window Actions and Menus
 

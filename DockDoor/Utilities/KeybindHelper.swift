@@ -105,6 +105,10 @@ enum WindowSwitcherLaunchSource: Equatable {
         self == .keyboard
     }
 
+    var startsUnfocused: Bool {
+        Defaults[.startPersistentSwitcherUnhighlighted] && (self == .persistent || Defaults[.preventSwitcherHide])
+    }
+
     var startsOnSecondWindow: Bool {
         Defaults[.useClassicWindowOrdering]
     }
@@ -238,8 +242,7 @@ private class WindowSwitchingCoordinator {
         mode: SwitcherInvocationMode = .allWindows,
         launchSource: WindowSwitcherLaunchSource = .keyboard,
         initializerHeld: Bool = false,
-        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil,
-        startUnfocused: Bool = false
+        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil
     ) async -> Bool {
         guard !isProcessingSwitcher else { return false }
         isProcessingSwitcher = true
@@ -279,8 +282,7 @@ private class WindowSwitchingCoordinator {
                 previewCoordinator: previewCoordinator,
                 mode: mode,
                 launchSource: launchSource,
-                spaceNavigation: spaceNavigation,
-                startUnfocused: startUnfocused
+                spaceNavigation: spaceNavigation
             )
         }
         return false
@@ -290,7 +292,7 @@ private class WindowSwitchingCoordinator {
     func switchScope(
         previewCoordinator: SharedPreviewWindowCoordinator,
         mode: SwitcherInvocationMode,
-        launchSourceOverride: WindowSwitcherLaunchSource? = nil, startUnfocused: Bool? = nil
+        launchSourceOverride: WindowSwitcherLaunchSource? = nil
     ) async -> Bool {
         guard !isProcessingSwitcher else { return false }
         let coordinator = previewCoordinator.windowSwitcherCoordinator
@@ -306,7 +308,6 @@ private class WindowSwitchingCoordinator {
         uiRenderingTask?.cancel()
         let needsRender = !previewCoordinator.isVisible || !coordinator.windowSwitcherActive
         let launchSource = launchSourceOverride ?? activeLaunchSource ?? .keyboard
-        let startsUnfocused = startUnfocused ?? false
         activeLaunchSource = launchSource
 
         installSpaceFilter(previewCoordinator: previewCoordinator, mode: mode, screen: getTargetScreenForSwitcher(), dockPosition: DockUtils.getDockPosition())
@@ -319,11 +320,8 @@ private class WindowSwitchingCoordinator {
             coordinator: coordinator,
             dockPosition: dockPosition,
             bestGuessMonitor: targetScreen,
-            fallbackToFirst: !startsUnfocused
+            fallbackToFirst: true
         )
-        if startsUnfocused {
-            coordinator.setIndex(to: -1, shouldScroll: false, source: .programmatic)
-        }
         coordinator.onFrameRefreshNeeded?()
 
         if needsRender {
@@ -352,7 +350,7 @@ private class WindowSwitchingCoordinator {
                 targetScreen: targetScreen,
                 sessionId: sessionId,
                 priority: .userInitiated,
-                selectFirstWindow: !startsUnfocused
+                selectFirstWindow: true
             )
         } else if !needsRender {
             scheduleWindowRefresh(
@@ -381,7 +379,7 @@ private class WindowSwitchingCoordinator {
     func openPersistent(
         previewCoordinator: SharedPreviewWindowCoordinator,
         mode: SwitcherInvocationMode,
-        spacesFocused: Bool = false, startUnfocused: Bool? = nil
+        spacesFocused: Bool = false
     ) async {
         guard !isProcessingSwitcher,
               !previewCoordinator.windowSwitcherCoordinator.isKeybindSessionActive
@@ -393,7 +391,7 @@ private class WindowSwitchingCoordinator {
             previewCoordinator: previewCoordinator,
             mode: mode,
             launchSource: .persistent,
-            spaceNavigation: spacesFocused ? .current : nil, startUnfocused: startUnfocused
+            spaceNavigation: spacesFocused ? .current : nil
         )
     }
 
@@ -407,9 +405,9 @@ private class WindowSwitchingCoordinator {
         previewCoordinator: SharedPreviewWindowCoordinator,
         mode: SwitcherInvocationMode = .allWindows,
         launchSource: WindowSwitcherLaunchSource,
-        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil, startUnfocused: Bool? = nil
+        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil
     ) async -> Bool {
-        let startsUnfocused = startUnfocused ?? false
+        let startsUnfocused = launchSource.startsUnfocused
         guard previewCoordinator.canPresentPreviews else { return false }
         previewCoordinator.cancelPendingShow()
         if previewCoordinator.isVisible, !previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive {
@@ -866,8 +864,8 @@ private final class PreviewActionKeyPressState {
 
 class KeybindHelper {
     private enum ModifierDoubleTapAction {
-        case openPersistentSwitcher(SwitcherInvocationMode, Bool?)
-        case openHeldSwitcher(UserKeyBind, SwitcherInvocationMode, Bool)
+        case openPersistentSwitcher(SwitcherInvocationMode)
+        case openHeldSwitcher(UserKeyBind, SwitcherInvocationMode)
         case switchToLastFocusedWindow(SwitcherInvocationMode)
     }
 
@@ -991,7 +989,7 @@ class KeybindHelper {
     private func presentPersistentWindowSwitcher(
         mode: SwitcherInvocationMode,
         togglesCurrentScope: Bool = true,
-        spacesFocused: Bool = false, startUnfocused: Bool? = nil
+        spacesFocused: Bool = false
     ) async {
         guard Defaults[.enableWindowSwitcher], !spacesFocused || Defaults[.enableSpacesBar], previewCoordinator.canPresentPreviews else { return }
         lastFocusedActivationTask?.cancel()
@@ -1024,7 +1022,7 @@ class KeybindHelper {
             _ = await windowSwitchingCoordinator.switchScope(
                 previewCoordinator: previewCoordinator,
                 mode: mode,
-                launchSourceOverride: .persistent, startUnfocused: startUnfocused
+                launchSourceOverride: .persistent
             )
             if spacesFocused { windowSwitchingCoordinator.navigateSpaces(previewCoordinator: previewCoordinator, request: .current) }
             return
@@ -1040,7 +1038,7 @@ class KeybindHelper {
         await windowSwitchingCoordinator.openPersistent(
             previewCoordinator: previewCoordinator,
             mode: mode,
-            spacesFocused: spacesFocused, startUnfocused: startUnfocused
+            spacesFocused: spacesFocused
         )
     }
 
@@ -1208,18 +1206,17 @@ class KeybindHelper {
                 if WindowUtil.shouldIgnoreKeybindForFrontmostApp() { break }
                 let rollbackKeybind = activeSessionKeybind
                 let rollbackActive = switcherSessionActive
-                if case let .openHeldSwitcher(keybind, _, _) = action {
+                if case let .openHeldSwitcher(keybind, _) = action {
                     beginSwitcherSession(with: keybind)
                 }
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     switch action {
-                    case let .openPersistentSwitcher(mode, noHighlight):
-                        await presentPersistentWindowSwitcher(mode: mode, startUnfocused: noHighlight)
-                    case let .openHeldSwitcher(_, mode, noHighlight):
+                    case let .openPersistentSwitcher(mode):
+                        await presentPersistentWindowSwitcher(mode: mode)
+                    case let .openHeldSwitcher(_, mode):
                         await handleKeybindActivation(mode: mode, isModifierPressed: true, isBackwardPressed: false,
-                                                      rollbackKeybind: rollbackKeybind, rollbackSessionActive: rollbackActive,
-                                                      startUnfocused: noHighlight)
+                                                      rollbackKeybind: rollbackKeybind, rollbackSessionActive: rollbackActive)
                     case let .switchToLastFocusedWindow(mode):
                         switchToLastFocusedWindow(mode: mode)
                     }
@@ -1595,9 +1592,9 @@ class KeybindHelper {
             guard row.usesDoubleTap, !row.isPending,
                   WindowSwitcherShortcutResolver.alternateConflict(at: index, shortcuts: held, mainKeybind: Defaults[.UserKeybind], previewShortcuts: Defaults[.cmdShortcuts]) == nil else { return nil }
             if row.quickSwitch { return (row, .switchToLastFocusedWindow(row.mode)) }
-            if row.persistent { return (row, .openPersistentSwitcher(row.mode, row.noHighlight)) }
+            if row.persistent { return (row, .openPersistentSwitcher(row.mode)) }
             let trigger = UserKeyBind(keyCode: Defaults[.UserKeybind].keyCode, modifierFlags: row.doubleTapKey.modifierFlags, modifierSide: row.doubleTapSide)
-            return (row, .openHeldSwitcher(trigger, row.mode, row.noHighlight))
+            return (row, .openHeldSwitcher(trigger, row.mode))
         }
         guard !shortcuts.isEmpty,
               let matchingShortcut = shortcuts.first(where: { shortcut, _ in
@@ -2082,8 +2079,7 @@ class KeybindHelper {
                     isModifierPressed: true,
                     isBackwardPressed: self.backwardModifierIsPressed(flags: flags, initializer: matchingAlternateShortcut.keybind),
                     rollbackKeybind: previousSessionKeybind,
-                    rollbackSessionActive: previousSessionWasActive,
-                    startUnfocused: matchingAlternateShortcut.noHighlight
+                    rollbackSessionActive: previousSessionWasActive
                 )
             })
         }
@@ -2092,7 +2088,7 @@ class KeybindHelper {
             guard Defaults[.enableWindowSwitcher] else { return (false, nil) }
             if WindowUtil.shouldIgnoreKeybindForFrontmostApp() { return (false, nil) }
             return (true, {
-                await self.presentPersistentWindowSwitcher(mode: matchingPersistentShortcut.mode, startUnfocused: matchingPersistentShortcut.noHighlight)
+                await self.presentPersistentWindowSwitcher(mode: matchingPersistentShortcut.mode)
             })
         }
 
@@ -2330,8 +2326,7 @@ class KeybindHelper {
         isBackwardPressed: Bool? = nil,
         rollbackKeybind: UserKeyBind? = nil,
         rollbackSessionActive: Bool? = nil,
-        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil,
-        startUnfocused: Bool = false
+        spaceNavigation: PreviewStateCoordinator.SpaceNavigationRequest? = nil
     ) async {
         guard Defaults[.enableWindowSwitcher], previewCoordinator.canPresentPreviews else { return }
         lastFocusedActivationTask?.cancel()
@@ -2365,8 +2360,7 @@ class KeybindHelper {
         if shouldSwitchScope {
             let switched = await windowSwitchingCoordinator.switchScope(
                 previewCoordinator: previewCoordinator,
-                mode: mode,
-                startUnfocused: startUnfocused
+                mode: mode
             )
             if !switched {
                 currentInvocationMode = previousMode
@@ -2385,8 +2379,7 @@ class KeybindHelper {
             isModifierPressed: modifierPressedForActivation,
             isBackwardPressed: backwardPressedForActivation,
             mode: mode,
-            spaceNavigation: spaceNavigation,
-            startUnfocused: startUnfocused
+            spaceNavigation: spaceNavigation
         )
         if !activated {
             currentInvocationMode = previousMode

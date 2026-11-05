@@ -106,7 +106,6 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
     var doubleTapKey: ShortcutModifierKey
     var doubleTapSide: ModifierKeySide
     var persistent: Bool
-    var noHighlight: Bool
     var quickSwitch: Bool
     var isConfigured: Bool
     var isPending: Bool
@@ -121,7 +120,6 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
         doubleTapKey: ShortcutModifierKey = .option,
         doubleTapSide: ModifierKeySide = .either,
         persistent: Bool = false,
-        noHighlight: Bool = false,
         quickSwitch: Bool = false,
         isConfigured: Bool = false,
         isPending: Bool = false
@@ -135,7 +133,6 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
         self.doubleTapKey = doubleTapKey
         self.doubleTapSide = doubleTapSide
         self.persistent = persistent
-        self.noHighlight = noHighlight
         self.quickSwitch = quickSwitch
         self.isConfigured = isConfigured
         self.isPending = isPending
@@ -161,7 +158,6 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
         case doubleTapKey
         case doubleTapSide
         case persistent
-        case noHighlight
         case quickSwitch
         case isConfigured
         case isPending
@@ -178,7 +174,6 @@ struct AlternateSwitcherShortcut: Codable, Defaults.Serializable, Identifiable, 
         doubleTapKey = try container.decodeIfPresent(ShortcutModifierKey.self, forKey: .doubleTapKey) ?? .option
         doubleTapSide = try container.decodeIfPresent(ModifierKeySide.self, forKey: .doubleTapSide) ?? .either
         persistent = try container.decodeIfPresent(Bool.self, forKey: .persistent) ?? false
-        noHighlight = try container.decodeIfPresent(Bool.self, forKey: .noHighlight) ?? false
         quickSwitch = try container.decodeIfPresent(Bool.self, forKey: .quickSwitch) ?? false
         isConfigured = try container.decodeIfPresent(Bool.self, forKey: .isConfigured) ?? false
         isPending = try container.decodeIfPresent(Bool.self, forKey: .isPending) ?? false
@@ -209,7 +204,6 @@ struct ResolvedAlternateSwitcherShortcut {
     let keybind: UserKeyBind
     let mode: SwitcherInvocationMode
     let persistent: Bool
-    let noHighlight: Bool
     let quickSwitch: Bool
 }
 
@@ -468,7 +462,7 @@ enum WindowSwitcherShortcutResolver {
                 id: shortcuts[index].id,
                 keybind: keybind,
                 mode: shortcuts[index].mode,
-                persistent: shortcuts[index].persistent, noHighlight: shortcuts[index].noHighlight,
+                persistent: shortcuts[index].persistent,
                 quickSwitch: shortcuts[index].quickSwitch
             )
         }
@@ -689,6 +683,7 @@ extension Defaults.Keys {
     static let cmdTabCompactThreshold = Key<Int>("cmdTabCompactThreshold", default: 0)
     static let searchFuzziness = Key<Int>("searchFuzziness", default: 3)
     static let useClassicWindowOrdering = Key<Bool>("useClassicWindowOrdering", default: true)
+    static let startPersistentSwitcherUnhighlighted = Key<Bool>("startPersistentSwitcherUnhighlighted", default: false)
     static let includeHiddenWindowsInSwitcher = Key<Bool>("includeHiddenWindowsInSwitcher", default: true)
     static let includeHiddenWindowsInDockPreview = Key<Bool>("includeHiddenWindowsInDockPreview", default: true)
     static let includeHiddenWindowsInCmdTab = Key<Bool>("includeHiddenWindowsInCmdTab", default: true)

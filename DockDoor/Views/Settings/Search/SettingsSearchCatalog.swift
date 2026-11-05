@@ -385,6 +385,15 @@ enum SettingsSearchCatalog {
             icon: "2.circle"
         ),
         SettingsSearchItem(
+            id: "windowSwitcher.startPersistentSwitcherUnhighlighted",
+            title: String(localized: "Start persistent switchers with no window highlighted"),
+            description: String(localized: "Leave windows unhighlighted when opening from the menu bar, AppleScript, a persistent shortcut, or when selection on release is off."),
+            keywords: ["persistent", "keep open", "highlight", "selection", "menu bar", "applescript"],
+            tab: "WindowSwitcher",
+            section: String(localized: "Behavior"),
+            icon: "rectangle.dashed"
+        ),
+        SettingsSearchItem(
             id: "windowSwitcher.mouseFollowsFocus",
             title: String(localized: "Mouse follows focus", comment: "Mouse follows focus setting label"),
             description: String(localized: "Move the cursor to the center of the selected window."),
@@ -2791,15 +2800,6 @@ enum SettingsSearchCatalog {
             tab: "Keybinds",
             section: String(localized: "Window Switcher Shortcuts"),
             icon: "arrow.left.arrow.right"
-        ),
-        SettingsSearchItem(
-            id: "gestures.alternateNoHighlight",
-            title: String(localized: "No Highlight"),
-            description: String(localized: "Start the switcher without highlighting a window."),
-            keywords: ["persistent", "keep", "open", "selection", "highlight", "unfocused", "menu bar"],
-            tab: "Keybinds",
-            section: String(localized: "Alternate Shortcuts"),
-            icon: "rectangle.dashed"
         ),
         SettingsSearchItem(
             id: "gestures.alternateQuickSwitch",

@@ -100,17 +100,13 @@ fitting_row = current['nodes'].fetch('SettingsShortcutRow')['source']
 errors << 'Shortcut assignments and mode menus must share one aligned top row' unless fitting_row.include?('HStack(spacing: 8)') && fitting_row.include?('Spacer(minLength: 8)') && !fitting_row.include?('ViewThatFits')
 alternate_row = source_block(keybind_source, keybind_source.index('private func alternateShortcutRow('))
 errors << 'Alternate checkboxes must occupy an indented second row' unless alternate_row.include?('SettingsDependentRows {') && alternate_row.index('SettingsShortcutModePicker(') < alternate_row.index('Toggle("Double-tap"')
-errors << 'No highlight must be per-row, not a separate settings section' unless alternate_row.include?('Toggle("No Highlight"') && !keybind_source.include?('SettingsSection("Persistent Window Switcher")')
 errors << 'Alternate Shortcuts must use only upstream storage, not transfers or hidden legacy records' if keybind_source.include?('persistentSwitcherShortcuts') || keybind_source.include?('alternateRowOrder') || keybind_source.include?('orderedAlternateIDs')
-errors << 'No Highlight must always be visible' if alternate_row.include?('if persistentBinding(')
 ['Press and release the chosen modifier, then press it again to open the switcher without a trigger key.', 'Keep the switcher open after releasing the shortcut modifiers.'].each do |help|
  errors << "Missing Alternate Shortcuts tooltip: #{help}" unless alternate_row.include?(".help(\"#{help}\")")
 end
-errors << 'Quick Switch must disable only Persistent and No Highlight, retaining Double-tap and scope' unless alternate_row.scan('.disabled(shortcut.quickSwitch)').length == 2 && alternate_row.include?('Toggle("Quick Switch"')
+errors << 'Quick Switch must disable only Persistent, retaining Double-tap and scope' unless alternate_row.scan('.disabled(shortcut.quickSwitch)').length == 1 && alternate_row.include?('Toggle("Quick Switch"')
 errors << 'Last Focused must be a Quick Switch row, not a separate editor' if keybind_source.include?('lastFocusedShortcutsSection') || current['nodes'].key?('ScopedShortcutRows') || current['nodes'].key?('KeyCombinationCaptureButton')
 keyboard_source = File.read('DockDoor/Utilities/KeybindHelper.swift')
-held_activation = source_block(keyboard_source, keyboard_source.index('        if let matchingAlternateShortcut {'))
-errors << 'Held activation must forward No Highlight' unless held_activation.include?('startUnfocused: matchingAlternateShortcut.noHighlight')
 errors << 'Every shortcut list must share the Add/Reset footer' unless keybind_source.include?('SettingsShortcutListFooter(') && cmd_source.include?('SettingsShortcutListFooter(')
 errors << 'Preview footer must not retain legacy extra top padding' if cmd_source.include?('.padding(.top, 4)')
 capture_controls = current['nodes'].fetch('SettingsKeyCaptureControls')['source']
@@ -373,13 +369,12 @@ source += <<~'SWIFT'
   let inherited=state.rows[0].resolvedKeybind(mainKeybind:main)!
   precondition(inherited.modifierFlags==main.modifierFlags && inherited.modifierSide==main.modifierSide)
   let editingOrder = state.rows.map(\.id)
-  state.rows[0].noHighlight = true
   let saved = state.rows[0]
   owner.persistentBinding(for:id).wrappedValue = true
-  precondition(state.rows[0].persistent && state.rows[0].id == id && state.rows[0].noHighlight)
+  precondition(state.rows[0].persistent && state.rows[0].id == id)
   precondition(state.rows.map(\.id) == editingOrder)
   let resolved = WindowSwitcherShortcutResolver.resolvedAlternateShortcuts(state.rows, mainKeybind:main, previewShortcuts:[])
-  precondition(resolved.count == 1 && resolved[0].persistent && resolved[0].noHighlight)
+  precondition(resolved.count == 1 && resolved[0].persistent)
   precondition(resolved[0].keybind.modifierSide == main.modifierSide)
   owner.persistentBinding(for:id).wrappedValue = false
   precondition(state.rows == [saved])
@@ -412,9 +407,16 @@ source += <<~'SWIFT'
   let decodedRows = try JSONDecoder().decode([AlternateSwitcherShortcut].self,from:encoded)
   precondition(decodedRows == state.rows)
   var upstream = try JSONSerialization.jsonObject(with:JSONEncoder().encode(saved)) as! [String:Any]
-  upstream.removeValue(forKey:"persistent"); upstream.removeValue(forKey:"noHighlight")
+  upstream.removeValue(forKey:"persistent")
   let upstreamRow = try JSONDecoder().decode(AlternateSwitcherShortcut.self, from:JSONSerialization.data(withJSONObject:upstream))
-  precondition(!upstreamRow.persistent && !upstreamRow.noHighlight && upstreamRow.id == saved.id)
+  precondition(!upstreamRow.persistent && upstreamRow.id == saved.id)
+var legacy = try JSONSerialization.jsonObject(with:JSONEncoder().encode(saved)) as! [String:Any]
+legacy["noHighlight"] = true
+let legacyRow = try JSONDecoder().decode(AlternateSwitcherShortcut.self, from:JSONSerialization.data(withJSONObject:legacy))
+precondition(legacyRow == saved, "Obsolete row metadata must not change saved shortcut bindings")
+let rewritten = try JSONSerialization.jsonObject(with:JSONEncoder().encode(legacyRow)) as! [String:Any]
+precondition(rewritten["noHighlight"] == nil)
+
   print("PASS one-store shortcut editing: stable ID/order, Persistent-independent precedence, unfinished-row visibility, pending protection, key zero, inherited sides and upstream metadata defaults")
 let recorder=Recorder()
 func key(_ code:UInt16,_ flags:NSEvent.ModifierFlags = []) -> NSEvent {
@@ -477,7 +479,7 @@ precondition(matcher.resolveAlternateShortcut(in:resolvedRows,keyCode:1,flags:.m
 matcher.switcherSessionActive=true; matcher.activeSessionKeybind=resolvedRows[0].keybind
 precondition(matcher.resolveAlternateShortcut(in:Array(resolvedRows.prefix(1)),keyCode:0,flags:[.maskAlternate,.maskShift])?.id == baseRow.id)
 precondition(matcher.resolveAlternateShortcut(in:resolvedRows,keyCode:0,flags:[.maskAlternate,.maskShift])?.id == shiftedRow.id, "Explicit bindings take precedence over in-session reverse cycling")
-let persistentRow=ResolvedAlternateSwitcherShortcut(id:baseRow.id,keybind:resolvedRows[0].keybind,mode:baseRow.mode,persistent:true,noHighlight:false,quickSwitch:false)
+let persistentRow=ResolvedAlternateSwitcherShortcut(id:baseRow.id,keybind:resolvedRows[0].keybind,mode:baseRow.mode,persistent:true,quickSwitch:false)
 precondition(matcher.resolveAlternateShortcut(in:[persistentRow],keyCode:0,flags:[.maskAlternate,.maskShift]) == nil)
 matcher.switcherSessionActive=false
 Defaults.backward=UInt16(kVK_Control)
@@ -510,9 +512,9 @@ precondition(upstreamMatcher.modifierFlagsMatch(optShift,flags:.maskAlternate))
 precondition(!matcher.modifierFlagsMatch(UserKeyBind(keyCode:0,modifierFlags:opt),flags:[.maskAlternate,.maskShift],allowBackwardModifier:false))
 precondition(!matcher.modifierFlagsMatch(UserKeyBind(keyCode:0,modifierFlags:optShift),flags:.maskAlternate,allowBackwardModifier:false))
 print("PASS production modifier matching: \(exactCases) exact/side/caps cases, explicit Shift bindings, active-only reverse, required-modifier release, persistent Cmd+Tab routing and disabled-path gating; upstream Shift omission reproduced without posting events")
-var quick=AlternateSwitcherShortcut(keyCode:0,modifierFlags:combined,persistent:true,noHighlight:true,quickSwitch:true,isConfigured:true)
+var quick=AlternateSwitcherShortcut(keyCode:0,modifierFlags:combined,persistent:true,quickSwitch:true,isConfigured:true)
 let quickResolved=WindowSwitcherShortcutResolver.resolvedAlternateShortcuts([quick],mainKeybind:main,previewShortcuts:[])
-precondition(quickResolved.count == 1 && quickResolved[0].quickSwitch && quickResolved[0].persistent && quickResolved[0].noHighlight)
+precondition(quickResolved.count == 1 && quickResolved[0].quickSwitch && quickResolved[0].persistent)
 precondition(WindowSwitcherShortcutResolver.alternateConflict(at:1,shortcuts:[quick,quick],mainKeybind:main,previewShortcuts:[]) == .duplicate)
 matcher.switcherSessionActive=true; matcher.activeSessionKeybind=quickResolved[0].keybind
 matcher.pressedModifierKeyCodes=[UInt16(kVK_Control),UInt16(kVK_Option),UInt16(kVK_Shift)]
@@ -536,12 +538,12 @@ Defaults.switcherEnabled=true
 quick.quickSwitch=false
 let ordinary=WindowSwitcherShortcutResolver.resolvedAlternateShortcuts([quick],mainKeybind:main,previewShortcuts:[])[0]
 precondition(!dispatch.dispatch(ordinary,event:quickEvent).shouldConsume)
-precondition(ordinary.persistent && ordinary.noHighlight, "Turning Quick Switch off retains disabled option values")
+precondition(ordinary.persistent, "Turning Quick Switch off retains disabled option values")
 print("PASS Quick Switch production dispatch: shared scopes/conflicts, exactly one executor, repeat suppression, disabled/ignored refusal, no ordinary/persistent presentation and retained option values")
 var doubleCases=0
 for modifier in ShortcutModifierKey.allCases {
  for side in ModifierKeySide.allCases {
-  let row=AlternateSwitcherShortcut(usesDoubleTap:true,doubleTapKey:modifier,doubleTapSide:side,noHighlight:true)
+  let row=AlternateSwitcherShortcut(usesDoubleTap:true,doubleTapKey:modifier,doubleTapSide:side)
   Defaults.alternateRows=[row]
   let code=side == .right ? modifier.keyCodes.right : modifier.keyCodes.left
   let flags=CGEventFlags(rawValue:UInt64(modifier.modifierFlags))
@@ -549,7 +551,7 @@ for modifier in ShortcutModifierKey.allCases {
   precondition(detector.handleModifierDoubleTap(event:modifierEvent(code,flags,1)) == nil)
   precondition(detector.handleModifierDoubleTap(event:modifierEvent(code,[],1.01)) == nil)
   let result=detector.handleModifierDoubleTap(event:modifierEvent(code,flags,1.02))
-  guard case let .openHeldSwitcher(_, _, noHighlight)? = result, noHighlight else { preconditionFailure("Expected held double-tap: \(modifier) \(side), interval=\(NSEvent.doubleClickInterval), keys=\(detector.modifierDoubleTapState.pressedKeyCodes), timestamps=\(detector.modifierDoubleTapState.firstPressTimestampByKeyCode)") }
+  guard case .openHeldSwitcher? = result else { preconditionFailure("Expected held double-tap: \(modifier) \(side), interval=\(NSEvent.doubleClickInterval), keys=\(detector.modifierDoubleTapState.pressedKeyCodes), timestamps=\(detector.modifierDoubleTapState.firstPressTimestampByKeyCode)") }
   for extra in ShortcutModifierKey.allCases where extra != modifier {
    let rejected=Detector()
    let extraFlag=CGEventFlags(rawValue:UInt64(extra.modifierFlags))
@@ -602,7 +604,7 @@ print("PASS production recorder Caps Lock cancellation/key zero; double-tap held
     resetCases += 1
    }
   }
-  print("PASS per-row No Highlight metadata and \(resetCases) coupled icon-range resets through production bindings")
+  print("PASS legacy shortcut metadata decoding and \(resetCases) coupled icon-range resets through production bindings")
   let before=state.rows
   owner.alternateModifierBinding(for:UUID()).wrappedValue=combined
   precondition(state.rows==before)

@@ -20,7 +20,7 @@ abort "Private/system state: #{private_keys.join(', ')}" unless private_keys.emp
 abort 'Debug logging must be disabled' unless settings['debugMode'] == false
 
 ids = []
-row_keys = %w[id isConfigured isPending keyCode mode modifierFlags modifierSide persistent inheritsMainModifier doubleTapKey doubleTapSide usesDoubleTap noHighlight quickSwitch action]
+row_keys = %w[id isConfigured isPending keyCode mode modifierFlags modifierSide persistent inheritsMainModifier doubleTapKey doubleTapSide usesDoubleTap quickSwitch action]
 row_lists = %w[alternateSwitcherShortcuts persistentSwitcherShortcuts lastFocusedWindowShortcuts cmdShortcuts]
 settings.each do |key, value|
   next unless row_lists.include?(key)

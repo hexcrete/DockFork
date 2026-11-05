@@ -159,6 +159,7 @@ struct MainSettingsView: View {
                 Defaults[.ignoreAppsWithSingleWindow] = Defaults.Keys.ignoreAppsWithSingleWindow.defaultValue
                 Defaults[.ignoreAppsWithSingleWindowInCmdTab] = Defaults.Keys.ignoreAppsWithSingleWindowInCmdTab.defaultValue
                 Defaults[.useClassicWindowOrdering] = Defaults.Keys.useClassicWindowOrdering.defaultValue
+                Defaults[.startPersistentSwitcherUnhighlighted] = Defaults.Keys.startPersistentSwitcherUnhighlighted.defaultValue
                 Defaults[.limitSwitcherToFrontmostApp] = Defaults.Keys.limitSwitcherToFrontmostApp.defaultValue
                 Defaults[.fullscreenAppBlacklist] = Defaults.Keys.fullscreenAppBlacklist.defaultValue
 

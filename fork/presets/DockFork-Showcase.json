@@ -14,9 +14,9 @@
     "aeroShakeAction": "except",
     "allowDynamicImageSizing": false,
     "alternateSwitcherShortcuts": [
-      "{\"doubleTapKey\":\"option\",\"doubleTapSide\":\"either\",\"id\":\"00000000-0000-4000-8000-000000000001\",\"isConfigured\":true,\"isPending\":false,\"keyCode\":50,\"mode\":\"activeAppOnly\",\"modifierFlags\":0,\"modifierSide\":\"either\",\"noHighlight\":false,\"persistent\":false,\"quickSwitch\":false,\"usesDoubleTap\":false}",
-      "{\"doubleTapKey\":\"command\",\"doubleTapSide\":\"right\",\"id\":\"00000000-0000-4000-8000-000000000002\",\"isConfigured\":false,\"isPending\":false,\"keyCode\":0,\"mode\":\"allWindows\",\"modifierFlags\":0,\"modifierSide\":\"left\",\"noHighlight\":true,\"persistent\":true,\"quickSwitch\":false,\"usesDoubleTap\":true}",
-      "{\"doubleTapKey\":\"command\",\"doubleTapSide\":\"left\",\"id\":\"00000000-0000-4000-8000-000000000003\",\"isConfigured\":false,\"isPending\":false,\"keyCode\":0,\"mode\":\"globalAllWindows\",\"modifierFlags\":0,\"modifierSide\":\"left\",\"noHighlight\":false,\"persistent\":false,\"quickSwitch\":true,\"usesDoubleTap\":true}"
+      "{\"doubleTapKey\":\"option\",\"doubleTapSide\":\"either\",\"id\":\"00000000-0000-4000-8000-000000000001\",\"isConfigured\":true,\"isPending\":false,\"keyCode\":50,\"mode\":\"activeAppOnly\",\"modifierFlags\":0,\"modifierSide\":\"either\",\"persistent\":false,\"quickSwitch\":false,\"usesDoubleTap\":false}",
+      "{\"doubleTapKey\":\"command\",\"doubleTapSide\":\"right\",\"id\":\"00000000-0000-4000-8000-000000000002\",\"isConfigured\":false,\"isPending\":false,\"keyCode\":0,\"mode\":\"allWindows\",\"modifierFlags\":0,\"modifierSide\":\"left\",\"persistent\":true,\"quickSwitch\":false,\"usesDoubleTap\":true}",
+      "{\"doubleTapKey\":\"command\",\"doubleTapSide\":\"left\",\"id\":\"00000000-0000-4000-8000-000000000003\",\"isConfigured\":false,\"isPending\":false,\"keyCode\":0,\"mode\":\"globalAllWindows\",\"modifierFlags\":0,\"modifierSide\":\"left\",\"persistent\":false,\"quickSwitch\":true,\"usesDoubleTap\":true}"
     ],
     "anchorDockPreviewPosition": true,
     "appAppearanceMode": "system",

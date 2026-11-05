@@ -578,10 +578,29 @@ routing = block(keybinds, '    private func handleTrackpadSwipe(')
 abort 'Spaces swipe must share session ownership, pending launch and modifier rules' unless routing.include?('spaceNavigation: spaces ? .cycle(backward: backward) : nil') && routing.include?('initializerHeld: isSwitcherModifierKeyPressed') && routing.include?('TrackpadSwipeReleasePolicy.shouldSelect(') && routing.include?('selectOnSwitcherRelease()')
 puts 'PASS Spaces swipe integration: default-off/search/reset, dynamic opposite-axis label, existing event tap, shared session ownership, held-initializer precedence and common pending/release selection'
 
+behavior_settings = File.read("#{root}/DockDoor/Views/Settings/WindowSwitcherBehaviorSettingsView.swift")
+shortcut_settings = File.read("#{root}/DockDoor/Views/Settings/Gestures/WindowSwitcherKeybindSection.swift")
+abort 'Persistent initial highlight setting requires default-off, search and reset wiring' unless constants.include?('Key<Bool>("startPersistentSwitcherUnhighlighted", default: false)') && behavior_settings.include?('.settingsSearchTarget("windowSwitcher.startPersistentSwitcherUnhighlighted")') && catalog.include?('id: "windowSwitcher.startPersistentSwitcherUnhighlighted"') && reset.include?('Defaults[.startPersistentSwitcherUnhighlighted] = Defaults.Keys.startPersistentSwitcherUnhighlighted.defaultValue')
+abort 'Retired per-shortcut highlight policy must not affect activation or settings' if constants.include?('noHighlight') || keybinds.include?('noHighlight') || shortcut_settings.include?('Toggle("No Highlight"') || catalog.include?('gestures.alternateNoHighlight')
+startup_policy = block(keybinds, '    private func initializeWindowSwitching(')
+abort 'Initial and late-discovered windows must use the same launch highlight policy' unless startup_policy.include?('let startsUnfocused = launchSource.startsUnfocused') && startup_policy.include?('startUnfocused: startsUnfocused') && startup_policy.include?('selectFirstWindow: !startsUnfocused')
+abort 'Changing scope must not reapply the startup highlight policy' if block(keybinds, '    func switchScope(').include?('startsUnfocused')
+
 ownership_source = <<~'SWIFT'
 import Foundation
-enum Key {case selectWindowOnPersistentSwitcherSwipe, useClassicWindowOrdering, persistentSwitcherStartsUnfocused, instantWindowSwitcher, focusSearchOnWindowSwitcherOpen}
-enum Defaults {static var takeover = true;static subscript(_ key:Key)->Bool {key == .selectWindowOnPersistentSwitcherSwipe ? takeover:false}}
+enum Key {case selectWindowOnPersistentSwitcherSwipe, useClassicWindowOrdering, startPersistentSwitcherUnhighlighted, preventSwitcherHide, instantWindowSwitcher, focusSearchOnWindowSwitcherOpen}
+enum Defaults {
+ static var takeover = true, noHighlight = false, keepOpen = false, focusSearch = false
+ static subscript(_ key:Key)->Bool {
+  switch key {
+  case .selectWindowOnPersistentSwitcherSwipe: takeover
+  case .startPersistentSwitcherUnhighlighted: noHighlight
+  case .preventSwitcherHide: keepOpen
+  case .focusSearchOnWindowSwitcherOpen: focusSearch
+  default: false
+  }
+ }
+}
 enum SwitcherInvocationMode {case allWindows}
 final class PreviewStateCoordinator {
  enum SpaceNavigationRequest: Equatable {case current, cycle(backward:Bool)}
@@ -607,8 +626,8 @@ ownership_source += <<~'SWIFT'
  var unfocusedStarts: [Bool] = []
  func takeKeyboardOwnership() {activeLaunchSource = .keyboard; trackpadSessionId = nil}
  func navigateSpaces(previewCoordinator:SharedPreviewWindowCoordinator,request:PreviewStateCoordinator.SpaceNavigationRequest) {spaceRequests.append(request)}
- func initializeWindowSwitching(previewCoordinator:SharedPreviewWindowCoordinator,mode:SwitcherInvocationMode,launchSource:WindowSwitcherLaunchSource,spaceNavigation:PreviewStateCoordinator.SpaceNavigationRequest?,startUnfocused:Bool? = nil) async -> Bool {
-  initializations += 1; activeLaunchSource = launchSource; unfocusedStarts.append(startUnfocused ?? false)
+ func initializeWindowSwitching(previewCoordinator:SharedPreviewWindowCoordinator,mode:SwitcherInvocationMode,launchSource:WindowSwitcherLaunchSource,spaceNavigation:PreviewStateCoordinator.SpaceNavigationRequest?) async -> Bool {
+  initializations += 1; activeLaunchSource = launchSource; unfocusedStarts.append(launchSource.startsUnfocused)
   trackpadSessionId = launchSource == .trackpad ? currentSessionId:nil
   if let spaceNavigation {spaceRequests.append(spaceNavigation)}
   return true
@@ -634,10 +653,21 @@ ownership_source += <<~'SWIFT'
   panel.windowSwitcherCoordinator.isKeybindSessionActive = false
   _ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:.trackpad,spaceNavigation:.current)
   precondition(state.initializations == 1 && state.spaceRequests.last == .current)
-_ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:.keyboard,startUnfocused:true)
-precondition(state.unfocusedStarts.last == true && state.activeLaunchSource == .keyboard, "Held No Highlight reaches initialization without changing ownership")
-_ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:.keyboard)
-precondition(state.unfocusedStarts.last == false, "Ordinary navigation keeps its default")
+  for enabled in [false, true] {
+   Defaults.noHighlight = enabled
+   for keepOpen in [false, true] {
+    Defaults.keepOpen = keepOpen
+    for focusSearch in [false, true] {
+     Defaults.focusSearch = focusSearch
+     for launch in [WindowSwitcherLaunchSource.keyboard, .trackpad, .persistent] {
+      _ = await state.handleWindowSwitching(previewCoordinator:panel,isModifierPressed:true,isBackwardPressed:false,launchSource:launch)
+      precondition(state.unfocusedStarts.last == (enabled && (keepOpen || launch == .persistent)))
+      precondition(state.activeLaunchSource == launch, "Highlight policy must not change session ownership")
+     }
+    }
+   }
+  }
+  print("PASS shared launch policy: persistent and configured keep-open sessions start unhighlighted only when enabled; search focus does not change eligibility")
   for searchFocused in [false,true] {
    precondition(TrackpadSwipeReleasePolicy.shouldSelect(tookOverKeepOpenSession:true,keepOpen:true,focusesSearchOnOpen:true,searchEnabled:true,searchFocused:searchFocused) == !searchFocused)
   }

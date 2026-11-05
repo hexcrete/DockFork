@@ -339,13 +339,6 @@ struct WindowSwitcherKeybindSection: View {
                         Toggle("Persistent", isOn: persistentBinding(for: id)).toggleStyle(.checkbox).fixedSize()
                             .help("Keep the switcher open after releasing the shortcut modifiers.")
                             .disabled(shortcut.quickSwitch)
-                        Toggle("No Highlight", isOn: Binding(get: { editedShortcut(id)?.noHighlight ?? false }, set: { value in
-                            editShortcut(id) { $0.noHighlight = value }
-                        }))
-                        .toggleStyle(.checkbox)
-                        .help("Start the switcher without highlighting a window.")
-                        .disabled(shortcut.quickSwitch)
-                        .settingsSearchTarget("gestures.alternateNoHighlight")
                         Toggle("Quick Switch", isOn: Binding(get: { editedShortcut(id)?.quickSwitch ?? false }, set: { value in
                             editShortcut(id) { $0.quickSwitch = value }
                         }))

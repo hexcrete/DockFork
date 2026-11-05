@@ -13,6 +13,7 @@ struct WindowSwitcherBehaviorSettingsView: View {
     @Default(.mouseHoverAutoScrollSpeed) var mouseHoverAutoScrollSpeed
     @Default(.includeHiddenWindowsInSwitcher) var includeHiddenWindowsInSwitcher
     @Default(.useClassicWindowOrdering) var useClassicWindowOrdering
+    @Default(.startPersistentSwitcherUnhighlighted) private var startPersistentSwitcherUnhighlighted
     @Default(.limitSwitcherToFrontmostApp) var limitSwitcherToFrontmostApp
     @Default(.showWindowsFromCurrentSpaceOnlyInSwitcher) var showWindowsFromCurrentSpaceOnlyInSwitcher
     @Default(.showWindowsFromCurrentMonitorOnlyInSwitcher) var showWindowsFromCurrentMonitorOnlyInSwitcher
@@ -111,6 +112,10 @@ struct WindowSwitcherBehaviorSettingsView: View {
             Toggle(isOn: $useClassicWindowOrdering) { Text("Start on second window") }
                 .settingsSearchTarget("windowSwitcher.startOnSecond")
                 .settingsAnnotation("Highlight the second window instead of the first when opening.")
+
+            Toggle("Start persistent switchers with no window highlighted", isOn: $startPersistentSwitcherUnhighlighted)
+                .settingsSearchTarget("windowSwitcher.startPersistentSwitcherUnhighlighted")
+                .settingsAnnotation("Leave windows unhighlighted when opening from the menu bar, AppleScript, a persistent shortcut, or when selection on release is off.")
 
             Picker(String(localized: "Mouse follows focus", comment: "Mouse follows focus setting label"), selection: $mouseFollowsFocusMode) {
                 ForEach(MouseFollowsFocusMode.allCases, id: \.self) {

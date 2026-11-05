@@ -6,6 +6,8 @@ October 23 Stage 3 is still partial and uncommitted. A focused navigation/icon c
 
 # Preparing Upstream Contributions
 
+November 5 persistent-start highlight control is a fork setting with common launch-policy wiring, not another shortcut property. Keep upstream defaults, ordinary release selection and scripting interfaces unchanged in any agreed extraction. Exclude preset and retired fork metadata cleanup from unrelated PRs.
+
 November 5 search styling now shares existing container chrome rather than its earlier capsule or plain-background trial. A focused extraction must preserve BaseHoverContainer hide/widget/mock behavior and search's visible-background exception, content-layer shadow/fade, drawing room and layout tests. The existing material/shadow renderer is upstream; the reuse and search policy are fork changes. Keep clear/editor/focus fixes only as required by the agreed scope. No PR is authorized.
 
 The single-fullscreen +1 exception belongs with icon-limit presentation: carry the cached model classification, prepared-key invalidation, width reservation and rendering condition together. Do not classify solely by one app, since same-app Split View can contain two windows, and do not add discovery to identify the exception. Fork capture/ledger/build records remain excluded.

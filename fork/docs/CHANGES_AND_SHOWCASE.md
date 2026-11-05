@@ -1,5 +1,12 @@
 # DockFork: Changes and Showcase
 
+## Persistent Switcher Initial Highlight
+
+In Window Switcher > Behavior, **Start persistent switchers with no window highlighted** defaults Off and replaces the per-shortcut checkbox. When enabled, menu-bar, AppleScript and persistent-shortcut launches start without a highlighted window. Keyboard and trackpad launches do the same when configured to stay open on release. Temporary retention through search or selection does not change launch eligibility. When disabled, the first/second-window setting still applies.
+
+Resolve the choice once at fresh-session initialization and use it for late window discovery too. Do not clear an existing highlight on a scope change or repeated same-scope script invocation. Search focus and explicit Space focus remain independent. Saved shortcut IDs, modifiers and modes decode unchanged; legacy row metadata is ignored, not migrated into the new default-off setting. The maintained showcase preset drops only that obsolete row metadata. Published 0.5.0 artifacts and scripting interfaces are unchanged. This is an unshipped follow-up.
+
+
 ## Menu-Bar Switcher Toggle Follow-up
 
 Outside-click dismissal uses the mouse-down event's recorded location and protects the full visible status-item slot when left click is assigned to the switcher. macOS can deliver a centered button activation for a press in the slot's padding. The former icon-only check dismissed the switcher first, so that activation reopened it. The slot check includes both vertical edges without extending beyond the slot. Click assignments, native-menu tracking and persistent-session rules are unchanged. This is an unshipped follow-up to 0.5.0.
