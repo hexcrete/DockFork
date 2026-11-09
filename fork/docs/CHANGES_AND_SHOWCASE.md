@@ -1,5 +1,9 @@
 # DockFork: Changes and Showcase
 
+## 0.5.1 Stable Release Preparation
+
+The [0.5.1 release notes](RELEASE_BODY_0.5.1.md) compare the current branch with published 0.5.0 and separate DockFork changes, DockFork fixes and upstream changes. The November 9 showcase preset enables the global persistent-start no-highlight option and keeps the auto-hidden Dock visible during previews. It retains the previous shortcut assignments and omits the retired per-row No Highlight field. No candidate has been built and published packages are unchanged.
+
 ## November 9 Upstream Integration
 
 The development branch incorporates DockDoor 1.42.4 through `6d3c0db8` in merge `b0a8a58e`. Upstream adds an **Only selected apps** mode to quit on last window close. The default remains **All apps except selected**, and the fork's Close actions use the same policy as native closes.

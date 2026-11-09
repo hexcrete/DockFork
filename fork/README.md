@@ -53,7 +53,7 @@ The development snapshot includes tracked source changes but excludes untracked 
 
 ### Fork and Upstream Versions
 
-`version.json` records DockFork version **0.5.0**, incorporated upstream commit `6d3c0db804bb4c5ef3ee1d2e31bfed2ec76b85a9`, stable upstream release **1.42.4**, and its exact release commit `1daaef1ad1d64eca68bcc25aad4378a5df3deec3`. This is the current development base; the published DockFork 0.5.0 package is unchanged.
+`version.json` records the planned DockFork **0.5.1** stable release, incorporated upstream commit `6d3c0db804bb4c5ef3ee1d2e31bfed2ec76b85a9`, stable upstream release **1.42.4**, and its exact release commit `1daaef1ad1d64eca68bcc25aad4378a5df3deec3`. The [0.5.1 release notes](docs/RELEASE_BODY_0.5.1.md) are ready; no candidate has been built. DockFork 0.5.0 remains the latest published release.
 
 After a future merge, fetch upstream tags and select the newest published stable release contained in the merged history. Never label an unmerged release as the base or infer it from Xcode's project version. Run `ruby fork/packaging/tests/version_metadata_test.rb`. Packaging validates ancestry/tag identity and embeds version/base metadata in the isolated app and BUILD-METADATA.json for Support > Updates.
 
@@ -80,7 +80,9 @@ See [installation and signing limitations](packaging/INSTALL.md). Ad-hoc signing
 
 ## Optional Showcase Preset
 
-[DockFork-Showcase.json](presets/DockFork-Showcase.json) is the sanitized November 4 export included with 0.5.0. It uses one Alternate Shortcuts list, generic shortcut IDs and debug logging Off; retired shortcut, Space-layout and indicator keys and private/system state are removed. Import is optional and replaces settings: export a backup first. The original export is untouched. No import or installation validation is implied. Published 0.4.0 retains its attached historical preset.
+[DockFork-Showcase.json](presets/DockFork-Showcase.json) is the sanitized November 9 export prepared for 0.5.1. It has 271 preferences and 15 shortcut rows with generic IDs. It enables the global no-highlight option and keeps the auto-hidden Dock visible during previews; shortcut assignments are unchanged from 0.5.0. Debug logging is off, and export timestamps, file-dialog state, cached permissions and the restart flag are omitted.
+
+Import is optional and replaces settings: export a backup first. The original export and the presets attached to published releases are unchanged. No import or installation validation is implied.
 
 Fresh defaults and supplied showcase choices are distinct; no application defaults change during release preparation.
 

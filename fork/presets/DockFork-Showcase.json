@@ -1,6 +1,6 @@
 {
   "app": "DockDoor",
-  "appVersion": "0.5.0",
+  "appVersion": "0.5.1",
   "formatVersion": 1,
   "settings": {
     "UserKeybind": "{\"keyCode\":48,\"modifierFlags\":524576,\"modifierSide\":\"left\"}",
@@ -183,7 +183,7 @@
     "newWindowPostActionBehavior": false,
     "openWindowSwitcherFromMenuBarIcon": true,
     "passArrowsThroughToSystem": false,
-    "preventDockHide": false,
+    "preventDockHide": true,
     "preventPreviewReentryDuringFadeOut": true,
     "preventSwitcherHide": false,
     "previewCornerRadius": 20,
@@ -238,6 +238,7 @@
     "spacesBarShowAppIcons": true,
     "spacesBarSwapContents": false,
     "springLoadingDelay": 1,
+    "startPersistentSwitcherUnhighlighted": true,
     "strictTitleBarGestureDetection": true,
     "swapCmdTabTrafficLightsAndWindowStateIndicator": true,
     "swapDockPreviewTrafficLightsAndWindowStateIndicator": true,

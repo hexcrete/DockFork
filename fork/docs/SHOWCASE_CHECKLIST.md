@@ -8,7 +8,7 @@ All existing capture IDs and unchecked states are preserved. Screenshots and rec
 
 Published stable [0.5.0](https://github.com/hexcrete/DockFork/releases/tag/v0.5.0) includes the current Settings. Use that package or a reviewed development build and label the exact source accurately; do not present its Settings as shipped 0.4.0 UI. Use the published package and its attached preset only for release-specific captures. Record the exact version/source used.
 
-The maintained preset is the sanitized November 4 export included with 0.5.0: 270 preferences, 15 generic-ID shortcut rows and no retired keys. Import is optional and replaces settings; export a backup first. Published 0.4.0 retains its attached historical preset. Capture selections and approval states remain unchanged.
+The 0.5.1 showcase preset is the sanitized November 9 export: 271 preferences and 15 generic-ID shortcut rows. It enables the global no-highlight option and keeps an auto-hidden Dock visible during previews. For 0.5.0 captures, use the November 4 preset attached to that release. Import is optional and replaces settings; export a backup first. Capture selections and approval states remain unchanged.
 
 ## Attribution Boundary
 

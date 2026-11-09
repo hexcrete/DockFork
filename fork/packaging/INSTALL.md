@@ -20,7 +20,7 @@ This Apple Silicon package is ad-hoc signed, not Developer ID signed or notarize
 
 Version 0.4.0 adds the optional Window Switcher Spaces Bar, Space filtering/content movement and preview refinements. Stable release status does not change ad-hoc signing or establish compatibility with every app or macOS version. See the release notes for actual validation.
 
-For the 0.5.0 candidate, Alternate Shortcuts combines Persistent, No Highlight and Quick Switch in one editor. Retired fork-only shortcut stores are not migrated; recreate those assignments or explicitly import the reviewed 0.5.0 preset. The refreshed preset omits retired settings.
+Alternate Shortcuts combines Persistent and Quick Switch in one editor. To start persistent sessions without a window highlighted, use **Window Switcher > Behavior > Start persistent switchers with no window highlighted**. The older per-row No Highlight checkbox is no longer used. Retired fork-only shortcut stores are not migrated; recreate those assignments if needed.
 
 Before replacing an installed version, export a settings backup and quit all DockDoor/DockFork instances. Keep DockFork's name, bundle ID and installation path consistent. Packaging does not reset preferences, but a rebuilt ad-hoc release can require removing and re-adding affected Accessibility or Screen Recording permissions, then restarting the app.
 
@@ -37,4 +37,4 @@ DockFork is GPL-3.0 software based on [DockDoor](https://github.com/ejbills/Dock
 
 ## Showcase Privacy
 
-The 0.4.0 optional preset is the sanitized October 27 export, with 273 recognized preferences and 15 generic-ID shortcut rows. Debug logging is Off; file-dialog state and cached permissions are omitted. Supplied behavioral choices are preserved. Privacy review does not establish installation or import behavior; export a backup and test the exact package.
+The optional 0.5.1 preset is the sanitized November 9 export, with 271 recognized preferences and 15 generic-ID shortcut rows. Debug logging is off; the export timestamp, file-dialog state, cached permissions and the restart flag are omitted. Privacy review does not establish installation or import behavior. Use the preset attached to your release and export a backup before importing it.
