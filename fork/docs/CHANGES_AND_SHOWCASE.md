@@ -8,6 +8,8 @@ Upstream now keeps the auto-hidden Dock visible during Dock previews without cha
 
 These are inherited changes, not new showcase features. The published DockFork 0.5.0 package and preset are unchanged.
 
+Two follow-up fixes release an existing Dock reveal tap when macOS Cmd+Tab takes over and prevent delayed Dock previews from recreating it during that session. Dismissal, clicks and spring-loading now release the tap using the bounds captured when it was installed, without rereading Dock geometry through Accessibility.
+
 ## Persistent Switcher Initial Highlight
 
 In Window Switcher > Behavior, **Start persistent switchers with no window highlighted** defaults Off and replaces the per-shortcut checkbox. When enabled, menu-bar, AppleScript and persistent-shortcut launches start without a highlighted window. Keyboard and trackpad launches do the same when configured to stay open on release. Temporary retention through search or selection does not change launch eligibility. When disabled, the first/second-window setting still applies.
