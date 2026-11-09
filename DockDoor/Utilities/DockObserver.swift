@@ -1127,7 +1127,7 @@ final class DockObserver {
                 {
                     DispatchQueue.main.async { [weak self] in
                         self?.previewCoordinator.cancelPendingShow()
-                        self?.previewCoordinator.restoreDockAutoHideState()
+                        self?.previewCoordinator.releaseDockReveal()
                     }
                     return nil
                 }
@@ -1363,7 +1363,7 @@ final class DockObserver {
     private func prepareForNativeDockClick() {
         cancelDockPreviewDiscovery()
         previewCoordinator.cancelPendingShow()
-        previewCoordinator.restoreDockAutoHideState()
+        previewCoordinator.releaseDockReveal()
         resetWindowCycleHover()
         if !previewCoordinator.windowSwitcherCoordinator.windowSwitcherActive,
            !previewCoordinator.tapSnapshot.isCmdTabPreview

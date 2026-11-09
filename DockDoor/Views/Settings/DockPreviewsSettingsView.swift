@@ -21,6 +21,8 @@ struct DockPreviewsSettingsView: View {
     @Default(.enableCmdRightClickQuit) var enableCmdRightClickQuit
     @Default(.quitAppOnWindowClose) var quitAppOnWindowClose
     @Default(.quitAppOnWindowCloseExcludedApps) var quitAppOnWindowCloseExcludedApps
+    @Default(.quitAppOnWindowCloseScope) var quitAppOnWindowCloseScope
+    @Default(.quitAppOnWindowCloseIncludedApps) var quitAppOnWindowCloseIncludedApps
     @Default(.bufferFromDock) var bufferFromDock
     @Default(.ignoreAppsWithSingleWindow) var ignoreAppsWithSingleWindow
     @Default(.hoverWindowOpenDelay) var hoverWindowOpenDelay
@@ -54,7 +56,7 @@ struct DockPreviewsSettingsView: View {
     @Default(.swapDockPreviewTrafficLightsAndWindowStateIndicator) var swapTrafficLightsAndWindowStateIndicator
     @Default(.limitDockPreviewIndicatorSwapToCompactMode) var limitIndicatorSwapToCompactMode
 
-    @State private var showQuitExclusionsSheet = false
+    @State private var showQuitAppsSheet = false
 
     var body: some View {
         SettingsFormView {
@@ -84,13 +86,23 @@ struct DockPreviewsSettingsView: View {
                 SettingsMockPreview(context: .dock, maxHeight: 170)
             }
         }
-        .sheet(isPresented: $showQuitExclusionsSheet) {
-            AppPickerSheet(
-                selectedApps: $quitAppOnWindowCloseExcludedApps,
-                title: "Never Quit These Apps",
-                description: "Selected apps keep running after their last window closes.",
-                selectionMode: .include
-            )
+        .sheet(isPresented: $showQuitAppsSheet) {
+            switch quitAppOnWindowCloseScope {
+            case .allExceptSelected:
+                AppPickerSheet(
+                    selectedApps: $quitAppOnWindowCloseExcludedApps,
+                    title: String(localized: "Never Quit These Apps"),
+                    description: String(localized: "Selected apps keep running after their last window closes."),
+                    selectionMode: .include
+                )
+            case .onlySelected:
+                AppPickerSheet(
+                    selectedApps: $quitAppOnWindowCloseIncludedApps,
+                    title: String(localized: "Only Quit These Apps"),
+                    description: String(localized: "Only selected apps quit after their last window closes."),
+                    selectionMode: .include
+                )
+            }
         }
     }
 
@@ -248,16 +260,24 @@ struct DockPreviewsSettingsView: View {
             .settingsAnnotation("When an app has only one window left, closing it will quit the app. Useful as a replacement for Swift Quit.")
 
         if quitAppOnWindowClose {
+            Picker("Apps to quit", selection: $quitAppOnWindowCloseScope) {
+                ForEach(QuitOnWindowCloseScope.allCases, id: \.self) {
+                    Text($0.localizedName).tag($0)
+                }
+            }
+            .settingsSearchTarget("dockPreviews.quitOnCloseScope")
+
+            let quitApps = quitAppOnWindowCloseScope == .onlySelected ? quitAppOnWindowCloseIncludedApps : quitAppOnWindowCloseExcludedApps
             HStack {
-                Text("Never quit these apps")
+                quitAppOnWindowCloseScope == .onlySelected ? Text("Only quit these apps") : Text("Never quit these apps")
                 Spacer()
-                if !quitAppOnWindowCloseExcludedApps.isEmpty {
-                    Text("\(quitAppOnWindowCloseExcludedApps.count) app\(quitAppOnWindowCloseExcludedApps.count == 1 ? "" : "s")")
+                if !quitApps.isEmpty {
+                    Text("\(quitApps.count) app\(quitApps.count == 1 ? "" : "s")")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
                 Button("Select...") {
-                    showQuitExclusionsSheet = true
+                    showQuitAppsSheet = true
                 }
                 .buttonStyle(.settings)
             }

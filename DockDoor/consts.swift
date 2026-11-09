@@ -517,7 +517,7 @@ extension Defaults.Keys {
     static let useSystemSpringLoadingSpeed = Key<Bool>("useSystemSpringLoadingSpeed", default: false)
     static let springLoadingDelay = Key<CGFloat>("springLoadingDelay", default: 1.2)
     static let anchorDockPreviewPosition = Key<Bool>("anchorDockPreviewPosition", default: true)
-    static let preventDockHide = Key<Bool>("preventDockHide", default: false)
+    static let preventDockHide = Key<Bool>("preventDockHide", default: true)
     static let preventSwitcherHide = Key<Bool>("preventSwitcherHide", default: false)
     static let requireShiftTabToGoBack = Key<Bool>("requireShiftTabToGoBack", default: false)
     static let ignoreMainModifierSideForDependentShortcuts = Key<Bool>("ignoreMainModifierSideForDependentShortcuts", default: false)
@@ -528,6 +528,8 @@ extension Defaults.Keys {
     static let enableCmdRightClickQuit = Key<Bool>("enableCmdRightClickQuit", default: true)
     static let quitAppOnWindowClose = Key<Bool>("quitAppOnWindowClose", default: false)
     static let quitAppOnWindowCloseExcludedApps = Key<[String]>("quitAppOnWindowCloseExcludedApps", default: [])
+    static let quitAppOnWindowCloseScope = Key<QuitOnWindowCloseScope>("quitAppOnWindowCloseScope", default: .allExceptSelected)
+    static let quitAppOnWindowCloseIncludedApps = Key<[String]>("quitAppOnWindowCloseIncludedApps", default: [])
     static let enableDockScrollGesture = Key<Bool>("enableDockScrollGesture", default: false)
     static let enableTitleBarScrollGesture = Key<Bool>("enableTitleBarScrollGesture", default: false)
     static let titleBarScrollCenteredWindowScale = Key<CGFloat>("titleBarScrollCenteredWindowScale", default: 0.8)
@@ -1583,6 +1585,20 @@ enum WindowlessAppActivationMode: String, CaseIterable, Defaults.Serializable {
             String(localized: "Simulates clicking the Dock icon when activating an app with no windows.", comment: "Description for dock-click simulation behavior")
         case .activateOnly:
             String(localized: "Performs a plain app activation with no attempts at opening a window.", comment: "Description for activate-only behavior")
+        }
+    }
+}
+
+enum QuitOnWindowCloseScope: String, CaseIterable, Defaults.Serializable {
+    case allExceptSelected
+    case onlySelected
+
+    var localizedName: String {
+        switch self {
+        case .allExceptSelected:
+            String(localized: "All apps except selected", comment: "Quit on last window close scope option")
+        case .onlySelected:
+            String(localized: "Only selected apps", comment: "Quit on last window close scope option")
         }
     }
 }

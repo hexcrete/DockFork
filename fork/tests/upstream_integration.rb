@@ -33,13 +33,20 @@ final class NSRunningApplication {
  init(_ id:String?,pid:pid_t=1){bundleIdentifier=id;processIdentifier=pid;Self.apps[pid]=self}
  init?(processIdentifier:pid_t){guard let app=Self.apps[processIdentifier] else{return nil};self.processIdentifier=processIdentifier;bundleIdentifier=app.bundleIdentifier;isTerminated=app.isTerminated;activationPolicy=app.activationPolicy}
 }
+enum QuitOnWindowCloseScope { case allExceptSelected, onlySelected }
 enum Defaults {
  struct Key<T> {let value:T}
  static var excluded:[String]=[]
+ static var included:[String]=[]
+ static var quitScope=QuitOnWindowCloseScope.allExceptSelected
  static var quitEnabled=true
  static subscript<T>(_ key:Key<T>)->T{key.value}
 }
-extension Defaults.Key where T==[String] {static var quitAppOnWindowCloseExcludedApps:Self{Self(value:Defaults.excluded)}}
+extension Defaults.Key where T==[String] {
+ static var quitAppOnWindowCloseExcludedApps:Self{Self(value:Defaults.excluded)}
+ static var quitAppOnWindowCloseIncludedApps:Self{Self(value:Defaults.included)}
+}
+extension Defaults.Key where T==QuitOnWindowCloseScope {static var quitAppOnWindowCloseScope:Self{Self(value:Defaults.quitScope)}}
 extension Defaults.Key where T==Bool {static var quitAppOnWindowClose:Self{Self(value:Defaults.quitEnabled)}}
 let finderAppIdentifier="com.apple.finder"
 enum Session {static var locked=false}
@@ -84,6 +91,12 @@ source += <<~'SWIFT'
   WindowUtil.cache[10]=[a]
   precondition(WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10))
   Defaults.excluded=["test.close"];precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10),"DockFork Close must respect the same exclusion as native Close")
+  Defaults.quitScope = .onlySelected
+  precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10),"An empty allowlist must not quit apps")
+  Defaults.included=["test.close"]
+  precondition(WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10),"Allowlist ignores the stored exclusion list")
+  precondition(WindowUtil.quitBlockReason(for:NSRunningApplication(nil))=="not selected")
+  Defaults.quitScope = .allExceptSelected
   Defaults.excluded=[];Session.locked=true;precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10));Session.locked=false
   regular.activationPolicy = .accessory;precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10));regular.activationPolicy = .regular
   regular.isTerminated=true;precondition(!WindowUtil.shouldQuitAppOnWindowClose(processIdentifier:10));regular.isTerminated=false

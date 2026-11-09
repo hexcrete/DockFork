@@ -115,7 +115,7 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
             }
             guard !Task.isCancelled, isTargeted else { return }
 
-            SharedPreviewWindowCoordinator.activeInstance?.restoreDockAutoHideState()
+            SharedPreviewWindowCoordinator.activeInstance?.releaseDockReveal()
             let activated = await WindowUtil.springLoadWindow(windowInfo)
             guard !Task.isCancelled, isTargeted,
                   coordinator?.windowSwitcherCoordinator.pointerInteractionSessionID == sessionID,
@@ -147,7 +147,7 @@ private struct ExternalDragSpringLoadingModifier: ViewModifier {
     private func performReleaseFallback() {
         releaseActivationTask?.cancel()
         releaseActivationTask = nil
-        SharedPreviewWindowCoordinator.activeInstance?.restoreDockAutoHideState()
+        SharedPreviewWindowCoordinator.activeInstance?.releaseDockReveal()
         if windowInfo.isMinimized {
             ActionFeedbackController.withoutFeedback { handleWindowAction(.minimize) }
         } else if windowInfo.isEffectivelyHiddenForUI {
@@ -301,8 +301,7 @@ struct WindowPreviewInteractionModifier: ViewModifier {
         }
         activationTask?.cancel()
         activationTask = nil
-        // Avoid activating the target while the temporarily pinned Dock reduces the usable screen area.
-        SharedPreviewWindowCoordinator.activeInstance?.restoreDockAutoHideState()
+        SharedPreviewWindowCoordinator.activeInstance?.releaseDockReveal()
 
         if NSEvent.modifierFlags.contains(.shift) {
             let feedback = ActionFeedbackController.begin(.openNewWindow, windows: [windowInfo])
