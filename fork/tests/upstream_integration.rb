@@ -162,6 +162,81 @@ reveal = block(panel, '    private func keepDockRevealed(')
 abort 'A late Dock preview must not acquire a reveal tap during Cmd+Tab' unless reveal.index('!DockObserver.isCmdTabSwitcherActive,') && reveal.index('!DockObserver.isCmdTabSwitcherActive,') < reveal.index('DockUtils.dockRevealTarget()')
 puts 'PASS Dock reveal handoff: confirmed Cmd+Tab releases the old tap and gates late Dock reveal'
 
+dock_release = <<~'SWIFT'
+import Foundation
+import CoreGraphics
+typealias CFMachPort = Int
+final class NSRunningApplication {
+ let processIdentifier: pid_t = 42
+ var isTerminated = false
+}
+enum DockObserver {
+ static var mouseLocation = CGPoint.zero
+ static func getMousePosition() -> CGPoint { mouseLocation }
+}
+enum DockUtils {
+ static let mouseExitedEventType = 9
+ static var posts: [CGPoint] = []
+ static func postMouseEvent(_ type: Int, at point: CGPoint, toDock pid: pid_t) {
+  precondition(type == mouseExitedEventType && pid == 42)
+  posts.append(point)
+ }
+}
+final class EventTapThread {
+ static let shared = EventTapThread()
+ var cleanup: (() -> Void)?
+ var removals = 0
+ func remove(_ tap: Int, source: Int, then cleanup: @escaping () -> Void) {
+  precondition(tap == 1 && source == 2 && self.cleanup == nil)
+  removals += 1
+  self.cleanup = cleanup
+ }
+ func finish() {
+  let callback = cleanup
+  cleanup = nil
+  callback?()
+ }
+}
+SWIFT
+dock_release += block(panel, 'private final class DockRevealTapContext') + "\n"
+dock_release += <<~'SWIFT'
+final class Panel {
+ private var dockRevealTap: (tap: Int, source: Int, context: Unmanaged<DockRevealTapContext>)?
+ private weak var context: DockRevealTapContext?
+ var ownsTap: Bool { dockRevealTap != nil }
+ var retainsContext: Bool { context != nil }
+ init(app: NSRunningApplication) {
+  let context = DockRevealTapContext(app: app, revealPoint: .zero, dockRegion: CGRect(x: 0, y: 0, width: 20, height: 20))
+  self.context = context
+  dockRevealTap = (1, 2, .passRetained(context))
+ }
+SWIFT
+dock_release += block(panel, '    func releaseDockReveal(') + "\n}\n"
+dock_release += <<~'SWIFT'
+for (inside, terminateDuringCleanup) in [(true, false), (false, false), (false, true)] {
+ let app = NSRunningApplication()
+ let panel = Panel(app: app)
+ let worker = EventTapThread.shared
+ let start = worker.removals
+ let point = CGPoint(x: inside ? 10 : 30, y: 10)
+ DockObserver.mouseLocation = point
+ DockUtils.posts = []
+ panel.releaseDockReveal()
+ panel.releaseDockReveal()
+ precondition(!panel.ownsTap && panel.retainsContext && worker.removals == start + 1 && DockUtils.posts.isEmpty)
+ app.isTerminated = terminateDuringCleanup
+ worker.finish()
+ precondition(!panel.retainsContext)
+ precondition(DockUtils.posts == (inside || terminateDuringCleanup ? [] : [point]))
+}
+print("PASS Dock reveal teardown: cached bounds, no Dock lookup, exactly-once cleanup, safe exit event")
+SWIFT
+Dir.mktmpdir('dockfork-dock-reveal-') do |dir|
+  File.write("#{dir}/checks.swift", dock_release)
+  abort 'Dock reveal compilation failed' unless system('swiftc', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+  abort 'Dock reveal checks failed' unless system("#{dir}/checks")
+end
+
 # Keep the fork's per-call timing when merging upstream's batch-duration fix.
 registration = block(observers, '    private func createObserverForApp(')
 abort 'Observer registration must time each AX call and retain guarded cleanup' unless registration.include?('for notification in observedAXNotifications') && registration.include?('timedOut = timedOut || AXResponsiveness.shouldBackOff(after: result, elapsed: CFAbsoluteTimeGetCurrent() - start)') && registration.include?('guard registration.failed else { return }') && registration.include?('if registration.timedOut') && registration.include?('self.observers[pid] === observer')

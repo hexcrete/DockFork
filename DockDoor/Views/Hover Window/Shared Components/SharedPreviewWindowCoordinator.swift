@@ -46,13 +46,15 @@ enum PreviewFocusFadePolicy {
 }
 
 private final class DockRevealTapContext {
-    let pid: pid_t
+    let app: NSRunningApplication
     let revealPoint: CGPoint
+    let dockRegion: CGRect
     var tap: CFMachPort?
 
-    init(pid: pid_t, revealPoint: CGPoint) {
-        self.pid = pid
+    init(app: NSRunningApplication, revealPoint: CGPoint, dockRegion: CGRect) {
+        self.app = app
         self.revealPoint = revealPoint
+        self.dockRegion = dockRegion
     }
 }
 
@@ -1218,9 +1220,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
               let target = DockUtils.dockRevealTarget()
         else { return }
 
-        let context = Unmanaged.passRetained(DockRevealTapContext(pid: target.pid, revealPoint: target.revealPoint))
+        let pid = target.app.processIdentifier
+        let context = Unmanaged.passRetained(DockRevealTapContext(app: target.app, revealPoint: target.revealPoint, dockRegion: target.dockRegion))
         guard let tap = CGEvent.tapCreateForPid(
-            pid: target.pid,
+            pid: pid,
             place: .tailAppendEventTap,
             options: .listenOnly,
             eventsOfInterest: CGEventMask(1) << DockUtils.mouseExitedEventType.rawValue,
@@ -1231,7 +1234,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                     return passthrough
                 }
                 if type == DockUtils.mouseExitedEventType {
-                    DockUtils.postMouseEvent(.mouseMoved, at: context.revealPoint, toDock: context.pid)
+                    DockUtils.postMouseEvent(.mouseMoved, at: context.revealPoint, toDock: context.app.processIdentifier)
                 }
                 return Unmanaged.passUnretained(event)
             },
@@ -1251,7 +1254,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         dockRevealTap = (tap, source, context)
 
         if !target.dockRegion.contains(DockObserver.getMousePosition()) {
-            DockUtils.postMouseEvent(.mouseMoved, at: target.revealPoint, toDock: target.pid)
+            DockUtils.postMouseEvent(.mouseMoved, at: target.revealPoint, toDock: pid)
         }
     }
 
@@ -1259,13 +1262,13 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         guard let pin = dockRevealTap else { return }
         dockRevealTap = nil
 
-        let pid = pin.context.takeUnretainedValue().pid
+        let context = pin.context.takeUnretainedValue()
         let mouseLocation = DockObserver.getMousePosition()
-        let shouldPostLeave = DockUtils.dockRevealTarget().map { $0.pid == pid && !$0.dockRegion.contains(mouseLocation) } ?? false
+        let shouldPostLeave = !context.dockRegion.contains(mouseLocation)
 
         EventTapThread.shared.remove(pin.tap, source: pin.source) {
-            if shouldPostLeave {
-                DockUtils.postMouseEvent(DockUtils.mouseExitedEventType, at: mouseLocation, toDock: pid)
+            if shouldPostLeave, !context.app.isTerminated {
+                DockUtils.postMouseEvent(DockUtils.mouseExitedEventType, at: mouseLocation, toDock: context.app.processIdentifier)
             }
             pin.context.release()
         }
