@@ -95,6 +95,7 @@ extension DockObserver {
             }
             try processSwitcherList.subscribeToNotification(cmdTabObserver, kAXUIElementDestroyedNotification as String)
             DockObserver.isCmdTabSwitcherActive = true
+            previewCoordinator.releaseDockReveal()
         } catch {
             CFRunLoopRemoveSource(CFRunLoopGetCurrent(), AXObserverGetRunLoopSource(cmdTabObserver), .commonModes)
             self.cmdTabObserver = nil

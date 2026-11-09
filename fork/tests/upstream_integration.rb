@@ -154,6 +154,14 @@ reactivation = activation.index('if wasOwnerActive {', main_write)
 abort 'Already-active reactivation must follow raise/Main and retain cancellation ownership' unless reactivation && activation[reactivation, 650].include?('guard isActive(), !window.ownerApp.isTerminated') && activation[reactivation, 650].include?('request.finish(true)')
 puts 'PASS 1.42.2 merge contracts: fork shortcut/settings preservation, pinned/cached mocks, permission timers, AX observer teardown and guarded post-raise reactivation'
 
+cmd_tab = File.read("#{root}/DockDoor/Utilities/DockObserver+CmdTab.swift")
+subscription = block(cmd_tab, '    private func subscribeToProcessSwitcher(')
+abort 'Confirmed Cmd+Tab ownership must release an existing Dock reveal tap' unless subscription.include?("DockObserver.isCmdTabSwitcherActive = true\n            previewCoordinator.releaseDockReveal()")
+panel = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
+reveal = block(panel, '    private func keepDockRevealed(')
+abort 'A late Dock preview must not acquire a reveal tap during Cmd+Tab' unless reveal.index('!DockObserver.isCmdTabSwitcherActive,') && reveal.index('!DockObserver.isCmdTabSwitcherActive,') < reveal.index('DockUtils.dockRevealTarget()')
+puts 'PASS Dock reveal handoff: confirmed Cmd+Tab releases the old tap and gates late Dock reveal'
+
 # Keep the fork's per-call timing when merging upstream's batch-duration fix.
 registration = block(observers, '    private func createObserverForApp(')
 abort 'Observer registration must time each AX call and retain guarded cleanup' unless registration.include?('for notification in observedAXNotifications') && registration.include?('timedOut = timedOut || AXResponsiveness.shouldBackOff(after: result, elapsed: CFAbsoluteTimeGetCurrent() - start)') && registration.include?('guard registration.failed else { return }') && registration.include?('if registration.timedOut') && registration.include?('self.observers[pid] === observer')

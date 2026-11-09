@@ -1213,6 +1213,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
     private func keepDockRevealed() {
         guard Defaults[.preventDockHide], dockRevealTap == nil, DockObserver.canPostEvents,
+              !DockObserver.isCmdTabSwitcherActive,
               CoreDockGetAutoHideEnabled(),
               let target = DockUtils.dockRevealTarget()
         else { return }
