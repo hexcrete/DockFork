@@ -2,7 +2,7 @@
 
 ## 0.5.1 Stable Release Preparation
 
-The [0.5.1 release notes](RELEASE_BODY_0.5.1.md) compare the current branch with published 0.5.0 and separate DockFork changes, DockFork fixes and upstream changes. The November 9 showcase preset enables the global persistent-start no-highlight option and keeps the auto-hidden Dock visible during previews. It retains the previous shortcut assignments and omits the retired per-row No Highlight field. No candidate has been built and published packages are unchanged.
+The [0.5.1 release notes](RELEASE_BODY_0.5.1.md) compare the candidate with published 0.5.0 and separate DockFork changes, DockFork fixes and upstream changes. The November 9 showcase preset enables the global persistent-start no-highlight option and keeps the auto-hidden Dock visible during previews. It retains the previous shortcut assignments and omits the retired per-row No Highlight field. The [candidate is built and artifact-verified](RELEASE_NOTES_0.5.1.md), awaiting manual testing. Published packages are unchanged.
 
 ## November 9 Upstream Integration
 

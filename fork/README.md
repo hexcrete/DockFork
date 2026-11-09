@@ -2,6 +2,10 @@
 
 DockFork is a GPL-3.0 fork of [DockDoor](https://github.com/ejbills/DockDoor). Application features remain in the existing source tree; this directory contains fork-only packaging, optional presets and publication records. Exclude `fork/` and fork-specific root documentation from upstream PRs. Follow the [upstream contribution checklist](docs/UPSTREAM_CONTRIBUTIONS.md).
 
+## Stable Candidate 0.5.1
+
+The [0.5.1 candidate](docs/RELEASE_NOTES_0.5.1.md) is built and artifact-verified, awaiting manual testing and publication approval. See the [release notes](docs/RELEASE_BODY_0.5.1.md).
+
 ## Stable Release 0.5.0
 
 Version **[0.5.0](https://github.com/hexcrete/DockFork/releases/tag/v0.5.0)** is published as the latest stable release with user authorization. The audited package from `5da345933511899c2c315a7c2a2edbb1be63244b` was published without rebuilding. See [release record and checksums](docs/RELEASE_NOTES_0.5.0.md) and [public notes](docs/RELEASE_BODY_0.5.0.md). Screenshots remain deferred; installation and compatibility coverage are separate from publication.
@@ -53,7 +57,7 @@ The development snapshot includes tracked source changes but excludes untracked 
 
 ### Fork and Upstream Versions
 
-`version.json` records the planned DockFork **0.5.1** stable release, incorporated upstream commit `6d3c0db804bb4c5ef3ee1d2e31bfed2ec76b85a9`, stable upstream release **1.42.4**, and its exact release commit `1daaef1ad1d64eca68bcc25aad4378a5df3deec3`. The [0.5.1 release notes](docs/RELEASE_BODY_0.5.1.md) are ready; no candidate has been built. DockFork 0.5.0 remains the latest published release.
+`version.json` records the DockFork **0.5.1** stable candidate, incorporated upstream commit `6d3c0db804bb4c5ef3ee1d2e31bfed2ec76b85a9`, stable upstream release **1.42.4**, and its exact release commit `1daaef1ad1d64eca68bcc25aad4378a5df3deec3`. DockFork 0.5.0 remains the latest published release.
 
 After a future merge, fetch upstream tags and select the newest published stable release contained in the merged history. Never label an unmerged release as the base or infer it from Xcode's project version. Run `ruby fork/packaging/tests/version_metadata_test.rb`. Packaging validates ancestry/tag identity and embeds version/base metadata in the isolated app and BUILD-METADATA.json for Support > Updates.
 
