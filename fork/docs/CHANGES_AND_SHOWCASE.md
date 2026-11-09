@@ -1,5 +1,13 @@
 # DockFork: Changes and Showcase
 
+## November 9 Upstream Integration
+
+The development branch incorporates DockDoor 1.42.4 through `6d3c0db8` in merge `b0a8a58e`. Upstream adds an **Only selected apps** mode to quit on last window close. The default remains **All apps except selected**, and the fork's Close actions use the same policy as native closes.
+
+Upstream now keeps the auto-hidden Dock visible during Dock previews without changing the system auto-hide setting. This defaults on for new settings, does not apply to Cmd+Tab, and leaves saved choices intact. The fork retains its click routing and preview teardown. The merge also includes the pinned compact Calendar widget fix, Cmd+Tab example visibility change and updated translations. The fork keeps its bounded, interactive Settings examples instead of adopting upstream's noninteractive header.
+
+These are inherited changes, not new showcase features. The published DockFork 0.5.0 package and preset are unchanged.
+
 ## Persistent Switcher Initial Highlight
 
 In Window Switcher > Behavior, **Start persistent switchers with no window highlighted** defaults Off and replaces the per-shortcut checkbox. When enabled, menu-bar, AppleScript and persistent-shortcut launches start without a highlighted window. Keyboard and trackpad launches do the same when configured to stay open on release. Temporary retention through search or selection does not change launch eligibility. When disabled, the first/second-window setting still applies.

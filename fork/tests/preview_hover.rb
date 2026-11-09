@@ -49,6 +49,7 @@ source+=block(state,'    func clearSelectionIfMouseSource(')+"\n}\n"
 source+=<<~'SWIFT'
 @MainActor final class Hover {
  let previewStateCoordinator=State()
+ let mockPreviewActive=false
  var dockPosition=DockPosition.bottom,enableMouseHoverInSwitcher=true
  var edgeScrollRequest:Int?,refreshes=0
  func refreshHighlightActionIfNeeded(){refreshes+=1}
