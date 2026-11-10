@@ -1,6 +1,6 @@
 # DockFork 0.5.1 Release Record
 
-Status: stable candidate built and verified locally. Awaiting manual testing and publication approval. DockFork 0.5.0 remains the latest published release.
+Status: [0.5.1 published](https://github.com/hexcrete/DockFork/releases/tag/v0.5.1) on November 10, 2026 as the latest stable release. The user approved publishing the audited ZIP without separate installation testing of that ZIP.
 
 ## Candidate
 
@@ -20,9 +20,13 @@ The Release build used committed source and the standard packaging overlay. ZIP 
 
 The source archive matches Git's archive of the candidate commit. The overlay applies cleanly, and the preset, install guide, license and patch match the committed files. Focused search, keyboard, hover, Settings, quit policy, upstream integration and preset checks passed, as did all three packaging fixtures, SwiftFormat and diff checks.
 
-Old development outputs were cleaned without replacing the installed development app or removing existing Release packages. No Release installation, launch, preference import, tag, push or publication was performed.
+Old development outputs were cleaned without replacing the installed development app or removing existing Release packages. No Release installation, launch or preference import was performed.
 
-## Manual Checks Before Publication
+## Publication Verification
+
+GitHub release `440011570` is public, marked latest, and is neither a draft nor a prerelease. The annotated tag `v0.5.1` resolves to the exact packaged commit. The published notes match the approved release body. All ten allowlisted assets were downloaded back and verified before publication and again without authentication afterward. No rebuild or change to earlier release assets was made.
+
+## Installation Checks Not Run
 
 - Test the exact ZIP: first launch, Gatekeeper approval, Accessibility and Screen Recording.
 - Check the menu-bar icon's top and bottom edges and the initial highlight in a persistent session.

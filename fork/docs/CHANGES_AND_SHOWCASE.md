@@ -1,8 +1,8 @@
 # DockFork: Changes and Showcase
 
-## 0.5.1 Stable Release Preparation
+## 0.5.1 Stable Release
 
-The [0.5.1 release notes](RELEASE_BODY_0.5.1.md) compare the candidate with published 0.5.0 and separate DockFork changes, DockFork fixes and upstream changes. The November 9 showcase preset enables the global persistent-start no-highlight option and keeps the auto-hidden Dock visible during previews. It retains the previous shortcut assignments and omits the retired per-row No Highlight field. The [candidate is built and artifact-verified](RELEASE_NOTES_0.5.1.md), awaiting manual testing. Published packages are unchanged.
+[DockFork 0.5.1](https://github.com/hexcrete/DockFork/releases/tag/v0.5.1) is published as stable without rebuilding the audited package. The [release notes](RELEASE_BODY_0.5.1.md) separate DockFork changes, DockFork fixes and upstream changes. The November 9 showcase preset enables the global persistent-start no-highlight option and keeps the auto-hidden Dock visible during previews. It retains the previous shortcut assignments and omits the retired per-row No Highlight field. The [release record](RELEASE_NOTES_0.5.1.md) documents the verified public downloads and the untested installation checks. Earlier release packages are unchanged.
 
 ## November 9 Upstream Integration
 
@@ -18,18 +18,18 @@ Two follow-up fixes release an existing Dock reveal tap when macOS Cmd+Tab takes
 
 In Window Switcher > Behavior, **Start persistent switchers with no window highlighted** defaults Off and replaces the per-shortcut checkbox. When enabled, menu-bar, AppleScript and persistent-shortcut launches start without a highlighted window. Keyboard and trackpad launches do the same when configured to stay open on release. Temporary retention through search or selection does not change launch eligibility. When disabled, the first/second-window setting still applies.
 
-Resolve the choice once at fresh-session initialization and use it for late window discovery too. Do not clear an existing highlight on a scope change or repeated same-scope script invocation. Search focus and explicit Space focus remain independent. Saved shortcut IDs, modifiers and modes decode unchanged; legacy row metadata is ignored, not migrated into the new default-off setting. The maintained showcase preset drops only that obsolete row metadata. Published 0.5.0 artifacts and scripting interfaces are unchanged. This is an unshipped follow-up.
+Resolve the choice once at fresh-session initialization and use it for late window discovery too. Do not clear an existing highlight on a scope change or repeated same-scope script invocation. Search focus and explicit Space focus remain independent. Saved shortcut IDs, modifiers and modes decode unchanged; legacy row metadata is ignored, not migrated into the new default-off setting. The 0.5.1 showcase preset drops the obsolete row metadata. Published 0.5.0 artifacts and scripting interfaces are unchanged.
 
 
 ## Menu-Bar Switcher Toggle Follow-up
 
-Outside-click dismissal uses the mouse-down event's recorded location and protects the full visible status-item slot when left click is assigned to the switcher. macOS can deliver a centered button activation for a press in the slot's padding. The former icon-only check dismissed the switcher first, so that activation reopened it. The slot check includes both vertical edges without extending beyond the slot. Click assignments, native-menu tracking and persistent-session rules are unchanged. This is an unshipped follow-up to 0.5.0.
+Outside-click dismissal uses the mouse-down event's recorded location and protects the full visible status-item slot when left click is assigned to the switcher. macOS can deliver a centered button activation for a press in the slot's padding. The former icon-only check dismissed the switcher first, so that activation reopened it. The slot check includes both vertical edges without extending beyond the slot. Click assignments, native-menu tracking and persistent-session rules are unchanged. Shipped in 0.5.1.
 
 ## November 5 Shared Search Container Styling
 
 Search now shares the actual `HoverContainerChrome` modifier with Window Switcher/Spaces Bar containers: material, glass settings, custom/opaque colors, container corner radius, border, background opacity and adjustable shadow. The one exception is background hiding: search ignores Hide hover container background. Explicit background opacity and shadow settings still apply. Native panel shadow stays disabled; the shared content-layer shadow fades with the search and does not leave a separate WindowServer layer behind.
 
-Extract the existing container styling unchanged rather than copy it. Existing containers retain hide/widget/mock/highlight behavior. Search retains native clear/editor/focus and placement enhancements, a 300-by-40-point visible pill and equal eight-point visible gaps. Transparent panel room accommodates shared shadows without changing search-disabled layout. This unshipped follow-up supersedes the trial of plain upstream search chrome; published 0.5.0 assets remain unchanged. User visual verification is separate from source/build checks.
+Extract the existing container styling unchanged rather than copy it. Existing containers retain hide/widget/mock/highlight behavior. Search retains native clear/editor/focus and placement enhancements, a 300-by-40-point visible pill and equal eight-point visible gaps. Transparent panel room accommodates shared shadows without changing search-disabled layout. This shipped in 0.5.1; published 0.5.0 assets remain unchanged. User visual verification is separate from source/build checks.
 
 ## 0.5.0 Stable Release
 

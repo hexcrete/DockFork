@@ -6,7 +6,7 @@ Current capture plan, attribution-reviewed November 5, 2026 against published Do
 
 All existing capture IDs and unchecked states are preserved. Screenshots and recordings remain deferred; no media is marked captured or approved. Selection M01/M02 and menu M01/M02 retain their original IDs; qualify them by section.
 
-Published stable [0.5.0](https://github.com/hexcrete/DockFork/releases/tag/v0.5.0) includes the current Settings. Use that package or a reviewed development build and label the exact source accurately; do not present its Settings as shipped 0.4.0 UI. Use the published package and its attached preset only for release-specific captures. Record the exact version/source used.
+Published stable [0.5.1](https://github.com/hexcrete/DockFork/releases/tag/v0.5.1) includes the current Settings and search appearance. Use that package or a reviewed development build and label the exact source accurately. For release-specific captures, use that release's package and attached preset. Record the exact version and source used.
 
 The 0.5.1 showcase preset is the sanitized November 9 export: 271 preferences and 15 generic-ID shortcut rows. It enables the global no-highlight option and keeps an auto-hidden Dock visible during previews. For 0.5.0 captures, use the November 4 preset attached to that release. Import is optional and replaces settings; export a backup first. Capture selections and approval states remain unchanged.
 
@@ -69,7 +69,7 @@ For search-spacing captures of the November 5 follow-up, keep the visible pill a
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | SC01 | Video: native search clear control | Filter by typed text and quick filtering, then use the native trailing clear control. Show restored results, retained text focus and typing immediately afterward. Include reopening, long input and both appearances. The November 5 development follow-up shares the actual container chrome and adjustable content-layer shadow, but ignores Hide hover container background. The base material is inherited; sharing it with search and preserving fade is the fork adjustment. Record whether the capture uses published 0.5.0 or this follow-up. | `d0740c3` |
+| [ ] | SC01 | Video: native search clear control | Filter by typed text and quick filtering, then use the native trailing clear control. Show restored results, retained text focus and typing immediately afterward. Include reopening, long input and both appearances. In 0.5.1 the search bar follows the upstream look, with even spacing and a shadow that fades with the bar. It stays visible when Hide hover container background is enabled. Label the release used for the capture. | `d0740c3`, `f6206d6c` |
 
 ## Cmd+Tab First-Use Hint
 
