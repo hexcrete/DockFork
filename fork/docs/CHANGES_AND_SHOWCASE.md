@@ -1,5 +1,13 @@
 # DockFork: Changes and Showcase
 
+## November 12 Upstream Integration
+
+Merge `9cec9ca6` incorporates two upstream fixes after DockDoor 1.42.4. When macOS reports Accessibility or Screen Recording as missing and the user opens its permission settings through DockFork, the app tries to clear its stale entry and request access again, once per service per launch.
+
+The minimized native-tab fix uses the fork's prior visible grouping instead of collapsing windows solely because their cached frames match. Known groups can stay collapsed when the app has no visible windows on that Space. Without prior evidence, minimized windows remain separate. Existing discovery, Close behavior and Space isolation are unchanged.
+
+These changes are in development only. The published 0.5.1 package and showcase captures are unchanged.
+
 ## 0.5.1 Stable Release
 
 [DockFork 0.5.1](https://github.com/hexcrete/DockFork/releases/tag/v0.5.1) is published as stable without rebuilding the audited package. The [release notes](RELEASE_BODY_0.5.1.md) separate DockFork changes, DockFork fixes and upstream changes. The November 9 showcase preset enables the global persistent-start no-highlight option and keeps the auto-hidden Dock visible during previews. It retains the previous shortcut assignments and omits the retired per-row No Highlight field. The [release record](RELEASE_NOTES_0.5.1.md) documents the verified public downloads and the untested installation checks. Earlier release packages are unchanged.
