@@ -13,7 +13,8 @@ struct NativeTabGroupingTests {
         frame: CGRect = CGRect(x: 0, y: 0, width: 800, height: 600),
         recency: TimeInterval = 0,
         groupable: Bool = true,
-        isOnScreen: Bool = false
+        isOnScreen: Bool = false,
+        isMinimized: Bool = false
     ) -> NativeTabGrouping.Candidate {
         NativeTabGrouping.Candidate(
             id: id,
@@ -22,7 +23,8 @@ struct NativeTabGroupingTests {
             frame: frame,
             recency: Date(timeIntervalSinceReferenceDate: recency),
             groupable: groupable,
-            isOnScreen: isOnScreen
+            isOnScreen: isOnScreen,
+            isMinimized: isMinimized
         )
     }
 
@@ -88,7 +90,7 @@ struct NativeTabGroupingTests {
             candidate(id: 2, frame: frame, recency: 9, groupable: false),
             candidate(id: 3, frame: frame, recency: 1, groupable: true),
         ])
-        // The minimized/hidden window (id 2) is always kept; the two groupable
+        // The non-groupable window (id 2) is always kept; the two groupable
         // tabs collapse to the more recent one (id 3).
         #expect(kept == [2, 3])
     }
@@ -117,6 +119,26 @@ struct NativeTabGroupingTests {
     @Test func keepsUnobservedOffSpaceWindowsWithIdenticalFrames() {
         let kept = NativeTabGrouping.retainedIDs(from: [candidate(id: 1), candidate(id: 2)], previousSnapshot: nil)
         #expect(kept == [1, 2])
+    }
+
+    @Test func preservesKnownTabsAfterMinimizingButKeepsUnobservedWindows() {
+        let visible = [candidate(id: 1, isOnScreen: true), candidate(id: 2)]
+        let snapshot = NativeTabGrouping.VisibilitySnapshot(
+            observedIDs: [1, 2],
+            keptIDs: NativeTabGrouping.retainedIDs(from: visible, previousSnapshot: nil)
+        )
+        let minimized = [candidate(id: 1, isMinimized: true), candidate(id: 2, isMinimized: true)]
+        #expect(NativeTabGrouping.retainedIDs(from: minimized, previousSnapshot: snapshot) == [1])
+        #expect(NativeTabGrouping.retainedIDs(from: minimized, previousSnapshot: nil) == [1, 2])
+        #expect(NativeTabGrouping.retainedIDs(
+            from: minimized + [candidate(id: 3, isMinimized: true)],
+            previousSnapshot: snapshot
+        ) == [1, 3])
+    }
+
+    @Test func visibleWindowDoesNotAbsorbSeparateMinimizedWindowAtTheSameFrame() {
+        let windows = [candidate(id: 1, isOnScreen: true), candidate(id: 2, isMinimized: true)]
+        #expect(NativeTabGrouping.retainedIDs(from: windows, previousSnapshot: nil) == [1, 2])
     }
 
     @Test func preservesSeparateWindowsAfterLeavingTheirSpaceOrHiding() {

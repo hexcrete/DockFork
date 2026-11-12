@@ -2747,7 +2747,7 @@ extension WindowUtil {
 
         var candidatePIDs = Set<pid_t>()
         let mayContainTabs = windows.contains { window in
-            guard !window.isWindowlessApp, !window.isMinimized else { return false }
+            guard !window.isWindowlessApp else { return false }
             return !candidatePIDs.insert(window.app.processIdentifier).inserted
         }
         guard mayContainTabs else { return windows }
@@ -2786,12 +2786,12 @@ extension WindowUtil {
                 spaceID: spaceID,
                 frame: currentFrame,
                 recency: window.lastAccessedTime,
-                groupable: !window.isMinimized
-                    && spaceID != nil
+                groupable: spaceID != nil
                     && !window.isWindowlessApp
                     && currentFrame.width > 0
                     && currentFrame.height > 0,
-                isOnScreen: onScreenIDs.contains(window.id)
+                isOnScreen: onScreenIDs.contains(window.id),
+                isMinimized: window.isMinimized
             )
         }
 

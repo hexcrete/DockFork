@@ -48,6 +48,7 @@ enum NativeTabGrouping {
         /// distinct when their current state cannot safely imply native-tab membership.
         let groupable: Bool
         let isOnScreen: Bool
+        let isMinimized: Bool
     }
 
     private struct GroupKey: Hashable {
@@ -70,7 +71,8 @@ enum NativeTabGrouping {
         var groupsWithOnScreenMember = Set<GroupKey>()
 
         for candidate in candidates {
-            guard candidate.groupable else {
+            // A minimized window can reuse a known group, but cannot establish a new one.
+            guard candidate.groupable, !candidate.isMinimized else {
                 keptIDs.insert(candidate.id)
                 continue
             }
