@@ -6,6 +6,10 @@ October 23 Stage 3 is still partial and uncommitted. A focused navigation/icon c
 
 # Preparing Upstream Contributions
 
+### Minimized Native Tabs
+
+DockFork's original discovery fix (`e7fe0ba9`) and the November merge adaptation (`9cec9ca6`) address different steps. The former keeps inactive native tabs out of minimized-window discovery and cache cleanup. The latter lets preview grouping reuse an observed group after minimization without guessing from matching frames. For any agreed upstream proposal, test both a known tab group and two separate minimized windows with identical frames, including a cold start without a visibility snapshot. Do not treat upstream `baf6425a` as a fork contribution or submit the merge wholesale. See [the behavior comparison](CHANGES_AND_SHOWCASE.md#minimized-native-tabs).
+
 November 5 persistent-start highlight control is a fork setting with common launch-policy wiring, not another shortcut property. Keep upstream defaults, ordinary release selection and scripting interfaces unchanged in any agreed extraction. Exclude preset and retired fork metadata cleanup from unrelated PRs.
 
 November 5 search styling now shares existing container chrome rather than its earlier capsule or plain-background trial. A focused extraction must preserve BaseHoverContainer hide/widget/mock behavior and search's visible-background exception, content-layer shadow/fade, drawing room and layout tests. The existing material/shadow renderer is upstream; the reuse and search policy are fork changes. Keep clear/editor/focus fixes only as required by the agreed scope. No PR is authorized.

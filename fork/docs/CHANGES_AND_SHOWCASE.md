@@ -4,9 +4,13 @@
 
 Merge `9cec9ca6` incorporates two upstream fixes after DockDoor 1.42.4. When macOS reports Accessibility or Screen Recording as missing and the user opens its permission settings through DockFork, the app tries to clear its stale entry and request access again, once per service per launch.
 
-The minimized native-tab fix uses the fork's prior visible grouping instead of collapsing windows solely because their cached frames match. Known groups can stay collapsed when the app has no visible windows on that Space. Without prior evidence, minimized windows remain separate. Existing discovery, Close behavior and Space isolation are unchanged.
+### Minimized Native Tabs
 
-These changes are in development only. The published 0.5.1 package and showcase captures are unchanged.
+DockFork already fixed the main bug in `e7fe0ba9`: minimized-window discovery and cache cleanup no longer bring back inactive tab rows as separate previews. The November merge adds a narrower safeguard at the preview grouping step. When an app has no visible windows on a Space, a minimized tab can reuse a group DockFork previously observed there.
+
+Upstream `baf6425a` allows matching frames to group minimized windows even without that history. DockFork deliberately does not: two independent windows from the same app can have identical frames. After a cold start, or if the prior group's representative is no longer present, an extra tab row is preferable to hiding a real window. Visible windows still provide fresh grouping evidence. Existing discovery, Close behavior and Space isolation are unchanged.
+
+The permission change and the minimized-tab follow-up are in development only. The published 0.5.1 package and showcase capture status are unchanged.
 
 ## 0.5.1 Stable Release
 

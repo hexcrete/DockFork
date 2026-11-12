@@ -1,6 +1,6 @@
 # DockFork Showcase Capture Checklist
 
-Current capture plan, attribution-reviewed November 5, 2026 against published DockFork 0.5.0 source `5da34593` and incorporated upstream `c58cf6c0`. This is a menu of screenshots and short recordings, not a development/test diary. Implementation history and validation belong in the [commit ledger](COMMIT_LEDGER.md); feature explanations belong in [Changes and Showcase](CHANGES_AND_SHOWCASE.md).
+Capture plan for DockFork 0.5.1 and labeled development follow-ups. The full attribution review was conducted November 5, 2026 against published DockFork 0.5.0 source `5da34593` and incorporated upstream `c58cf6c0`. Implementation history and validation belong in the [commit ledger](COMMIT_LEDGER.md); feature explanations belong in [Changes and Showcase](CHANGES_AND_SHOWCASE.md).
 
 ## Capture Status
 
@@ -183,7 +183,7 @@ The following dedicated IDs cover bar interactions previously described only in 
 
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
-| [ ] | B01 | Video: native-tab grouping and Close fixes | Use disposable Finder windows with differently named folder tabs, including a separate same-sized window. Demonstrate our grouping safeguards through Minimize/Restore and Hide/Unhide, exclusion of inactive tabs, and Close removing the intended tab stack. Native-tab collapsing and returning to the selected tab are inherited upstream behavior, not showcase claims. | `4f703ed`, `abdc4ec`, `6fb1946`, `29de103a`, `e7fe0ba9` |
+| [ ] | B01 | Video: native-tab grouping and Close fixes | Use disposable Finder windows with differently named folder tabs, including a separate window with the same frame. Show the original fork discovery and Close fixes. If using a development build, also contrast a previously observed tab group that stays together after minimization with two separate minimized windows that remain distinct without prior evidence. Label this [follow-up](CHANGES_AND_SHOWCASE.md#minimized-native-tabs) as development-only. Native-tab collapsing and returning to the selected tab are inherited upstream behavior. | `4f703ed`, `abdc4ec`, `6fb1946`, `29de103a`, `e7fe0ba9`, `9cec9ca6` |
 | [ ] | B02 | Video: fullscreen metadata reconciliation fixes | Demonstrate fork state/Space metadata reconciliation after fullscreen transitions and creation of a fullscreen Space. Compare corrected labels and supported controls, including our Space-pill Exit Full Screen action. Fullscreen and Split View themselves are macOS/upstream capabilities. | `e2e4c45`, `a94bb4d`, `1a5a978` |
 | [ ] | B03 | Screenshot: actionable nonstandard windows | Show a harmless nonstandard window, such as Calendar Info, with supported controls only. Optionally show a Wine/CrossOver window: native macOS fullscreen differs from game fullscreen; unsupported actions remain absent after Hide/Unhide. Use a public game screen with no account details. | `804d85a`, `288262b`, `b1ad1436`, `7fab4ad7` |
 | [ ] | B04 | Optional temporary fixture: missing image | Optional controlled fixture only: omit one settings mock screenshot, compare regular/Compact layouts, then restore the fixture before any release or ordinary capture. | `6fe02cc`, `717c1e0` |

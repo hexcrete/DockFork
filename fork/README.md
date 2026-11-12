@@ -57,7 +57,7 @@ The development snapshot includes tracked source changes but excludes untracked 
 
 ### Fork and Upstream Versions
 
-`version.json` records DockFork **0.5.1**, incorporated upstream commit `baf6425a981b09acb79189ec568e7c189b70a0ce`, stable upstream release **1.42.4**, and its exact release commit `1daaef1ad1d64eca68bcc25aad4378a5df3deec3`. The two newer upstream fixes are in development only; the published 0.5.1 package is unchanged.
+`version.json` records DockFork **0.5.1**, incorporated upstream commit `baf6425a981b09acb79189ec568e7c189b70a0ce`, stable upstream release **1.42.4**, and its exact release commit `1daaef1ad1d64eca68bcc25aad4378a5df3deec3`. The two newer upstream fixes are in development only; the published 0.5.1 package is unchanged. See [Minimized Native Tabs](docs/CHANGES_AND_SHOWCASE.md#minimized-native-tabs) for the intentional difference from upstream.
 
 After a future merge, fetch upstream tags and select the newest published stable release contained in the merged history. Never label an unmerged release as the base or infer it from Xcode's project version. Run `ruby fork/packaging/tests/version_metadata_test.rb`. Packaging validates ancestry/tag identity and embeds version/base metadata in the isolated app and BUILD-METADATA.json for Support > Updates.
 
