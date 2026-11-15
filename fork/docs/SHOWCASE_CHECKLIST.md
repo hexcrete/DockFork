@@ -173,6 +173,8 @@ The following dedicated IDs cover bar interactions previously described only in 
 
 ## Action Feedback
 
+Use a development build with the [capture fix](CHANGES_AND_SHOWCASE.md#capturing-feedback-and-drag-previews) for these clips and for window or Space drag previews. Published 0.5.1 excludes those overlays from capture.
+
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
 | [ ] | AF01 | Video: optional action feedback | Enable Appearance > Action Feedback. Demonstrate fork feedback across interactive actions, four positions, cursor-following and preview/Compact placement. Use a naturally pending action to show its delayed spinner and subsequent success symbol; fast actions retain their original symbol. The original gesture HUD and its visual conventions are upstream; the broader feedback integration is ours. | `70d56b90`, `aea03098`, `ff52d9ca` |

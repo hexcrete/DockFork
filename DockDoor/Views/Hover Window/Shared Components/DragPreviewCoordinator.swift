@@ -295,7 +295,7 @@ final class DragPreviewCoordinator {
         previewWindow.animationBehavior = .none
         previewWindow.isReleasedWhenClosed = false
         previewWindow.ignoresMouseEvents = true
-        previewWindow.sharingType = .none
+        previewWindow.sharingType = .readOnly
         previewWindow.collectionBehavior = [.canJoinAllSpaces, .transient, .ignoresCycle, .fullScreenAuxiliary]
 
         previewWindow.contentView = content

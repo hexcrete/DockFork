@@ -1,5 +1,9 @@
 # DockFork: Changes and Showcase
 
+## Capturing Feedback and Drag Previews
+
+Development builds allow screenshots and screen recordings to include action feedback, swipe feedback, the Mouse Followed Focus hint, and window and Space drag previews. These overlays remain excluded from DockFork's own window discovery. The invisible Space-transition helper remains excluded from capture. Published 0.5.1 is unchanged.
+
 ## November 12 Upstream Integration
 
 Merge `9cec9ca6` incorporates two upstream fixes after DockDoor 1.42.4. When macOS reports Accessibility or Screen Recording as missing and the user opens its permission settings through DockFork, the app tries to clear its stale entry and request access again, once per service per launch.

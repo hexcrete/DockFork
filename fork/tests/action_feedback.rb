@@ -19,7 +19,7 @@ end
 ROOT = File.expand_path('../..', __dir__)
 source = File.read("#{ROOT}/DockDoor/Utilities/Window Gestures/WindowGestureHUD.swift")
 keys = File.read("#{ROOT}/DockDoor/consts.swift")
-view = File.read("#{ROOT}/DockDoor/Views/Settings/KeybindsSettingsView.swift")
+view = File.read("#{ROOT}/DockDoor/Views/Settings/AppearanceSettingsView.swift")
 behavior_view = File.read("#{ROOT}/DockDoor/Views/Settings/WindowSwitcherBehaviorSettingsView.swift")
 catalog = File.read("#{ROOT}/DockDoor/Views/Settings/Search/SettingsSearchCatalog.swift")
 %w[enableActionFeedback actionFeedbackPosition showMouseFollowsFocusFeedback].each do |key|
@@ -31,7 +31,7 @@ end
 abort 'Cursor hint must live below Mouse follows focus, not in Action Feedback' unless behavior_view.index('windowSwitcher.mouseFollowsFocus') < behavior_view.index('windowSwitcher.showMouseFollowsFocusFeedback') && !view.include?('showMouseFollowsFocusFeedback') && !catalog.include?('gestures.showMouseFollowsFocusFeedback')
 abort 'Cursor hint must hide when unavailable, not disable' unless behavior_view.include?('Toggle("Show feedback popup",') && behavior_view.include?('if mouseFollowsFocusMode != .never, enableActionFeedback {') && !behavior_view.include?('.disabled(mouseFollowsFocusMode == .never || !enableActionFeedback)')
 helper = "Show a popup at the cursor's new location. Requires action feedback to be enabled."
-abort 'Cursor hint search text must match its control' unless behavior_view.include?("Text(\"#{helper}\")") && catalog.include?("description: String(localized: \"#{helper}\")")
+abort 'Cursor hint search text must match its control' unless behavior_view.include?(".settingsAnnotation(\"#{helper}\")") && catalog.include?("description: String(localized: \"#{helper}\")")
 abort 'Removed consolidation setting remains wired' if [source, keys, view, catalog, File.read("#{ROOT}/DockDoor/Views/Settings/MainSettingsView.swift")].any? { |text| text.include?('animateActionFeedbackConsolidation') }
 abort 'Consolidation must only fade' if source.include?('towards destination:')
 abort 'Feedback default must remain off' unless keys.include?('Key<Bool>("enableActionFeedback", default: false)')
@@ -41,6 +41,9 @@ abort 'Space-transition timing workaround must stay removed' if %w[prepareForSpa
   abort "Leftover feedback transition hook in #{path}" if File.read("#{ROOT}/DockDoor/#{path}").include?('prepareForSpaceTransition')
 end
 abort 'Native all-Spaces popup behavior must remain' unless source.include?('.canJoinAllSpaces, .fullScreenAuxiliary')
+abort 'Feedback panel must allow capture' unless block(source, 'final class ActionPopupPanel:').include?('sharingType = .readOnly')
+drag = File.read("#{ROOT}/DockDoor/Views/Hover Window/Shared Components/DragPreviewCoordinator.swift")
+abort 'Drag previews must allow capture' unless block(drag, '    private func showGhost(').include?('previewWindow.sharingType = .readOnly')
 abort 'Unexpected timing change' unless source.include?('initiated: TimeInterval = 0.7') && source.include?('result: TimeInterval = 0.35')
 abort 'Cursor motion must not measure popup contents' if source[source.index('    func followCursor()')...source.index('    private func targetFrame')].include?('fittingSize')
 abort 'Popup must not slide or animate its frame' unless source.include?('animationBehavior = .none') && !source[source.index('final class ActionPopupPanel:')...source.index('final class ActionFeedbackController')].include?('animator().setFrame')
@@ -1004,7 +1007,7 @@ native_fixture += <<~'SWIFT'
   precondition(NSImage(systemSymbolName: "pointer.arrow.motionlines", accessibilityDescription: nil) != nil)
   let panel = ActionPopupPanel()
   defer { panel.close() }
-  precondition(panel.animationBehavior == .none && panel.ignoresMouseEvents && panel.sharingType == .none)
+  precondition(panel.animationBehavior == .none && panel.ignoresMouseEvents && panel.sharingType == .readOnly)
   let anchor = CGPoint(x: screen.visibleFrame.midX, y: screen.visibleFrame.midY)
   var value = WindowGestureHUD.Content(title: "Un-minimize", symbolName: "arrow.up.left.and.arrow.down.right.square")
   panel.present(value, center: anchor)
