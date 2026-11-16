@@ -1,5 +1,9 @@
 # DockFork: Changes and Showcase
 
+## Close After Exiting Full Screen
+
+Close resolves the current Accessibility button on the same target window, rather than pressing the control saved in the preview. An app can replace that control during a fullscreen transition, leaving the old reference stale even after the window settles. This also applies to the final window of a collapsed native tab group. Menu eligibility and the Close request's completion semantics are unchanged.
+
 ## Capturing Feedback and Drag Previews
 
 Development builds allow screenshots and screen recordings to include action feedback, swipe feedback, the Mouse Followed Focus hint, and window and Space drag previews. These overlays remain excluded from DockFork's own window discovery. The invisible Space-transition helper remains excluded from capture. Published 0.5.1 is unchanged.

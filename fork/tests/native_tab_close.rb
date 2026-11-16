@@ -66,6 +66,7 @@ final class AXUIElement {
   return (key == kAXWindowAttribute ? owner as Any? : value as Any?) as? T
  }
  func closeButton() throws -> AXUIElement? { if failsCloseRead { throw Failure.refused }; return control }
+ func resolvedCloseButton() -> AXUIElement? { control }
  func cgWindowId() throws -> Int? { id }
  func performAction(_ action: String) throws {
   if failsPress { throw Failure.refused }
@@ -77,7 +78,7 @@ final class AXUIElement {
 SWIFT
 source += block(ax, '    func nativeTabGroup()') + "\n"
 source += block(ax, '    func nativeBackgroundTabs()') + "\n}\n"
-source += "struct WindowInfo { let id = 900; let axElement: AXUIElement; let closeButton: AXUIElement?; var isWindowlessApp = false\n"
+source += "struct WindowInfo { let id = 900; let axElement: AXUIElement; let closeButton: AXUIElement?; var isWindowlessApp = false; var hasLimitedWindowControls = false\n"
 source += block(window, '    func close(progress:') + "\n}\n"
 source += <<~'SWIFT'
 enum WindowAction { case close; func isSupported(for window: WindowInfo) -> Bool { true } }
@@ -172,6 +173,21 @@ let windowless = Group()
 check(!windowless.close(windowless: true)); check(AXUIElement.closed.isEmpty && windowless.root.reads == 0)
 let single = Group([])
 check(single.close()); check(AXUIElement.closed == [900])
+for collapse in [false, true] {
+ for limited in [false, true] {
+  Defaults.collapse = collapse
+  let root = AXUIElement(900, "AXWindow")
+  let staleButton = AXUIElement(42)
+  staleButton.failsPress = true
+  let retainedPreview = WindowInfo(axElement: root, closeButton: staleButton, hasLimitedWindowControls: limited)
+  root.control = AXUIElement(900)
+  AXUIElement.closed = []
+  check(retainedPreview.close()); check(AXUIElement.closed == [900])
+  root.control = nil; staleButton.failsPress = false
+  AXUIElement.closed = []
+  check(!retainedPreview.close()); check(AXUIElement.closed.isEmpty)
+ }
+}
 let noTabs = Group(); noTabs.root.nodes = []
 check(noTabs.close()); check(AXUIElement.closed == [900])
 let nested = Group(); nested.root.nodes = [AXUIElement(902, "AXGroup", [nested.group])]

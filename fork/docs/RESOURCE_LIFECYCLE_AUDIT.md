@@ -1,5 +1,7 @@
 # Optional-Feature Resource Audit
 
+November 16 Close follow-up: resolve the current button on the existing AX window immediately before the final press. Ordinary cases add one button lookup in the shared Close worker; collapsed tab groups already did this. No polling, retries, extra discovery, or main-thread preflight was added to the interactive Close path.
+
 November 15 capture follow-up: the shared action popup and drag ghost windows use read-only window sharing instead of opting out of capture. Internal window registration, mouse passthrough, and resource lifetimes are unchanged. The invisible Space-transition anchor still opts out. This supersedes the capture-exclusion detail in earlier audit entries.
 
 November 12 upstream integration: the permission recovery helper runs a bundle-scoped `tccutil reset` once per missing service per launch when the user opens its permission settings. It waits for the short-lived subprocess before requesting access again; it does not run in the permission polling loop. The existing alert skips its callback on Cancel. Native permission recovery was not exercised. The minimized-tab fix reuses existing visibility snapshots and the existing WindowServer list; multiple minimized rows can now enter that lookup path. No new observer, timer, capture or discovery loop is added.

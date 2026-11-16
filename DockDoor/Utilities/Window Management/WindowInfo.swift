@@ -885,7 +885,6 @@ extension WindowInfo {
         guard request.contains(PreviewWindowIdentity(self)) else { return false }
         guard !isWindowlessApp, !Task.isCancelled else { return false }
         do {
-            var finalCloseButton = closeButton
             var nativeTabCount: Int?
             if Defaults[.collapseNativeTabsIntoSingleWindow],
                let group = try axElement.nativeTabGroup(),
@@ -916,9 +915,10 @@ extension WindowInfo {
                     guard try window.closeButton() == nil else { return false }
                     progress?(total - remaining, total)
                 }
-                // Preserve the original tab until last, even if the tab bar disappears.
-                finalCloseButton = try axElement.closeButton()
             }
+            guard !Task.isCancelled else { return false }
+            // Fullscreen transitions and tab closes can replace the cached control.
+            let finalCloseButton = hasLimitedWindowControls ? axElement.resolvedCloseButton() : try axElement.closeButton()
             guard let finalCloseButton else {
                 DebugLogger.log("WindowClose", details: "window: \(id), final Close button unavailable")
                 return false
