@@ -1,5 +1,13 @@
 # DockFork: Changes and Showcase
 
+## November 18 Upstream 1.42.5
+
+Development incorporates five upstream commits through `c5be55e9`: pointer-aligned Dock reveal to reduce magnification twitching, focus after Bring to Current Space, updated translations, appcast and changelog. These are upstream changes, not new fork contributions. The upstream release's minimized-tab item describes a fix already incorporated previously; the fork's evidence-based grouping safeguard remains unchanged.
+
+The merge retains cached Dock bounds, termination-safe teardown, Cmd+Tab handoff and keep-open cycling. Bring to Current Space reveals and focuses through the existing asynchronous shared executor, independently of the move/resize foreground preference. Failed reveal does not foreground. Other geometry actions retain that preference; grouped Space moves retain their existing follow-destination policy. The shared gesture catalog already includes this action, so no duplicate catalog is added.
+
+DockFork remains 0.5.1. No new release package, publication, preset or preference change is included. Native merge verification remains pending.
+
 ## Dock Click Cycling Follow-up
 
 When cycling preserves Dock previews, it also retains their existing Dock reveal. Prevent dock from hiding during previews still controls whether that reveal is acquired. Dismissal, cross-Desktop cycling and native-click fallback continue releasing it.

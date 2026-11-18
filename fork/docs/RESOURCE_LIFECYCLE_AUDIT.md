@@ -1,5 +1,7 @@
 # Optional-Feature Resource Audit
 
+November 18 upstream 1.42.5 integration: Dock reveal retains its existing preference gate, one event tap and teardown. The context additionally holds the screen-edge range and last posted point; existing exit events align the synthetic pointer to that edge and cleanup uses its last position. No polling, observer or timer is added. Bring to Current Space uses existing asynchronous reveal/focus workers and ownership checks, not upstream's synchronous AX path. The extra hover bounds check runs only while Dock reveal is active. Native display/Dock-position coverage remains pending.
+
 Dock cycle reveal follow-up: the accepted mouse-down no longer releases an existing Dock reveal when the current preview is eligible for preservation. It reuses the existing keep-open check; no new AX query or resource is added. Dock reveal acquisition remains gated by Prevent dock from hiding during previews. Existing dismissal/cross-Desktop/native-click cleanup is unchanged.
 
 November 18 Dock cycling: the accepted click uses existing native-tab grouping (including its WindowServer snapshot) once to resolve cycle targets. Cycle order is stable until hover ownership or membership changes. Off-Desktop activation reuses the invisible anchor's temporary Space observer, confirmation deadlines and cleanup. The new async wrapper cancels by transition identity; ordinary same-Desktop clicks do not create an anchor. The keep-open correction adds no resources. Cross-Space preview dismissal is unchanged.

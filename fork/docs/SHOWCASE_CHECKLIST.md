@@ -187,6 +187,8 @@ For Dock-click cycling captures, compare Keep previews open on/off on the same D
 
 Also compare Prevent dock from hiding during previews on/off with macOS Dock auto-hide enabled: preserving same-Desktop previews should retain Dock reveal only when that option is on.
 
+After the upstream 1.42.5 integration, recheck auto-hidden Dock magnification during preview hover/cycling and Bring to Current Space for visible, hidden and minimized windows. Compare move/resize foregrounding off and grouped Space moves with destination-follow off. These are integration checks, not additional fork contribution captures; no new media is claimed.
+
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
 | [ ] | B01 | Video: native-tab grouping and Close fixes | Use disposable Finder windows with differently named folder tabs, including a separate window with the same frame. Show the original fork discovery and Close fixes. If using a development build, also contrast a previously observed tab group that stays together after minimization with two separate minimized windows that remain distinct without prior evidence. Label this [follow-up](CHANGES_AND_SHOWCASE.md#minimized-native-tabs) as development-only. Native-tab collapsing and returning to the selected tab are inherited upstream behavior. | `4f703ed`, `abdc4ec`, `6fb1946`, `29de103a`, `e7fe0ba9`, `9cec9ca6` |
