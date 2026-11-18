@@ -1133,8 +1133,11 @@ final class DockObserver {
                    cycleClicks?.begin(app: app, event: event) == true
                 {
                     DispatchQueue.main.async { [weak self] in
-                        self?.previewCoordinator.cancelPendingShow()
-                        self?.previewCoordinator.releaseDockReveal()
+                        guard let self else { return }
+                        previewCoordinator.cancelPendingShow()
+                        if !previewCoordinator.canPreserveDockPreviewsForWindowCycle(of: app.processIdentifier) {
+                            previewCoordinator.releaseDockReveal()
+                        }
                     }
                     return nil
                 }

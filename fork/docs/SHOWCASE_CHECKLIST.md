@@ -185,6 +185,8 @@ Use a development build with the [capture fix](CHANGES_AND_SHOWCASE.md#capturing
 
 For Dock-click cycling captures, compare Keep previews open on/off on the same Desktop, change Desktops between clicks, and include a collapsed native-tab window plus a separate window. Label development-only cycling corrections separately from published 0.5.1.
 
+Also compare Prevent dock from hiding during previews on/off with macOS Dock auto-hide enabled: preserving same-Desktop previews should retain Dock reveal only when that option is on.
+
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
 | [ ] | B01 | Video: native-tab grouping and Close fixes | Use disposable Finder windows with differently named folder tabs, including a separate window with the same frame. Show the original fork discovery and Close fixes. If using a development build, also contrast a previously observed tab group that stays together after minimization with two separate minimized windows that remain distinct without prior evidence. Label this [follow-up](CHANGES_AND_SHOWCASE.md#minimized-native-tabs) as development-only. Native-tab collapsing and returning to the selected tab are inherited upstream behavior. | `4f703ed`, `abdc4ec`, `6fb1946`, `29de103a`, `e7fe0ba9`, `9cec9ca6` |

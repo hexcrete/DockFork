@@ -918,6 +918,8 @@ print("PASS Dock cycle: stable order despite delayed focus, rapid clicks, wrap, 
 SWIFT
 activation = block(dock, '    private func activateNextWindow(')
 abort 'Dock cycle must use collapsed representatives' unless activation.include?('WindowUtil.collapseNativeTabsIfNeeded(windows)')
+cycle_press = dock[dock.index('cycleClicks?.begin(app: app, event: event)')...dock.index('let shouldIntercept = handleDockClick(app: app)')]
+abort 'Cycling must not release Dock reveal while preserving previews' unless cycle_press.include?("if !previewCoordinator.canPreserveDockPreviewsForWindowCycle(of: app.processIdentifier) {\n                            previewCoordinator.releaseDockReveal()")
 abort 'A single collapsed window must retain the ordinary activation/keep-open path' unless activation.include?('guard !windowsByRecentUse.isEmpty else')
 Dir.mktmpdir('dockfork-cycle-') do |dir|
   File.write("#{dir}/checks.swift", fixture)

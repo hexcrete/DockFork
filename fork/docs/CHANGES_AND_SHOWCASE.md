@@ -2,6 +2,8 @@
 
 ## Dock Click Cycling Follow-up
 
+When cycling preserves Dock previews, it also retains their existing Dock reveal. Prevent dock from hiding during previews still controls whether that reveal is acquired. Dismissal, cross-Desktop cycling and native-click fallback continue releasing it.
+
 Cycling now uses the shared native-tab collapse policy and keeps a stable order throughout the hover cycle. Intermediate AX focus changes no longer rewind that order. Off-Desktop targets use the existing invisible-anchor transition and its bounded active-Desktop confirmation before activating the requested window. The stream wrapper cancels only its own anchor transition when superseded. Native fullscreen Spaces retain their window-activation path because they cannot host an anchor.
 
 Same-Space keep-open suppression accepts DockFork's temporary activation during the shared raise path without losing the intended app; unrelated app activation still dismisses normally. Cross-Space targets still close previews. No new background Space observer or polling loop is added.
