@@ -108,6 +108,13 @@ final class DockObserver {
     private struct WindowCycleState {
         let orderedWindowIDs: [CGWindowID]
         var nextIndex: Int
+
+        mutating func takeNext() -> CGWindowID {
+            nextIndex %= orderedWindowIDs.count
+            let target = orderedWindowIDs[nextIndex]
+            nextIndex = (nextIndex + 1) % orderedWindowIDs.count
+            return target
+        }
     }
 
     private struct PendingDockClickAction {
@@ -1402,11 +1409,11 @@ final class DockObserver {
             return
         }
 
-        let windowsByRecentUse = windows
+        let windowsByRecentUse = WindowUtil.collapseNativeTabsIfNeeded(windows)
             .filter { !$0.isWindowlessApp }
             .sorted { $0.lastAccessedTime > $1.lastAccessedTime }
 
-        guard windowsByRecentUse.count > 1 else {
+        guard !windowsByRecentUse.isEmpty else {
             windowCycleState = nil
             previewCoordinator.hideWindow()
             return
@@ -1417,30 +1424,28 @@ final class DockObserver {
         let focusedWindow = (try? AXUIElementCreateApplication(processIdentifier).focusedWindow()) ?? nil
         let focusedWindowID = focusedWindow.flatMap { try? $0.cgWindowId() }
 
-        let nextIndex: Int
+        let targetWindowID: CGWindowID
         if var state = windowCycleState,
            Set(state.orderedWindowIDs) == Set(windowIDs)
         {
-            state.nextIndex %= state.orderedWindowIDs.count
-            nextIndex = state.nextIndex
-            state.nextIndex = (nextIndex + 1) % state.orderedWindowIDs.count
+            targetWindowID = state.takeNext()
             windowCycleState = state
         } else {
-            if NSWorkspace.shared.frontmostApplication?.processIdentifier == processIdentifier,
-               let focusedWindowID,
-               let focusedIndex = windowIDs.firstIndex(of: focusedWindowID)
+            let nextIndex: Int = if NSWorkspace.shared.frontmostApplication?.processIdentifier == processIdentifier,
+                                    let focusedWindowID,
+                                    let focusedIndex = windowIDs.firstIndex(of: focusedWindowID)
             {
-                nextIndex = (focusedIndex + 1) % windowIDs.count
+                (focusedIndex + 1) % windowIDs.count
             } else {
-                nextIndex = 0
+                0
             }
             windowCycleState = WindowCycleState(
                 orderedWindowIDs: windowIDs,
                 nextIndex: (nextIndex + 1) % windowIDs.count
             )
+            targetWindowID = windowIDs[nextIndex]
         }
 
-        let targetWindowID = windowCycleState?.orderedWindowIDs[nextIndex] ?? windowIDs[nextIndex]
         guard let targetWindow = windowsByRecentUse.first(where: { $0.id == targetWindowID }) else {
             windowCycleState = nil
             return
@@ -1448,7 +1453,7 @@ final class DockObserver {
 
         DebugLogger.log("DockCycle", details: "PID: \(processIdentifier), target: \(targetWindowID), focused: \(String(describing: focusedWindowID)), hover generation: \(hoverGeneration)")
 
-        if targetWindow.isMinimized || app.isHidden {
+        if targetWindow.isMinimized || app.isHidden || WindowUtil.activationMaySwitchSpaces(for: targetWindow) {
             scheduleCycledWindowActivation(
                 targetWindow,
                 app: app,
@@ -1501,8 +1506,12 @@ final class DockObserver {
             else { return }
 
             let keptPreviewsOpen = previewCoordinator.preserveDockPreviewsForWindowCycle(to: targetWindow)
-            app.activate(options: [.activateIgnoringOtherApps])
-            targetWindow.bringToFront()
+            guard await WindowUtil.revealManagedDesktopForActivation(targetWindow), !Task.isCancelled,
+                  cycleHoverProcessIdentifier == pid, cycleHoverGeneration == hoverGeneration
+            else { return }
+            let activated = await targetWindow.bringToFrontConfirmed()
+            guard !Task.isCancelled else { return }
+            DebugLogger.log("DockCycle", details: "PID: \(pid), target: \(targetWindow.id), activation accepted: \(activated)")
             if keptPreviewsOpen {
                 previewCoordinator.windowSwitcherCoordinator.scheduleActiveFocusedWindowRefresh()
             }

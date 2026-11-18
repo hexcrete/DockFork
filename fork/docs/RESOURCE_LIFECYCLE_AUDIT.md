@@ -1,5 +1,7 @@
 # Optional-Feature Resource Audit
 
+November 18 Dock cycling: the accepted click uses existing native-tab grouping (including its WindowServer snapshot) once to resolve cycle targets. Cycle order is stable until hover ownership or membership changes. Off-Desktop activation reuses the invisible anchor's temporary Space observer, confirmation deadlines and cleanup. The new async wrapper cancels by transition identity; ordinary same-Desktop clicks do not create an anchor. The keep-open correction adds no resources. Cross-Space preview dismissal is unchanged.
+
 November 16 Close follow-up: resolve the current button on the existing AX window immediately before the final press. Ordinary cases add one button lookup in the shared Close worker; collapsed tab groups already did this. No polling, retries, extra discovery, or main-thread preflight was added to the interactive Close path.
 
 November 15 capture follow-up: the shared action popup and drag ghost windows use read-only window sharing instead of opting out of capture. Internal window registration, mouse passthrough, and resource lifetimes are unchanged. The invisible Space-transition anchor still opts out. This supersedes the capture-exclusion detail in earlier audit entries.

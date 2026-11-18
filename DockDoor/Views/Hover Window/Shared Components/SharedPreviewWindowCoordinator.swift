@@ -1369,9 +1369,14 @@ final class SharedPreviewWindowCoordinator: NSPanel {
             return false
         }
 
-        if suppression.preservesDockCycle, !canPreserveDockPreviewsForWindowCycle(of: processIdentifier) {
-            activationDismissalSuppression = nil
-            return false
+        if suppression.preservesDockCycle {
+            guard let targetPID = suppression.expectedProcessIdentifier,
+                  canPreserveDockPreviewsForWindowCycle(of: targetPID)
+            else {
+                activationDismissalSuppression = nil
+                return false
+            }
+            if processIdentifier == NSRunningApplication.current.processIdentifier { return true }
         }
 
         let matches = suppression.expectedProcessIdentifier == nil ||

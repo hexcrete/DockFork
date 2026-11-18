@@ -1,5 +1,11 @@
 # DockFork: Changes and Showcase
 
+## Dock Click Cycling Follow-up
+
+Cycling now uses the shared native-tab collapse policy and keeps a stable order throughout the hover cycle. Intermediate AX focus changes no longer rewind that order. Off-Desktop targets use the existing invisible-anchor transition and its bounded active-Desktop confirmation before activating the requested window. The stream wrapper cancels only its own anchor transition when superseded. Native fullscreen Spaces retain their window-activation path because they cannot host an anchor.
+
+Same-Space keep-open suppression accepts DockFork's temporary activation during the shared raise path without losing the intended app; unrelated app activation still dismisses normally. Cross-Space targets still close previews. No new background Space observer or polling loop is added.
+
 ## Close After Exiting Full Screen
 
 Close resolves the current Accessibility button on the same target window, rather than pressing the control saved in the preview. An app can replace that control during a fullscreen transition, leaving the old reference stale even after the window settles. This also applies to the final window of a collapsed native tab group. Menu eligibility and the Close request's completion semantics are unchanged.

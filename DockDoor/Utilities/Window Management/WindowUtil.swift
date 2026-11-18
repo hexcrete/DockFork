@@ -2035,6 +2035,35 @@ extension WindowUtil {
     }
 
     @MainActor
+    static func revealManagedDesktopForActivation(_ window: WindowInfo) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        let spaces = WindowSpaces.sourceSpaceIDs(for: window)
+        let displays = WindowSpaces.managedDisplays()
+        if !spaces.isDisjoint(with: displays.compactMap(\.currentSpaceID)) { return true }
+        guard spaces.count == 1, let spaceID = spaces.first else { return false }
+        guard let destination = WindowSpaces.destination(forSpaceID: spaceID, in: displays) else { return false }
+        // Native fullscreen Spaces cannot host an anchor; retain window activation there.
+        guard destination.space.kind == .desktop else { return true }
+        guard let screen = WindowSpaces.screen(forDisplayIdentifier: destination.display.identifier) else { return false }
+        let token = UUID()
+        let results = AsyncStream<Bool> { continuation in
+            continuation.onTermination = { _ in
+                Task { @MainActor in
+                    TransientSpaceAnchorController.shared.cancelPending(transitionID: token)
+                }
+            }
+            TransientSpaceAnchorController.shared.switchTo(destination, on: screen, transitionID: token) { success in
+                continuation.yield(success)
+                continuation.finish()
+            }
+        }
+        for await success in results {
+            return success && !Task.isCancelled
+        }
+        return false
+    }
+
+    @MainActor
     private static func moveCursorToDisplayIfNeeded(_ targetScreen: NSScreen) {
         guard let mouseLocation = CGEvent(source: nil)?.location else { return }
         let currentScreen = NSScreen.screenFromQuartzPoint(mouseLocation)
@@ -2192,12 +2221,12 @@ private final class TransientSpaceAnchorController {
     }
 
     func cancelPending() {
-        cleanup()
+        finish(false, transitionID: transitionID)
     }
 
     func cancelPending(transitionID: UUID) {
         guard self.transitionID == transitionID else { return }
-        cleanup()
+        finish(false, transitionID: transitionID)
     }
 
     private func activateAnchor(transitionID: UUID) {

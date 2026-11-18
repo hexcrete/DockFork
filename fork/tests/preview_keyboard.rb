@@ -880,3 +880,112 @@ Dir.mktmpdir('dockfork-release-callback-') do |dir|
  abort 'Release callback compilation failed' unless system('swiftc','-swift-version','5','-O','-parse-as-library',"#{dir}/checks.swift",'-o',"#{dir}/checks")
  abort 'Release callback checks failed' unless system("#{dir}/checks")
 end
+
+dock = File.read("#{root}/DockDoor/Utilities/DockObserver.swift")
+panel = File.read("#{root}/DockDoor/Views/Hover Window/Shared Components/SharedPreviewWindowCoordinator.swift")
+cycle = block(dock, '    private struct WindowCycleState').sub('private struct', 'struct')
+suppression = block(panel, '    func shouldSuppressActionDrivenActivationDismissal(')
+fixture = <<~'SWIFT'
+import Foundation
+typealias CGWindowID = UInt32
+struct NSRunningApplication {
+ let processIdentifier: Int32
+ static let current = NSRunningApplication(processIdentifier: 99)
+}
+struct Suppression { let expectedProcessIdentifier: Int32?; let expiresAt: Date; let preservesDockCycle: Bool }
+final class Panel {
+ var activationDismissalSuppression: Suppression?
+ var enabled = true
+ func canPreserveDockPreviewsForWindowCycle(of pid: Int32) -> Bool { enabled && pid == 10 }
+SWIFT
+fixture += suppression + "\n}\n" + cycle + "\n"
+fixture += <<~'SWIFT'
+var state = WindowCycleState(orderedWindowIDs: [1,2,3,4], nextIndex: 1)
+precondition(state.takeNext() == 2)
+precondition(state.takeNext() == 3, "Delayed focus must not rewind the cycle")
+precondition(state.takeNext() == 4)
+precondition(state.takeNext() == 1)
+precondition(state.takeNext() == 2)
+let panel = Panel()
+panel.activationDismissalSuppression = Suppression(expectedProcessIdentifier: 10, expiresAt: Date().addingTimeInterval(1), preservesDockCycle: true)
+precondition(panel.shouldSuppressActionDrivenActivationDismissal(for: 99), "Temporary DockFork activation must not dismiss")
+precondition(panel.shouldSuppressActionDrivenActivationDismissal(for: 10))
+precondition(!panel.shouldSuppressActionDrivenActivationDismissal(for: 20) && panel.activationDismissalSuppression == nil)
+panel.activationDismissalSuppression = Suppression(expectedProcessIdentifier: 10, expiresAt: Date().addingTimeInterval(1), preservesDockCycle: true)
+panel.enabled = false
+precondition(!panel.shouldSuppressActionDrivenActivationDismissal(for: 99))
+print("PASS Dock cycle: stable order despite delayed focus, rapid clicks, wrap, own-app activation and unrelated/disabled dismissal")
+SWIFT
+activation = block(dock, '    private func activateNextWindow(')
+abort 'Dock cycle must use collapsed representatives' unless activation.include?('WindowUtil.collapseNativeTabsIfNeeded(windows)')
+abort 'A single collapsed window must retain the ordinary activation/keep-open path' unless activation.include?('guard !windowsByRecentUse.isEmpty else')
+Dir.mktmpdir('dockfork-cycle-') do |dir|
+  File.write("#{dir}/checks.swift", fixture)
+  abort 'Cycle compilation failed' unless system('swiftc', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+  abort 'Cycle checks failed' unless system("#{dir}/checks")
+end
+
+util = File.read("#{root}/DockDoor/Utilities/Window Management/WindowUtil.swift")
+desktop = block(util, '    static func revealManagedDesktopForActivation(')
+anchor_source = util[util.index('private final class TransientSpaceAnchorController')..]
+abort 'Replacing an anchor must settle its waiting caller' unless block(anchor_source, '    func cancelPending()').include?('finish(false, transitionID: transitionID)')
+abort 'Cancelling an older anchor must not affect a newer one' unless block(anchor_source, '    func cancelPending(transitionID:').include?('guard self.transitionID == transitionID else { return }')
+fixture = <<~'SWIFT'
+import Foundation
+struct WindowInfo {}
+struct Screen {}
+struct Display { let identifier = "display"; var currentSpaceID: Int? = 1 }
+struct Space { enum Kind { case desktop, fullscreen }; var id = 2; var kind = Kind.desktop }
+struct Destination { var display = Display(); var space = Space() }
+enum WindowSpaces {
+ static var destinationValue = Destination()
+ static var sources: Set<Int> = [2]
+ static func sourceSpaceIDs(for window: WindowInfo) -> Set<Int> { sources }
+ static func managedDisplays() -> [Display] { [destinationValue.display] }
+ static func destination(forSpaceID id: Int, in displays: [Display]) -> Destination? { destinationValue }
+ static func screen(forDisplayIdentifier id: String) -> Screen? { Screen() }
+}
+@MainActor final class TransientSpaceAnchorController {
+ static let shared = TransientSpaceAnchorController()
+ var token: UUID?
+ var completion: ((Bool) -> Void)?
+ var starts = 0
+ func switchTo(_ destination: Destination, on screen: Screen, transitionID: UUID, completion: @escaping (Bool) -> Void) {
+  token = transitionID; self.completion = completion; starts += 1
+ }
+ func cancelPending(transitionID: UUID) {
+  if token == transitionID { token = nil; completion = nil }
+ }
+}
+enum WindowUtil {
+SWIFT
+fixture += "@MainActor\n" + desktop + "\n}\n"
+fixture += <<~'SWIFT'
+@main struct Checks {
+ @MainActor static func main() async {
+  let anchor = TransientSpaceAnchorController.shared
+  let task = Task { await WindowUtil.revealManagedDesktopForActivation(WindowInfo()) }
+  while anchor.completion == nil { await Task.yield() }
+  anchor.completion?(true)
+  let result = await task.value
+  precondition(result && anchor.starts == 1)
+  let cancelled = Task { await WindowUtil.revealManagedDesktopForActivation(WindowInfo()) }
+  while anchor.starts < 2 { await Task.yield() }
+  cancelled.cancel()
+  let cancelledResult = await cancelled.value
+  precondition(!cancelledResult)
+  WindowSpaces.destinationValue.display.currentSpaceID = 2
+  let fast = await WindowUtil.revealManagedDesktopForActivation(WindowInfo())
+  precondition(fast)
+  WindowSpaces.sources = [1,2]
+  let shared = await WindowUtil.revealManagedDesktopForActivation(WindowInfo())
+  precondition(shared && anchor.starts == 2, "Visible shared windows must not need an anchor")
+  print("PASS Desktop activation: waits for anchor result, cancellation and current-Desktop fast path")
+ }
+}
+SWIFT
+Dir.mktmpdir('dockfork-cycle-desktop-') do |dir|
+  File.write("#{dir}/checks.swift", fixture)
+  abort 'Desktop activation compilation failed' unless system('swiftc', '-parse-as-library', "#{dir}/checks.swift", '-o', "#{dir}/checks")
+  abort 'Desktop activation checks failed' unless system("#{dir}/checks")
+end
