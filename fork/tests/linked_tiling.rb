@@ -255,7 +255,7 @@ source += block(selection, 'struct OrderedPreviewSelection:') + "\n"
 source += block(selection, 'struct PreviewSelectionKeyPress:') + "\n"
 source += block(selection, 'struct PreviewSelectionRange {') + "\n"
 source += "struct SelectionState { var checkedWindows = OrderedPreviewSelection() }\n"
-source += "@MainActor final class SelectionHarness { var retainedWindowlessSelectionRows: [WindowInfo] = []; var selection = SelectionState(); var windows: [WindowInfo] = []; var windowSwitcherActive = true; var checkedWindowCount = 0; var visibleIndices: [Int]?\nfunc filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }\nfunc publishCheckedSelection(refreshLayout:Bool = true) { checkedWindowCount = selection.checkedWindows.identities.count }\n"
+source += "@MainActor final class SelectionHarness { var isMockPreview = false; var retainedWindowlessSelectionRows: [WindowInfo] = []; var selection = SelectionState(); var windows: [WindowInfo] = []; var windowSwitcherActive = true; var checkedWindowCount = 0; var visibleIndices: [Int]?\nfunc filteredWindowIndices() -> [Int] { visibleIndices ?? Array(windows.indices) }\nfunc publishCheckedSelection(refreshLayout:Bool = true) { checkedWindowCount = selection.checkedWindows.identities.count }\n"
 source += "var selectionAnchor: PreviewWindowIdentity?; var selectionRange: PreviewSelectionRange?\nenum RangeInput {case keyboard(PreviewSelectionKeyPress)}\nfunc endSelectionRange() {selectionRange = nil}\nfunc beginSelectionRange(at:PreviewWindowIdentity,input:RangeInput)->Bool {preconditionFailure(\"Range execution is tested in selection_ranges.rb\")}\n"
 %w[canSelectWindow toggleCheckedWindow selectAllDisplayedWindows selectWindows consumeWindowlessSelection removeCheckedWindows reconcileCheckedWindows checkedActionTargets].each do |name|
   source += block(selection, "    func #{name}(") + "\n"
@@ -266,6 +266,7 @@ source += "\nextension WindowUtil {\n" + block(util, '    static func canBringWi
 source += "\n@MainActor static func finishIndependentFill(_ action: WindowAction, windows: [WindowInfo]) async -> PreviewBatchResult {\nvar result = PreviewBatchResult(succeeded: windows)\nlet request = WindowActionOwnership.shared.begin(windows.map(PreviewWindowIdentity.init)); defer { request.finish() }\n"
 source += "let feedback:ActionFeedbackHandle? = nil\n" + util[util.index('        let isGeometryAction =')...util.index('        var quitApps =')]
 source += block(util, '        if foregroundGeometry {') + "\nreturn result\n}\n}\n"
+source += "extension WindowUtil { static func revealWindowConfirmed(_ window: WindowInfo) async -> Bool { true } }\n"
 
 checks = <<~'SWIFT'
 @main struct Checks {
@@ -433,7 +434,7 @@ precondition(outsideSelection.checkedActionTargets()?.map(\.id) == [residents[1]
    precondition(Model.focus == [mixedSpaces[2].id, mixedSpaces[0].id])
    Defaults.foreground = false; Model.reset()
    _ = await WindowUtil.finishIndependentFill(action, windows: mixedSpaces)
-   precondition(Model.focus.isEmpty)
+   precondition(Model.focus == (action == .bringToCurrentSpace ? [mixedSpaces[2].id, mixedSpaces[0].id] : []))
    Defaults.foreground = true
   }
   WindowUtil.activeSpaces = [1]; Defaults.foreground = false; Model.reset()

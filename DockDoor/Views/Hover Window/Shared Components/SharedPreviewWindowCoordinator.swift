@@ -49,12 +49,27 @@ private final class DockRevealTapContext {
     let app: NSRunningApplication
     let revealPoint: CGPoint
     let dockRegion: CGRect
+    let edgeIsHorizontal: Bool
+    let edgeRange: ClosedRange<CGFloat>
     var tap: CFMachPort?
+    var lastPostedPoint: CGPoint?
 
-    init(app: NSRunningApplication, revealPoint: CGPoint, dockRegion: CGRect) {
+    init(app: NSRunningApplication, revealPoint: CGPoint, dockRegion: CGRect, edgeIsHorizontal: Bool, edgeRange: ClosedRange<CGFloat>) {
         self.app = app
         self.revealPoint = revealPoint
         self.dockRegion = dockRegion
+        self.edgeIsHorizontal = edgeIsHorizontal
+        self.edgeRange = edgeRange
+    }
+
+    func revealPoint(alignedTo location: CGPoint) -> CGPoint {
+        var point = revealPoint
+        if edgeIsHorizontal {
+            point.x = min(max(location.x, edgeRange.lowerBound), edgeRange.upperBound)
+        } else {
+            point.y = min(max(location.y, edgeRange.lowerBound), edgeRange.upperBound)
+        }
+        return point
     }
 }
 
@@ -90,6 +105,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     let windowSwitcherCoordinator = PreviewStateCoordinator()
     var onSwitcherSessionDismissal: (@MainActor () -> Void)?
     private var dockRevealTap: (tap: CFMachPort, source: CFRunLoopSource, context: Unmanaged<DockRevealTapContext>)?
+    private(set) var isDockRevealActive = false
     private var searchWindow: SearchWindow?
     private var isPositioningCompanions = false
     private var spacesBarWindow: SpacesBarWindow?
@@ -1221,7 +1237,10 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         else { return }
 
         let pid = target.app.processIdentifier
-        let context = Unmanaged.passRetained(DockRevealTapContext(app: target.app, revealPoint: target.revealPoint, dockRegion: target.dockRegion))
+        let context = Unmanaged.passRetained(DockRevealTapContext(
+            app: target.app, revealPoint: target.revealPoint, dockRegion: target.dockRegion,
+            edgeIsHorizontal: target.edgeIsHorizontal, edgeRange: target.edgeRange
+        ))
         guard let tap = CGEvent.tapCreateForPid(
             pid: pid,
             place: .tailAppendEventTap,
@@ -1234,7 +1253,9 @@ final class SharedPreviewWindowCoordinator: NSPanel {
                     return passthrough
                 }
                 if type == DockUtils.mouseExitedEventType {
-                    DockUtils.postMouseEvent(.mouseMoved, at: context.revealPoint, toDock: context.app.processIdentifier)
+                    let point = context.revealPoint(alignedTo: event.location)
+                    context.lastPostedPoint = point
+                    DockUtils.postMouseEvent(.mouseMoved, at: point, toDock: context.app.processIdentifier)
                 }
                 return Unmanaged.passUnretained(event)
             },
@@ -1252,6 +1273,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
         context.takeUnretainedValue().tap = tap
         EventTapThread.shared.add(source)
         dockRevealTap = (tap, source, context)
+        isDockRevealActive = true
 
         if !target.dockRegion.contains(DockObserver.getMousePosition()) {
             DockUtils.postMouseEvent(.mouseMoved, at: target.revealPoint, toDock: pid)
@@ -1261,6 +1283,7 @@ final class SharedPreviewWindowCoordinator: NSPanel {
     func releaseDockReveal() {
         guard let pin = dockRevealTap else { return }
         dockRevealTap = nil
+        isDockRevealActive = false
 
         let context = pin.context.takeUnretainedValue()
         let mouseLocation = DockObserver.getMousePosition()
@@ -1268,7 +1291,8 @@ final class SharedPreviewWindowCoordinator: NSPanel {
 
         EventTapThread.shared.remove(pin.tap, source: pin.source) {
             if shouldPostLeave, !context.app.isTerminated {
-                DockUtils.postMouseEvent(DockUtils.mouseExitedEventType, at: mouseLocation, toDock: context.app.processIdentifier)
+                let leavePoint = context.lastPostedPoint ?? mouseLocation
+                DockUtils.postMouseEvent(DockUtils.mouseExitedEventType, at: leavePoint, toDock: context.app.processIdentifier)
             }
             pin.context.release()
         }

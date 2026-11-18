@@ -733,6 +733,10 @@ final class DockObserver {
             return nil
         }
 
+        if previewCoordinator.isDockRevealActive, !isPointOverDockItem(DockObserver.getMousePosition(), item: hoveredItem) {
+            return nil
+        }
+
         return hoveredItem
     }
 

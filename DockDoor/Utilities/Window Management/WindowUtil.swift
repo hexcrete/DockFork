@@ -807,7 +807,7 @@ extension WindowUtil {
         }
 
         let isGeometryAction = action.tilingDirection != nil || action == .maximize || action == .center || action == .bringToCurrentSpace
-        let foregroundGeometry = isGeometryAction && Defaults[.moveResizeBringToForeground]
+        let foregroundGeometry = isGeometryAction && (action == .bringToCurrentSpace || Defaults[.moveResizeBringToForeground])
         let requestOnly = feedback != nil && [WindowAction.close, .closeAllWindows, .quit, .forceQuit, .openNewWindow, .bringToCurrentSpace].contains(action)
         var quitApps = Set<pid_t>()
         for window in targets {
@@ -868,8 +868,13 @@ extension WindowUtil {
             for window in result.succeeded.reversed() {
                 guard !Task.isCancelled else { return result }
                 guard request.contains(PreviewWindowIdentity(window)) else { continue }
-                if canBringWindowToFrontWithoutSpaceSwitch(window), request.mayForeground,
-                   await !window.bringToFrontConfirmed() { result.failed.append(PreviewWindowIdentity(window)) }
+                if canBringWindowToFrontWithoutSpaceSwitch(window), request.mayForeground {
+                    let revealed = action == .bringToCurrentSpace ? await revealWindowConfirmed(window) : true
+                    guard !Task.isCancelled else { return result }
+                    guard request.contains(PreviewWindowIdentity(window)) else { continue }
+                    let activated = if revealed, request.mayForeground { await window.bringToFrontConfirmed() } else { false }
+                    if !activated { result.failed.append(PreviewWindowIdentity(window)) }
+                }
                 guard !Task.isCancelled else { return result }
                 let identity = PreviewWindowIdentity(window)
                 feedback?.finish(identity, result.failed.contains(identity) ? .failed : (requestOnly ? .requested : .completed))

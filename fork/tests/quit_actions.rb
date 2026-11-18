@@ -155,7 +155,8 @@ enum WindowUtil {
  static func moveWindowToCurrentManagedSpace(_ window:WindowInfo)->Bool {spaceCalls.append(window.id);return true}
  @MainActor static func canBringWindowToFrontWithoutSpaceSwitch(_ window: WindowInfo) -> Bool { !offSpace.contains(window.id) }
  static func setHiddenStateConfirmed(for app: App, isHidden: Bool, fullscreenCandidates: [AX] = [], beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { hiddenRequests.append((app.processIdentifier, isHidden)); return true }
- static func revealWindowConfirmed(_ window: WindowInfo) async -> Bool { true }
+ static var revealCalls:[Int]=[],revealFailures=Set<Int>()
+ static func revealWindowConfirmed(_ window: WindowInfo) async -> Bool { revealCalls.append(window.id); return !revealFailures.contains(window.id) }
  static func changeFullscreenConfirmed(_ window: WindowInfo, toggle: Bool, beforeChange: (@MainActor (Bool) -> Bool)? = nil) async -> Bool { true }
  static func setMinimizedWindowsConfirmed(_ windows: [WindowInfo], isMinimized: Bool, isTargetActive: @escaping @Sendable (PreviewWindowIdentity) -> Bool = { _ in true }, progress: ((WindowInfo, Bool) -> Void)?) async -> [WindowInfo] { minimizedRequests.append(isMinimized); if let pending=await pendingMinimize { await MainActor.run {pendingMinimize=nil}; await pending.wait() }; return Task.isCancelled ? [] : windows }
  static var tileCalls:[[Int]]=[]; static var tileDestinations:[Int?]=[]
@@ -432,9 +433,15 @@ let offFeedback=ActionFeedbackHandle()
 _ = await WindowUtil.performPreviewBatchAction(.center,on:geometry,feedback:offFeedback)
 precondition(WindowUtil.focusCalls.isEmpty && offFeedback.states.values.allSatisfy {$0 == .completed} && offFeedback.states.count==2,"Off-Space geometry was activated or left unsettled")
 Defaults.foreground=false;WindowUtil.offSpace=[]
+WindowUtil.focusCalls=[];WindowUtil.revealCalls=[]
 let acceptedSpace=ActionFeedbackHandle()
 _ = await WindowUtil.performPreviewBatchAction(.bringToCurrentSpace,on:geometry,feedback:acceptedSpace)
 precondition(WindowUtil.spaceCalls==[300,301] && acceptedSpace.states.count==2 && acceptedSpace.states.values.allSatisfy {$0 == .requested},"Legacy Space request acceptance was reported as verified completion")
+precondition(WindowUtil.revealCalls==[301,300] && WindowUtil.focusCalls==[301,300],"Bring to Current Space must reveal/focus through the shared executor even when resize foregrounding is off")
+WindowUtil.focusCalls=[];WindowUtil.revealFailures=[300]
+let refusedReveal=await WindowUtil.performPreviewBatchAction(.bringToCurrentSpace,on:[geometry[0]])
+precondition(refusedReveal.failed==[PreviewWindowIdentity(geometry[0])] && WindowUtil.focusCalls.isEmpty,"A failed reveal must not foreground or report success")
+WindowUtil.revealFailures=[]
 print("PASS geometry progress: per-target settlement, confirmed reverse foreground order, failures, off-Space preservation and no added operation calls")
 print("PASS shared target accounting: explicit invalid failure and frozen group Fill with 1x1 capacity")
 print("PASS shared executor admission: atomic app rejection, partial failures, frozen Hide/Minimize intent and cleanup")

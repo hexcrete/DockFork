@@ -205,17 +205,28 @@ final class Panel {
  private weak var context: DockRevealTapContext?
  var ownsTap: Bool { dockRevealTap != nil }
  var retainsContext: Bool { context != nil }
- init(app: NSRunningApplication) {
-  let context = DockRevealTapContext(app: app, revealPoint: .zero, dockRegion: CGRect(x: 0, y: 0, width: 20, height: 20))
+ var isDockRevealActive = true
+ init(app: NSRunningApplication, lastPostedPoint: CGPoint?) {
+  let context = DockRevealTapContext(app: app, revealPoint: .zero, dockRegion: CGRect(x: 0, y: 0, width: 20, height: 20), edgeIsHorizontal: true, edgeRange: 0...100)
+  context.lastPostedPoint = lastPostedPoint
   self.context = context
   dockRevealTap = (1, 2, .passRetained(context))
  }
 SWIFT
 dock_release += block(panel, '    func releaseDockReveal(') + "\n}\n"
 dock_release += <<~'SWIFT'
+for horizontal in [true, false] {
+ let context = DockRevealTapContext(app: NSRunningApplication(), revealPoint: CGPoint(x: 5, y: 7), dockRegion: .zero, edgeIsHorizontal: horizontal, edgeRange: 10...90)
+ for coordinate: CGFloat in [-30, 50, 150] {
+  let point = context.revealPoint(alignedTo: CGPoint(x: coordinate, y: coordinate))
+  let clamped = min(90, max(10, coordinate))
+  precondition(point == (horizontal ? CGPoint(x: clamped, y: 7) : CGPoint(x: 5, y: clamped)))
+ }
+}
 for (inside, terminateDuringCleanup) in [(true, false), (false, false), (false, true)] {
+ for lastPostedPoint: CGPoint? in [nil, CGPoint(x: 50, y: 7)] {
  let app = NSRunningApplication()
- let panel = Panel(app: app)
+ let panel = Panel(app: app, lastPostedPoint: lastPostedPoint)
  let worker = EventTapThread.shared
  let start = worker.removals
  let point = CGPoint(x: inside ? 10 : 30, y: 10)
@@ -223,13 +234,14 @@ for (inside, terminateDuringCleanup) in [(true, false), (false, false), (false, 
  DockUtils.posts = []
  panel.releaseDockReveal()
  panel.releaseDockReveal()
- precondition(!panel.ownsTap && panel.retainsContext && worker.removals == start + 1 && DockUtils.posts.isEmpty)
+ precondition(!panel.ownsTap && !panel.isDockRevealActive && panel.retainsContext && worker.removals == start + 1 && DockUtils.posts.isEmpty)
  app.isTerminated = terminateDuringCleanup
  worker.finish()
  precondition(!panel.retainsContext)
- precondition(DockUtils.posts == (inside || terminateDuringCleanup ? [] : [point]))
+ precondition(DockUtils.posts == (inside || terminateDuringCleanup ? [] : [lastPostedPoint ?? point]))
+ }
 }
-print("PASS Dock reveal teardown: cached bounds, no Dock lookup, exactly-once cleanup, safe exit event")
+print("PASS Dock reveal: edge-aligned/clamped magnification, cached bounds, exactly-once cleanup and matched safe exit event")
 SWIFT
 Dir.mktmpdir('dockfork-dock-reveal-') do |dir|
   File.write("#{dir}/checks.swift", dock_release)

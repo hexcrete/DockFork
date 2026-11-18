@@ -64,7 +64,7 @@ class DockUtils {
 
     static let mouseExitedEventType = CGEventType(rawValue: UInt32(NSEvent.EventType.mouseExited.rawValue))!
 
-    static func dockRevealTarget() -> (app: NSRunningApplication, revealPoint: CGPoint, dockRegion: CGRect)? {
+    static func dockRevealTarget() -> (app: NSRunningApplication, revealPoint: CGPoint, dockRegion: CGRect, edgeIsHorizontal: Bool, edgeRange: ClosedRange<CGFloat>)? {
         guard let dockApp = runningDock,
               let list = dockListFrame(pid: dockApp.processIdentifier)
         else { return nil }
@@ -73,20 +73,22 @@ class DockUtils {
         let screens = NSScreen.screens.map(\.cgFrame)
         guard let index = DockLockerGeometry.screenIndexHoldingDock(dockRect: list, screenFrames: screens, dockPosition: position) else { return nil }
         let screen = screens[index]
+        let horizontalRange = (screen.minX + 32) ... max(screen.minX + 32, screen.maxX - 32)
+        let verticalRange = (screen.minY + 32) ... max(screen.minY + 32, screen.maxY - 32)
 
         switch position {
         case .bottom:
             let x = min(max((screen.minX + list.minX) / 2, screen.minX + 32), list.minX)
             let region = CGRect(x: list.minX, y: list.minY, width: list.width, height: max(0, screen.maxY - list.minY))
-            return (dockApp, CGPoint(x: x, y: screen.maxY - 1), region)
+            return (dockApp, CGPoint(x: x, y: screen.maxY - 1), region, true, horizontalRange)
         case .left:
             let y = min(max((screen.minY + list.minY) / 2, screen.minY + 32), list.minY)
             let region = CGRect(x: screen.minX, y: list.minY, width: max(0, list.maxX - screen.minX), height: list.height)
-            return (dockApp, CGPoint(x: screen.minX, y: y), region)
+            return (dockApp, CGPoint(x: screen.minX, y: y), region, false, verticalRange)
         case .right:
             let y = min(max((screen.minY + list.minY) / 2, screen.minY + 32), list.minY)
             let region = CGRect(x: list.minX, y: list.minY, width: max(0, screen.maxX - list.minX), height: list.height)
-            return (dockApp, CGPoint(x: screen.maxX - 1, y: y), region)
+            return (dockApp, CGPoint(x: screen.maxX - 1, y: y), region, false, verticalRange)
         case .top, .cmdTab, .cli, .unknown:
             return nil
         }
