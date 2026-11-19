@@ -2591,7 +2591,7 @@ enum SettingsSearchCatalog {
         SettingsSearchItem(
             id: "gestures.moveResizeForeground",
             title: String(localized: "Bring moved/resized window to the front"),
-            description: String(localized: "Focus windows after moving, resizing, or tiling them. Dragging always focuses windows."),
+            description: String(localized: "Focus windows after moving, resizing, or tiling them. Space moves only focus windows on a visible Desktop unless destination following is enabled. Dragging to position windows always focuses them."),
             keywords: ["move", "resize", "foreground", "bring to front", "space"],
             tab: "Keybinds",
             section: String(localized: "Keep previews open after action"),

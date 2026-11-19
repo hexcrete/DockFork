@@ -742,6 +742,7 @@ class MoveWindowCommand: AsyncWindowCommand {
                         (NSApp.delegate as? AppDelegate)?.dismissPreviews()
                     },
                     switchToDestination: switching,
+                    bringToFront: switching,
                     isRequestActive: { !self.hasReplied },
                     completion: { success in
                         self.finish(success ? "ok" : "error: Space move failed or could not be confirmed")
@@ -796,7 +797,7 @@ class MoveWindowCommand: AsyncWindowCommand {
             guard request.contains(identity) else { continue }
             pending.insert(identity)
             if let cancel = WindowUtil.performConfirmedSpaceMove(window, to: destination, dismissPreviews: nil,
-                                                                 switchToDestination: false,
+                                                                 switchToDestination: false, bringToFront: false,
                                                                  completion: { success in
                                                                      pending.remove(identity)
                                                                      if success { succeeded.insert(identity) }

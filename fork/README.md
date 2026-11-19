@@ -115,6 +115,7 @@ Ledger entries record exact hashes/category/purpose/file counts once each, throu
 | Card layout, drag ghosts, Spaces presentation | `preview_layout.rb`, `space_presentation.rb` |
 | Selection or keyboard/session routing | `selection_ranges.rb`, `preview_keyboard.rb` |
 | Ownership, worker scheduling or frame transactions | `action_ownership.rb`, `action_responsiveness.rb`, `frame_placement.rb` |
+| Space-move foreground/follow policy | `space_move_policy.rb` for the production completion matrix; `action_responsiveness.rb`, `quit_actions.rb`, `linked_tiling.rb`, `script_actions.rb` for callers, ownership and explicit script behavior |
 | Auto Tile, linked resize or tiling settings | `linked_tiling.rb`, `tiling_settings.rb` |
 | Native-tab discovery or Close | `native_tab_grouping.rb`, `native_tab_close.rb` |
 | Resting fade and native mouse targeting | `preview_focus_fade.rb` uses a disposable panel; no working windows or pointer movement |

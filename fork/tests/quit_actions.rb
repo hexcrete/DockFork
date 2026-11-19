@@ -437,7 +437,8 @@ WindowUtil.focusCalls=[];WindowUtil.revealCalls=[]
 let acceptedSpace=ActionFeedbackHandle()
 _ = await WindowUtil.performPreviewBatchAction(.bringToCurrentSpace,on:geometry,feedback:acceptedSpace)
 precondition(WindowUtil.spaceCalls==[300,301] && acceptedSpace.states.count==2 && acceptedSpace.states.values.allSatisfy {$0 == .requested},"Legacy Space request acceptance was reported as verified completion")
-precondition(WindowUtil.revealCalls==[301,300] && WindowUtil.focusCalls==[301,300],"Bring to Current Space must reveal/focus through the shared executor even when resize foregrounding is off")
+precondition(WindowUtil.revealCalls.isEmpty && WindowUtil.focusCalls.isEmpty,"Bring to Current Space must respect foreground Off")
+Defaults.foreground=true
 WindowUtil.focusCalls=[];WindowUtil.revealFailures=[300]
 let refusedReveal=await WindowUtil.performPreviewBatchAction(.bringToCurrentSpace,on:[geometry[0]])
 precondition(refusedReveal.failed==[PreviewWindowIdentity(geometry[0])] && WindowUtil.focusCalls.isEmpty,"A failed reveal must not foreground or report success")

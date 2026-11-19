@@ -154,7 +154,7 @@ struct PreviewPostActionBehaviorSection: View {
                 .settingsSearchTarget("gestures.postActionMovingResizing")
             Toggle("Bring moved/resized window to the front", isOn: $moveResizeBringToForeground)
                 .settingsSearchTarget("gestures.moveResizeForeground")
-                .settingsAnnotation("Focus windows after moving, resizing, or tiling them. Dragging always focuses windows.")
+                .settingsAnnotation("Focus windows after moving, resizing, or tiling them. Space moves only focus windows on a visible Desktop unless destination following is enabled. Dragging to position windows always focuses them.")
         }
     }
 

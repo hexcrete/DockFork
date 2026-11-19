@@ -189,6 +189,8 @@ Also compare Prevent dock from hiding during previews on/off with macOS Dock aut
 
 After the upstream 1.42.5 integration, recheck auto-hidden Dock magnification during preview hover/cycling and Bring to Current Space for visible, hidden and minimized windows. Compare move/resize foregrounding off and grouped Space moves with destination-follow off. These are integration checks, not additional fork contribution captures; no new media is claimed.
 
+November 19 policy follow-up: compare all four foreground/follow combinations using a normal, minimized and hidden target, singly and checked together, through Space menus, shortcuts and Space-pill drops. Foreground-only must not navigate to an off-Desktop target; follow-only must not restore it. Bring to Current Space obeys foregrounding. Move/Swap/Shift Space Contents preserve hidden/minimized state with both preferences on. Include a visible destination on another display when available. No captures or manual pass are claimed yet.
+
 | Pick | ID | Capture | Setup and visible result | Commits |
 |---|---|---|---|---|
 | [ ] | B01 | Video: native-tab grouping and Close fixes | Use disposable Finder windows with differently named folder tabs, including a separate window with the same frame. Show the original fork discovery and Close fixes. If using a development build, also contrast a previously observed tab group that stays together after minimization with two separate minimized windows that remain distinct without prior evidence. Label this [follow-up](CHANGES_AND_SHOWCASE.md#minimized-native-tabs) as development-only. Native-tab collapsing and returning to the selected tab are inherited upstream behavior. | `4f703ed`, `abdc4ec`, `6fb1946`, `29de103a`, `e7fe0ba9`, `9cec9ca6` |

@@ -172,7 +172,7 @@ static var cachedWindows: [WindowInfo] = []
  }
  static func windowInfo(for element: FakeAX, app: App, windowID: CGWindowID) -> WindowInfo? { WindowInfo(id: windowID, app: app, axElement: element) }
  @MainActor static func performConfirmedSpaceMove(_ window: WindowInfo, to destination: ManagedSpaceDestination,
-    dismissPreviews: (() -> Void)?, switchToDestination: Bool,
+    dismissPreviews: (() -> Void)?, switchToDestination: Bool, bringToFront: Bool,
     isRequestActive: @escaping @MainActor () -> Bool, completion: @escaping (Bool) -> Void) -> (@MainActor () -> Void)? {
   Model.moves += 1
   window.axElement.spaces = [destination.space.id]; completion(true); return {}
@@ -434,7 +434,7 @@ precondition(outsideSelection.checkedActionTargets()?.map(\.id) == [residents[1]
    precondition(Model.focus == [mixedSpaces[2].id, mixedSpaces[0].id])
    Defaults.foreground = false; Model.reset()
    _ = await WindowUtil.finishIndependentFill(action, windows: mixedSpaces)
-   precondition(Model.focus == (action == .bringToCurrentSpace ? [mixedSpaces[2].id, mixedSpaces[0].id] : []))
+   precondition(Model.focus.isEmpty)
    Defaults.foreground = true
   }
   WindowUtil.activeSpaces = [1]; Defaults.foreground = false; Model.reset()

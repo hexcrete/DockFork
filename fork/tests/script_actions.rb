@@ -168,7 +168,7 @@ enum DockDoorCommands {
 @MainActor enum WindowUtil {
  struct PreviewBatchResult { var succeeded:[WindowInfo]=[];var failed:[PreviewWindowIdentity]=[] }
  static var callbacks:[Int:(Bool)->Void]=[:], tokens:[UUID]=[], focused=0
- static func performConfirmedSpaceMove(_ window:WindowInfo,to destination:ManagedSpaceDestination,dismissPreviews:(()->Void)?,switchToDestination:Bool,completion:@escaping @MainActor(Bool)->Void)->(()->Void)? {
+ static func performConfirmedSpaceMove(_ window:WindowInfo,to destination:ManagedSpaceDestination,dismissPreviews:(()->Void)?,switchToDestination:Bool,bringToFront:Bool,completion:@escaping @MainActor(Bool)->Void)->(()->Void)? {
   let request=WindowActionRequest.current!
   precondition(request.contains(PreviewWindowIdentity(window)))
   tokens.append(request.token);callbacks[window.id]=completion

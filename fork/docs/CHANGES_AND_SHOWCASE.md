@@ -1,5 +1,11 @@
 # DockFork: Changes and Showcase
 
+## November 19 Space-Move Presentation Policy
+
+The user-verified follow-up supersedes the merge's unconditional Bring to Current Space focus. Bring moved/resized window to the front controls restoration and foregrounding, including Bring to Current Space. Regular single/group Space moves and Space-pill drops follow the destination only when Switch to destination Space after moving is enabled. With foregrounding off, following does not explicitly restore or focus moved windows. With following off, foregrounding only applies on already-visible Desktops; hidden/minimized off-Desktop targets retain their state. Both on follows, restores and raises in selection order with the leading target foremost.
+
+Single and batch moves share presentation completion and retain confirmed movement, request ownership and cancellation. The existing invisible Desktop anchor performs follow-only navigation without selecting a moved window. Move/Swap/Shift Space Contents remain state-preserving. Positioning drags keep their existing focus behavior; drops onto Space pills use the two switches. Explicit AppleScript switching semantics remain unchanged. No defaults or preference keys change. The user reports the development build works; exhaustive multi-display and transition-cancellation coverage is not claimed.
+
 ## November 18 Upstream 1.42.5
 
 Development incorporates five upstream commits through `c5be55e9`: pointer-aligned Dock reveal to reduce magnification twitching, focus after Bring to Current Space, updated translations, appcast and changelog. These are upstream changes, not new fork contributions. The upstream release's minimized-tab item describes a fix already incorporated previously; the fork's evidence-based grouping safeguard remains unchanged.

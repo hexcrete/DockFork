@@ -375,7 +375,7 @@ enum Outcome {case completed,failed,cancelled}
  var outcomes:[Outcome]=[]
  func finish(_ id:PreviewWindowIdentity,_ outcome:Outcome) {outcomes.append(outcome)}
 }
-enum Key {case switchToDestinationSpaceAfterMoving}
+enum Key {case switchToDestinationSpaceAfterMoving,moveResizeBringToForeground}
 enum Defaults {static subscript(_ key:Key)->Bool {false}}
 @MainActor enum WindowUtil {
  struct PendingWindowRefresh {let token:UUID;let task:Task<Void,Never>}
@@ -397,6 +397,14 @@ enum Defaults {static subscript(_ key:Key)->Bool {false}}
  }
 SWIFT
 # The fake source membership remains the destination after its native move acknowledgement.
+# Presentation policy is tested independently in space_move_policy.rb; this adapter isolates request lifetime.
+source += <<~'SWIFT'
+ static func completeSpaceMovePresentation(_ windows:[WindowInfo], followsDestination:Bool, bringToFront:Bool, request:WindowActionRequest, dismissPreviews:(()->Void)?, mayFollow:()->Bool, isRequestActive:()->Bool) async -> [PreviewWindowIdentity] {
+  guard let w=windows.first, followsDestination || bringToFront else{return []}
+  guard await revealWindowConfirmed(w) else{return [PreviewWindowIdentity(w)]}
+  return await w.bringToFrontConfirmed() ? [] : [PreviewWindowIdentity(w)]
+ }
+SWIFT
 spaceRequest=block(util,'    static func performConfirmedSpaceMove(')
 spaceRequest=spaceRequest.gsub('WindowSpaces.sourceSpaceIDs(for: movedWindow)','currentSpaces')
 source += spaceRequest + "\n}\n"

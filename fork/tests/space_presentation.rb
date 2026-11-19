@@ -1932,7 +1932,7 @@ final class ActionFeedbackHandle {
  static func setHiddenStateConfirmed(for app: App, isHidden: Bool) async -> Bool { app.isHidden = isHidden; return true }
  static func setMinimizedWindowsConfirmed(_ ws: [WindowInfo], isMinimized: Bool) async -> [WindowInfo] { ws }
  static func performConfirmedSpaceMove(_ w: WindowInfo, to d: ManagedSpaceDestination, dismissPreviews: (() -> Void)?,
-                                      switchToDestination: Bool, isRequestActive: @escaping () -> Bool,
+                                      switchToDestination: Bool, bringToFront: Bool, isRequestActive: @escaping () -> Bool,
                                       completion: @escaping (Bool) -> Void) -> (() -> Void)? {
   precondition(!switchToDestination)
   Model.issued.append(w.id)
@@ -1946,6 +1946,13 @@ final class ActionFeedbackHandle {
   return { Model.cancels += 1; task.cancel() }
  }
 SWIFT
+# Isolate move accounting from presentation, covered by space_move_policy.rb.
+drop_source += <<~'SWIFT'
+ static func completeSpaceMovePresentation(_ ws:[WindowInfo], followsDestination:Bool, bringToFront:Bool, request:WindowActionRequest, dismissPreviews:(()->Void)?, mayFollow:()->Bool, isRequestActive:()->Bool) async -> [PreviewWindowIdentity] {
+  if followsDestination, mayFollow(), let w=ws.first { _ = await w.bringToFrontConfirmed() }; return []
+ }
+SWIFT
+drop_source += "}\nenum Defaults { enum Key {case moveResizeBringToForeground};static subscript(_ k:Key)->Bool {false} }\nextension WindowUtil {\n"
 drop_source += block(util, '    static func movePreviewWindows(') + "\n}\n"
 drop_source += <<~'SWIFT'
 @main struct Checks {
@@ -2065,7 +2072,7 @@ contents_source += <<~'SWIFT'
  static func readCachedWindows(for pid:pid_t)->[WindowInfo]{World.windows.filter{$0.app.processIdentifier==pid}}
  static func setHiddenStateConfirmed(for app:App,isHidden:Bool)async->Bool{app.isHidden=isHidden;return true}
  static func setMinimizedWindowsConfirmed(_ ws:[WindowInfo],isMinimized:Bool)async->[WindowInfo]{ws}
- static func performConfirmedSpaceMove(_ w:WindowInfo,to d:ManagedSpaceDestination,dismissPreviews:(()->Void)?,switchToDestination:Bool,isRequestActive:@escaping()->Bool,completion:@escaping(Bool)->Void)->(()->Void)?{
+ static func performConfirmedSpaceMove(_ w:WindowInfo,to d:ManagedSpaceDestination,dismissPreviews:(()->Void)?,switchToDestination:Bool,bringToFront:Bool,isRequestActive:@escaping()->Bool,completion:@escaping(Bool)->Void)->(()->Void)?{
   precondition(!switchToDestination);World.issued.append(w.id);World.onIssued?()
   let t=Task{@MainActor in
    try? await Task.sleep(nanoseconds:10_000_000)
@@ -2076,6 +2083,13 @@ contents_source += <<~'SWIFT'
   return{t.cancel()}
  }
 SWIFT
+# Isolate move accounting from presentation, covered by space_move_policy.rb.
+contents_source += <<~'SWIFT'
+ static func completeSpaceMovePresentation(_ ws:[WindowInfo], followsDestination:Bool, bringToFront:Bool, request:WindowActionRequest, dismissPreviews:(()->Void)?, mayFollow:()->Bool, isRequestActive:()->Bool) async -> [PreviewWindowIdentity] {
+  if followsDestination, mayFollow(), let w=ws.first { _ = await w.bringToFrontConfirmed() }; return []
+ }
+SWIFT
+contents_source += "}\nenum Defaults { enum Key {case moveResizeBringToForeground};static subscript(_ k:Key)->Bool {false} }\nextension WindowUtil {\n"
 contents_source += block(util,'    static func planSpaceContents(')+"\n"+block(util,'    static func moveSpaceContents(')+"\n"+block(util,'    static func movePreviewWindows(')+"\n}\n"
 contents_source += <<~'SWIFT'
 @main struct ContentsChecks {
